@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dev="using:DevWinUI"
     xmlns:local="using:stellarisKIT"
+    xmlns:pages="using:stellarisKIT.Pages"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
     <Page.Resources>
         <!-- Consistent settings layout, cloned from WinUI-Gallery Pages/SettingsPage.xaml
@@ -42,6 +43,35 @@
                 MaxWidth="1064"
                 HorizontalAlignment="Left"
                 Spacing="{StaticResource SettingsCardSpacing}">
+
+                <!-- Consumer update banner (hidden unless a newer GitHub release exists).
+                     Wired in code-behind only for the CONSUMER flavor — the full
+                     flavor leaves Vm null and never checks, so this stays closed. -->
+                <InfoBar x:Name="UpdateBanner"
+                         Title="{x:Bind Vm.BannerTitle, Mode=OneWay}"
+                         Message="{x:Bind Vm.Notes, Mode=OneWay}"
+                         IsOpen="{x:Bind Vm.IsAvailable, Mode=OneWay}"
+                         Severity="Informational"
+                         IsClosable="True"
+                         Margin="0,0,0,12">
+                    <InfoBar.Content>
+                        <StackPanel Spacing="8">
+                            <ProgressBar Value="{x:Bind pages:SettingsPageBindings.UpdateProgressValue(Vm.DownloadPercent), Mode=OneWay}"
+                                         IsIndeterminate="{x:Bind Vm.IsBusy, Mode=OneWay}"
+                                         Visibility="{x:Bind Vm.ProgressVisibility, Mode=OneWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Update now"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        IsEnabled="{x:Bind Vm.CanUpdateNow, Mode=OneWay}"
+                                        Click="UpdateNow_Click" />
+                                <TextBlock Text="{x:Bind Vm.StatusText, Mode=OneWay}"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </InfoBar.Content>
+                </InfoBar>
 
                 <TextBlock
                     Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"

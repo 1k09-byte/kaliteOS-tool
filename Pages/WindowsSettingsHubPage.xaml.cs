@@ -47,7 +47,11 @@ namespace stellarisKIT.Pages
         }
 
         private void PowerPlans_Click(object sender, RoutedEventArgs e)
+#if CONSUMER
+            { } // Power plans are excluded from the consumer flavor.
+#else
             => Frame.Navigate(typeof(PowerPlansPage));
+#endif
 
         private void Uninstaller_Click(object sender, RoutedEventArgs e)
             => Frame.Navigate(typeof(UninstallerPage));

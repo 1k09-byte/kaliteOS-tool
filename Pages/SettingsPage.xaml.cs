@@ -6,6 +6,11 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace stellarisKIT.Pages
 {
+    /// <summary>x:Bind helper: nullable download percent → ProgressBar value.</summary>
+    public static class SettingsPageBindings
+    {
+        public static double UpdateProgressValue(double? percent) => percent ?? 0;
+    }
     /// <summary>
     /// App settings page (persisted via ThemeService).
     /// </summary>
@@ -13,6 +18,10 @@ namespace stellarisKIT.Pages
     {
         private readonly stellarisKIT.Services.StartupService _startup = new();
         private bool _syncingStartupToggle;
+        // Update banner VM: only ever populated in the CONSUMER flavor (the
+        // startup check below is consumer-only). In the full flavor it stays
+        // inert so the XAML banner compiles but never opens.
+        private readonly ViewModels.UpdateViewModel Vm = new();
 
         public SettingsPage()
         {
@@ -35,7 +44,16 @@ namespace stellarisKIT.Pages
             {
                 _syncingStartupToggle = false;
             }
+
+#if CONSUMER
+            // Consumer update check: fire-and-forget, non-blocking. Full flavor
+            // never checks — its updates are distributed manually.
+            _ = Vm.CheckForUpdateCommand.ExecuteAsync(null);
+#endif
         }
+
+        private void UpdateNow_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+            => _ = Vm.UpdateNowCommand.ExecuteAsync(null);
 
         private async void StartupToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
