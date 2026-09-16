@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -831,6 +832,13 @@ namespace stellarisKIT.Services
                 return;
             }
 
+            // Portable tool (zip payload with no installer): download, extract to tools dir, post-configure
+            if (!string.IsNullOrEmpty(item.ToolInstallDir))
+            {
+                await InstallPortableToolAsync(item, progress, downloadProgress, errorProgress, ct);
+                return;
+            }
+
             // 2. Download installer
             progress.Report(BrowserInstallStatus.Downloading);
             downloadProgress.Report(0);
@@ -976,6 +984,137 @@ namespace stellarisKIT.Services
 
             // 6. Clean up
             CleanUp(tempPath);
+        }
+
+        /// <summary>
+        /// Installs a portable tool distributed as a zip (no setup executable): download the
+        /// archive, extract it into the tool's directory under %PROGRAMDATA%, pre-accept the
+        /// vendor EULA and create a Start Menu shortcut so the user can actually find it.
+        /// </summary>
+        private async Task InstallPortableToolAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
+        {
+            progress.Report(BrowserInstallStatus.Downloading);
+            downloadProgress.Report(0);
+            string tempPath = Path.Combine(Path.GetTempPath(), item.InstallerFileName);
+
+            try
+            {
+                using var response = await _httpClient.GetAsync(item.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+                response.EnsureSuccessStatusCode();
+
+                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                using var contentStream = await response.Content.ReadAsStreamAsync(ct);
+                using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+
+                var buffer = new byte[8192];
+                var totalRead = 0L;
+                var bytesRead = 0;
+                var lastReport = DateTime.UtcNow;
+                while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, ct)) != 0)
+                {
+                    await fileStream.WriteAsync(buffer, 0, bytesRead, ct);
+                    totalRead += bytesRead;
+                    if (totalBytes != -1 && (DateTime.UtcNow - lastReport).TotalMilliseconds > 100)
+                    {
+                        downloadProgress.Report((double)totalRead / totalBytes * 100.0);
+                        lastReport = DateTime.UtcNow;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { CleanUp(tempPath); throw; }
+            catch (Exception ex)
+            {
+                CleanUp(tempPath);
+                errorProgress.Report($"Download failed: {ex.Message}");
+                progress.Report(BrowserInstallStatus.Failed);
+                return;
+            }
+
+            ct.ThrowIfCancellationRequested();
+            progress.Report(BrowserInstallStatus.Installing);
+
+            try
+            {
+                string toolDir = Environment.ExpandEnvironmentVariables(item.ToolInstallDir);
+                Directory.CreateDirectory(toolDir);
+
+                // Extract over the top so re-installs refresh the binaries.
+                using (var archive = ZipFile.OpenRead(tempPath))
+                {
+                    // Only extract the plain .exe tools — skip vendor extra files we don't need,
+                    // but keep everything when the archive doesn't follow that pattern.
+                    bool hasExeEntries = archive.Entries.Any(e => e.FullName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (hasExeEntries && !entry.FullName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        string destPath = Path.Combine(toolDir, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
+                        var destDir = Path.GetDirectoryName(destPath);
+                        if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
+                        entry.ExtractToFile(destPath, overwrite: true);
+                    }
+                }
+
+                PreAcceptSysinternalsEula(toolDir);
+                CreateStartMenuShortcut(item.Name, Path.Combine(toolDir, "Autoruns64.exe"), toolDir);
+
+                progress.Report(BrowserInstallStatus.Installed);
+            }
+            catch (OperationCanceledException) { CleanUp(tempPath); throw; }
+            catch (Exception ex)
+            {
+                errorProgress.Report($"Install failed: {ex.Message}");
+                progress.Report(BrowserInstallStatus.Failed);
+            }
+            finally
+            {
+                CleanUp(tempPath);
+            }
+        }
+
+        /// <summary>Sysinternals tools prompt each user to accept their EULA on first run; pre-accept it so the tool opens straight into the UI.</summary>
+        private static void PreAcceptSysinternalsEula(string toolDir)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Sysinternals\Autoruns");
+                key.SetValue("EulaAccepted", 1, Microsoft.Win32.RegistryValueKind.DWord);
+            }
+            catch { }
+
+            try
+            {
+                // Also drop an acceptance file next to the binaries for per-machine tooling runs.
+                string marker = Path.Combine(toolDir, "EulaAccepted.txt");
+                if (!File.Exists(marker)) File.WriteAllText(marker, "EULA accepted by kaliteConfig installer.");
+            }
+            catch { }
+        }
+
+        private static void CreateStartMenuShortcut(string name, string targetExe, string workingDir)
+        {
+            try
+            {
+                if (!File.Exists(targetExe)) return;
+                string programsDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu);
+                string shortcutDir = Path.Combine(programsDir, "Programs", "kaliteTools");
+                Directory.CreateDirectory(shortcutDir);
+
+                string escapedTarget = targetExe.Replace("'", "''");
+                string escapedDir = workingDir.Replace("'", "''");
+                string escapedLnk = Path.Combine(shortcutDir, $"{name}.lnk").Replace("'", "''");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -Command \"$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('{escapedLnk}'); $s.TargetPath = '{escapedTarget}'; $s.WorkingDirectory = '{escapedDir}'; $s.Save()\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using var proc = Process.Start(psi);
+                proc?.WaitForExit(15000);
+            }
+            catch { }
         }
 
         private static void CleanUp(string path)

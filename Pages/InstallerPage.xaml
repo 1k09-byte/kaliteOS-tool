@@ -232,6 +232,24 @@
                     </ItemsRepeater>
                 </StackPanel>
 
+                <!-- Utilities Section -->
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Utilities" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <ItemsRepeater x:Name="UtilityGrid" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
+                                   ItemTemplate="{StaticResource InstallerCardTemplate}"
+                                   HorizontalAlignment="Left">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout MinItemWidth="200"
+                                             MinItemHeight="220"
+                                             MinColumnSpacing="12"
+                                             MinRowSpacing="12"
+                                             Orientation="Horizontal"
+                                             ItemsJustification="Start"
+                                             ItemsStretch="None" />
+                        </ItemsRepeater.Layout>
+                    </ItemsRepeater>
+                </StackPanel>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>

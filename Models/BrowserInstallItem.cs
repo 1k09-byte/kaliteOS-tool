@@ -24,6 +24,13 @@ namespace stellarisKIT.Models
         [ObservableProperty]
         private string installedCheckPath = string.Empty;
 
+        /// <summary>
+        /// For portable tools (zip downloads with no installer): directory the payload is
+        /// extracted into under %PROGRAMDATA%. Empty for regular installers.
+        /// </summary>
+        [ObservableProperty]
+        private string toolInstallDir = string.Empty;
+
         [ObservableProperty]
         private string description = string.Empty;
 

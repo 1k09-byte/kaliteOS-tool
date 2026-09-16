@@ -19,6 +19,11 @@ namespace stellarisKIT.ViewModels
         public ObservableCollection<BrowserInstallItem> GameLaunchers { get; } = new();
         public ObservableCollection<BrowserInstallItem> SocialApps { get; } = new();
 
+        /// <summary>Portable sysinternals-style tools (no installer, just an archive payload).</summary>
+        public ObservableCollection<BrowserInstallItem> Utilities { get; } = new();
+
+        public ObservableCollection<BrowserInstallItem> VisibleUtilities { get; } = new();
+
         public ObservableCollection<BrowserInstallItem> VisibleBrowsers { get; } = new();
         public ObservableCollection<BrowserInstallItem> VisibleGameLaunchers { get; } = new();
         public ObservableCollection<BrowserInstallItem> VisibleSocialApps { get; } = new();
@@ -59,6 +64,13 @@ namespace stellarisKIT.ViewModels
             {
                 sa.IsVisible = ShowInstalled || (sa.Status != BrowserInstallStatus.AlreadyInstalled && sa.Status != BrowserInstallStatus.Installed);
                 if (sa.IsVisible) VisibleSocialApps.Add(sa);
+            }
+
+            VisibleUtilities.Clear();
+            foreach (var util in Utilities)
+            {
+                util.IsVisible = ShowInstalled || (util.Status != BrowserInstallStatus.AlreadyInstalled && util.Status != BrowserInstallStatus.Installed);
+                if (util.IsVisible) VisibleUtilities.Add(util);
             }
         }
 
@@ -423,6 +435,18 @@ namespace stellarisKIT.ViewModels
             SocialApps.Add(telegramApp);
             SocialApps.Add(whatsappApp);
 
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Autoruns",
+                ImagePath = "ms-appx:///Assets/autoruns-logo.png",
+                DownloadUrl = "https://download.sysinternals.com/files/Autoruns.zip",
+                SilentInstallArgs = string.Empty,
+                InstallerFileName = "Autoruns.zip",
+                ToolInstallDir = @"%PROGRAMDATA%\kaliteTools\Autoruns",
+                InstalledCheckPath = @"%PROGRAMDATA%\kaliteTools\Autoruns\Autoruns64.exe",
+                Description = "Sysinternals utility that shows every autostart location — startup folders, services, drivers, scheduled tasks and more — so nothing launches behind your back."
+            });
+
             foreach (var browser in Browsers)
             {
                 if (_installerService.IsBrowserInstalled(browser))
@@ -444,6 +468,14 @@ namespace stellarisKIT.ViewModels
                 if (_installerService.IsBrowserInstalled(app))
                 {
                     app.Status = BrowserInstallStatus.AlreadyInstalled;
+                }
+            }
+
+            foreach (var util in Utilities)
+            {
+                if (_installerService.IsBrowserInstalled(util))
+                {
+                    util.Status = BrowserInstallStatus.AlreadyInstalled;
                 }
             }
 
