@@ -167,17 +167,53 @@
                                         <ItemsRepeater.ItemTemplate>
                                             <DataTemplate x:DataType="models:PowerSetting">
                                                 <toolkit:SettingsCard Header="{Binding Name}" Description="{Binding Description}" Margin="0,0,0,4">
-                                                    
-                                                    <!-- Simple UI representation for demo purposes: just show AC/DC indexes -->
+
+                                                    <!-- Type-aware editors: beginners never see raw numbers.
+                                                         Enum settings → friendly ComboBox; boolean → On/Off toggle;
+                                                         true range settings → NumberBox with the friendly unit caption. -->
                                                     <StackPanel Orientation="Horizontal" Spacing="16">
-                                                        <StackPanel>
+                                                        <StackPanel
+                                                            Visibility="{Binding IsChoiceType, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
-                                                            <NumberBox Value="{Binding AcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      SelectedItem="{Binding SelectedAcChoice, Mode=TwoWay}" />
                                                         </StackPanel>
-                                                        
-                                                        <StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsChoiceType, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
-                                                            <NumberBox Value="{Binding DcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      SelectedItem="{Binding SelectedDcChoice, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBooleanType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ToggleSwitch OnContent="On" OffContent="Off"
+                                                                          IsOn="{Binding AcBoolValue, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBooleanType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ToggleSwitch OnContent="On" OffContent="Off"
+                                                                          IsOn="{Binding DcBoolValue, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsRangeType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <NumberBox Value="{Binding AcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsRangeType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <NumberBox Value="{Binding DcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" />
                                                         </StackPanel>
                                                     </StackPanel>
                                                     
