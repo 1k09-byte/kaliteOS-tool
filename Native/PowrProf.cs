@@ -192,9 +192,14 @@ namespace stellarisKIT.Native
             ref Guid PowerSettingGuid,
             uint DcValueIndex);
 
+        // NOTE: PowerReadPossibleValue / PowerReadPossibleFriendlyName take a SchemeGuid
+        // parameter (may be NULL) between RootPowerKey and the subgroup GUID — omitting it
+        // shifts every argument and made the call read garbage (phantom dropdown entries,
+        // empty lists). See https://learn.microsoft.com/windows/win32/api/powersetting/
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         public static extern uint PowerReadPossibleValue(
             IntPtr RootPowerKey,
+            IntPtr SchemeGuid,
             ref Guid SubGroupOfPowerSettingsGuid,
             ref Guid PowerSettingGuid,
             out uint Type,
@@ -205,6 +210,7 @@ namespace stellarisKIT.Native
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         public static extern uint PowerReadPossibleFriendlyName(
             IntPtr RootPowerKey,
+            IntPtr SchemeGuid,
             ref Guid SubGroupOfPowerSettingsGuid,
             ref Guid PowerSettingGuid,
             uint PossibleSettingIndex,

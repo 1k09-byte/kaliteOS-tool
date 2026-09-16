@@ -165,7 +165,7 @@ public sealed class PowerService
         {
             uint type;
             uint bufferSize = 0;
-            uint res = PowrProf.PowerReadPossibleValue(IntPtr.Zero, ref subgroupGuid, ref settingGuid, out type, index, IntPtr.Zero, ref bufferSize);
+            uint res = PowrProf.PowerReadPossibleValue(IntPtr.Zero, IntPtr.Zero, ref subgroupGuid, ref settingGuid, out type, index, IntPtr.Zero, ref bufferSize);
             if (res == 259) break; // ERROR_NO_MORE_ITEMS
             if (res != 0 && res != 234) break; // not an enumerated setting (range/boolean) — stop
             var choice = new PowerSettingChoice
@@ -242,13 +242,13 @@ public sealed class PowerService
     private string GetPossibleFriendlyName(Guid subgroup, Guid setting, uint index)
     {
         uint bufferSize = 0;
-        PowrProf.PowerReadPossibleFriendlyName(IntPtr.Zero, ref subgroup, ref setting, index, IntPtr.Zero, ref bufferSize);
+        PowrProf.PowerReadPossibleFriendlyName(IntPtr.Zero, IntPtr.Zero, ref subgroup, ref setting, index, IntPtr.Zero, ref bufferSize);
         if (bufferSize == 0) return string.Empty;
 
         IntPtr buffer = Marshal.AllocHGlobal((int)bufferSize);
         try
         {
-            if (PowrProf.PowerReadPossibleFriendlyName(IntPtr.Zero, ref subgroup, ref setting, index, buffer, ref bufferSize) == 0)
+            if (PowrProf.PowerReadPossibleFriendlyName(IntPtr.Zero, IntPtr.Zero, ref subgroup, ref setting, index, buffer, ref bufferSize) == 0)
                 return Marshal.PtrToStringUni(buffer) ?? string.Empty;
             return string.Empty;
         }
