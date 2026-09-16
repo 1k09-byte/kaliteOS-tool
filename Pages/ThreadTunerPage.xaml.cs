@@ -32,70 +32,58 @@ namespace stellarisKIT.Pages
             this.Unloaded += ThreadTunerPage_Unloaded;
         }
 
-        private void TabNav_Click(object sender, RoutedEventArgs e)
+        // Protected rows render red with a lock glyph (see template): Windows
+        // rejects priority/affinity writes on them, so they must read as locked.
+        public static Microsoft.UI.Xaml.Media.Brush RowNameBrush(bool isProtected)
         {
-            if (sender is Microsoft.UI.Xaml.Controls.Button btn && btn.Tag is string tag)
+            var resources = Application.Current.Resources;
+            return (Microsoft.UI.Xaml.Media.Brush)(isProtected
+                ? resources["SystemFillColorCriticalBrush"]
+                : resources["TextFillColorPrimaryBrush"]);
+        }
+
+        private void MainSelectorBar_SelectionChanged(Microsoft.UI.Xaml.Controls.SelectorBar sender, Microsoft.UI.Xaml.Controls.SelectorBarSelectionChangedEventArgs args)
+        {
+            // Gaming mode works off a process-row selection, so it only makes
+            // sense on the Processes tab.
+            GamingModePanel.Visibility = sender.SelectedItem == TabProcesses
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            if (sender.SelectedItem == TabRules)
             {
-                if (tag == "Rules")
+                ProcessesGrid.Visibility = Visibility.Collapsed;
+                ProcessesHeader.Visibility = Visibility.Collapsed;
+                ProcessesFooter.Visibility = Visibility.Collapsed;
+                ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
+                RulesPanel.Visibility = Visibility.Visible;
+                ViewModel.SyncProfiles();
+                RefreshRulesMeta();
+            }
+            else if (sender.SelectedItem == TabReservedCpuSets)
+            {
+                ProcessesGrid.Visibility = Visibility.Collapsed;
+                ProcessesHeader.Visibility = Visibility.Collapsed;
+                ProcessesFooter.Visibility = Visibility.Collapsed;
+                RulesPanel.Visibility = Visibility.Collapsed;
+                ReservedCpuSetsFrame.Visibility = Visibility.Visible;
+                
+                if (ReservedCpuSetsFrame.Content == null)
                 {
-                    ProcessesGrid.Visibility = Visibility.Collapsed;
-                    ProcessesHeader.Visibility = Visibility.Collapsed;
-                    ProcessesFooter.Visibility = Visibility.Collapsed;
-                    ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
-                    RulesPanel.Visibility = Visibility.Visible;
-                    ViewModel.SyncProfiles();
-                    RefreshRulesMeta();
-                    
-                    TabRules.Foreground = ThemeBrush("SystemAccentColorLight2");
-                    TabRules.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
-                    
-                    TabProcesses.Foreground = ThemeBrush("TextFillColorSecondaryBrush");
-                    TabProcesses.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                    
-                    TabReservedCpuSets.Foreground = ThemeBrush("TextFillColorSecondaryBrush");
-                    TabReservedCpuSets.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                }
-                else if (tag == "ReservedCpuSets")
-                {
-                    ProcessesGrid.Visibility = Visibility.Collapsed;
-                    ProcessesHeader.Visibility = Visibility.Collapsed;
-                    ProcessesFooter.Visibility = Visibility.Collapsed;
-                    RulesPanel.Visibility = Visibility.Collapsed;
-                    ReservedCpuSetsFrame.Visibility = Visibility.Visible;
-                    
-                    if (ReservedCpuSetsFrame.Content == null)
-                    {
-                        ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
-                    }
-                    
-                    TabReservedCpuSets.Foreground = ThemeBrush("SystemAccentColorLight2");
-                    TabReservedCpuSets.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
-                    
-                    TabProcesses.Foreground = ThemeBrush("TextFillColorSecondaryBrush");
-                    TabProcesses.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                    
-                    TabRules.Foreground = ThemeBrush("TextFillColorSecondaryBrush");
-                    TabRules.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                }
-                else
-                {
-                    ProcessesGrid.Visibility = Visibility.Visible;
-                    ProcessesHeader.Visibility = Visibility.Visible;
-                    ProcessesFooter.Visibility = Visibility.Visible;
-                    RulesPanel.Visibility = Visibility.Collapsed;
-                    ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
-                    
-                    TabProcesses.Foreground = ThemeBrush("SystemAccentColorLight2");
-                    TabProcesses.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
-                    
-                    TabRules.Foreground = ThemeBrush("TextFillColorSecondaryBrush");
-                    TabRules.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                    
-                    TabReservedCpuSets.Foreground = ThemeBrush("TextFillColorSecondaryBrush");
-                    TabReservedCpuSets.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                    ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
                 }
             }
+            else
+            {
+                ProcessesGrid.Visibility = Visibility.Visible;
+                ProcessesHeader.Visibility = Visibility.Visible;
+                ProcessesFooter.Visibility = Visibility.Visible;
+                RulesPanel.Visibility = Visibility.Collapsed;
+                ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
+            }
         }
+
+        
 
         private async void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
@@ -310,7 +298,19 @@ namespace stellarisKIT.Pages
 
         private async Task UpdateProcessMenuStateAsync(MenuFlyout menu, TunerProcessRow row)
         {
-            // Update the labels before the user chooses an action.  The row is
+            // Disable mutating actions if process is protected (e.g. system or anti-cheat)
+            foreach (var item in menu.Items)
+            {
+                string text = (item as MenuFlyoutItem)?.Text ?? (item as MenuFlyoutSubItem)?.Text ?? "";
+                if (text.Contains("Terminate") || text.Contains("Suspend") || text.Contains("Resume") || 
+                    text.Contains("Priority") || text.Contains("Affinity") || 
+                    text.Contains("boost") || text.Contains("Efficiency"))
+                {
+                    if (item is Control c) c.IsEnabled = !row.IsProtected;
+                }
+            }
+
+            // Update the labels before the user chooses an action.
             // populated from the same native reads, but refresh the expensive
             // flags here so the menu always describes the live process.
             var priority = menu.Items.OfType<MenuFlyoutSubItem>()
@@ -520,12 +520,13 @@ namespace stellarisKIT.Pages
 
         private void Action_Threads(object sender, RoutedEventArgs e)
         {
-            ExecuteTuning(sender, row =>
-            {
-                var wnd = new stellarisKIT.Controls.ThreadDiagnosticsWindow(row.Pid, row.Name);
-                wnd.Activate();
-                return Task.CompletedTask;
-            });
+            ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
+        }
+
+        private async Task ShowThreadsDialogAsync(Models.TunerProcessRow row)
+        {
+            var dialog = new Controls.ThreadListDialog();
+            await dialog.ShowForProcessAsync(row.Pid, row.Name, this.XamlRoot);
         }
         
         private void Row_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
@@ -610,81 +611,7 @@ namespace stellarisKIT.Pages
 
         private async void RulePresets_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new PresetPickerDialog { XamlRoot = this.XamlRoot };
-            ContentDialogResult choice;
-            try
-            {
-                choice = await dlg.ShowAsync();
-            }
-            catch (Exception ex)
-            {
-                await ShowRulesErrorAsync("Could not open the presets dialog: " + ex.Message);
-                return;
-            }
-            if (choice != ContentDialogResult.Primary) return;
-
-            var selected = dlg.SelectedPresets;
-            if (selected.Count == 0)
-            {
-                await ShowRulesErrorAsync("Select at least one preset (all rows are pre-selected).");
-                return;
-            }
-
-            // Resolve affinity scopes against THIS machine's live topology.
-            // Static masks can't ship in presets: core counts differ per box
-            // and CPU Set IDs shift between boots.
-            Func<AffinityScope, ulong?> resolve = scope =>
-                !dlg.IncludeAffinity ? null : GamePresets.ComputeAffinityMask(_topologyCache, scope);
-            try
-            {
-                _topologyCache = await App.Current.CpuSets.GetTopologyAsync();
-            }
-            catch
-            {
-                _topologyCache = new List<stellarisKIT.Native.CpuSetEntry>();
-            }
-
-            var fresh = GamePresets.BuildNew(selected, ViewModel.Profiles.Select(p => p.Pattern), resolve);
-            if (fresh.Count == 0)
-            {
-                await ShowRulesErrorAsync("All selected presets are already present — nothing to add.");
-                return;
-            }
-
-            int added = 0;
-            bool saveOk = true;
-            foreach (var profile in fresh)
-            {
-                saveOk &= await App.Current.ProfileWatcher.AddOrUpdate(profile);
-                added++;
-            }
-            ViewModel.SyncProfiles();
-            foreach (var profile in fresh)
-            {
-                await App.Current.ProfileWatcher.ApplyProfileNowAsync(profile);
-            }
-            ViewModel.SyncProfiles();
-            RefreshRulesMeta();
-
-            int skipped = selected.Sum(s => s.Profiles.Count) - fresh.Count;
-            string affinityNote = !dlg.IncludeAffinity
-                ? "Affinity skipped (unchecked)."
-                : fresh.Any(p => p.AffinityMask.HasValue)
-                    ? "Affinity was tuned to this PC's cores."
-                    : "Affinity left untouched (no isolatable core split on this CPU).";
-            await new ContentDialog
-            {
-                Title = saveOk ? "Presets added" : "Presets added (save failed)",
-                Content = new TextBlock
-                {
-                    Text = $"Added {added} rule{(added == 1 ? "" : "s")}" +
-                        (skipped > 0 ? $", skipped {skipped} already present" : "") + ".\n" + affinityNote +
-                        (saveOk ? "" : "\nThe rule file could not be saved — rules are active for this session only."),
-                    TextWrapping = TextWrapping.Wrap,
-                },
-                CloseButtonText = "Close",
-                XamlRoot = this.XamlRoot,
-            }.ShowAsync();
+            await ShowRulesErrorAsync("Gaming presets were removed in Phase 4.");
         }
 
         private Task ShowRulesErrorAsync(string message)
@@ -757,3 +684,4 @@ namespace stellarisKIT.Pages
         }
     }
 }
+

@@ -1,4 +1,5 @@
 using stellarisKIT.Models;
+using stellarisKIT.Native;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -54,6 +55,17 @@ namespace stellarisKIT.Services
                                 // stale reinstall leftovers that inflate device counts).
                                 if (key.GetValue("Phantom") is int phantom && phantom == 1) continue;
 
+                                string instanceId = device + "\\" + instance;
+                                // The 'Phantom' value is unreliable — a disabled iGPU
+                                // (e.g. AMD Radeon Graphics while a dGPU drives the
+                                // display) keeps its Enum key with no Phantom value but
+                                // isn't in the live devnode tree. Ask cfgmgr32 directly.
+                                // DeviceInstanceId is stored WITHOUT the bus prefix
+                                // (registry paths are built from it); CM_ APIs need
+                                // the full "PCI\..." ID, so prepend the bus we walked.
+                                string busPrefix = root.Substring(root.LastIndexOf('\\') + 1);
+                                if (!NativeMethods.CfgMgr32.IsDevicePresent(busPrefix + "\\" + instanceId)) continue;
+
                                 // ClassGUID usually lives on the instance; fall back to the
                                 // parent device key so real devices are never dropped.
                                 string classGuid = (key.GetValue("ClassGUID") as string ?? "").Trim();
@@ -73,13 +85,13 @@ namespace stellarisKIT.Services
                                 // Dedupe by instance path, never by name: identical
                                 // adapters (e.g. two matching USB controllers) are
                                 // distinct tunable devices.
-                                if (!seen.Add(device + "\\" + instance)) continue;
+                                if (!seen.Add(instanceId)) continue;
 
                                 result.Add(new AffinityDeviceItem
                                 {
                                     Name = name,
                                     Category = category,
-                                    DeviceInstanceId = device + "\\" + instance
+                                    DeviceInstanceId = instanceId
                                 });
                             }
                         }

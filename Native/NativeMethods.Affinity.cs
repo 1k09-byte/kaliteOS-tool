@@ -68,11 +68,12 @@ internal static partial class NativeMethods
             ref GroupAffinity groupAffinity,
             IntPtr previousGroupAffinity);
 
+        // NOTE: unlike SetThreadIdealProcessorEx (3 params, BOOL), the Get variant
+        // takes only (thread, out ideal) and returns the processor number directly
+        // ((DWORD)-1 on failure). Do not add a third parameter.
         [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static partial bool GetThreadIdealProcessorEx(
+        internal static partial uint GetThreadIdealProcessorEx(
             SafeThreadHandle thread,
-            IntPtr previousIdeal, // pass NULL to skip
             out ProcessorNumber currentIdeal);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]

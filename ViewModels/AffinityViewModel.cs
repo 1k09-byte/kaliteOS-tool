@@ -103,24 +103,76 @@ namespace stellarisKIT.ViewModels
                 ? "IrqPolicyMachineDefault"
                 : AffinityService.DevicePolicyName(info.DevicePolicy);
 
-            int logical = Math.Max(1, Environment.ProcessorCount);
+            var topology = TopologyService.Get();
+            int logical = topology.TotalLogicalCores;
             item.CoreGroups.Clear();
-            for (int core = 0; core * 2 < logical; core++)
+
+            int coreIndex = 0;
+
+            void MapCores(IEnumerable<ulong> masks, string label)
             {
-                var group = new ProcessorCoreGroup { CoreIndex = core };
-                for (int t = core * 2; t < Math.Min(core * 2 + 2, logical); t++)
+                // Note: masks includes core 0 if we're rendering the UI (Wait, TopologyService Detection removes reserved core 0!
+                // To avoid breaking the UI indices if we omitted Core 0, I should just render all cores. Wait! TopologyService.Detect removes Core 0 from PerformanceCoreMasks! 
+                // So Core 0's threads won't be rendered. Let's fix that by re-adding Core 0 or handling it gracefully:
+                foreach (ulong mask in masks)
                 {
-                    bool on = info.AffinityMask is ulong m && (m & (1UL << t)) != 0;
-                    var row = new ProcessorThreadItem { Index = t, IsChecked = on };
-                    row.PropertyChanged += (_, e) =>
+                    var group = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex} ({label})" };
+                    for (int t = 0; t < logical; t++)
                     {
-                        if (e.PropertyName == nameof(ProcessorThreadItem.IsChecked))
-                            RefreshThreadCount(item);
-                    };
-                    group.Threads.Add(row);
+                        if ((mask & (1UL << t)) != 0)
+                        {
+                            bool on = info.AffinityMask is ulong m && (m & (1UL << t)) != 0;
+                            var row = new ProcessorThreadItem { Index = t, IsChecked = on };
+                            row.PropertyChanged += (_, e) =>
+                            {
+                                if (e.PropertyName == nameof(ProcessorThreadItem.IsChecked))
+                                    RefreshThreadCount(item);
+                            };
+                            group.Threads.Add(row);
+                        }
+                    }
+                    if (group.Threads.Count > 0)
+                        item.CoreGroups.Add(group);
+                    coreIndex++;
                 }
-                item.CoreGroups.Add(group);
             }
+
+            // We must resurrect Core 0 for UI visual purposes if it was removed
+            // Core 0 thread mask is usually (1 << 0) and possibly (1 << 1) if SMT. Let's just create a synthetic mask for missing core 0
+            ulong extractedSoFar = 0;
+            foreach (ulong m in topology.PerformanceCoreMasks) extractedSoFar |= m;
+            foreach (ulong m in topology.EfficiencyCoreMasks) extractedSoFar |= m;
+
+            // Find missing threads (Core 0 OS reserved threads)
+            ulong totalSystemMask = (1UL << logical) - 1;
+            ulong missingMask = totalSystemMask & ~extractedSoFar;
+
+            if (missingMask != 0)
+            {
+                var group0 = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex} (OS)" };
+                for (int t = 0; t < logical; t++)
+                {
+                    if ((missingMask & (1UL << t)) != 0)
+                    {
+                        bool on = info.AffinityMask is ulong m && (m & (1UL << t)) != 0;
+                        var row = new ProcessorThreadItem { Index = t, IsChecked = on };
+                        row.PropertyChanged += (_, e) =>
+                        {
+                            if (e.PropertyName == nameof(ProcessorThreadItem.IsChecked))
+                                RefreshThreadCount(item);
+                        };
+                        group0.Threads.Add(row);
+                    }
+                }
+                if (group0.Threads.Count > 0)
+                {
+                    item.CoreGroups.Add(group0);
+                    coreIndex++;
+                }
+            }
+
+            MapCores(topology.PerformanceCoreMasks, topology.IsHybrid ? "P-Core" : "Phys");
+            MapCores(topology.EfficiencyCoreMasks, "E-Core");
             RefreshThreadCount(item);
             return Task.CompletedTask;
         }
@@ -429,26 +481,76 @@ namespace stellarisKIT.ViewModels
                     }
                 }
 
-                // ─ Step 2: Affinity assignment ─
+                // ─ Step 2: Topology-Aware Affinity assignment ─
                 
-                int coresPerGroup = topology.PhysicalCores > 8 ? 2 : 1;
-                int cursor = rawCores.Count - 1;
+                // Group available performance cores by their Core Complex (CCX / L3 Cache)
+                var ccxGroups = new Dictionary<ulong, List<ulong>>();
+                foreach (var ccxMask in topology.CoreComplexMasks)
+                    ccxGroups[ccxMask] = new List<ulong>();
 
-                ulong CombineMasksFromEnd(List<ulong> cores, int count, ref int index)
+                foreach (var coreMask in rawCores)
                 {
-                    ulong mask = 0;
-                    for (int i = 0; i < count; i++)
+                    bool mapped = false;
+                    foreach (var ccxMask in topology.CoreComplexMasks)
                     {
-                        if (index >= 0)
-                            mask |= cores[index--];
-                        else if (cores.Count > 0)
-                            mask |= cores[cores.Count - 1]; // fallback constraint
+                        if ((coreMask & ccxMask) == coreMask)
+                        {
+                            ccxGroups[ccxMask].Add(coreMask);
+                            mapped = true;
+                            break;
+                        }
                     }
-                    return mask;
+                    if (!mapped)
+                    {
+                        // Fallback grouping if CCX masking failed for this core
+                        if (!ccxGroups.ContainsKey(0)) ccxGroups[0] = new List<ulong>();
+                        ccxGroups[0].Add(coreMask);
+                    }
+                }
+                
+                // Sort CCX groups by size descending
+                var validCcxs = ccxGroups.Values.Where(g => g.Count > 0).OrderByDescending(g => g.Count).ToList();
+                if (validCcxs.Count == 0) validCcxs.Add(rawCores); // Fallback
+
+                ulong gpuMask = 0;
+                ulong nicMask = 0;
+                ulong peripheralMask = 0;
+
+                int coresPerGroup = topology.PhysicalCores > 8 ? 2 : 1;
+
+                ulong BuildMask(List<ulong> pool, int requestedCores)
+                {
+                    ulong m = 0;
+                    for (int i = 0; i < requestedCores && pool.Count > 0; i++)
+                    {
+                        m |= pool[^1];
+                        pool.RemoveAt(pool.Count - 1);
+                    }
+                    return m;
                 }
 
-                ulong gpuMask = CombineMasksFromEnd(rawCores, coresPerGroup, ref cursor);
-                ulong usbMask = CombineMasksFromEnd(rawCores, coresPerGroup, ref cursor);
+                if (validCcxs.Count >= 2)
+                {
+                    // Multi-CCX (e.g. Ryzen 9, Threadripper, multi-socket)
+                    // Isolate GPU on the largest CCX, throw NIC and Peripherals on standard CCX
+                    gpuMask = BuildMask(validCcxs[0], coresPerGroup);
+                    nicMask = BuildMask(validCcxs[1], coresPerGroup);
+                    peripheralMask = BuildMask(validCcxs[1], coresPerGroup); // Share CCX with NIC
+                }
+                else
+                {
+                    // Single CCX / Unified L3 Cache
+                    // Space them out physically in the same pool
+                    var pool = validCcxs[0];
+                    gpuMask = BuildMask(pool, coresPerGroup);
+                    nicMask = BuildMask(pool, coresPerGroup);
+                    peripheralMask = BuildMask(pool, coresPerGroup);
+                }
+
+                // If any mask failed to build because we ran out of cores, fallback to just spreading
+                if (gpuMask == 0 && rawCores.Count > 0) gpuMask = rawCores[^1];
+                if (nicMask == 0 && rawCores.Count > 0) nicMask = rawCores[0];
+                if (peripheralMask == 0 && rawCores.Count > 0) peripheralMask = rawCores[0];
 
                 void ApplyTier(IEnumerable<AffinityDeviceItem> devices, ulong mask, int priority)
                 {
@@ -494,9 +596,8 @@ namespace stellarisKIT.ViewModels
                         }
                     }
                 }
-
                 ApplyTier(highTier, gpuMask, -1);   // -1 = Undefined
-                ApplyTier(normalTier, usbMask, -1); // -1 = Undefined
+                ApplyTier(normalTier, peripheralMask, -1); // -1 = Undefined
 
                 if (modifiedIds.Count > 0)
                 {

@@ -1,4 +1,5 @@
 using stellarisKIT.Models;
+using stellarisKIT.Native;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +11,13 @@ using System.Threading.Tasks;
 
 namespace stellarisKIT.Services
 {
-    public sealed record DetectedGpu(string Name, string Vendor, string DriverVersion);
+    public sealed record DetectedGpu(string Name, string Vendor, string DriverVersion, string VideoProcessor = "", string Status = "")
+    {
+        public string VramText { get; init; } = string.Empty;
+        public string GpuType { get; init; } = string.Empty;   // Discrete / Integrated
+        public string DeviceType { get; init; } = string.Empty; // Display
+        public bool IsPrimary { get; init; }
+    }
 
     public class GpuDriverService
     {
@@ -29,58 +36,165 @@ namespace stellarisKIT.Services
         };
 
         /// <summary>
-        /// Enumerates display adapters from the driver store class key (no extra
-        /// dependencies: plain Microsoft.Win32 registry reads, like the uninstall scan).
+        /// Enumerates display adapters using robust WMI Win32_VideoController queries.
+        /// Vendor comes from the PCI hardware ID (VEN_xxxx), never from the device
+        /// name string, and only present, problem-free adapters count — WMI also
+        /// reports disabled/phantom iGPUs (e.g. AMD Radeon Graphics next to an
+        /// NVIDIA dGPU) which would otherwise show stale hardware.
         /// </summary>
         public Task<List<DetectedGpu>> DetectGpusAsync(CancellationToken ct = default)
         {
             return Task.Run(() =>
             {
                 var result = new List<DetectedGpu>();
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    using var baseKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(DisplayClassKey);
-                    if (baseKey is null) return result;
-                    foreach (var sub in baseKey.GetSubKeyNames())
+                    var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
+                    foreach (var obj in searcher.Get())
                     {
                         ct.ThrowIfCancellationRequested();
-                        if (sub.Length != 4 || !int.TryParse(sub, out _)) continue;
-                        using var key = baseKey.OpenSubKey(sub);
-                        if (key is null) continue;
-                        string name = (key.GetValue("DriverDesc") as string ?? "").Trim();
-                        if (string.IsNullOrEmpty(name) || !seen.Add(name)) continue;
-                        string version = (key.GetValue("DriverVersion") as string ?? "").Trim();
-                        string matchId = (key.GetValue("MatchingDeviceId") as string ?? "").Trim();
-                        string vendor = DetectVendor(name, matchId);
-                        // Only real GPU vendors: drops virtual adapters (Hyper-V,
-                        // VMware, VirtualBox, Remote Display) and generic
-                        // "Microsoft Basic Display Adapter" entries.
-                        if (!vendor.Equals("NVIDIA", StringComparison.OrdinalIgnoreCase) &&
-                            !vendor.Equals("AMD", StringComparison.OrdinalIgnoreCase) &&
-                            !vendor.Equals("Intel", StringComparison.OrdinalIgnoreCase))
+                        string name = obj["Name"]?.ToString() ?? "Unknown GPU";
+                        string driverVersion = obj["DriverVersion"]?.ToString() ?? "Unknown";
+                        string videoProcessor = obj["VideoProcessor"]?.ToString() ?? name;
+
+                        string vramStr = obj["AdapterRAM"]?.ToString() ?? "0";
+                        long.TryParse(vramStr, out long vramRaw);
+
+                        string status = obj["Status"]?.ToString() ?? "OK";
+                        uint configError = 0;
+                        try
+                        {
+                            // Non-zero means the adapter has a problem code (disabled,
+                            // failed start, phantom...). Only healthy adapters count.
+                            configError = Convert.ToUInt32(obj["ConfigManagerErrorCode"] ?? 0);
+                        }
+                        catch { }
+
+                        string vendor = VendorFromPnpId(obj["PNPDeviceID"]?.ToString());
+                        if (vendor == "Unknown")
+                            vendor = VendorFromName(name);
+
+                        if (vendor == "Unknown") continue;
+                        if (configError != 0)
+                        {
+                            Debug.WriteLine($"DetectGpus: skipping {name} (ConfigManagerErrorCode={configError})");
                             continue;
-                        result.Add(new DetectedGpu(name, vendor, version));
+                        }
+                        if (!NativeMethods.CfgMgr32.IsDevicePresent(obj["PNPDeviceID"]?.ToString() ?? ""))
+                        {
+                            Debug.WriteLine($"DetectGpus: skipping non-present adapter {name}");
+                            continue;
+                        }
+
+                        // AdapterRAM is a 32-bit uint in WMI, so cards with >4 GB
+                        // saturate at ~0xFFFE0000 (4293918720), not uint.MaxValue.
+                        // Treat anything near the 4 GB ceiling (or zero) as clamped.
+                        long vramBytes = vramRaw;
+                        bool looksClamped = vramBytes <= 0 ||
+                            (vramBytes > (4L * 1024 * 1024 * 1024) - (128L * 1024 * 1024));
+                        if (looksClamped)
+                            vramBytes = ReadVramFromRegistry(obj["PNPDeviceID"]?.ToString() ?? "");
+                        string vramText = FormatVram(vramBytes);
+
+                        bool integrated =
+                            name.Contains("Radeon", StringComparison.OrdinalIgnoreCase) &&
+                            (name.Contains("(TM) Graphics", StringComparison.OrdinalIgnoreCase) || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase)) &&
+                            !name.Contains("RX ", StringComparison.OrdinalIgnoreCase);
+                        if (vendor == "Intel" && !name.Contains("Arc", StringComparison.OrdinalIgnoreCase))
+                            integrated = true;
+
+                        string pnpId = obj["PNPDeviceID"]?.ToString() ?? "";
+                        result.Add(new DetectedGpu(name, vendor, driverVersion, videoProcessor, status)
+                        {
+                            VramText = vramText,
+                            GpuType = integrated ? "Integrated" : "Discrete",
+                            DeviceType = "Display",
+                            IsPrimary = false, // set by caller after ordering
+                        });
                     }
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"DetectGpus: {ex.Message}");
+                    Debug.WriteLine($"DetectGpus (WMI): {ex.Message}");
                 }
                 return result;
             }, ct);
         }
 
-        private static string DetectVendor(string name, string matchId)
+        /// <summary>
+        /// Win32_VideoController.AdapterRAM is a UInt32 and saturates above 4 GB.
+        /// The display class registry key holds the true value in
+        /// HardwareInformation.qwMemorySize (QWORD, bytes).
+        /// </summary>
+        private static long ReadVramFromRegistry(string pnpId)
         {
-            string hay = name + " " + matchId;
-            if (hay.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) || hay.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase))
-                return "NVIDIA";
-            if (hay.Contains("VEN_1002", StringComparison.OrdinalIgnoreCase) || hay.Contains("AMD", StringComparison.OrdinalIgnoreCase) || hay.Contains("Radeon", StringComparison.OrdinalIgnoreCase))
-                return "AMD";
-            if (hay.Contains("VEN_8086", StringComparison.OrdinalIgnoreCase) || hay.Contains("Intel", StringComparison.OrdinalIgnoreCase))
-                return "Intel";
+            try
+            {
+                if (string.IsNullOrEmpty(pnpId)) return 0;
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    DisplayClassKey, writable: false);
+                if (key is null) return 0;
+                foreach (var sub in key.GetSubKeyNames())
+                {
+                    using var child = key.OpenSubKey(sub);
+                    if (child is null) continue;
+
+                    // MatchingDeviceId is the enumerator-relative ID (e.g.
+                    // "PCI\VEN_10DE&DEV_2704..."), the PNPDeviceID adds the instance
+                    // suffix — match by prefix.
+                    if (child.GetValue("MatchingDeviceId")?.ToString() is not string matching ||
+                        !pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    foreach (string valueName in new[]
+                        { "HardwareInformation.qwMemorySize", "HardwareInformation.MemorySize" })
+                    {
+                        object? raw = child.GetValue(valueName);
+                        long parsed = raw switch
+                        {
+                            int i => i,
+                            uint u => u,
+                            long l => l,
+                            byte[] bytes when bytes.Length >= 8 => BitConverter.ToInt64(bytes, 0),
+                            byte[] bytes when bytes.Length == 4 => BitConverter.ToInt32(bytes, 0),
+                            string s when long.TryParse(s, out long v) => v,
+                            _ => 0,
+                        };
+                        if (parsed > 0) return parsed;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ReadVramFromRegistry: {ex.Message}");
+            }
+            return 0;
+        }
+
+        private static string FormatVram(long bytes)
+        {
+            if (bytes <= 0) return "Unknown";
+            double gb = bytes / (1024.0 * 1024 * 1024);
+            return gb >= 1.0 ? $"{gb:0} GB" : $"{bytes / (1024.0 * 1024):0} MB";
+        }
+
+        // PCI vendor IDs: 10DE = NVIDIA, 1002 = AMD/ATI, 8086 = Intel.
+        private static string VendorFromPnpId(string? pnpId)
+        {
+            if (string.IsNullOrEmpty(pnpId)) return "Unknown";
+            if (pnpId.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)) return "NVIDIA";
+            if (pnpId.Contains("VEN_1002", StringComparison.OrdinalIgnoreCase) || pnpId.Contains("VEN_1022")) return "AMD";
+            if (pnpId.Contains("VEN_8086", StringComparison.OrdinalIgnoreCase)) return "Intel";
+            return "Unknown";
+        }
+
+        // Fallback for non-PCI adapters (USB display, hypervisor adapters...).
+        private static string VendorFromName(string name)
+        {
+            if (name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) return "NVIDIA";
+            if (name.Contains("AMD", StringComparison.OrdinalIgnoreCase) || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase) || name.Contains("ATI", StringComparison.OrdinalIgnoreCase)) return "AMD";
+            if (name.Contains("Intel", StringComparison.OrdinalIgnoreCase) || name.Contains("Arc", StringComparison.OrdinalIgnoreCase)) return "Intel";
             return "Unknown";
         }
 

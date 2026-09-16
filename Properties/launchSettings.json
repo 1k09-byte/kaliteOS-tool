@@ -1,7 +1,7 @@
 {
   "profiles": {
     "stellarisKIT (Package)": {
-      "commandName": "MsixPackage"
+      "commandName": "Project"
     },
     "stellarisKIT (Unpackaged)": {
       "commandName": "Project"

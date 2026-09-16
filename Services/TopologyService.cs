@@ -2,6 +2,7 @@ using stellarisKIT.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace stellarisKIT.Services
@@ -30,12 +31,7 @@ namespace stellarisKIT.Services
 
         private const int RelationProcessorCore = 0;
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool GetLogicalProcessorInformationEx(
-            int RelationshipType,
-            IntPtr Buffer,
-            ref uint ReturnedLength);
+
 
         // Documented SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX header (variable-length).
         // https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_logical_processor_information_ex
@@ -63,11 +59,23 @@ namespace stellarisKIT.Services
         //   WORD      Group
         //   WORD      Reserved[3]
 
-        private const int PROCESSOR_REL_OFFSET = 8;       // offset past SLPI_EX_HEADER
-        private const int FLAGS_OFFSET         = 0;       // Flags byte inside PROCESSOR_RELATIONSHIP
-        private const int EFFICIENCY_OFFSET    = 1;       // EfficiencyClass byte
-        private const int GROUP_COUNT_OFFSET   = 22;      // GroupCount WORD
-        private const int GROUP_AFFINITY_OFFSET= 24;      // first GROUP_AFFINITY
+        private const int SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX_HEADER_SIZE = 8;
+        
+        private const int RelationNumaNode = 1;
+        private const int RelationCache = 2;
+        
+        // RelationProcessorCore
+        private const int EFFICIENCY_OFFSET      = 1;
+        private const int CORE_GROUP_AFFINITY_OFFSET  = 24;
+        
+        // RelationNumaNode
+        private const int NUMA_NODE_NUMBER_OFFSET = 0;
+        private const int NUMA_GROUP_AFFINITY_OFFSET = 24; // 4 (NodeNumber) + 20 (Reserved) = 24
+        
+        // RelationCache
+        private const int CACHE_LEVEL_OFFSET     = 0;
+        private const int CACHE_TYPE_OFFSET      = 8;
+        private const int CACHE_GROUP_AFFINITY_OFFSET = 40; // 32 (Fields) + 2 (GroupCount) + 6 (Pad) = 40
 
         private static CoreTopology Detect()
         {
@@ -75,18 +83,22 @@ namespace stellarisKIT.Services
 
             var perfCoreMasks = new List<ulong>();
             var effCoreMasks = new List<ulong>();
+            var numaNodeMasks = new HashSet<ulong>();
+            var coreComplexMasks = new HashSet<ulong>();
+            
             int physicalCoreCount = 0;
 
             try
             {
                 uint len = 0;
-                GetLogicalProcessorInformationEx(RelationProcessorCore, IntPtr.Zero, ref len);
+                // Query ALL relationships (0xFFFF)
+                Native.Kernel32.GetLogicalProcessorInformationEx(0xFFFF, IntPtr.Zero, ref len);
                 if (len == 0) throw new InvalidOperationException("GetLogicalProcessorInformationEx returned 0 length");
 
                 IntPtr buf = Marshal.AllocHGlobal((int)len);
                 try
                 {
-                    if (!GetLogicalProcessorInformationEx(RelationProcessorCore, buf, ref len))
+                    if (!Native.Kernel32.GetLogicalProcessorInformationEx(0xFFFF, buf, ref len))
                         throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
 
                     uint offset = 0;
@@ -94,23 +106,34 @@ namespace stellarisKIT.Services
                     {
                         IntPtr entryPtr = buf + (int)offset;
                         var header = Marshal.PtrToStructure<SLPI_EX_HEADER>(entryPtr);
+                        IntPtr bodyPtr = entryPtr + SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX_HEADER_SIZE;
 
                         if (header.Relationship == RelationProcessorCore)
                         {
                             physicalCoreCount++;
 
-                            IntPtr procRel = entryPtr + PROCESSOR_REL_OFFSET;
-                            byte efficiencyClass = Marshal.ReadByte(procRel, EFFICIENCY_OFFSET);
+                            byte efficiencyClass = Marshal.ReadByte(bodyPtr, EFFICIENCY_OFFSET);
+                            ulong mask = unchecked((ulong)Marshal.ReadInt64(bodyPtr + CORE_GROUP_AFFINITY_OFFSET));
 
-                            // Read the GROUP_AFFINITY.Mask (first 8 bytes of the first GROUP_AFFINITY struct)
-                            long maskRaw = Marshal.ReadInt64(procRel + GROUP_AFFINITY_OFFSET);
-                            ulong mask = unchecked((ulong)maskRaw);
-
-                            // Extract full physical core mask for this group
                             if (efficiencyClass == 0)
                                 perfCoreMasks.Add(mask);
                             else
                                 effCoreMasks.Add(mask);
+                        }
+                        else if (header.Relationship == RelationNumaNode)
+                        {
+                            ulong mask = unchecked((ulong)Marshal.ReadInt64(bodyPtr + NUMA_GROUP_AFFINITY_OFFSET));
+                            if (mask != 0) numaNodeMasks.Add(mask);
+                        }
+                        else if (header.Relationship == RelationCache)
+                        {
+                            byte level = Marshal.ReadByte(bodyPtr, CACHE_LEVEL_OFFSET);
+                            // Process L3 Cache as Core Complex (CCX) boundaries
+                            if (level == 3)
+                            {
+                                ulong mask = unchecked((ulong)Marshal.ReadInt64(bodyPtr + CACHE_GROUP_AFFINITY_OFFSET));
+                                if (mask != 0) coreComplexMasks.Add(mask);
+                            }
                         }
 
                         offset += header.Size;
@@ -128,6 +151,8 @@ namespace stellarisKIT.Services
                 physicalCoreCount = Math.Max(1, logicalCount / 2);
                 perfCoreMasks.Clear();
                 effCoreMasks.Clear();
+                numaNodeMasks.Clear();
+                coreComplexMasks.Clear();
                 int logicalIndex = 0;
                 for (int i = 0; i < physicalCoreCount; i++)
                 {
@@ -136,6 +161,8 @@ namespace stellarisKIT.Services
                     if (logicalIndex < logicalCount) mask |= (1UL << logicalIndex++);
                     perfCoreMasks.Add(mask);
                 }
+                numaNodeMasks.Add((1UL << logicalCount) - 1);
+                coreComplexMasks.Add((1UL << logicalCount) - 1);
             }
 
             // Remove reserved core 0 from the assignable performance list.
@@ -148,7 +175,9 @@ namespace stellarisKIT.Services
                 PhysicalCores = physicalCoreCount,
                 ReservedCore = 0, // OS uses Core 0
                 PerformanceCoreMasks = perfCoreMasks,
-                EfficiencyCoreMasks = effCoreMasks
+                EfficiencyCoreMasks = effCoreMasks,
+                NumaNodeMasks = numaNodeMasks.ToList(),
+                CoreComplexMasks = coreComplexMasks.ToList()
             };
         }
     }

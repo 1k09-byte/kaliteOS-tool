@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Text.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
+using System.Collections.ObjectModel;
 using Microsoft.UI.Dispatching;
 using stellarisKIT.Models;
 
@@ -116,14 +118,179 @@ public sealed class ProfileWatcherService : IDisposable
             }
             else
             {
-                Log("load: no file yet");
+                Log("load: no file yet, generating built-in defaults");
+                lock (_lock)
+                {
+                    ActiveProfiles = CreateBuiltInDefaults();
+                }
+                _ = SaveProfilesAsync();
             }
         }
         catch (Exception ex)
         {
             Log("load FAILED: " + ex.GetType().Name + ": " + ex.Message);
         }
+        await EnsureBuiltInDefaultsAsync();
         RaiseChanged();
+    }
+
+    private List<TunerProfile> CreateBuiltInDefaults()
+    {
+        return new List<TunerProfile>
+        {
+            new TunerProfile
+            {
+                // Scoped to DWM: generic "Input"/"Sensor"/"Kernel" contains-
+                // matches against Pattern "*" never matched a real thread name
+                // anywhere else, so the rule sat at "No actions defined". DWM
+                // names its role threads (Master Input, Kernel Sensor, ...),
+                // and the resolver classifies them exactly like this.
+                Name = "Input/Sensor Threads",
+                Pattern = "dwm.exe",
+                Enabled = true,
+                AutoApply = true,
+                ThreadRules = new ObservableCollection<TunerThreadRule>
+                {
+                    new TunerThreadRule
+                    {
+                        Description = "Master Input",
+                        Priority = (int)ThreadPriorityLevel.TimeCritical,
+                        // Input threads must never be parked on efficient cores:
+                        // EcoQoS here adds pointer-latency spikes.
+                        EfficiencyMode = false
+                    },
+                    new TunerThreadRule
+                    {
+                        Description = "Kernel Sensor",
+                        Priority = (int)ThreadPriorityLevel.TimeCritical,
+                        EfficiencyMode = false
+                    }
+                }
+            }
+        };
+    }
+
+    /// <summary>Ships the built-in defaults to EVERYONE: adds them when missing
+    /// and refreshes them when they still carry previously-shipped content.
+    /// User-customized copies (anything else) are left untouched, and the
+    /// Enabled toggle is always respected.</summary>
+    public async Task EnsureBuiltInDefaultsAsync()
+    {
+        bool changed = false;
+        var defaults = CreateBuiltInDefaults();
+        lock (_lock)
+        {
+            // "DWM & Master Input" was retired from the defaults; clean up
+            // copies still carrying shipped content so it disappears instead
+            // of lingering in every saved profile forever.
+            for (int i = ActiveProfiles.Count - 1; i >= 0; i--)
+            {
+                if (ActiveProfiles[i].Name == "DWM & Master Input" && IsOldDwmMasterInputShipment(ActiveProfiles[i]))
+                {
+                    Log($"defaults: removed retired built-in 'DWM & Master Input'");
+                    ActiveProfiles.RemoveAt(i);
+                    changed = true;
+                }
+            }
+
+            foreach (var def in defaults)
+            {
+                var existing = ActiveProfiles.FirstOrDefault(p => p.Name == def.Name);
+                if (existing == null)
+                {
+                    ActiveProfiles.Add(def);
+                    Log($"defaults: added missing built-in '{def.Name}'");
+                    changed = true;
+                }
+                else if (IsOldShippedContent(existing))
+                {
+                    existing.Pattern = def.Pattern;
+                    existing.PriorityClass = def.PriorityClass;
+                    existing.AutoApply = def.AutoApply;
+                    existing.ThreadRules = def.ThreadRules;
+                    Log($"defaults: refreshed built-in '{def.Name}' to highest-priority content");
+                    changed = true;
+                }
+            }
+        }
+        if (changed)
+        {
+            await SaveProfilesAsync();
+            RaiseChanged();
+        }
+    }
+
+    private static bool IsOldShippedContent(TunerProfile p)
+    {
+        if (p.Name == "DWM & Master Input")
+        {
+            return IsOldDwmMasterInputShipment(p);
+        }
+        if (p.Name == "Input/Sensor Threads")
+        {
+            // v1 shipped "*" + Input/Highest + Sensor/AboveNormal; v2 shipped
+            // "*" + Input/Sensor/Kernel all Highest; v3 shipped "dwm.exe" +
+            // Master Input/Kernel Sensor at Highest. All pre-TimeCritical
+            // shapes are ours to refresh.
+            if (p.ThreadRules == null || p.ThreadRules.Count is not (2 or 3)) return false;
+
+            bool IsPlainHighest(TunerThreadRule r, string desc) =>
+                r.Description == desc && r.Priority == (int)ThreadPriorityLevel.Highest
+                && r.StartAddress == string.Empty && !r.MatchAllThreads
+                && r.BoostEnabled == null
+                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
+            bool IsPlainAboveNormal(TunerThreadRule r, string desc) =>
+                r.Description == desc && r.Priority == (int)ThreadPriorityLevel.AboveNormal
+                && r.StartAddress == string.Empty && !r.MatchAllThreads
+                && r.BoostEnabled == null
+                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
+
+            if (p.Pattern == "*")
+            {
+                if (p.ThreadRules.Count == 2)
+                {
+                    return IsPlainHighest(p.ThreadRules[0], "Input")
+                        && IsPlainAboveNormal(p.ThreadRules[1], "Sensor");
+                }
+                return IsPlainHighest(p.ThreadRules[0], "Input")
+                    && IsPlainHighest(p.ThreadRules[1], "Sensor")
+                    && IsPlainHighest(p.ThreadRules[2], "Kernel");
+            }
+            if (p.Pattern == "dwm.exe")
+            {
+                return IsPlainHighest(p.ThreadRules[0], "Master Input")
+                    && IsPlainHighest(p.ThreadRules[1], "Kernel Sensor");
+            }
+            return false;
+        }
+        return false;
+    }
+
+    /// <summary>Shipped shapes of the retired "DWM & Master Input" rule.
+    /// v1: High class, no thread rules. v2: High class + MatchAllThreads at
+    /// Highest. User-customized variants are never touched.</summary>
+    private static bool IsOldDwmMasterInputShipment(TunerProfile p)
+    {
+        if (p.Pattern != "dwm.exe, csrss.exe"
+            || p.PriorityClass != (uint?)ProcessPriorityClass.High
+            || p.GamingModeAuto)
+        {
+            return false;
+        }
+        if (p.ThreadRules == null || p.ThreadRules.Count == 0)
+        {
+            return true; // v1
+        }
+        if (p.ThreadRules.Count == 1)
+        {
+            var r = p.ThreadRules[0];
+            return r.MatchAllThreads
+                && r.Priority == (int)ThreadPriorityLevel.Highest
+                && string.IsNullOrWhiteSpace(r.Description) && r.StartAddress == string.Empty
+                && r.EfficiencyMode == null && r.BoostEnabled == null
+                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
+        }
+        return false;
     }
 
     /// <summary>
@@ -330,6 +497,45 @@ public sealed class ProfileWatcherService : IDisposable
                         {
                         }
                     }
+
+                    if (rule.AffinityMask.HasValue)
+                    {
+                        attempted++;
+                        try
+                        {
+                            await _threads.SetAffinityAsync((uint)t.Tid, rule.AffinityGroup, rule.AffinityMask.Value);
+                            succeeded++;
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    if (rule.IdealGroup.HasValue && rule.IdealIndex.HasValue)
+                    {
+                        attempted++;
+                        try
+                        {
+                            await _threads.SetIdealProcessorAsync((uint)t.Tid, rule.IdealGroup.Value, rule.IdealIndex.Value);
+                            succeeded++;
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    if (rule.MemoryPriority.HasValue)
+                    {
+                        attempted++;
+                        try
+                        {
+                            await _threads.SetMemoryPriorityAsync((uint)t.Tid, rule.MemoryPriority.Value);
+                            succeeded++;
+                        }
+                        catch
+                        {
+                        }
+                    }
                 }
             }
         }
@@ -400,8 +606,12 @@ public sealed class ProfileWatcherService : IDisposable
 
     public static bool ThreadMatches(TunerThreadRule rule, LiveThreadInfo thread)
     {
+        if (rule.MatchAllThreads) return true;
+        // Description is a contains-match: real thread names are descriptive
+        // sentences ("HID input thread"), so exact equality never hit anything.
+        // StartAddress stays exact ("module+offset" is already precise).
         bool descOk = string.IsNullOrWhiteSpace(rule.Description)
-            || string.Equals(thread.Description, rule.Description, StringComparison.OrdinalIgnoreCase);
+            || (thread.Description ?? string.Empty).Contains(rule.Description, StringComparison.OrdinalIgnoreCase);
         bool startOk = string.IsNullOrWhiteSpace(rule.StartAddress)
             || string.Equals(thread.StartAddress, rule.StartAddress, StringComparison.OrdinalIgnoreCase);
         return descOk && startOk && (!string.IsNullOrWhiteSpace(rule.Description) || !string.IsNullOrWhiteSpace(rule.StartAddress));
@@ -530,7 +740,16 @@ public sealed class ProfileWatcherService : IDisposable
                 }
             }
 
-            if (matched.Count == 0) return;
+            if (matched.Count == 0)
+            {
+                // Even with no rule match, persisted per-thread boost
+                // suppressions must still re-arm on every launch of the
+                // owning process (they are independent of rules).
+                _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
+                return;
+            }
+
+            _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
 
             foreach (var profile in matched)
             {
@@ -560,14 +779,39 @@ public sealed class ProfileWatcherService : IDisposable
     private bool _watcherInitiatedGamingMode;
 
     /// <summary>
-    /// Initial sweep at startup: arm Gaming mode for any gaming-mode rule
-    /// whose process is ALREADY running (app started mid-game), and start the
-    /// process-exit watcher that deactivates Gaming mode when the last armed
-    /// process exits. Both are no-ops when no gaming-mode rules exist.
+    /// Initial sweep at startup: applies every enabled auto-apply rule to
+    /// processes that are ALREADY running (dwm.exe, csrss.exe, apps started
+    /// before the tuner launched), then arms Gaming mode. Previously rules
+    /// only triggered on WMI process-start events, so always-running system
+    /// processes sat at "Waiting for process" forever.
     /// </summary>
     public void StartGamingModeWatcher()
     {
+        _ = ApplyAllRulesToRunningProcessesAsync();
         EvaluateGamingModeRules();
+    }
+
+    /// <summary>Applies every enabled auto-apply profile to all currently
+    /// running matching processes. Fire-and-forget startup sweep.</summary>
+    public async Task ApplyAllRulesToRunningProcessesAsync()
+    {
+        List<TunerProfile> profiles;
+        lock (_lock)
+        {
+            profiles = ActiveProfiles.Where(p => p.Enabled && p.AutoApply).ToList();
+        }
+
+        foreach (var profile in profiles)
+        {
+            try
+            {
+                await ApplyProfileNowAsync(profile);
+            }
+            catch (Exception ex)
+            {
+                Log($"startup-sweep: [{profile.Name}] failed: {ex.Message}");
+            }
+        }
     }
 
     /// <summary>

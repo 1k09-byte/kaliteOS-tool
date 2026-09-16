@@ -105,7 +105,8 @@ namespace stellarisKIT.Models
     {
         public int CoreIndex { get; set; }
 
-        public string Title => $"Core {CoreIndex}";
+        [ObservableProperty]
+        private string title = string.Empty;
 
         public System.Collections.ObjectModel.ObservableCollection<ProcessorThreadItem> Threads { get; } = new();
     }

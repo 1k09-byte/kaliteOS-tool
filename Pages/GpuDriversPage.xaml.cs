@@ -1,4 +1,3 @@
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -6,8 +5,6 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using stellarisKIT.Models;
 using stellarisKIT.ViewModels;
 using System;
-using System.Numerics;
-using System.Threading.Tasks;
 
 namespace stellarisKIT.Pages
 {
@@ -17,101 +14,66 @@ namespace stellarisKIT.Pages
 
         public GpuDriversPage()
         {
-            ViewModel = new GpuDriversViewModel();
-            InitializeComponent();
-            Loaded += GpuDriversPage_Loaded;
+            this.InitializeComponent();
+            this.ViewModel = new GpuDriversViewModel();
+            this.DataContext = ViewModel;
+
+            // Kick off hardware detection as soon as the page loads.
+            this.Loaded += async (_, _) => await ViewModel.DetectGpusCommand.ExecuteAsync(null);
         }
 
-        private async void GpuDriversPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            // Detect on first visit so the adapter list + installed versions are live.
-            if (ViewModel.DetectedGpus.Count == 0 && !ViewModel.IsDetecting)
-                await ViewModel.DetectGpusCommand.ExecuteAsync(null);
-
-            await Task.Delay(50); // Let layout complete first
-
-            for (int i = 0; i < ViewModel.VisibleDrivers.Count; i++)
-            {
-                var element = DriverGrid.TryGetElement(i);
-                if (element is UIElement uiElement)
-                {
-                    uiElement.Opacity = 0;
-                    uiElement.Translation = new Vector3(0, 40, 0);
-
-                    await Task.Delay(100 * i);
-
-                    uiElement.Opacity = 1;
-                    uiElement.Translation = Vector3.Zero;
-                }
-            }
-        }
-
-        private async void DriverCard_Click(object sender, RoutedEventArgs e)
+        private async void CheckForUpdatesBtn_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is GpuDriverItem driver)
             {
-                ViewModel.SelectedDriver = driver;
-                await DriverDetailsDialog.ShowAsync();
+                await ViewModel.CheckDriverCommand.ExecuteAsync(driver);
             }
         }
 
-        private async void DialogProgressBtn_Click(object sender, RoutedEventArgs e)
+        private async void DownloadInstallBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (ViewModel.SelectedDriver != null)
+            if (sender is Button btn && btn.Tag is GpuDriverItem driver)
             {
-                await ViewModel.InstallDriverCommand.ExecuteAsync(ViewModel.SelectedDriver);
+                await ViewModel.InstallDriverCommand.ExecuteAsync(driver);
             }
         }
 
-        private void DialogVendorBtn_Click(object sender, RoutedEventArgs e)
+        public static Visibility NullToVis(GpuDriverItem driver)
         {
-            if (ViewModel.SelectedDriver != null)
-            {
-                ViewModel.OpenVendorPageCommand.Execute(ViewModel.SelectedDriver);
-            }
+            return driver != null ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // Static converter methods for x:Bind (same pattern as InstallerPage)
-        public static Visibility BoolToVis(bool isVisible)
+        public static Visibility PrimaryVis(bool isPrimary) => isPrimary ? Visibility.Visible : Visibility.Collapsed;
+        public static Visibility SecondaryVis(bool isPrimary) => isPrimary ? Visibility.Collapsed : Visibility.Visible;
+
+        public static bool IsInstallButtonEnabled(GpuDriverStatus status)
         {
-            return isVisible ? Visibility.Visible : Visibility.Collapsed;
+            return status is GpuDriverStatus.UpdateAvailable or GpuDriverStatus.NotInstalled or GpuDriverStatus.Failed;
         }
 
-        public static Visibility CountToVis(int count)
+        // One action button per card: install when a driver is ready to install,
+        // otherwise a plain "Check for updates".
+        public static Visibility InstallBtnVis(GpuDriverStatus status)
         {
-            return count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            return status is GpuDriverStatus.UpdateAvailable or GpuDriverStatus.NotInstalled or GpuDriverStatus.Failed
+                ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        public static bool Not(bool val) => !val;
-
-        public static Visibility NotEmptyToVisibility(string? text)
+        public static Visibility CheckBtnVis(GpuDriverStatus status)
         {
-            return string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        public static Visibility IsDoneToVisibility(GpuDriverStatus status)
-        {
-            return status is GpuDriverStatus.Installed or GpuDriverStatus.UpToDate or GpuDriverStatus.ManualActionRequired
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
-
-        public static string GetCloseButtonText(GpuDriverStatus status)
-        {
-            return status is GpuDriverStatus.Downloading or GpuDriverStatus.Installing ? "Cancel" : "Close";
+            return InstallBtnVis(status) == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         }
 
         public static BitmapImage VendorIcon(string vendor)
         {
-            // x:Bind function bindings require the exact target type, so this
-            // returns ImageSource directly (unlike string property bindings).
-            string path = vendor switch
-            {
-                _ when vendor.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) => "ms-appx:///Assets/nvidia-logo.png",
-                _ when vendor.Contains("AMD", StringComparison.OrdinalIgnoreCase) => "ms-appx:///Assets/amd-logo.png",
-                _ when vendor.Contains("Intel", StringComparison.OrdinalIgnoreCase) => "ms-appx:///Assets/intel-logo.png",
-                _ => ""
-            };
+            string path = string.Empty;
+            if (vendor.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase))
+                path = "ms-appx:///Assets/nvidia-logo.png";
+            else if (vendor.Contains("AMD", StringComparison.OrdinalIgnoreCase))
+                path = "ms-appx:///Assets/amd-logo.png";
+            else if (vendor.Contains("Intel", StringComparison.OrdinalIgnoreCase))
+                path = "ms-appx:///Assets/intel-logo.png";
+
             return string.IsNullOrEmpty(path) ? new BitmapImage() : new BitmapImage(new Uri(path));
         }
     }

@@ -9,8 +9,13 @@ using stellarisKIT.Native;
 namespace stellarisKIT.Services;
 
 /// <summary>
-/// Exposes Thread-level mutations for priority, boost, affinity, ideal processor,
-/// suspension and termination against native APIs off the UI thread.
+/// Thread-level tuning backed ONLY by documented Win32 APIs:
+/// processthreadsapi (OpenThread, Get/SetThreadPriority, Get/SetThreadPriorityBoost,
+/// Get/SetThreadGroupAffinity, SetThreadIdealProcessorEx, SuspendThread, ResumeThread,
+/// TerminateThread) and SetThreadInformation with ThreadPowerThrottling /
+/// ThreadMemoryPriority (MEMORY_PRIORITY_INFORMATION, levels 1-5).
+/// Deliberately no NT_STATUS info-class tricks: thread I/O priority has no
+/// documented Win32 setter, so it is not offered.
 /// </summary>
 public sealed class ThreadTuningService
 {
@@ -186,6 +191,23 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
+    /// <summary>Reads the live ideal processor (documented GetThreadIdealProcessorEx).</summary>
+    public async Task<(ushort Group, byte Number)> GetIdealProcessorAsync(uint tid)
+    {
+        return await Task.Run(() =>
+        {
+            using var thread = NativeMethods.Handles.OpenThread(
+                NativeMethods.ThreadAccess.QueryInformation, false, tid);
+            CpuSetService.ThrowIfInvalid(thread, tid);
+            uint number = NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var current);
+            if (number == uint.MaxValue)
+            {
+                throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Reading thread ideal processor failed."));
+            }
+            return (current.Group, current.Number);
+        }).ConfigureAwait(false);
+    }
+
     public async Task SetIdealProcessorAsync(uint tid, ushort group, byte index)
     {
         await Task.Run(() =>
@@ -246,6 +268,44 @@ public sealed class ThreadTuningService
             if (!NativeMethods.Threads.TerminateThread(thread, exitCode))
             {
                 throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Terminating thread failed."));
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>Thread memory priority 1 (very low) … 5 (normal), per
+    /// MEMORY_PRIORITY_INFORMATION (documented Win32 API).</summary>
+    public async Task<uint> GetMemoryPriorityAsync(uint tid)
+    {
+        return await Task.Run(() =>
+        {
+            using var thread = NativeMethods.Handles.OpenThread(
+                NativeMethods.ThreadAccess.QueryInformation, false, tid);
+            CpuSetService.ThrowIfInvalid(thread, tid);
+            var info = new ThreadMemoryPriorityInfo();
+            if (!NativeMethods.Power.GetThreadInformation(
+                thread, ThreadInformationClass.ThreadMemoryPriority,
+                ref info, (uint)Marshal.SizeOf<ThreadMemoryPriorityInfo>()))
+            {
+                throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Reading thread memory priority failed."));
+            }
+            return info.MemoryPriority;
+        }).ConfigureAwait(false);
+    }
+
+    public async Task SetMemoryPriorityAsync(uint tid, uint level)
+    {
+        level = Math.Clamp(level, 1, 5);
+        await Task.Run(() =>
+        {
+            using var thread = NativeMethods.Handles.OpenThread(
+                NativeMethods.ThreadAccess.SetInformation, false, tid);
+            CpuSetService.ThrowIfInvalid(thread, tid);
+            var info = new ThreadMemoryPriorityInfo { MemoryPriority = level };
+            if (!NativeMethods.Power.SetThreadInformation(
+                thread, ThreadInformationClass.ThreadMemoryPriority,
+                ref info, (uint)Marshal.SizeOf<ThreadMemoryPriorityInfo>()))
+            {
+                throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Setting thread memory priority failed."));
             }
         }).ConfigureAwait(false);
     }

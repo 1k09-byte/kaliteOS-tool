@@ -8,6 +8,7 @@ using stellarisKIT.Pages;
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Windows.Foundation;
 using WinRT.Interop;
 
@@ -19,8 +20,18 @@ namespace stellarisKIT
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
         private const int DWMWCP_ROUND = 2;
 
-        [DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+        private stellarisKIT.Services.TrayIconService? _tray;
+        private bool _allowExit;
+        private bool _trayShown;
+
+        /// <summary>Real application exit that bypasses minimize-to-tray.</summary>
+        public void AllowExitAndClose()
+        {
+            _allowExit = true;
+            try { _tray?.Dispose(); } catch { }
+            _tray = null;
+            this.Close();
+        }
 
         public MainWindow()
         {
@@ -33,7 +44,7 @@ namespace stellarisKIT
             {
                 IntPtr hwnd = WindowNative.GetWindowHandle(this);
                 int preference = DWMWCP_ROUND;
-                DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+                stellarisKIT.Native.DwmApi.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
             }
             catch
             {
@@ -42,18 +53,110 @@ namespace stellarisKIT
 
             ExtendsContentIntoTitleBar = true;
             AppWindow.Resize(new Windows.Graphics.SizeInt32 { Width = 1440, Height = 900 });
-            AppWindow.Title = "kit";
+            AppWindow.Title = "kaliteConfig";
+            try
+            {
+                var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "kaliteConfig.ico");
+                if (System.IO.File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
+            }
+            catch { } // icon is cosmetic; never block startup
+
+            // Close button minimizes to the system tray instead of exiting.
+            // Exit only via the tray menu (or Settings, which calls AllowExit+Close).
+            _tray = new stellarisKIT.Services.TrayIconService();
+            _tray.OnOpen += () =>
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    AppWindow.Show();
+                    var hwnd = WindowNative.GetWindowHandle(this);
+                    _ = stellarisKIT.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
+                });
+            };
+            _tray.OnExit += () =>
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    _allowExit = true;
+                    try { _tray?.Dispose(); } catch { }
+                    _tray = null;
+                    this.Close();
+                });
+            };
+            try
+            {
+                var trayIcon = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "kaliteConfig.ico");
+                _trayShown = System.IO.File.Exists(trayIcon) && _tray.Show(trayIcon, "kaliteConfig");
+            }
+            catch { }
+            AppWindow.Closing += (_, args) =>
+            {
+                // Only swallow the close when the tray is actually up — otherwise
+                // a dead tray would make the app unclosable.
+                if (!_allowExit && _trayShown)
+                {
+                    args.Cancel = true;
+                    AppWindow.Hide();
+                }
+            };
             AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
             AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
-            // Default to Installer page and select the nav item.
+            // Default to the Apps (installer/uninstaller) page on launch.
             // Pill position is layout-driven (LayoutUpdated): event-driven updates
             // (SelectionChanged/SizeChanged) can compute against a stale layout
             // pass when maximizing/restoring, stranding the pill on the wrong item.
             NavShell.LayoutUpdated += (_, _) => UpdateNavPill();
-            NavView.SelectedItem = NavView.MenuItems[0];
-            NavView.Loaded += (_, _) => SuppressSidebarTooltips();
+            var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
+                .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
+            if (appsItem != null)
+                NavView.SelectedItem = appsItem; // fires SelectionChanged -> navigates to Apps (installer)
+            else
+                ContentFrame.Navigate(typeof(UninstallerPage));
+            NavView.Loaded += async (_, _) => 
+            {
+                SuppressSidebarTooltips();
+                if (!App.IsAdmin)
+                {
+                    await ShowElevationDialogAsync();
+                }
+            };
             SuppressSidebarTooltips();
+        }
+
+        private async Task ShowElevationDialogAsync()
+        {
+            try
+            {
+                var xamlRoot = this.Content?.XamlRoot;
+                if (xamlRoot == null) return; // too early to show UI; status is also in Settings
+                var dialog = new ContentDialog
+                {
+                    Title = "Administrator Rights Required",
+                    Content = "This application requires advanced access to modify kernel-level thread affinities, power plans, and OS telemetry. Please restart as Administrator.",
+                    PrimaryButtonText = "Restart as Admin",
+                    CloseButtonText = "Continue anyway",
+                    XamlRoot = xamlRoot
+                };
+
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    var processInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = System.Environment.ProcessPath,
+                        UseShellExecute = true,
+                        Verb = "runas"
+                    };
+                    try
+                    {
+                        System.Diagnostics.Process.Start(processInfo);
+                    }
+                    catch { return; } // User cancelled UAC: stay in this instance
+                    Application.Current.Exit();
+                }
+            }
+            catch { } // never crash startup over an advisory dialog
         }
 
         private void SuppressSidebarTooltips()
@@ -112,7 +215,6 @@ namespace stellarisKIT
             {
                 switch (tag)
                 {
-                    case "Home": // legacy fallback
                     case "AppsPage":
                          ContentFrame.Navigate(typeof(InstallerPage));
                          break;
@@ -126,7 +228,7 @@ namespace stellarisKIT
                          ContentFrame.Navigate(typeof(ThreadTunerPage));
                          break;
                     case "WindowsSettingsPage":
-                         ContentFrame.Navigate(typeof(WindowsSettingsPage));
+                         ContentFrame.Navigate(typeof(WindowsSettingsHubPage));
                          break;
                     case "Settings":
                          ContentFrame.Navigate(typeof(SettingsPage));

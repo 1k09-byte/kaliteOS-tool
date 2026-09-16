@@ -24,6 +24,16 @@ namespace stellarisKIT.Models
         /// </summary>
         public System.Collections.Generic.List<ulong> EfficiencyCoreMasks { get; init; } = new();
 
+        /// <summary>
+        /// Group Affinity bitmasks representing distinct NUMA nodes.
+        /// </summary>
+        public System.Collections.Generic.List<ulong> NumaNodeMasks { get; init; } = new();
+
+        /// <summary>
+        /// Group Affinity bitmasks representing distinct L3 Cache domains (Core Complexes / CCX).
+        /// </summary>
+        public System.Collections.Generic.List<ulong> CoreComplexMasks { get; init; } = new();
+
         public bool IsHybrid => EfficiencyCoreMasks.Count > 0;
     }
 }

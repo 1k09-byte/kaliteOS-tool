@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml;
 
 namespace stellarisKIT.Models
 {
@@ -33,6 +34,33 @@ namespace stellarisKIT.Models
         [ObservableProperty]
         private string installerFileName = string.Empty;
 
+        // --- UI BINDING (observable so detection results refresh live) ---
+        [ObservableProperty]
+        private string hardwareName = string.Empty;
+
+        [ObservableProperty]
+        private string vramText = string.Empty;
+
+        [ObservableProperty]
+        private string gpuTypeText = string.Empty;
+
+        [ObservableProperty]
+        private string deviceTypeText = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PrimaryVis))]
+        [NotifyPropertyChangedFor(nameof(SecondaryVis))]
+        private bool isPrimary = false;
+
+        public Visibility PrimaryVis => IsPrimary ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility SecondaryVis => IsPrimary ? Visibility.Collapsed : Visibility.Visible;
+
+        // Update-available / up-to-date pill in the card header.
+        public Visibility UpdatePillVis => Status == GpuDriverStatus.UpdateAvailable
+            ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility UpToDatePillVis => Status == GpuDriverStatus.UpToDate ? Visibility.Visible : Visibility.Collapsed;
+        // -------------------------------------
+
         // Fallback official page (used when lookup/download fails, and for page-only vendors).
         [ObservableProperty]
         private string vendorPageUrl = string.Empty;
@@ -49,6 +77,8 @@ namespace stellarisKIT.Models
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
+        [NotifyPropertyChangedFor(nameof(UpdatePillVis))]
+        [NotifyPropertyChangedFor(nameof(UpToDatePillVis))]
         private GpuDriverStatus status = GpuDriverStatus.NotChecked;
 
         [ObservableProperty]

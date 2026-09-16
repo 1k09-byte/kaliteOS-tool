@@ -56,6 +56,7 @@ public partial class TunerProcessRow : ObservableObject
     [ObservableProperty] public partial bool EfficiencyModeBool { get; set; }
     [ObservableProperty] public partial string SettingsSummary { get; set; } = "Settings unavailable";
     [ObservableProperty] public partial double CpuPercent { get; set; }
+    [ObservableProperty] public partial bool IsProtected { get; set; }
     [ObservableProperty] public partial string Error { get; set; } = string.Empty;
 }
 
@@ -115,16 +116,29 @@ public enum AffinityScope
 
 public sealed class TunerThreadRule
 {
-    /// <summary>Thread description match (exact, case-insensitive). Empty = match any.</summary>
+    /// <summary>Thread description match (contains, case-insensitive). Empty = match any (requires MatchAllThreads or StartAddress).</summary>
     public string Description { get; set; } = string.Empty;
     /// <summary>Start address match ("module+offset", exact, case-insensitive). Empty = match any.</summary>
     public string StartAddress { get; set; } = string.Empty;
+    /// <summary>When true, matches every thread of the process (used by built-in
+    /// defaults for threads that carry no usable name). False for normal rules.</summary>
+    public bool MatchAllThreads { get; set; }
     /// <summary>Win32 thread priority to enforce (e.g. 0 Normal, 15 TimeCritical, -4 custom).</summary>
     public int Priority { get; set; }
     /// <summary>Per-thread Efficiency Mode (EcoQoS). Null = leave unchanged.</summary>
     public bool? EfficiencyMode { get; set; }
     /// <summary>Per-thread dynamic priority boost. Null = leave unchanged.</summary>
     public bool? BoostEnabled { get; set; }
+    /// <summary>Thread affinity mask to enforce. Null = leave unchanged.</summary>
+    public ulong? AffinityMask { get; set; }
+    /// <summary>Processor group for AffinityMask. Null = keep live group.</summary>
+    public ushort? AffinityGroup { get; set; }
+    /// <summary>Ideal processor group. Null = leave unchanged (requires IdealIndex).</summary>
+    public ushort? IdealGroup { get; set; }
+    /// <summary>Ideal processor index. Null = leave unchanged (requires IdealGroup).</summary>
+    public byte? IdealIndex { get; set; }
+    /// <summary>Thread memory priority 1-5 (MEMORY_PRIORITY_INFORMATION). Null = unchanged.</summary>
+    public uint? MemoryPriority { get; set; }
     /// <summary>Live threads this rule matched the last time it was evaluated. Display only.</summary>
     public int TargetCount { get; set; }
 
@@ -142,6 +156,9 @@ public sealed class TunerThreadRule
             var parts = new List<string> { $"Priority: {Priority}" };
             if (EfficiencyMode.HasValue) parts.Add(EfficiencyMode.Value ? "Eco ON" : "Eco OFF");
             if (BoostEnabled.HasValue) parts.Add(BoostEnabled.Value ? "Boost ON" : "Boost OFF");
+            if (AffinityMask.HasValue) parts.Add($"Affinity 0x{AffinityMask.Value:X}");
+            if (IdealGroup.HasValue && IdealIndex.HasValue) parts.Add($"Ideal G{IdealGroup.Value}:{IdealIndex.Value}");
+            if (MemoryPriority.HasValue) parts.Add($"Mem {MemoryPriority.Value}");
             return string.Join(" · ", parts);
         }
     }
@@ -150,9 +167,15 @@ public sealed class TunerThreadRule
     {
         Description = Description,
         StartAddress = StartAddress,
+        MatchAllThreads = MatchAllThreads,
         Priority = Priority,
         EfficiencyMode = EfficiencyMode,
         BoostEnabled = BoostEnabled,
+        AffinityMask = AffinityMask,
+        AffinityGroup = AffinityGroup,
+        IdealGroup = IdealGroup,
+        IdealIndex = IdealIndex,
+        MemoryPriority = MemoryPriority,
         TargetCount = TargetCount,
     };
 }
@@ -216,6 +239,25 @@ public sealed partial class TunerProfile : ObservableObject
     public string StatusText => Enabled ? "Enabled" : "Disabled";
 
     [JsonIgnore]
+    public Microsoft.UI.Xaml.Visibility EnabledPillVis =>
+        Enabled ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    [JsonIgnore]
+    public Microsoft.UI.Xaml.Visibility DisabledPillVis =>
+        Enabled ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+
+    /// <summary>Waiting-for-process results read muted; applied results read normal.</summary>
+    [JsonIgnore]
+    public Microsoft.UI.Xaml.Visibility WaitingResultVis =>
+        LastResult == "Waiting for process" || LastResult == "No actions defined"
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    [JsonIgnore]
+    public Microsoft.UI.Xaml.Visibility AppliedResultVis =>
+        LastResult == "Waiting for process" || LastResult == "No actions defined"
+            ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+
+    [JsonIgnore]
     public int ProcessActionCount =>
         (GamingModeAuto ? 1 : 0) +
         (PriorityClass.HasValue ? 1 : 0) +
@@ -246,6 +288,11 @@ public sealed partial class TunerProfile : ObservableObject
         OnPropertyChanged(nameof(ProcessActionsSummary));
         OnPropertyChanged(nameof(ThreadRulesSummary));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(EnabledPillVis));
+        OnPropertyChanged(nameof(DisabledPillVis));
+        OnPropertyChanged(nameof(WaitingResultVis));
+        OnPropertyChanged(nameof(AppliedResultVis));
+        OnPropertyChanged(nameof(LastResult));
         OnPropertyChanged(nameof(ProcessActionCount));
         OnPropertyChanged(nameof(Summary));
     }

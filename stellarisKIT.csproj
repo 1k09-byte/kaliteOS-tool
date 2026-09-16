@@ -36,6 +36,10 @@
     <Content Include="Assets\**\*">
        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Dev tools live in-repo but must never join the app build. -->
+    <Compile Remove="tools\**\*" />
+    <EmbeddedResource Remove="tools\**\*" />
+    <None Remove="tools\**\*" />
   </ItemGroup>
 
   <ItemGroup>

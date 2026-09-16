@@ -28,16 +28,18 @@
   },
   "mods": [
     {
+      "enabled": true,
       "modId": "explorer-context-menu-classic",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "name": "Classic context menu on Windows 11",
       "settings": {
         "overrideWithCtrl": 1
       }
     },
     {
+      "enabled": true,
       "modId": "explorer-details-better-file-sizes",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "name": "Better file sizes in Explorer details",
       "settings": {
         "calculateFolderSizes": "everything",
@@ -47,23 +49,27 @@
       }
     },
     {
+      "enabled": true,
       "modId": "extension-change-no-warning",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "name": "Turn off change file extension warning"
     },
     {
+      "enabled": true,
       "modId": "f1-blocker",
-      "version": "0.0.3",
+      "version": "1.0.1",
       "name": "F1 Blocker"
     },
     {
+      "enabled": true,
       "modId": "modernize-folder-picker-dialog",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "name": "Modernize Folder Picker Dialog"
     },
     {
+      "enabled": true,
       "modId": "slick-window-arrangement",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "name": "Slick Window Arrangement",
       "settings": {
         "SnapWindowsWhenDragging": 1,
@@ -77,8 +83,9 @@
       }
     },
     {
+      "enabled": true,
       "modId": "start-menu-open-location",
-      "version": "1.0",
+      "version": "1.0.1",
       "name": "Start menu open location",
       "settings": {
         "monitor": 0,
@@ -86,26 +93,30 @@
       }
     },
     {
+      "enabled": true,
       "modId": "taskbar-dock-animation",
-      "version": "1.9.2",
+      "version": "1.10.0",
       "name": "Taskbar Dock Animation"
     },
     {
+      "enabled": true,
       "modId": "taskbar-notification-icons-show-all",
-      "version": "1.0",
+      "version": "1.1",
       "name": "Always show all taskbar tray icons",
       "settings": {
         "mode": "showAll"
       }
     },
     {
+      "enabled": true,
       "modId": "taskbar-restart-explorer",
-      "version": "1.0",
+      "version": "1.1",
       "name": "Taskbar Restart Explorer"
     },
     {
+      "enabled": true,
       "modId": "windows-11-settings-styler",
-      "version": "1.1",
+      "version": "1.3",
       "name": "Windows 11 Settings Styler",
       "settings": {
         "theme": "Translucent_Settings11",
@@ -116,8 +127,9 @@
       }
     },
     {
+      "enabled": true,
       "modId": "windows-11-start-menu-styler",
-      "version": "1.6",
+      "version": "2.1",
       "name": "Windows 11 Start Menu Styler",
       "settings": {
         "theme": "TranslucentStartMenu",
@@ -135,8 +147,9 @@
       }
     },
     {
+      "enabled": true,
       "modId": "windows-11-taskbar-styler",
-      "version": "1.8",
+      "version": "2.0",
       "name": "Windows 11 Taskbar Styler",
       "settings": {
         "theme": "Luminosity_variant_Dock",

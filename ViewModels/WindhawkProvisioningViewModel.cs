@@ -53,16 +53,27 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
         OnPropertyChanged(nameof(InstallStatusText));
         OnPropertyChanged(nameof(CanTestImport));
         OnPropertyChanged(nameof(CanRun));
+        OnPropertyChanged(nameof(ShowLegacyUpgradeNotice));
     }
 
     public bool CanRun => !IsBusy && !string.IsNullOrEmpty(EffectiveBackupFilePath) && File.Exists(EffectiveBackupFilePath);
     // Test import is only valid when Windhawk is actually installed (mirrors AutoOS: windhawk-cli.exe must exist)
     public bool CanTestImport => !IsBusy && Installation.IsInstalled && !string.IsNullOrEmpty(EffectiveBackupFilePath) && File.Exists(EffectiveBackupFilePath);
 
+    /// <summary>InfoBar notice: a legacy (pre-2.0) install was detected and the
+    /// flow will upgrade it to the pinned 2.0 alpha so settings import works.</summary>
+    public bool ShowLegacyUpgradeNotice => Installation.IsInstalled && Installation.CliPath is null;
+
+    /// <summary>XAML-friendly busy indicator (Collapsed/Visible).</summary>
+    public Microsoft.UI.Xaml.Visibility BusyVisibility => IsBusy
+        ? Microsoft.UI.Xaml.Visibility.Visible
+        : Microsoft.UI.Xaml.Visibility.Collapsed;
+
     partial void OnIsBusyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanRun));
         OnPropertyChanged(nameof(CanTestImport));
+        OnPropertyChanged(nameof(BusyVisibility));
     }
 
     public void RefreshDetection()
@@ -72,12 +83,12 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
         {
             ShowMessage($"Windhawk {Installation.Version ?? ""} detected.".Trim() + (Installation.CliPath is not null
                 ? " Settings import will use its built-in CLI."
-                : " Settings import will use the legacy registry path (Windhawk 2.0's CLI is not present)."),
+                : " Running the flow upgrades to Windhawk 2.0 (alpha 5) — its CLI is required for settings import."),
                 InfoBarSeverity.Informational);
         }
         else
         {
-            ShowMessage("Windhawk is not installed. Running the flow below installs the latest release silently, then imports the selected backup.",
+            ShowMessage("Windhawk is not installed. Running the flow below installs Windhawk 2.0 (alpha 5) silently, then imports the bundled settings.",
                 InfoBarSeverity.Informational);
         }
     }

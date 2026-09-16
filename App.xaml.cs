@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Security.Principal;
 using System.Threading.Tasks;
 using DevWinUI;
 using Microsoft.UI.Xaml;
@@ -13,10 +15,11 @@ namespace stellarisKIT
 
         private Window? _window;
         private static Window? _windowStatic;
-        private InstallerService _installerService;
+
+        public static bool IsDryRun { get; private set; }
+        public static bool IsAdmin { get; private set; }
 
         public IThemeService? ThemeService { get; set; }
-        public InstallerService InstallerService { get { return _installerService; } }
 
         /// <summary>
         /// The app's main window. Needed by file pickers and dialogs in pages
@@ -39,8 +42,32 @@ namespace stellarisKIT
 
         public App()
         {
+            var args = Environment.GetCommandLineArgs();
+            if (args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase))
+            {
+                IsDryRun = true;
+            }
+
+            using (var identity = WindowsIdentity.GetCurrent())
+            {
+                var principal = new WindowsPrincipal(identity);
+                IsAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+
             InitializeComponent();
-            _installerService = new InstallerService();
+
+            // Last-resort crash log: unhandled UI-thread exceptions land here with
+            // a full stack trace so a crash can be diagnosed after the fact.
+            this.UnhandledException += (_, e) =>
+            {
+                try
+                {
+                    System.IO.File.AppendAllText("crash.log",
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] UNHANDLED: {e.Exception}\n" +
+                        new string('-', 80) + "\n");
+                }
+                catch { }
+            };
             
             ProfileWatcher = new ProfileWatcherService(ProcessTuning, CpuSets, ThreadTuning);
             // Fire and forget the profile watcher async load
@@ -58,10 +85,18 @@ namespace stellarisKIT
 
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            _window = new MainWindow();
-            _windowStatic = _window;
-            ThemeService = new ThemeService().Initialize(_window);
-            _window.Activate();
+            try 
+            {
+                _window = new MainWindow();
+                _windowStatic = _window;
+                ThemeService = new ThemeService().Initialize(_window);
+                _window.Activate();
+            }
+            catch (Exception ex)
+            {
+                System.IO.File.WriteAllText("ExceptionDump.txt", ex.ToString());
+                throw;
+            }
         }
     }
 }

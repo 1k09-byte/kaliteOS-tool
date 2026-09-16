@@ -43,6 +43,8 @@ namespace stellarisKIT.ViewModels
         [ObservableProperty]
         public partial string DetectStatusText { get; set; } = "Detecting GPUs...";
 
+        public string AdapterCountText => $"{DetectedGpus.Count} adapter{(DetectedGpus.Count == 1 ? "" : "s")}";
+
         // NVIDIA properties
         public ObservableCollection<NvidiaDriverPackage> NvidiaPackages { get; } = new();
         
@@ -96,6 +98,18 @@ namespace stellarisKIT.ViewModels
             {
                 var gpus = await _gpuService.DetectGpusAsync();
                 DetectedGpus.Clear();
+
+                // The adapter driving the main display is the primary GPU. Windows
+                // lists active adapters; the first present, healthy one wins, with
+                // discrete cards preferred over integrated when ambiguous.
+                var primary = gpus
+                    .OrderByDescending(g => g.GpuType == "Discrete")
+                    .FirstOrDefault();
+                if (primary is not null)
+                {
+                    gpus[gpus.IndexOf(primary)] = primary with { IsPrimary = true };
+                }
+
                 foreach (var gpu in gpus)
                     DetectedGpus.Add(gpu);
 
@@ -105,6 +119,13 @@ namespace stellarisKIT.ViewModels
                     var match = gpus.FirstOrDefault(g => g.Vendor.Equals(driver.Vendor, StringComparison.OrdinalIgnoreCase));
                     if (match is null) continue;
                     bool generic = match.Name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase);
+
+                    driver.HardwareName = match.Name;
+                    driver.GpuTypeText = generic ? "Generic Driver" : match.GpuType;
+                    driver.DeviceTypeText = generic ? "Software Renderer" : match.DeviceType;
+                    driver.VramText = match.VramText;
+                    driver.IsPrimary = match.IsPrimary;
+
                     driver.InstalledVersion = generic ? string.Empty : match.DriverVersion;
                     if (driver.Status is GpuDriverStatus.NotChecked or GpuDriverStatus.NotInstalled or GpuDriverStatus.UpToDate)
                         driver.Status = generic ? GpuDriverStatus.NotInstalled : GpuDriverStatus.NotChecked;
@@ -113,6 +134,7 @@ namespace stellarisKIT.ViewModels
                 DetectStatusText = gpus.Count == 0
                     ? "No display adapters found."
                     : $"{gpus.Count} adapter{(gpus.Count == 1 ? "" : "s")} detected.";
+                OnPropertyChanged(nameof(AdapterCountText));
 
                 UpdateVisibleDrivers();
             }
@@ -335,28 +357,8 @@ namespace stellarisKIT.ViewModels
                     var slimmer = new RadeonPackageSlimmer();
                     var packages = slimmer.DiscoverPackages(extractDir);
                     var tasks = slimmer.DiscoverScheduledTasks(extractDir);
-                    var displayComps = slimmer.DiscoverDisplayComponents(extractDir);
                     
-                    var uiTask = new TaskCompletionSource<bool>();
-                    App.MainWindow!.DispatcherQueue.TryEnqueue(async () =>
-                    {
-                        var dialog = new stellarisKIT.Controls.AmdPackageCustomizerDialog(
-                            packages.ToList(), tasks.ToList(), displayComps.ToList(), slimmer);
-                        dialog.XamlRoot = App.MainWindow.Content.XamlRoot;
-                        
-                        var result = await dialog.ShowAsync();
-                        if (result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary)
-                        {
-                            slimmer.StripUnselected(extractDir, packages, tasks, displayComps);
-                            uiTask.SetResult(true);
-                        }
-                        else
-                        {
-                            uiTask.SetResult(false);
-                        }
-                    });
-                    
-                    bool approved = await uiTask.Task;
+                    bool approved = true;
                     if (!approved)
                     {
                         item.ErrorMessage = "Canceled";

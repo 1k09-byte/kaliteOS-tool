@@ -13,7 +13,7 @@ namespace stellarisKIT.Pages
 
         public InstallerPage()
         {
-            ViewModel = new InstallerViewModel(App.Current.InstallerService);
+            ViewModel = new InstallerViewModel(new Services.InstallerService());
             InitializeComponent();
             // No manual card stagger: the previous Opacity/Translation loop could
             // strand cards at partial opacity (async, uncancelled on navigate-away,

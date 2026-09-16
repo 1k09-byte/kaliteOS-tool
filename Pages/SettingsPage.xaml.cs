@@ -1,6 +1,7 @@
 // App settings page (persisted via ThemeService).
 // Written in the Windows App SDK C# dialect. See docs/GALLERY-REFERENCE.md section 2.
 
+using System;
 using Microsoft.UI.Xaml.Controls;
 
 namespace stellarisKIT.Pages
@@ -57,6 +58,11 @@ namespace stellarisKIT.Pages
             {
                 _syncingStartupToggle = false;
             }
+        }
+
+        private async void AboutCard_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            await AboutDialog.ShowAsync();
         }
     }
 }

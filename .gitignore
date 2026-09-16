@@ -32,3 +32,12 @@ test.png
 
 # IDE files
 stellarisKIT.csproj.user
+
+# Distribution artifacts (built installers - published as GitHub release assets)
+dist/
+
+# Old layout backups
+_backup-oldlayout/
+
+# Crash dumps
+ExceptionDump.txt

@@ -1,0 +1,95 @@
+<Page
+    x:Class="stellarisKIT.Pages.WindowsSettingsHubPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="WS — Windows Settings" Margin="36,24,36,12" Style="{StaticResource TitleTextBlockStyle}" />
+
+        <ScrollViewer Grid.Row="1" Padding="36,0,36,24" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="SettingsPanel" MaxWidth="1064" HorizontalAlignment="Left" Spacing="4">
+                
+                <toolkit:SettingsCard Header="powerplans" Margin="0,0,0,12">
+                     <Button Content="Open Tuner" Style="{StaticResource AccentButtonStyle}" Click="PowerPlans_Click" />
+                </toolkit:SettingsCard>
+
+                <TextBlock Text="Scheduling" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+
+                <toolkit:SettingsCard x:Name="Win32PSCard" Header="Win32 priority separation (Win32PrioritySeparation)" Description="Reading current value…" Margin="0,0,0,12">
+                     <ComboBox x:Name="Win32PSBox" PlaceholderText="Select a preset" SelectionChanged="Win32PSBox_SelectionChanged" />
+                </toolkit:SettingsCard>
+
+                <TextBlock Text="Kernel" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
+
+                <toolkit:SettingsCard x:Name="ThreadedDpcCard" Header="Threaded DPCs" Description="Reading…" Margin="0,0,0,12">
+                     <ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="ThreadedDpc" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard x:Name="IrqRoutingCard" Header="Disable automatic interrupt routing" Description="Reading…" Margin="0,0,0,12">
+                     <ToggleSwitch x:Name="IrqRoutingToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="InterruptRouting" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,12">
+                     <ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="TimerExpiration" />
+                </toolkit:SettingsCard>
+
+
+                <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold (SvcHostSplitThresholdInKB)"
+                                      Description="RAM size above which Windows stops grouping services into shared svchost processes. Windows default: 380000 (~371 GB, effectively never split on typical RAM). Takes effect after a restart." Margin="0,0,0,12">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ComboBox x:Name="SvcSplitBox" PlaceholderText="Select RAM size" SelectionChanged="SvcSplitBox_SelectionChanged" MinWidth="160" />
+                        <Button Content="Reset" Click="SvcSplitReset_Click" ToolTipService.ToolTip="Delete the value and return to the Windows default" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <TextBlock Text="Apps &amp; Cleanup" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+
+                <toolkit:SettingsCard Header="Uninstaller" Description="Remove apps, clean leftovers — like GeekUninstaller / BCU" Margin="0,0,0,24">
+                     <Button Content="Open Uninstaller" Style="{StaticResource AccentButtonStyle}" Click="Uninstaller_Click"/>
+                </toolkit:SettingsCard>
+
+
+                <TextBlock Text="Windhawk" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+
+                <!-- Live Windhawk provisioning: real detection + install/import flow.
+                     The old hardcoded "v1.7.3 / legacy path" InfoBar was fake — it
+                     showed stale static text and the button did nothing. -->
+                <InfoBar Title="Windhawk"
+                         IsOpen="{x:Bind Vm.HasMessage, Mode=OneWay}"
+                         Message="{x:Bind Vm.Message, Mode=OneWay}"
+                         Severity="{x:Bind Vm.MessageSeverity, Mode=OneWay}"
+                         IsClosable="True"
+                         Margin="0,0,0,12" />
+
+                <InfoBar Title="Windhawk 1.7.3 detected — upgrade required"
+                         Message="Running the flow upgrades to Windhawk 2.0 (alpha 5); its CLI is required for settings import."
+                         IsOpen="{x:Bind Vm.ShowLegacyUpgradeNotice, Mode=OneWay}"
+                         Severity="Informational"
+                         Margin="0,0,0,12" />
+
+                <toolkit:SettingsCard Header="Windhawk" Description="{x:Bind Vm.InstallStatusText, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ProgressBar Width="120" IsIndeterminate="True"
+                                     Visibility="{x:Bind Vm.BusyVisibility, Mode=OneWay}" />
+                        <Button x:Name="WindhawkInstallButton" Content="Install Windhawk &amp; Import Settings"
+                                Style="{StaticResource AccentButtonStyle}"
+                                IsEnabled="{x:Bind Vm.CanRun, Mode=OneWay}"
+                                Click="WindhawkInstall_Click" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

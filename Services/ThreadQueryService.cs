@@ -25,8 +25,10 @@ public sealed class LiveThreadInfo
 /// current priority). Uses OS thread names only — no DbgHelp, so it stays fast
 /// and never blocks on symbol downloads. Null when the process is gone.
 /// </summary>
-public static class ThreadQueryService
+public sealed class ThreadQueryService
 {
+    private static readonly ProtectedProcessService _protectedProcessService = new();
+
     /// <summary>System Informer style: "Time critical", "Below normal", "Custom (3)", "Custom (-4)".</summary>
     public static string FormatRelative(int level) => level switch
     {
@@ -94,7 +96,7 @@ public static class ThreadQueryService
                         StartAddress = start,
                         RelativeValue = relative,
                         RelativeText = FormatRelative(relative),
-                        Base = basePri,
+                        Base = basePri
                     });
                 }
             }
@@ -176,10 +178,27 @@ public static class ThreadQueryService
     }
 }
 
-/// <summary>Shared rule-pattern matching (supports * wildcards, with/without .exe).</summary>
+/// <summary>Shared rule-pattern matching (supports * wildcards, with/without .exe).
+/// A pattern may list several processes separated by commas or semicolons
+/// ("dwm.exe, csrss.exe") — any token matching wins. Previously the raw string
+/// was compared as one pattern, so list-style rules never matched anything and
+/// sat at "Waiting for process" even for always-running processes.</summary>
 public static class ProfileMatcher
 {
     public static bool Matches(string pattern, string processName)
+    {
+        if (string.IsNullOrWhiteSpace(pattern) || string.IsNullOrWhiteSpace(processName))
+            return false;
+
+        foreach (var token in pattern.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (MatchesSingle(token, processName))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool MatchesSingle(string pattern, string processName)
     {
         if (string.IsNullOrWhiteSpace(pattern) || string.IsNullOrWhiteSpace(processName))
             return false;
@@ -208,7 +227,7 @@ public static class ProfileMatcher
         return false;
     }
 
-    public static bool SimpleMatch(string pattern, string input)
+    private static bool SimpleMatch(string pattern, string input)
     {
         if (pattern.StartsWith("*") && pattern.EndsWith("*") && pattern.Length > 1)
         {

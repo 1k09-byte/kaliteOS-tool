@@ -23,7 +23,9 @@ namespace stellarisKIT.ViewModels
         public ObservableCollection<BrowserInstallItem> VisibleGameLaunchers { get; } = new();
         public ObservableCollection<BrowserInstallItem> VisibleSocialApps { get; } = new();
 
-        // Hide installed items by default (gallery pattern). Toggle UI was removed per request, so installed stays hidden.
+        // Installed items are always hidden on the Apps page: it stays a
+        // pure install page. (The reveal toggle was removed; these filters
+        // still run after install/uninstall to keep cards in sync.)
         [ObservableProperty]
         private bool _showInstalled = false;
 
@@ -185,8 +187,16 @@ namespace stellarisKIT.ViewModels
             {
                 Name = "Vivaldi",
                 ImagePath = "ms-appx:///Assets/vivaldi-logo.png",
-                DownloadUrl = "https://downloads.vivaldi.com/stable/Vivaldi.Installer.exe",
-                SilentInstallArgs = "--vivaldi-silent --do-not-launch-chrome",
+                // The plain "Vivaldi.Installer.exe" alias 404s; Vivaldi only
+                // publishes versioned filenames (verified live against
+                // downloads.vivaldi.com and the official download page).
+                // This URL is what vivaldi.com/download/ currently links.
+                DownloadUrl = "https://downloads.vivaldi.com/stable/Vivaldi.8.2.4133.52.x64.exe",
+                // Verified switches from the installer binary itself
+                // (--vivaldi-silent, --vivaldi-mini, --vivaldi-unpack,
+                // --system-level). --do-not-launch-chrome is a Chrome-era
+                // switch the Vivaldi installer does not implement.
+                SilentInstallArgs = "--vivaldi-silent --system-level",
                 InstallerFileName = "vivaldi_installer.exe",
                 InstalledCheckPath = @"%PROGRAMFILES%\Vivaldi\Application\vivaldi.exe;%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe",
                 Description = "A fast, highly customizable privacy browser built on Chromium."

@@ -101,7 +101,62 @@
                         <ComboBoxItem Content="Mica Alt" Tag="MicaAlt" />
                     </ComboBox>
                 </toolkit:SettingsCard>
+
+                <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="About" />
+
+                <toolkit:SettingsCard Header="About kaliteConfig" Description="Version 1.0.0 — View development team and application links" IsClickEnabled="True" Click="AboutCard_Click">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                </toolkit:SettingsCard>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- About Dialog Modal -->
+        <ContentDialog x:Name="AboutDialog" Title="About kaliteConfig" CloseButtonText="Close">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                <StackPanel Spacing="24" Margin="0,12,0,0">
+                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Development Team" />
+                    
+                    <Grid ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0" Spacing="8" HorizontalAlignment="Center">
+                            <PersonPicture DisplayName="kupo0860" ProfilePicture="ms-appx:///Assets/Devs/dev1.png" Width="64" Height="64" />
+                            <TextBlock Text="kupo0860" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Center">
+                            <PersonPicture DisplayName="cytrafps" ProfilePicture="ms-appx:///Assets/Devs/dev2.png" Width="64" Height="64" />
+                            <TextBlock Text="cytrafps" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Spacing="8" HorizontalAlignment="Center">
+                            <PersonPicture DisplayName="kal0uf" ProfilePicture="ms-appx:///Assets/Devs/dev3.png" Width="64" Height="64" />
+                            <TextBlock Text="kal0uf" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="3" Spacing="8" HorizontalAlignment="Center">
+                            <PersonPicture DisplayName="venon.codm" ProfilePicture="ms-appx:///Assets/Devs/dev4.jpg" Width="64" Height="64" />
+                            <TextBlock Text="venon.codm" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Application Links" Margin="0,16,0,0" />
+                    
+                    <StackPanel Spacing="4">
+                        <toolkit:SettingsCard Header="Discord" Description="Join the discussion and get support.">
+                            <HyperlinkButton Content="Join" NavigateUri="https://discord.gg/stellarisKIT" />
+                        </toolkit:SettingsCard>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </ContentDialog>
+
     </Grid>
 </Page>

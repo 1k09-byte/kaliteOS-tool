@@ -24,9 +24,6 @@ public sealed class StartupService
     private const int AppmodelErrorNoPackage = 15700;
     private const int ErrorInsufficientBuffer = 122;
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-    private static extern int GetCurrentPackageFullName(ref uint packageFullNameLength, IntPtr packageFullName);
-
     public static bool IsPackaged
     {
         get
@@ -34,7 +31,7 @@ public sealed class StartupService
             try
             {
                 uint len = 0;
-                return GetCurrentPackageFullName(ref len, IntPtr.Zero) == ErrorInsufficientBuffer;
+                return Native.Kernel32.GetCurrentPackageFullName(ref len, IntPtr.Zero) == ErrorInsufficientBuffer;
             }
             catch
             {

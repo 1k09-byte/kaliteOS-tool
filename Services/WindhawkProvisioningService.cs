@@ -77,14 +77,19 @@ public sealed class WindhawkProvisioningService
         CancellationToken ct)
     {
         var existing = _detection.Detect();
-        if (existing.IsInstalled)
+        if (existing.IsInstalled && existing.CliPath is not null)
         {
+            // 2.0+ present (CLI ships with it): nothing to install.
             progress.Report(new ProvisionProgress(
                 WindhawkProvisionStage.Done,
-                $"Windhawk {existing.Version ?? "already"} is already installed.",
+                $"Windhawk {existing.Version ?? ""} (2.0+) is already installed.".Trim(),
                 null));
             return existing;
         }
+        // 1.7.x (no windhawk-cli.exe) or not installed: run the pinned
+        // 2.0.0-alpha.5 installer — the CLI it ships is required for
+        // settings import, so an existing legacy install is UPGRADED,
+        // not skipped. NSIS /S over the top handles the upgrade in place.
 
         // 1. Resolve the latest stable installer.
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Resolving, "Resolving latest Windhawk release...", null));
@@ -115,6 +120,12 @@ public sealed class WindhawkProvisioningService
         {
             throw new InvalidOperationException(
                 "The Windhawk installer finished but the installation could not be verified. Check the official site: " + OfficialSiteUrl);
+        }
+        if (result.CliPath is null)
+        {
+            throw new InvalidOperationException(
+                "Windhawk was installed but windhawk-cli.exe is missing — settings import requires the 2.0 CLI. " +
+                "The pinned installer may have been superseded: check " + OfficialSiteUrl);
         }
 
         try { File.Delete(tempPath); } catch { }

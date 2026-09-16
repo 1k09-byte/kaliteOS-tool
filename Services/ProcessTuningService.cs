@@ -24,6 +24,7 @@ public sealed class ProcessTuningService
     };
 
     private readonly NativeSnapshotService _snapshot = new();
+    private readonly ProtectedProcessService _protectedProcess = new();
     private readonly Dictionary<int, long> _lastTotalTicks = new();
     private readonly Dictionary<int, long> _lastContextSwitches = new();
     private readonly Dictionary<int, long> _lastCycles = new();
@@ -107,7 +108,12 @@ public sealed class ProcessTuningService
                         : $"PID {pid}";
                 }
 
-                var row = new TunerProcessRow { Pid = pid, Name = name };
+                var row = new TunerProcessRow 
+                { 
+                    Pid = pid, 
+                    Name = name,
+                    IsProtected = _protectedProcess.IsProcessProtected(pid) 
+                };
                 FillStatic(row);
                 rows.Add(row);
             }

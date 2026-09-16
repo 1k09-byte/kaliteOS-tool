@@ -777,11 +777,15 @@ namespace stellarisKIT.Services
         {
             if (item.Name.Contains("Brave", StringComparison.OrdinalIgnoreCase))
             {
+                // Brave reads Chromium policy from SOFTWARE\Policies\BraveSoftware\Brave.
+                // Forcelist entries force-install at next browser launch (HKCU is honored,
+                // HKLM written too for machine-wide installs).
                 var chromeInstaller = new ChromiumExtensionInstaller();
                 chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist");
             }
             else if (item.Name.Contains("Vivaldi", StringComparison.OrdinalIgnoreCase))
             {
+                // Vivaldi reads Chromium policy from SOFTWARE\Policies\Vivaldi.
                 var chromeInstaller = new ChromiumExtensionInstaller();
                 chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\Vivaldi\ExtensionInstallForcelist");
             }
@@ -802,8 +806,8 @@ namespace stellarisKIT.Services
                 string? installDir = GetBrowserInstallDirectory(item);
                 if (installDir != null)
                 {
-                    var firefoxInstaller = new FirefoxExtensionInstaller();
-                    firefoxInstaller.InstallExtensions(item.Extensions, Path.Combine(installDir, "distribution"));
+                    // var firefoxInstaller = new FirefoxExtensionInstaller();
+                    // firefoxInstaller.InstallExtensions(item.Extensions, Path.Combine(installDir, "distribution"));
                 }
             }
             else if (item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
@@ -811,8 +815,8 @@ namespace stellarisKIT.Services
                 string? installDir = GetBrowserInstallDirectory(item);
                 if (installDir != null)
                 {
-                    var firefoxInstaller = new FirefoxExtensionInstaller();
-                    firefoxInstaller.InstallExtensions(item.Extensions, Path.Combine(installDir, "distribution"));
+                    // var firefoxInstaller = new FirefoxExtensionInstaller();
+                    // firefoxInstaller.InstallExtensions(item.Extensions, Path.Combine(installDir, "distribution"));
                 }
             }
         }

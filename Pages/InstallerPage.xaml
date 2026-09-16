@@ -7,6 +7,7 @@
     xmlns:models="using:stellarisKIT.Models"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     xmlns:dev="using:DevWinUI"
+    xmlns:converters="using:stellarisKIT.Converters"
     NavigationCacheMode="Enabled">
     <Page.Transitions>
         <TransitionCollection>
@@ -19,6 +20,7 @@
     </Page.Transitions>
 
     <Page.Resources>
+        <converters:AssetPathToImageSourceConverter x:Key="AssetPathConverter" />
         <Style
             x:Key="SettingsSectionHeaderTextBlockStyle"
             BasedOn="{StaticResource BodyStrongTextBlockStyle}"
@@ -72,7 +74,7 @@
                             HorizontalAlignment="Center"
                             Width="48"
                             Height="48"
-                            Source="{x:Bind ImagePath}" />
+                            Source="{x:Bind ImagePath, Converter={StaticResource AssetPathConverter}}" />
                         <!-- Browser name -->
                         <TextBlock
                             HorizontalAlignment="Center"
@@ -115,7 +117,7 @@
             <StackPanel Spacing="16">
                 <!-- Title Panel -->
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                     <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay}"/>
+                     <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay, Converter={StaticResource AssetPathConverter}}"/>
                      <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
                 </StackPanel>
                 
@@ -176,8 +178,6 @@
                 Margin="0,8,0,32"
                 HorizontalAlignment="Left"
                 Spacing="32">
-                <!-- Visibility Toggle removed per user request -->
-
                 <!-- Web Browsers Section -->
                 <StackPanel Spacing="16">
                     <TextBlock Text="Web Browsers" Style="{ThemeResource SubtitleTextBlockStyle}" />

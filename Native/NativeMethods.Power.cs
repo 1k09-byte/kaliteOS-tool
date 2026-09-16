@@ -10,6 +10,7 @@ internal enum ProcessInformationClass : uint
 
 internal enum ThreadInformationClass : uint
 {
+    ThreadMemoryPriority = 0,
     ThreadPowerThrottling = 3,
 }
 
@@ -27,6 +28,15 @@ internal struct ThreadPowerThrottlingState
     internal uint Version;
     internal uint ControlMask;
     internal uint StateMask;
+}
+
+/// <summary>MEMORY_PRIORITY_INFORMATION for ThreadMemoryPriority (SetThreadInformation
+/// info class 0). Levels per Windows docs: 1 very low, 2 low, 3 medium,
+/// 4 below normal, 5 normal.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct ThreadMemoryPriorityInfo
+{
+    internal uint MemoryPriority;
 }
 
 internal static partial class NativeMethods
@@ -67,10 +77,26 @@ internal static partial class NativeMethods
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool SetThreadInformation(
+            SafeThreadHandle thread,
+            ThreadInformationClass infoClass,
+            ref ThreadMemoryPriorityInfo info,
+            uint size);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool GetThreadInformation(
             SafeThreadHandle thread,
             ThreadInformationClass infoClass,
             ref ThreadPowerThrottlingState info,
+            uint size);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool GetThreadInformation(
+            SafeThreadHandle thread,
+            ThreadInformationClass infoClass,
+            ref ThreadMemoryPriorityInfo info,
             uint size);
 
         internal static uint StateSize() => (uint)Marshal.SizeOf<ProcessPowerThrottlingState>();
