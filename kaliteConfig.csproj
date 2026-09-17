@@ -80,18 +80,12 @@
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
 
-  <!--  Consumer flavor: same codebase minus the pro-only areas.
-        Build with: dotnet build -p:ConsumerBuild=true
-        Publish with: Installer/Build-Consumer.ps1
-        Excluded: power-plan settings. -->
-  <PropertyGroup Condition="'$(ConsumerBuild)' == 'true'">
+  <!--  Single flavor: the full/dev app with the built-in updater. There is
+        no separate consumer build anymore — one exe, one installer, one
+        update channel. The updater compiles unconditionally. -->
+  <PropertyGroup>
     <DefineConstants>$(DefineConstants);CONSUMER</DefineConstants>
-    <!-- Distinct exe so consumer output never collides with a running pro build. -->
-    <AssemblyName>kaliteConfig-Consumer</AssemblyName>
   </PropertyGroup>
-
-  <!-- Consumer is now feature-complete (power plans included); it differs
-       from the full flavor only in assembly name and update channel. -->
 
   <!--  Unpackaged publish otherwise ships without the app's own .pri
         (only framework PRIs are publish assets), and the app then dies
@@ -108,9 +102,12 @@
     <Exec Command="taskkill /F /IM kaliteConfig.exe 2&gt;nul &amp; taskkill /F /IM kaliteConfig-Consumer.exe 2&gt;nul &amp; exit 0" StandardOutputImportance="low" />
   </Target>
 
-  <!--  App Version and Assembly Info  -->
+  <!--  App Version and Assembly Info. Static, release-based: bump
+        <Version> once per release and the assembly version, About card
+        ("Version 0.3.0" from Major.Minor.Build) and the installer
+        filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.2.0.4</Version>
+    <Version>0.3.0.1</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

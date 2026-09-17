@@ -20,11 +20,13 @@ $projectDir = Split-Path -Parent $PSScriptRoot
 $publishDir = Join-Path $projectDir "publish\win-x64"
 $issFile    = Join-Path $PSScriptRoot "kaliteConfig.iss"
 
-# Version straight from the csproj so installer + app never drift.
-[xml]$csproj = Get-Content (Join-Path $projectDir "kaliteConfig.csproj")
-$version = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+# Version straight from the evaluated csproj so installer + app never
+# drift (the csproj computes Version with a date-based expression, so ask
+# MSBuild for the evaluated value, not the raw XML text).
+$version = & dotnet msbuild (Join-Path $projectDir "kaliteConfig.csproj") -getProperty:Version
+$version = ($version | Select-Object -First 1)
 if (-not $version) { $version = "0.1.0" }
-$version = ($version -split '\.')[0..2] -join '.'
+$version = ($version -split '\.')[0..3] -join '.'
 Write-Host "Full build v$version ($Configuration/$Runtime)..."
 
 Write-Host "--> dotnet publish (full flavor)..."

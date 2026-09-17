@@ -3,8 +3,8 @@
   "branch": "master",
   "versionFile": "kaliteConfig.csproj",
   "versionPattern": "<Version>([^<]+)</Version>",
-  "buildCommand": "powershell -ExecutionPolicy Bypass -File Installer/Build-Consumer.ps1 -Configuration Release",
-  "buildArtifacts": ["publish/kaliteConfig-Consumer-Setup-*.exe"],
+  "buildCommand": "powershell -ExecutionPolicy Bypass -File Installer/Build.ps1 -Configuration Release",
+  "buildArtifacts": ["dist/kaliteConfig-Setup-*.exe"],
   "updateProvider": "github",
   "platforms": ["win"]
 }

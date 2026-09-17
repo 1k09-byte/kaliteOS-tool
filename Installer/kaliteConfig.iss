@@ -47,4 +47,10 @@ Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; Tasks: desk
 [Run]
 ; shellexec is required: the app manifest is requireAdministrator, and plain
 ; CreateProcess cannot auto-elevate — it fails with error 740.
-Filename: "{app}\\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent shellexec
+; The second entry (no skipifsilent) relaunches the app after a SILENT
+; install too — the auto-updater exits the app for Setup to replace files,
+; and the user expects it to come back.
+Filename: "{app}\\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
+; Check: WizardSilent — interactive installs launch only via the Finish
+; checkbox above; this entry is for the auto-updater's silent installs.
+Filename: "{app}\\{#MyAppExe}"; Description: ""; Flags: nowait skipifsilent runasoriginaluser shellexec; Check: WizardSilent

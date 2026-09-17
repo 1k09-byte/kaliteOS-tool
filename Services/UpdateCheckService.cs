@@ -31,7 +31,10 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     public const string Owner = "1k09-byte";
     public const string RepoName = "kaliteOS-tool";
     public const string ReleasesApiUrl = $"https://api.github.com/repos/{Owner}/{RepoName}/releases/latest";
-    private const string AssetNamePrefix = "kaliteConfig-Consumer-Setup-";
+    // Single flavor now: releases carry the FULL installer. Accept both
+    // names so older releases remain updatable-to.
+    private const string AssetNamePrefix = "kaliteConfig-Setup-";
+    private const string LegacyAssetNamePrefix = "kaliteConfig-Consumer-Setup-";
 
     private static readonly HttpClient _http = CreateClient();
 
@@ -112,7 +115,8 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
                 {
                     string name = asset.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
                         ? n.GetString() ?? "" : "";
-                    if (!name.StartsWith(AssetNamePrefix, StringComparison.OrdinalIgnoreCase)
+                    if ((!name.StartsWith(AssetNamePrefix, StringComparison.OrdinalIgnoreCase)
+                         && !name.StartsWith(LegacyAssetNamePrefix, StringComparison.OrdinalIgnoreCase))
                         || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         continue;
 
