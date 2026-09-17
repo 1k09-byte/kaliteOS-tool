@@ -33,15 +33,15 @@
                 <TextBlock Text="Kernel" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
 
                 <toolkit:SettingsCard x:Name="ThreadedDpcCard" Header="Threaded DPCs" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="ThreadedDpc" />
+                     <ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="ThreadedDpc" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard x:Name="IrqRoutingCard" Header="Disable automatic interrupt routing" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="IrqRoutingToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="InterruptRouting" />
+                     <ToggleSwitch x:Name="IrqRoutingToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="InterruptRouting" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="TimerExpiration" />
+                     <ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration" />
                 </toolkit:SettingsCard>
 
 

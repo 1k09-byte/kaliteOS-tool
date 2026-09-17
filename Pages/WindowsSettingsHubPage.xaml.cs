@@ -48,7 +48,15 @@ namespace stellarisKIT.Pages
 
         private void PowerPlans_Click(object sender, RoutedEventArgs e)
 #if CONSUMER
-            { } // Power plans are excluded from the consumer flavor.
+            // Power plans are excluded from the consumer flavor — explain
+            // instead of a silent dead button.
+            => _ = new ContentDialog
+            {
+                Title = "Power plans — full edition only",
+                Content = "The power-plan tuner is part of the full edition of kaliteConfig. This consumer build focuses on process, thread and Windows settings tuning.",
+                CloseButtonText = "Close",
+                XamlRoot = this.XamlRoot,
+            }.ShowAsync().AsTask();
 #else
             => Frame.Navigate(typeof(PowerPlansPage));
 #endif
@@ -130,12 +138,12 @@ namespace stellarisKIT.Pages
             if (def == null) return;
             try
             {
-                uint? raw = _kernel.ReadRaw(def);
-                toggle.IsOn = raw == def.OnValue;
-                card.Description = raw == null ? caption + " Currently: not set (Windows default)."
-                    : raw == def.OnValue ? caption + " Currently: ON."
-                    : raw == def.OffValue ? caption + " Currently: OFF."
-                    : caption + $" Currently: custom ({raw}).";
+                var det = _kernel.Detect(def);
+                toggle.IsOn = det.State == Services.KernelTuningService.TweakState.On;
+                card.Description = det.Describe(caption)
+                    + (det.State != Services.KernelTuningService.TweakState.WindowsDefault && _kernel.HasBackup(def)
+                        ? " Right-click the toggle to restore the original value."
+                        : "");
             }
             catch (Exception ex)
             {
@@ -165,6 +173,30 @@ namespace stellarisKIT.Pages
                 };
                 if (card != null) card.Description += $" Write denied: {ex.Message}";
             }
+        }
+
+        /// <summary>Right-click context menu on a kernel toggle: restore the
+        /// value that was present before the app first wrote it (exactly —
+        /// including removing it again if Windows didn't have it set).</summary>
+        private void KernelToggle_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not string id) return;
+            var def = Services.KernelTuningService.Find(id);
+            if (def == null || !_kernel.HasBackup(def)) return; // never written by the app
+
+            var menu = new MenuFlyout();
+            var restore = new MenuFlyoutItem { Text = "Restore original value" };
+            restore.Click += (_, _) =>
+            {
+                try
+                {
+                    _kernel.ResetToOriginal(def);
+                    LoadKernelToggles();
+                }
+                catch { }
+            };
+            menu.Items.Add(restore);
+            menu.ShowAt(fe, e.GetPosition(fe));
         }
 
         private void LoadSvcSplit()

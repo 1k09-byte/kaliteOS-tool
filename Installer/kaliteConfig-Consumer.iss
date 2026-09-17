@@ -49,4 +49,8 @@ Name: "{autodesktop}\\{#MyAppName} Consumer"; Filename: "{app}\\{#MyAppExe}"; Ta
 [Run]
 ; shellexec is required: the app manifest is requireAdministrator, and plain
 ; CreateProcess cannot auto-elevate — it fails with error 740.
-Filename: "{app}\\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent shellexec
+; The skipifsilent variant is intentionally NOT used for the silent (update)
+; path: the auto-updater exits the app to let Setup replace the files, and
+; the user expects the app to come back — so a silent run ALSO relaunches.
+Filename: "{app}\\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
+Filename: "{app}\\{#MyAppExe}"; Description: ""; Flags: nowait skipifsilent runasoriginaluser shellexec

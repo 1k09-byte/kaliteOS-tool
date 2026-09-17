@@ -104,7 +104,7 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             var psi = new ProcessStartInfo
             {
                 FileName = installerPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
+                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /FORCECLOSEAPPLICATIONS",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
@@ -112,9 +112,13 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             Process.Start(psi);
 
             // Exit so the installer can overwrite the locked exe. The setup
-            // runs detached; this process simply goes away.
-            await Task.Delay(500);
-            global::Microsoft.UI.Xaml.Application.Current.Exit();
+            // runs detached with /FORCECLOSEAPPLICATIONS, but a clean exit
+            // here avoids RestartManager aborting the silent install (the
+            // close-to-tray handler swallows window closes — observed in the
+            // Inno log as "Some applications could not be shut down" →
+            // rollback). Exit hard, now.
+            await Task.Delay(300);
+            Environment.Exit(0);
         }
         catch (OperationCanceledException)
         {

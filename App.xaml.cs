@@ -156,8 +156,9 @@ namespace stellarisKIT
                     }
                 };
 
-                // Keep the dialog open while the update downloads/installs;
-                // the app exits itself when the installer takes over.
+                // Keep the dialog open while the update downloads/installs.
+                // On completion the updater calls Application.Current.Exit(),
+                // which tears the process down and closes this dialog.
                 dialog.PrimaryButtonClick += (s, args) =>
                 {
                     args.Cancel = true; // don't close on click

@@ -83,10 +83,112 @@ public sealed class KernelTuningService
         };
     }
 
+    /// <summary>Full state of a tweak value: what the UI detection needs to
+    /// distinguish "value absent (Windows default)" from "explicitly 0/1"
+    /// and to know whether the app itself ever wrote it.</summary>
+    public enum TweakState { WindowsDefault, On, Off, Custom }
+
+    public readonly record struct TweakDetection(TweakState State, uint? RawValue, bool WrittenByApp)
+    {
+        public string Describe(string caption) => State switch
+        {
+            TweakState.WindowsDefault => caption + " Currently: not set (Windows default).",
+            TweakState.On => caption + " Currently: ON." + (WrittenByApp ? "" : " (set outside the app)"),
+            TweakState.Off => caption + " Currently: OFF." + (WrittenByApp ? "" : " (set outside the app)"),
+            _ => caption + $" Currently: custom ({RawValue}).",
+        };
+    }
+
+    /// <summary>Detects the tweak's full current state, including whether the
+    /// value exists at all (Windows default) and whether the app has a record
+    /// of having written it (an external .reg import shows as such).</summary>
+    public TweakDetection Detect(TweakDef def)
+    {
+        uint? raw = ReadRaw(def);
+        TweakState state = raw switch
+        {
+            null => TweakState.WindowsDefault,
+            uint v when v == def.OnValue => TweakState.On,
+            uint v when v == def.OffValue => TweakState.Off,
+            _ => TweakState.Custom,
+        };
+        bool writtenByApp = HasBackup(def);
+        return new TweakDetection(state, raw, writtenByApp);
+    }
+
+    // ---- Registry value protection ----------------------------------------
+    // The kernel tweaks touch sensitive keys (Session Manager\Kernel, power
+    // scheme values). Before the FIRST write to a given key+value, the
+    // original state (value or "absent") is snapshotted under HKLM\SOFTWARE\
+    // kaliteConfig\Backup so it can be restored exactly — including restoring
+    // "not set" — via ResetToOriginal. Subsequent writes don't overwrite the
+    // backup, so the true original survives repeated toggling.
+    public const string BackupKeyPath = @"SOFTWARE\kaliteConfig\Backup";
+
+    private void EnsureBackup(TweakDef def)
+    {
+        try
+        {
+            string resolved = ResolveKey(def);
+            string id = def.Id;
+            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using var backup = baseKey.CreateSubKey($"{BackupKeyPath}\\{id}", true);
+            if (backup == null || backup.GetValue("KeyPath") is string) return; // already backed up
+
+            backup.SetValue("KeyPath", resolved);
+            backup.SetValue("ValueName", def.ValueName);
+            using var key = baseKey.OpenSubKey(resolved, false);
+            var v = key?.GetValue(def.ValueName);
+            if (v is int i)
+            {
+                backup.SetValue("Original", i, RegistryValueKind.DWord);
+                backup.SetValue("Existed", 1, RegistryValueKind.DWord);
+            }
+            else
+            {
+                backup.SetValue("Existed", 0, RegistryValueKind.DWord);
+            }
+        }
+        catch { /* best-effort: protection never blocks the tweak itself */ }
+    }
+
+    /// <summary>Restores the value snapshotted before the first write — including
+    /// deleting it again if it did not exist originally. Returns false when no
+    /// backup exists for this tweak.</summary>
+    public bool ResetToOriginal(TweakDef def)
+    {
+        try
+        {
+            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using var backup = baseKey.OpenSubKey($"{BackupKeyPath}\\{def.Id}", false);
+            if (backup == null) return false;
+            if ((backup.GetValue("Existed") as int?) != 1) return false;
+            int original = (backup.GetValue("Original") as int?) ?? 0;
+
+            using var key = baseKey.CreateSubKey(ResolveKey(def), true);
+            key?.SetValue(def.ValueName, original, RegistryValueKind.DWord);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>True when a pre-write snapshot exists for this tweak.</summary>
+    public bool HasBackup(TweakDef def)
+    {
+        try
+        {
+            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using var backup = baseKey.OpenSubKey($"{BackupKeyPath}\\{def.Id}", false);
+            return backup != null;
+        }
+        catch { return false; }
+    }
+
     public void Write(TweakDef def, bool enable)
     {
         try
         {
+            EnsureBackup(def); // snapshot the original state before the first write
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(ResolveKey(def), true);
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
@@ -129,6 +231,8 @@ public sealed class KernelTuningService
     {
         try
         {
+            // Same protection as the kernel toggles: snapshot before first write.
+            EnsureBackup(new TweakDef("Win32PrioritySeparation", "", "", PriorityControlKey, Win32PSValue, 0, 0, false, false));
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(PriorityControlKey, true);
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
@@ -191,6 +295,8 @@ public sealed class KernelTuningService
     {
         try
         {
+            // Same protection as the kernel toggles: snapshot before first write.
+            EnsureBackup(new TweakDef("SvcHostSplitThresholdInKB", "", "", SvcSplitKey, SvcSplitValue, 0, 0, false, false));
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(SvcSplitKey, true);
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
