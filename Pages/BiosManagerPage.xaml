@@ -55,6 +55,7 @@
 
         <InfoBar
             Grid.Row="1"
+            x:Name="ErrorBar"
             IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
             Severity="Error"
             Title="Couldn't load dump"
@@ -229,6 +230,18 @@
                             Visibility="{x:Bind ViewModel.NoDetailVisibility, Mode=OneWay}" />
                     </Grid>
                 </ScrollViewer>
+            </Border>
+
+            <!-- 0-results empty state (search with no matches) -->
+            <Border
+                Grid.Column="1"
+                Background="Transparent"
+                Visibility="{x:Bind ViewModel.NoResultsVisibility, Mode=OneWay}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                    <FontIcon Glyph="&#xE721;" FontSize="34" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="No settings match your search" HorizontalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="Try a shorter or different term." HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
             </Border>
 
             <!-- Loading overlay -->

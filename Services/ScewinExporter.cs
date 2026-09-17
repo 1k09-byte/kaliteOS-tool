@@ -11,8 +11,12 @@ namespace kaliteConfig.Services;
 ///
 /// Fidelity rules:
 ///  - Unmodified items are written back VERBATIM (their raw block text).
-///  - Modified items keep every line except the "Value" line, whose right-hand
-///    side is replaced; the "Value …=" prefix spacing is preserved.
+///  - Items WITH an explicit "Value =" line keep every line except that one,
+///    whose right-hand side is replaced; spacing is preserved.
+///  - Items WITHOUT a Value line (starred-option script dumps): the current
+///    value is expressed by the "*" marker in the Options list. Export moves
+///    the star to the option matching the new value. The Options line is the
+///    edit point; unmodified items still round-trip byte-identically.
 ///  - Headers, comments, separators and blank lines are always verbatim.
 ///
 /// Therefore import → export with zero edits is byte-identical, and an edited
@@ -67,11 +71,18 @@ public static class ScewinExporter
             {
                 int eq = content.IndexOf('=');
                 // Keep everything through the '=' (spacing and key spelling),
-                // then a single space and the new value token.
-                sb.Append(eq >= 0 ? content[..(eq + 1)] : content)
-                  .Append(' ')
-                  .Append(item.Value.Trim())
-                  .Append(ending);
+                // then the new value token — preserving whether the original
+                // had a space after '=' (AMISCE writes "Value\t=<550>").
+                bool hadSpace = eq >= 0 && eq + 1 < content.Length && content[eq + 1] == ' ';
+                sb.Append(eq >= 0 ? content[..(eq + 1)] : content);
+                if (hadSpace) sb.Append(' ');
+                sb.Append(item.Value.Trim()).Append(ending);
+            }
+            else if (!item.HasValueLine)
+            {
+                // Starred-option item: move the "*" marker to the option that
+                // matches the new value; drop it from all other lines.
+                sb.Append(RewriteStarMarker(content, item)).Append(ending);
             }
             else
             {
@@ -79,5 +90,33 @@ public static class ScewinExporter
             }
         }
         return sb.ToString();
+    }
+
+    /// <summary>Shifts the current-value "*" marker on one option line.</summary>
+    private static string RewriteStarMarker(string content, BiosSetting item)
+    {
+        var trimmedStart = content.TrimStart();
+        // The first option may live on the "Options\t=[00]Auto" line itself.
+        bool isOptionsLine = trimmedStart.StartsWith("Options", StringComparison.OrdinalIgnoreCase);
+        if (!isOptionsLine && !trimmedStart.StartsWith('[') && !trimmedStart.StartsWith("*["))
+            return content;
+
+        var work = isOptionsLine
+            ? trimmedStart[(trimmedStart.IndexOf('=') + 1)..].TrimStart()
+            : trimmedStart;
+        var prefixLen = content.Length - work.Length;
+
+        bool isStarred = work.StartsWith("*");
+        var bare = isStarred ? work[1..] : work;
+        if (!bare.StartsWith('[')) return content;
+        int close = bare.IndexOf(']');
+        if (close < 0) return content;
+        var token = bare[1..close];
+
+        bool shouldStar = string.Equals(token, item.Value.Trim(), StringComparison.OrdinalIgnoreCase);
+        if (shouldStar == isStarred) return content; // already correct
+
+        var prefix = content[..prefixLen];
+        return shouldStar ? $"{prefix}*{bare}" : $"{prefix}{bare}";
     }
 }

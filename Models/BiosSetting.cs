@@ -54,8 +54,11 @@ public sealed class BiosSetting
     /// <summary>Verbatim item text (all lines of the block, with original line endings).</summary>
     public required string RawBlock { get; init; }
 
-    /// <summary>0-based index of the "Value = ..." line inside <see cref="RawBlock"/>.</summary>
+    /// <summary>0-based index of the "Value = ..." line inside <see cref="RawBlock"/>, or -1 when the dump has no Value line (starred-option script style).</summary>
     public required int ValueLineIndex { get; init; }
+
+    /// <summary>True when the dump carries an explicit "Value =" line for this item.</summary>
+    public bool HasValueLine => ValueLineIndex >= 0;
 
     /// <summary>Leaf section this item lives under (set by the parser).</summary>
     public BiosMenuSection? Section { get; internal set; }

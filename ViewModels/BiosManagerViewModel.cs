@@ -85,6 +85,14 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     public Visibility LoadingVisibility => IsLoading ? Visibility.Visible : Visibility.Collapsed;
     public Visibility EmptyVisibility => !IsLoading && !HasDocument ? Visibility.Visible : Visibility.Collapsed;
     public bool CanExportNow => !IsLoading;
+    /// <summary>Search/section filter returned zero rows while a document is loaded.</summary>
+    public bool HasNoResults => HasDocument && Rows.Count == 0;
+    public Visibility NoResultsVisibility => HasNoResults ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ListVisibility => HasNoResults ? Visibility.Collapsed : Visibility.Visible;
+    /// <summary>Flat dump (no section headers): the nav tree would be a single useless node.</summary>
+    public bool HasSections => Sections.Count > 1 || (Sections.Count == 1 && Sections[0].Children.Count > 0);
+    public Visibility TreeVisibility => HasSections ? Visibility.Visible : Visibility.Collapsed;
+    public GridLength TreeColumnWidth => HasSections ? new GridLength(260) : new GridLength(0);
     public Visibility DetailVisibility => SelectedRow is not null ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NoDetailVisibility => SelectedRow is not null ? Visibility.Collapsed : Visibility.Visible;
 
@@ -115,7 +123,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     }
 
     partial void OnHasDocumentChanged(bool value) => OnPropertyChanged(nameof(EmptyVisibility));
-
     partial void OnSelectedRowChanged(BiosSettingRow? value)
     {
         OnPropertyChanged(nameof(HasSelectedRow));
@@ -284,6 +291,9 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         _selectedSection = section ?? _document?.RootSection;
         ApplyFilterNow();
     }
+
+    partial void OnRowsChanged(ObservableCollection<BiosSettingRow> value)
+        => OnPropertyChanged(nameof(HasNoResults));
 
     /// <summary>Per-item reset to the BIOS default value.</summary>
     [RelayCommand]
