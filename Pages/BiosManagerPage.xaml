@@ -92,7 +92,10 @@
                     SelectionChanged="SectionTree_SelectionChanged">
                     <TreeView.ItemTemplate>
                         <DataTemplate x:DataType="models:BiosMenuSection">
-                            <TreeViewItem ItemsSource="{x:Bind Children}" DataContext="{x:Bind}" IsExpanded="False">
+                            <!-- DataContext comes from the tree container by
+                                 inheritance; binding it to itself here would
+                                 re-trigger DataContextChanged forever (stack overflow). -->
+                            <TreeViewItem ItemsSource="{x:Bind Children}" IsExpanded="False">
                                 <StackPanel Orientation="Horizontal" Spacing="6" Padding="0,3">
                                     <TextBlock Text="{x:Bind Name}" />
                                     <TextBlock Text="{x:Bind CountText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
