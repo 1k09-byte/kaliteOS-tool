@@ -58,7 +58,10 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
             try
             {
                 var v = Assembly.GetEntryAssembly()?.GetName().Version;
-                return v is null ? null : $"{v.Major}.{v.Minor}.{v.Build}";
+                // All four parts: the release tags carry a revision
+                // (v0.3.0.1), and truncating it made 0.3.0.1 compare as
+                // 0.3.0 — the updater then offered the identical version.
+                return v is null ? null : $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
             }
             catch { return null; }
         }
