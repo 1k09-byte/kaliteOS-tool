@@ -90,16 +90,8 @@
     <AssemblyName>kaliteConfig-Consumer</AssemblyName>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(ConsumerBuild)' == 'true'">
-    <!-- Pro-only pages (markup + code-behind). -->
-    <Page Remove="Pages\PowerPlansPage.xaml" />
-    <Compile Remove="Pages\PowerPlansPage.xaml.cs" />
-    <!-- Pro-only view models. -->
-    <Compile Remove="ViewModels\PowerPlansViewModel.cs" />
-    <!-- Pro-only models/services (power-plan engine). -->
-    <Compile Remove="Models\PowerPlanModels.cs" />
-    <Compile Remove="Services\PowerService.cs" />
-  </ItemGroup>
+  <!-- Consumer is now feature-complete (power plans included); it differs
+       from the full flavor only in assembly name and update channel. -->
 
   <!--  Unpackaged publish otherwise ships without the app's own .pri
         (only framework PRIs are publish assets), and the app then dies
@@ -118,7 +110,7 @@
 
   <!--  App Version and Assembly Info  -->
   <PropertyGroup>
-    <Version>0.2.0.3</Version>
+    <Version>0.2.0.4</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

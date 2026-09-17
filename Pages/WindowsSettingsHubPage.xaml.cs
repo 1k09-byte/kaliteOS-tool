@@ -47,19 +47,7 @@ namespace stellarisKIT.Pages
         }
 
         private void PowerPlans_Click(object sender, RoutedEventArgs e)
-#if CONSUMER
-            // Power plans are excluded from the consumer flavor — explain
-            // instead of a silent dead button.
-            => _ = new ContentDialog
-            {
-                Title = "Power plans — full edition only",
-                Content = "The power-plan tuner is part of the full edition of kaliteConfig. This consumer build focuses on process, thread and Windows settings tuning.",
-                CloseButtonText = "Close",
-                XamlRoot = this.XamlRoot,
-            }.ShowAsync().AsTask();
-#else
             => Frame.Navigate(typeof(PowerPlansPage));
-#endif
 
         private void Uninstaller_Click(object sender, RoutedEventArgs e)
             => Frame.Navigate(typeof(UninstallerPage));
