@@ -102,6 +102,12 @@ namespace stellarisKIT
             AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
             AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
+            WatchMaterialChanges();
+            // The ThemeService is initialized in App.OnLaunched after this
+            // constructor; retry the subscription once the window activates
+            // (and again on first layout) so it always lands.
+            this.Activated += (_, _) => WatchMaterialChanges();
+
             // Default to the Apps (installer/uninstaller) page on launch.
             // Pill position is layout-driven (LayoutUpdated): event-driven updates
             // (SelectionChanged/SizeChanged) can compute against a stale layout
@@ -122,6 +128,53 @@ namespace stellarisKIT
                 }
             };
             SuppressSidebarTooltips();
+        }
+
+        private bool _materialWatchAttached;
+
+        /// <summary>
+        /// Keeps the root background in sync with the material setting:
+        /// opaque theme background when Material = None (otherwise the raw
+        /// black window surface shows through the transparent nav pane),
+        /// transparent when a backdrop is active (backdrops render behind the
+        /// XAML content — an opaque root would cover them).
+        ///
+        /// NOTE: the ThemeService is created in App.OnLaunched AFTER this
+        /// window's constructor runs, so an early subscribe attempt would see
+        /// null and bail forever. Subscribe lazily: try on every call, and
+        /// once the service exists attach the handlers (idempotent).
+        /// </summary>
+        private void WatchMaterialChanges()
+        {
+            ApplyRootBackground();
+            if (_materialWatchAttached) return;
+            var svc = (Application.Current as App)?.ThemeService;
+            if (svc == null) return;
+            try
+            {
+                svc.BackdropChanged += (_, _) => DispatcherQueue.TryEnqueue(ApplyRootBackground);
+                svc.ThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(ApplyRootBackground);
+                _materialWatchAttached = true;
+                // Service appeared between our last apply and now — re-apply
+                // so a persisted non-None material is honored at startup.
+                ApplyRootBackground();
+            }
+            catch { }
+        }
+
+        private void ApplyRootBackground()
+        {
+            var svc = (Application.Current as App)?.ThemeService;
+            var backdropType = DevWinUI.BackdropType.None;
+            try
+            {
+                if (svc != null) backdropType = svc.BackdropType;
+            }
+            catch { }
+            bool hasBackdrop = backdropType != DevWinUI.BackdropType.None;
+            RootGrid.Background = hasBackdrop
+                ? null // let the backdrop show through
+                : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["ApplicationPageBackgroundThemeBrush"]; // opaque
         }
 
         private async Task ShowElevationDialogAsync()

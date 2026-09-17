@@ -270,7 +270,17 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     private void SetActiveScheme(PowerScheme? scheme)
     {
         if (scheme == null) return;
-        _service.SetActiveScheme(scheme.Id);
+        try
+        {
+            _service.SetActiveScheme(scheme.Id);
+        }
+        catch (Exception ex)
+        {
+            // An unguarded native failure here took the whole app down the
+            // moment the user pressed "Set as Active".
+            ErrorMessage = $"Could not activate plan: {ex.Message}";
+            return;
+        }
         
         foreach (var s in Schemes)
             s.IsActive = (s == scheme);

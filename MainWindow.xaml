@@ -8,6 +8,11 @@
     Title="kaliteConfig"
     mc:Ignorable="d">
 
+    <!-- Root background is managed in code-behind (ApplyRootBackground):
+         opaque theme background when Material = None (so the raw black window
+         surface never shows through the transparent nav pane), transparent
+         when a Mica/Acrylic backdrop is active (backdrops render BEHIND the
+         XAML content — an opaque root would hide them). -->
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

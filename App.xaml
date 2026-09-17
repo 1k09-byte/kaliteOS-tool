@@ -11,6 +11,23 @@
                 <ResourceDictionary Source="ms-appx:///DevWinUI/Themes/Generic.xaml" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
+            <!-- Light-mode readability: the app was designed dark-first, and the
+                 default WinUI secondary/tertiary text grays (tuned for dark
+                 surfaces) wash out on light backgrounds. Dark theme is left
+                 untouched; Light gets higher-contrast grays. Default theme
+                 inherits so "Use system setting" picks whichever dictionary
+                 matches the active theme. -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#CC1B1B1B" />
+                    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#A3000000" />
+                    <SolidColorBrush x:Key="TextFillColorDisabledBrush" Color="#73000000" />
+                    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#29000000" />
+                    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#1A000000" />
+                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#0F000000" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
             <!-- Other app resources here -->
         </ResourceDictionary>
     </Application.Resources>

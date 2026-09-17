@@ -148,6 +148,25 @@ public sealed class TunerThreadRule
             ? "(any thread)"
             : string.Join(" · ", new[] { Description, StartAddress }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
+    /// <summary>Rule editor card row: a thread rule always enforces a priority.</summary>
+    [JsonIgnore]
+    public bool PriorityEnabled => true;
+
+    /// <summary>Rule editor card row: human-readable affinity summary. Ticks every
+    /// logical CPU present in the mask, treating all-CPU as "All logical processors".</summary>
+    [JsonIgnore]
+    public string AffinitySummaryText
+    {
+        get
+        {
+            if (!AffinityMask.HasValue) return "All logical processors";
+            ulong mask = AffinityMask.Value;
+            if (mask == ulong.MaxValue) return "All logical processors";
+            int count = System.Numerics.BitOperations.PopCount(mask);
+            return $"{count} pinned · 0x{mask:X}";
+        }
+    }
+
     [JsonIgnore]
     public string DetailText
     {

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -214,6 +215,10 @@ public sealed class UninstallService
 
             if (cmd.Contains("msiexec", StringComparison.OrdinalIgnoreCase))
             {
+                // /I (advertise/repair) combined with /passive is rejected by
+                // msiexec — silently. Real removal needs /X.
+                cmd = System.Text.RegularExpressions.Regex.Replace(
+                    cmd, @"/I\s*", "/X ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                 // Ensure passive mode for MSI to behave pseudo-headless if not deeply quiet
                 var psi = new ProcessStartInfo
                 {
@@ -245,6 +250,51 @@ public sealed class UninstallService
         {
             return ex.Message;
         }
+    }
+
+    /// <summary>Deletes the app's registry uninstall entries (HKLM, HKLM\WOW6432Node,
+    /// HKCU) so it disappears from "Installed apps" lists. Returns how many
+    /// keys were removed.</summary>
+    public int RemoveRegistryEntry(UninstallerItem item)
+    {
+        int removed = 0;
+        foreach (var (root, view) in new[] { (RegistryHive.LocalMachine, RegistryView.Registry64), (RegistryHive.CurrentUser, RegistryView.Default) })
+        {
+            foreach (var hive in _registryHives)
+            {
+                try
+                {
+                    using var baseKey = RegistryKey.OpenBaseKey(root, view);
+                    using var key = baseKey.OpenSubKey(hive, writable: true);
+                    if (key == null) continue;
+                    // Id is the subkey name as enumerated; also sweep same-named
+                    // keys in case the entry lives in the other bitness hive.
+                    if (key.GetSubKeyNames().Contains(item.Id, StringComparer.OrdinalIgnoreCase))
+                    {
+                        try { key.DeleteSubKeyTree(item.Id); removed++; } catch { }
+                    }
+                }
+                catch { }
+            }
+        }
+        return removed;
+    }
+
+    /// <summary>Deletes the app's install directory if it still exists.
+    /// Returns true when a directory was removed.</summary>
+    public bool RemoveInstallDirectory(UninstallerItem item)
+    {
+        try
+        {
+            var dir = item.InstallLocation?.Trim().Trim('"');
+            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+            {
+                Directory.Delete(dir, true);
+                return true;
+            }
+        }
+        catch { }
+        return false;
     }
 
     /// <summary>Splits an uninstall command into exe + arguments.

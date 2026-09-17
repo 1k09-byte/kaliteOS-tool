@@ -241,10 +241,28 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 try
                 {
                     LoadingStatus = $"Force-removing {app.Name}…";
-                    var leftovers = await _scannerService.ScanLeftoversAsync(app);
-                    if (leftovers.Count > 0)
-                        await _scannerService.CleanLeftoversAsync(leftovers);
+                    var notes = await Task.Run(() =>
+                    {
+                        var n = new List<string>();
+                        // 1. Delete the install directory if it still exists.
+                        if (_uninstallService.RemoveInstallDirectory(app))
+                            n.Add("install folder deleted");
+                        // 2. Scan & clean leftover files/registry matches.
+                        var leftovers = _scannerService.ScanLeftoversAsync(app).GetAwaiter().GetResult();
+                        if (leftovers.Count > 0)
+                        {
+                            _scannerService.CleanLeftoversAsync(leftovers).GetAwaiter().GetResult();
+                            n.Add($"{leftovers.Count} leftover path(s) cleaned");
+                        }
+                        // 3. Remove the uninstall registry entry so the app
+                        //    disappears from this list and Windows' own list.
+                        int reg = _uninstallService.RemoveRegistryEntry(app);
+                        if (reg > 0) n.Add("uninstall entry removed");
+                        return n;
+                    });
                     cleaned++;
+                    if (notes.Count > 0)
+                        errors.Add($"{app.Name}: " + string.Join(", ", notes));
                 }
                 catch (Exception ex) { errors.Add($"{app.Name}: {ex.Message}"); }
             }

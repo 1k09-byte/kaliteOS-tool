@@ -32,7 +32,7 @@
         <x:Double x:Key="ContentDialogMaxWidth">880</x:Double>
     </ContentDialog.Resources>
 
-    <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
         <Grid x:Name="Root" Width="760" RowSpacing="8" KeyDown="Root_KeyDown">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -73,7 +73,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Button x:Name="TabSettings" Grid.Column="0" Content="Process settings" HorizontalAlignment="Stretch" Click="Tab_Click" Tag="Settings" />
+                <Button x:Name="TabSettings" Grid.Column="0" Content="Process rules" HorizontalAlignment="Stretch" Click="Tab_Click" Tag="Settings" />
                 <Button x:Name="TabThreads" Grid.Column="1" Content="Thread rules" HorizontalAlignment="Stretch" Click="Tab_Click" Tag="Threads" />
             </Grid>
 
@@ -230,21 +230,50 @@
                 <ListView x:Name="SavedRulesList" ItemsSource="{x:Bind Draft.ThreadRules, Mode=OneWay}" SelectionMode="None" ShowsScrollingPlaceholders="False">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:TunerThreadRule">
-                            <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
-                                <Grid Padding="8,6" ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="180" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{x:Bind TargetText, Mode=OneWay}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DetailText, Mode=OneWay}" />
-                                    <CheckBox Grid.Column="1" Content="Eco" IsThreeState="True" IsChecked="{x:Bind EfficiencyMode, Mode=TwoWay}" VerticalAlignment="Center" ToolTipService.ToolTip="Per-thread Efficiency mode (indeterminate = unchanged)" />
-                                    <CheckBox Grid.Column="2" Content="Boost" IsThreeState="True" IsChecked="{x:Bind BoostEnabled, Mode=TwoWay}" VerticalAlignment="Center" ToolTipService.ToolTip="Per-thread priority boost (indeterminate = unchanged)" />
-                                    <ComboBox Grid.Column="3" Loaded="SavedRulePriority_Loaded" Width="180" />
-                                    <Button Grid.Column="4" Content="Delete" Click="SavedRule_Delete" />
-                                </Grid>
+                            <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,8">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{x:Bind TargetText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DetailText, Mode=OneWay}" />
+                                        <Button Grid.Column="1" Content="Delete" Click="SavedRule_Delete" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="220" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" Content="Priority" VerticalAlignment="Center" IsChecked="True" IsEnabled="False" ToolTipService.ToolTip="This rule always enforces a thread priority" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Loaded="SavedRulePriority_Loaded" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="220" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" Content="Efficiency mode" VerticalAlignment="Center" IsThreeState="True" IsChecked="{x:Bind EfficiencyMode, Mode=TwoWay}" ToolTipService.ToolTip="Per-thread Efficiency mode (indeterminate = unchanged)" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="220" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" Content="Priority boost" VerticalAlignment="Center" IsThreeState="True" IsChecked="{x:Bind BoostEnabled, Mode=TwoWay}" ToolTipService.ToolTip="Per-thread priority boost (indeterminate = unchanged)" />
+                                        <TextBlock Grid.Column="1" Text="Per-thread priority boost" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="220" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" x:Name="SavedRuleAffinityBox" Content="CPU affinity" VerticalAlignment="Center" Checked="SavedRuleAffinity_Changed" Unchecked="SavedRuleAffinity_Changed" ToolTipService.ToolTip="Tick to pin this thread to specific cores, untick to leave affinity unchanged" />
+                                        <TextBlock Grid.Column="1" x:Name="SavedRuleAffinityText" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                        <Button Grid.Column="2" Content="Choose..." Click="SavedRulePin_Click" Loaded="SavedRulePin_Loaded" ToolTipService.ToolTip="Pin this thread to specific logical processors (affinity mask)" />
+                                    </Grid>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ListView.ItemTemplate>

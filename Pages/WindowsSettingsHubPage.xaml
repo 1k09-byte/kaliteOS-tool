@@ -18,7 +18,7 @@
         <TextBlock Grid.Row="0" Text="WS — Windows Settings" Margin="36,24,36,12" Style="{StaticResource TitleTextBlockStyle}" />
 
         <ScrollViewer Grid.Row="1" Padding="36,0,36,24" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="SettingsPanel" MaxWidth="1064" HorizontalAlignment="Left" Spacing="4">
+            <StackPanel x:Name="SettingsPanel" MaxWidth="1064" HorizontalAlignment="Center" Spacing="4">
                 
                 <toolkit:SettingsCard Header="powerplans" Margin="0,0,0,12">
                      <Button Content="Open Tuner" Style="{StaticResource AccentButtonStyle}" Click="PowerPlans_Click" />
@@ -44,6 +44,8 @@
                      <ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" Tag="TimerExpiration" />
                 </toolkit:SettingsCard>
 
+
+                <TextBlock Text="Memory &amp; Services" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
 
                 <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold (SvcHostSplitThresholdInKB)"
                                       Description="RAM size above which Windows stops grouping services into shared svchost processes. Windows default: 380000 (~371 GB, effectively never split on typical RAM). Takes effect after a restart." Margin="0,0,0,12">

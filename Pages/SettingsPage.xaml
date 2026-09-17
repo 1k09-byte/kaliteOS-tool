@@ -181,7 +181,7 @@
                     
                     <StackPanel Spacing="4">
                         <toolkit:SettingsCard Header="Discord" Description="Join the discussion and get support.">
-                            <HyperlinkButton Content="Join" NavigateUri="https://discord.gg/stellarisKIT" />
+                            <HyperlinkButton Content="Join" NavigateUri="https://discord.gg/faQgV6yayY" />
                         </toolkit:SettingsCard>
                     </StackPanel>
                 </StackPanel>

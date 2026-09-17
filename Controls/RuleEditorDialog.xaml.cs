@@ -366,6 +366,93 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
+    private void SavedRulePin_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not TunerThreadRule rule) return;
+        ulong initial = rule.AffinityMask ?? AllMask();
+        _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
+            sender as FrameworkElement,
+            _cpuCount,
+            initial,
+            mask =>
+            {
+                rule.AffinityMask = mask == AllMask() ? null : mask; // full mask = "leave unchanged"
+                if ((sender as FrameworkElement)?.DataContext is TunerThreadRule updated)
+                {
+                    SyncSavedRuleAffinityRow(updated);
+                    UpdateSavedRuleAffinityText(updated);
+                }
+            });
+    }
+
+    private void SavedRulePin_Loaded(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is TunerThreadRule rule)
+        {
+            SyncSavedRuleAffinityRow(rule);
+            UpdateSavedRuleAffinityText(rule);
+        }
+    }
+
+    /// <summary>Ticking the box opens the core picker (a pin needs a mask);
+    /// unticking clears the pin. Keeps checkbox and summary text in sync.</summary>
+    private void SavedRuleAffinity_Changed(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not TunerThreadRule rule) return;
+        bool isChecked = sender is CheckBox cb && cb.IsChecked == true;
+        if (isChecked && !rule.AffinityMask.HasValue)
+        {
+            // Ticked with no pin yet — open the picker to choose cores.
+            _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
+                sender as FrameworkElement,
+                _cpuCount,
+                AllMask(),
+                mask =>
+                {
+                    rule.AffinityMask = mask == AllMask() ? null : mask;
+                    SyncSavedRuleAffinityRow(rule);
+                    UpdateSavedRuleAffinityText(rule);
+                });
+        }
+        else if (!isChecked && rule.AffinityMask.HasValue)
+        {
+            rule.AffinityMask = null; // untick = stop pinning this thread
+            UpdateSavedRuleAffinityText(rule);
+        }
+    }
+
+    private void SyncSavedRuleAffinityRow(TunerThreadRule rule)
+    {
+        if (SavedRulesList.ContainerFromItem(rule) is ContentPresenter presenter
+            && FindNamedDescendant(presenter, "SavedRuleAffinityBox") is CheckBox box)
+        {
+            box.IsChecked = rule.AffinityMask.HasValue;
+        }
+    }
+
+    private void UpdateSavedRuleAffinityText(TunerThreadRule rule)
+    {
+        // Find the affinity summary TextBlock in this rule's row container.
+        if (SavedRulesList.ContainerFromItem(rule) is ContentPresenter presenter
+            && FindNamedDescendant(presenter, "SavedRuleAffinityText") is TextBlock text)
+        {
+            text.Text = rule.AffinitySummaryText;
+        }
+    }
+
+    private static Microsoft.UI.Xaml.DependencyObject? FindNamedDescendant(Microsoft.UI.Xaml.DependencyObject root, string name)
+    {
+        int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is FrameworkElement fe && fe.Name == name) return fe;
+            var result = FindNamedDescendant(child, name);
+            if (result != null) return result;
+        }
+        return null;
+    }
+
     private void UpdateSavedRulesMeta()
     {
         int n = Draft.ThreadRules.Count;

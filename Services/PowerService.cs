@@ -157,29 +157,29 @@ public sealed class PowerService
         // Choice enumeration MUST terminate: range-type settings answer every
         // index query with an error other than NO_MORE_ITEMS, which used to spin
         // this loop forever and hang the page on "Loading".
+        //
+        // We probe via PowerReadPossibleFriendlyName, NOT PowerReadPossibleValue:
+        // the latter raised a fatal System.ExecutionEngineException (uncatchable,
+        // process-killing) even with a P/Invoke signature matching the Windows
+        // SDK header, so the API is avoided entirely. A choice exists at index i
+        // iff its friendly name can be read; enumerated settings have contiguous
+        // indices, so the first empty read means we are done.
         uint index = 0;
         const uint MaxChoices = 512;
         bool anyChoice = false;
         Guid settingGuid = setting.Id;
-        while (index < MaxChoices)
+        try
         {
-            uint type;
-            uint bufferSize = 0;
-            uint res = PowrProf.PowerReadPossibleValue(IntPtr.Zero, IntPtr.Zero, ref subgroupGuid, ref settingGuid, out type, index, IntPtr.Zero, ref bufferSize);
-            if (res == 259) break; // ERROR_NO_MORE_ITEMS
-            if (res != 0 && res != 234) break; // not an enumerated setting (range/boolean) — stop
-            var choice = new PowerSettingChoice
+            while (index < MaxChoices)
             {
-                ValueIndex = index,
-                Name = GetPossibleFriendlyName(subgroupGuid, settingGuid, index)
-            };
-            if (!string.IsNullOrEmpty(choice.Name))
-            {
+                string name = GetPossibleFriendlyName(subgroupGuid, settingGuid, index);
+                if (string.IsNullOrEmpty(name)) break;
                 anyChoice = true;
-                setting.PossibleChoices.Add(choice);
+                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = index, Name = name });
+                index++;
             }
-            index++;
         }
+        catch { } // a native failure here must never take the page down
         setting.Type = anyChoice ? 2u : 0u;
     }
 
@@ -255,10 +255,13 @@ public sealed class PowerService
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
-    // Apply operations
+    // Apply operations — native return codes are checked so failures surface
+    // in the UI instead of silently doing nothing.
     public void SetActiveScheme(Guid schemeGuid)
     {
-        PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref schemeGuid);
+        uint res = PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref schemeGuid);
+        if (res != 0)
+            throw new InvalidOperationException($"PowerSetActiveScheme failed (Win32 error {res}). Try running the app as administrator.");
     }
     
     public void DeleteScheme(Guid schemeGuid)
@@ -278,12 +281,16 @@ public sealed class PowerService
     
     public void WriteACValue(Guid scheme, Guid subgroup, Guid setting, uint val)
     {
-        PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, val);
+        uint res = PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, val);
+        if (res != 0)
+            throw new InvalidOperationException($"PowerWriteACValueIndex failed (Win32 error {res}).");
     }
 
     public void WriteDCValue(Guid scheme, Guid subgroup, Guid setting, uint val)
     {
-        PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, val);
+        uint res = PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, val);
+        if (res != 0)
+            throw new InvalidOperationException($"PowerWriteDCValueIndex failed (Win32 error {res}).");
     }
 
     public void WritePlanName(Guid scheme, string name)

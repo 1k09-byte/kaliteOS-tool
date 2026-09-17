@@ -132,30 +132,31 @@
 
         <Grid Grid.Row="1" Margin="36,12,36,16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             
-            <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" Grid.Column="0" VerticalAlignment="Center">
+            <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
                 <SelectorBarItem x:Name="TabProcesses" Text="Processes" />
                 <SelectorBarItem x:Name="TabRules" Text="Rules" />
                 <SelectorBarItem x:Name="TabReservedCpuSets" Text="Core Reservation" />
             </SelectorBar>
             
-            <AutoSuggestBox Grid.Column="1" Width="240" PlaceholderText="Search processes or rules..." QueryIcon="Find" VerticalAlignment="Center" Margin="0,0,24,0" Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <AutoSuggestBox Grid.Column="1" Width="240" PlaceholderText="Search processes or rules..." QueryIcon="Find" VerticalAlignment="Center" Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <!-- Gaming mode: boost selected process + lower background load, with restore.
                  Processes tab only: the Rules / Core Reservation tabs have no process selection. -->
-            <StackPanel x:Name="GamingModePanel" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,16,0">
+            <StackPanel x:Name="GamingModePanel" Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,16,0">
                 <TextBlock x:Name="PageGamingStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"/>
                 <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="150" Padding="12,4"
                         ToolTipService.ToolTip="Raises the selected process to Above Normal and lowers other background processes to Below Normal. Select a process row first."/>
                 <Button x:Name="PageRestoreButton" Content="Restore" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,4"
                         ToolTipService.ToolTip="Revert every priority stellarisKIT changed (Gaming mode lowering and CPU-bound auto-raise)."/>
             </StackPanel>
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
                 <TextBlock Text="Start with Windows" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <ToggleSwitch x:Name="StartupToggle" VerticalAlignment="Center" Toggled="StartupToggle_Toggled" />
             </StackPanel>
@@ -188,7 +189,7 @@
         </Border>
 
         <!-- Process DataGrid Replacement via ListView -->
-        <ListView x:Name="ProcessesGrid" Grid.Row="3" ItemsSource="{x:Bind ViewModel.Processes}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False">
+        <ListView x:Name="ProcessesGrid" Grid.Row="3" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:TunerProcessRow">
                     <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">

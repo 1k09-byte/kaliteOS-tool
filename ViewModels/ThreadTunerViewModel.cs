@@ -22,6 +22,9 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private bool _refreshing;
 
     public ObservableCollection<TunerProcessRow> Processes { get; } = new();
+    /// <summary>Filtered view of Processes driven by RulesFilter (search box).
+    /// Rebuilt whenever the filter changes or a process row is added/removed.</summary>
+    public ObservableCollection<TunerProcessRow> DisplayedProcesses { get; } = new();
     public ObservableCollection<TunerProfile> Profiles { get; } = new();
     public ObservableCollection<TunerProfile> DisplayedProfiles { get; } = new();
 
@@ -107,6 +110,23 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     partial void OnRulesFilterChanged(string value) => RefreshDisplayedProfiles();
 
+    /// <summary>Search matches process name and PID on the Processes tab, and
+    /// rule name/pattern on the Rules tab — one box serves both tabs.</summary>
+    public void RefreshDisplayedProcesses()
+    {
+        string filter = (RulesFilter ?? string.Empty).Trim();
+        DisplayedProcesses.Clear();
+        foreach (var p in Processes)
+        {
+            if (filter.Length == 0
+                || p.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                || p.Pid.ToString().Contains(filter, StringComparison.Ordinal))
+            {
+                DisplayedProcesses.Add(p);
+            }
+        }
+    }
+
     public void RefreshDisplayedProfiles()
     {
         string filter = (RulesFilter ?? string.Empty).Trim();
@@ -142,6 +162,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 {
                     // New process: take the row as enumerated.
                     Processes.Add(p);
+                    RefreshDisplayedProcesses();
                     if (!string.IsNullOrEmpty(p.Path))
                     {
                         _ = ExtractIconAsync(p);
@@ -172,6 +193,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 if (!livePids.Contains(Processes[i].Pid))
                 {
                     Processes.RemoveAt(i);
+                    RefreshDisplayedProcesses();
                 }
             }
         });

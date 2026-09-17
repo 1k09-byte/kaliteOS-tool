@@ -34,6 +34,7 @@ public sealed class TrayIconService : IDisposable
     private const uint IMAGE_ICON = 1;
     private const uint LR_LOADFROMFILE = 0x10;
     private const uint MF_STRING = 0x0000;
+    private const uint MF_SEPARATOR = 0x0800;
     private const uint TPM_RETURNCMD = 0x0100;
     private const uint TPM_RIGHTBUTTON = 0x0002;
 
@@ -108,6 +109,18 @@ public sealed class TrayIconService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr CreatePopupMenu();
@@ -265,24 +278,45 @@ public sealed class TrayIconService : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
-            AppendMenuW(menu, MF_STRING, 1, "Open kaliteConfig");
+            AppendMenuW(menu, MF_STRING, 1, "Show");
+            AppendMenuW(menu, MF_SEPARATOR, 0, null);
             AppendMenuW(menu, MF_STRING, 2, "Exit");
             if (!GetCursorPos(out POINT pt)) { Tlog("GetCursorPos failed"); return; }
             // TrackPopupMenu's window must be foreground when the menu opens,
             // or the first click outside (or the button-up from the right
             // click itself) cancels it and TrackPopupMenu returns 0.
-            SetForegroundWindow(_hwnd);
-            uint picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, _hwnd);
-            // KB135788: hand the foreground back so the taskbar doesn't stay
-            // stuck and the next tray click works first time.
-            PostMessageW(_hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
-            Tlog($"picked={picked}");
-            if (picked == 1) OnOpen?.Invoke();
-            else if (picked == 2) OnExit?.Invoke();
-            // If TrackPopupMenu was cancelled (picked==0) the foreground jump
-            // leaves a focus hole; another foreground pass on our own window
-            // clears it without stealing focus from anything else.
-            if (picked == 0) SetForegroundWindow(_hwnd);
+            //
+            // SetForegroundWindow alone FAILS here (observed: picked=0 two ms
+            // after enter): a background process has no foreground rights, so
+            // the call is silently denied and the menu dismisses instantly.
+            // The standard workaround (Raymond Chen / KB9495115 pattern):
+            // attach this thread's input queue to the foreground thread, make
+            // ourselves foreground, run the menu, then detach. With the queues
+            // attached the foreground transfer is permitted and the menu stays
+            // open for a real click.
+            IntPtr fg = GetForegroundWindow();
+            uint fgThread = fg != IntPtr.Zero ? GetWindowThreadProcessId(fg, IntPtr.Zero) : 0;
+            uint myThread = GetCurrentThreadId();
+            bool attached = fgThread != 0 && fgThread != myThread && AttachThreadInput(myThread, fgThread, true);
+            try
+            {
+                SetForegroundWindow(_hwnd);
+                uint picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, _hwnd);
+                // KB135788: hand the foreground back so the taskbar doesn't stay
+                // stuck and the next tray click works first time.
+                PostMessageW(_hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
+                Tlog($"picked={picked} attached={attached}");
+                if (picked == 1) OnOpen?.Invoke();
+                else if (picked == 2) OnExit?.Invoke();
+                // If TrackPopupMenu was cancelled (picked==0) the foreground jump
+                // leaves a focus hole; another foreground pass on our own window
+                // clears it without stealing focus from anything else.
+                if (picked == 0) SetForegroundWindow(_hwnd);
+            }
+            finally
+            {
+                if (attached) AttachThreadInput(myThread, fgThread, false);
+            }
         }
         finally { DestroyMenu(menu); }
     }
