@@ -134,7 +134,7 @@
 
                 <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="About" />
 
-                <toolkit:SettingsCard Header="About kaliteConfig" Description="Version 1.0.0 — View development team and application links" IsClickEnabled="True" Click="AboutCard_Click">
+                <toolkit:SettingsCard x:Name="AboutCard" Header="About kaliteConfig" Description="Version — View development team and application links" IsClickEnabled="True" Click="AboutCard_Click">
                     <toolkit:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE946;" />
                     </toolkit:SettingsCard.HeaderIcon>

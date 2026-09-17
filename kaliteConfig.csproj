@@ -118,7 +118,7 @@
 
   <!--  App Version and Assembly Info  -->
   <PropertyGroup>
-    <Version>0.2.0.1</Version>
+    <Version>0.2.0.2</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

@@ -95,13 +95,16 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             string installerPath = await _service.DownloadAsync(_pending, progress, _cts.Token);
 
             StatusText = "Launching installer…";
-            // NSIS /S: silent. The app runs elevated (requireAdministrator
-            // manifest), so the child inherits elevation — the same pattern
-            // the InstallerPage uses for browser setups.
+            // Inno Setup silent flags (NOT NSIS /S — Inno ignores /S, which made
+            // the "installed" update a no-op and the app re-prompted forever):
+            // /VERYSILENT no wizard, /SUPPRESSMSGBOXES no popups, /NORESTART,
+            // /CLOSEAPPLICATIONS lets Inno close a still-running instance.
+            // The app runs elevated (requireAdministrator manifest), so the
+            // child inherits elevation.
             var psi = new ProcessStartInfo
             {
                 FileName = installerPath,
-                Arguments = "/S",
+                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,

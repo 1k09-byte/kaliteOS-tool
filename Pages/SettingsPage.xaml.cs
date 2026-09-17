@@ -26,6 +26,15 @@ namespace stellarisKIT.Pages
         public SettingsPage()
         {
             InitializeComponent();
+            // Real assembly version — never goes stale like the old hardcoded
+            // "Version 1.0.0" string did.
+            try
+            {
+                var v = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
+                if (v != null)
+                    AboutCard.Description = $"Version {v.Major}.{v.Minor}.{v.Build} — View development team and application links";
+            }
+            catch { }
             Loaded += SettingsPage_Loaded;
         }
 
