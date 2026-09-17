@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Loads real per-app icons: Win32 via the shell thumbnail of the exe/DisplayIcon

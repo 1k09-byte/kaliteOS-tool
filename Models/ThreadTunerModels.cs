@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-namespace stellarisKIT.Models;
+namespace kaliteConfig.Models;
 
 public enum TunerPriorityClass : uint
 {

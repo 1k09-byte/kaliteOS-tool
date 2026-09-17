@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// The authoritative list of mod IDs that the bundled default backup contains.

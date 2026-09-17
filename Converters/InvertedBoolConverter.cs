@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using System;
 
-namespace stellarisKIT.Converters
+namespace kaliteConfig.Converters
 {
     public sealed class InvertedBoolConverter : IValueConverter
     {

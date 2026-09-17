@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 
-namespace stellarisKIT.Models
+namespace kaliteConfig.Models
 {
     public partial class BrowserInstallItem : ObservableObject
     {

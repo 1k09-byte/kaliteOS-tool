@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using stellarisKIT.Models;
-using stellarisKIT.Services;
+using kaliteConfig.Models;
+using kaliteConfig.Services;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.IO;
@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 
-namespace stellarisKIT.ViewModels;
+namespace kaliteConfig.ViewModels;
 
 /// <summary>
 /// Drives the "Install Windhawk &amp; import settings" flow on the WS page:
@@ -130,7 +130,7 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
             {
                 if (!WindhawkDetectionService.IsRunningElevated())
                 {
-                    ShowMessage("Administrator rights are required to install Windhawk. Run stellarisKIT elevated and try again.",
+                    ShowMessage("Administrator rights are required to install Windhawk. Run kaliteConfig elevated and try again.",
                         InfoBarSeverity.Error);
                     return;
                 }

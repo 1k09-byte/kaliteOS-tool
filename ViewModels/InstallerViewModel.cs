@@ -1,14 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using stellarisKIT.Models;
-using stellarisKIT.Services;
+using kaliteConfig.Models;
+using kaliteConfig.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.ViewModels
+namespace kaliteConfig.ViewModels
 {
     public partial class InstallerViewModel : ObservableObject
     {

@@ -1,9 +1,9 @@
 {
   "profiles": {
-    "stellarisKIT (Package)": {
+    "kaliteConfig (Package)": {
       "commandName": "Project"
     },
-    "stellarisKIT (Unpackaged)": {
+    "kaliteConfig (Unpackaged)": {
       "commandName": "Project"
     }
   }

@@ -1,13 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using stellarisKIT.Services;
+using kaliteConfig.Services;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.ViewModels;
+namespace kaliteConfig.ViewModels;
 
 /// <summary>
 /// Drives the consumer update banner: startup check against GitHub Releases,

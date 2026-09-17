@@ -1,10 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using stellarisKIT.Services;
+using kaliteConfig.Services;
 using System;
 using System.Collections.ObjectModel;
 
-namespace stellarisKIT.ViewModels
+namespace kaliteConfig.ViewModels
 {
     public partial class ReservedCpuSetsViewModel : ObservableObject
     {

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page
-    x:Class="stellarisKIT.Pages.UninstallerPage"
+    x:Class="kaliteConfig.Pages.UninstallerPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:stellarisKIT.ViewModels"
-    xmlns:models="using:stellarisKIT.Models"
-    xmlns:converters="using:stellarisKIT.Converters"
+    xmlns:vm="using:kaliteConfig.ViewModels"
+    xmlns:models="using:kaliteConfig.Models"
+    xmlns:converters="using:kaliteConfig.Converters"
     Background="Transparent"
     NavigationCacheMode="Enabled">
 

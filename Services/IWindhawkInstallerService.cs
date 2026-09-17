@@ -1,9 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using stellarisKIT.Services;
+using kaliteConfig.Services;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 public interface IWindhawkInstallerService
 {

@@ -5,10 +5,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using stellarisKIT.Models;
-using stellarisKIT.Native;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Live process enumeration/sampling plus all mutating process controls
@@ -173,7 +173,7 @@ public sealed class ProcessTuningService
             var result = new Dictionary<int, (double Cpu, long MemoryMb, int Threads, long ContextSwitches, long Cycles)>();
             
             var snapshotList = _snapshot.TrySnapshot();
-            var snapDict = new Dictionary<int, stellarisKIT.Native.SnapshotProcess>();
+            var snapDict = new Dictionary<int, kaliteConfig.Native.SnapshotProcess>();
             foreach (var s in snapshotList) snapDict[(int)s.ProcessId] = s;
             
             foreach (var row in rows)
@@ -670,7 +670,7 @@ public sealed class ProcessTuningService
         });
     }
 
-    public async Task SetThreadPriorityAsync(int tid, stellarisKIT.Models.TunerThreadPriority priority)
+    public async Task SetThreadPriorityAsync(int tid, kaliteConfig.Models.TunerThreadPriority priority)
     {
         await Task.Run(() =>
         {

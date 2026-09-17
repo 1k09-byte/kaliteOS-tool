@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace stellarisKIT.Models;
+namespace kaliteConfig.Models;
 
 /// <summary>
 /// Root model of a Windhawk user-data backup (format "windhawk-user-data-v1").

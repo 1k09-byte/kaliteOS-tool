@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace stellarisKIT.Native;
+namespace kaliteConfig.Native;
 
 /// <summary>Guaranteed-cleanup wrapper for process handles. Never use raw <see cref="IntPtr"/>.</summary>
 public sealed class SafeProcessHandle : SafeHandle

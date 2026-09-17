@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public record NvidiaDriverPackage(string Version, string DownloadUrl, string ReleaseDateTime);
 

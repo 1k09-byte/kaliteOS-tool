@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public class FirefoxExtensionInstaller
     {

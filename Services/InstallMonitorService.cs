@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 public sealed class InstallMonitorSnapshot
 {

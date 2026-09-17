@@ -4,10 +4,10 @@ using System.Security.Principal;
 using System.Threading.Tasks;
 using DevWinUI;
 using Microsoft.UI.Xaml;
-using stellarisKIT.Services;
-using stellarisKIT.Native;
+using kaliteConfig.Services;
+using kaliteConfig.Native;
 
-namespace stellarisKIT
+namespace kaliteConfig
 {
     public partial class App : Application
     {

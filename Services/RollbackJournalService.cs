@@ -4,7 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public class JournalEntry
     {
@@ -17,7 +17,7 @@ namespace stellarisKIT.Services
 
     public class RollbackJournalService
     {
-        private static readonly string JournalFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "stellarisKIT", "Journal", "rollback_journal.json");
+        private static readonly string JournalFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "kaliteConfig", "Journal", "rollback_journal.json");
         private readonly List<JournalEntry> _journal;
 
         public RollbackJournalService()

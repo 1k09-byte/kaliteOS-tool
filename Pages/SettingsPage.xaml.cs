@@ -4,7 +4,7 @@
 using System;
 using Microsoft.UI.Xaml.Controls;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     /// <summary>x:Bind helper: nullable download percent → ProgressBar value.</summary>
     public static class SettingsPageBindings
@@ -16,7 +16,7 @@ namespace stellarisKIT.Pages
     /// </summary>
     public sealed partial class SettingsPage : Page
     {
-        private readonly stellarisKIT.Services.StartupService _startup = new();
+        private readonly kaliteConfig.Services.StartupService _startup = new();
         private bool _syncingStartupToggle;
         // Update banner VM: only ever populated in the CONSUMER flavor (the
         // startup check below is consumer-only). In the full flavor it stays

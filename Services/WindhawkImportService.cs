@@ -1,4 +1,4 @@
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// The "Import backup" half of the provisioning flow: parses a

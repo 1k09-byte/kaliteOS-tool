@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>One installable preset: a game (or group) plus the rules it creates.</summary>
 public sealed class GamePreset
@@ -180,7 +180,7 @@ public static class GamePresets
     /// faster P-core (per MS docs).
     /// </summary>
     public static ulong? ComputeAffinityMask(
-        IReadOnlyList<stellarisKIT.Native.CpuSetEntry> topology,
+        IReadOnlyList<kaliteConfig.Native.CpuSetEntry> topology,
         AffinityScope scope)
     {
         if (scope == AffinityScope.Unset || topology == null || topology.Count == 0)
@@ -219,7 +219,7 @@ public static class GamePresets
         }
     }
 
-    private static ulong? ClassMask(List<stellarisKIT.Native.CpuSetEntry> entries, bool performance)
+    private static ulong? ClassMask(List<kaliteConfig.Native.CpuSetEntry> entries, bool performance)
     {
         var ranks = CpuSetService.RankClasses(entries);
         if (ranks.Count < 2)
@@ -238,7 +238,7 @@ public static class GamePresets
         return mask == 0 ? null : mask;
     }
 
-    private static ulong? FirstThreadMask(List<stellarisKIT.Native.CpuSetEntry> entries)
+    private static ulong? FirstThreadMask(List<kaliteConfig.Native.CpuSetEntry> entries)
     {
         ulong mask = 0;
         foreach (var core in entries.GroupBy(c => c.CoreIndex))
@@ -248,7 +248,7 @@ public static class GamePresets
         return mask == 0 || mask == AllBits(entries) ? null : mask;
     }
 
-    private static ulong? FirstCacheGroupMask(List<stellarisKIT.Native.CpuSetEntry> entries)
+    private static ulong? FirstCacheGroupMask(List<kaliteConfig.Native.CpuSetEntry> entries)
     {
         var first = entries.GroupBy(c => c.LastLevelCacheIndex)
             .OrderBy(g => g.Min(c => c.LogicalIndex))
@@ -263,7 +263,7 @@ public static class GamePresets
         return mask == 0 || mask == all ? null : mask;
     }
 
-    private static ulong AllBits(List<stellarisKIT.Native.CpuSetEntry> entries)
+    private static ulong AllBits(List<kaliteConfig.Native.CpuSetEntry> entries)
     {
         ulong all = 0;
         foreach (var cpu in entries)

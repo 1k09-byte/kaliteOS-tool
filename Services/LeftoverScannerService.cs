@@ -1,12 +1,12 @@
 using Microsoft.Win32;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 public sealed class LeftoverScannerService
 {

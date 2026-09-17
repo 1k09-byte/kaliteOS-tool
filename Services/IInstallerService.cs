@@ -1,9 +1,9 @@
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public interface IInstallerService
     {

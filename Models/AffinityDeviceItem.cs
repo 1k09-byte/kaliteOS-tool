@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace stellarisKIT.Models
+namespace kaliteConfig.Models
 {
     public partial class AffinityDeviceItem : ObservableObject
     {

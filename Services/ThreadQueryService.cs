@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using stellarisKIT.Models;
-using stellarisKIT.Native;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>One live thread row for the rule editor's thread picker.</summary>
 public sealed class LiveThreadInfo

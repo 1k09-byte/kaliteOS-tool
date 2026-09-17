@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// "Start with Windows" for both deployment modes. The rules engine lives
@@ -19,8 +19,8 @@ namespace stellarisKIT.Services;
 public sealed class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValueName = "stellarisKIT";
-    private const string StartupTaskId = "StellarisKitStartup";
+    private const string RunValueName = "kaliteConfig";
+    private const string StartupTaskId = "KaliteConfigStartup";
     private const int AppmodelErrorNoPackage = 15700;
     private const int ErrorInsufficientBuffer = 122;
 

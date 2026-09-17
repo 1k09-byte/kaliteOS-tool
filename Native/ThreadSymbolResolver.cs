@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace stellarisKIT.Native;
+namespace kaliteConfig.Native;
 
 /// <summary>
 /// Resolves a thread entry point through DbgHelp when symbols are available.
@@ -83,7 +83,7 @@ internal sealed class ThreadSymbolResolver : IDisposable
             {
                 string cache = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "stellarisKIT", "SymbolCache");
+                    "kaliteConfig", "SymbolCache");
                 Directory.CreateDirectory(cache);
                 string symbolPath = $"srv*{cache}*https://msdl.microsoft.com/download/symbols";
                 if (!SymInitialize(_processHandle!, symbolPath, false))

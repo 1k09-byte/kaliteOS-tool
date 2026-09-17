@@ -1,5 +1,5 @@
-using stellarisKIT.Models;
-using stellarisKIT.Services;
+using kaliteConfig.Models;
+using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Windhawk provisioning flow — direct-download variant copied from AutoOS AppsStage.cs:
@@ -78,7 +78,7 @@ public sealed class WindhawkInstallerService
         status?.Report($"Downloading Windhawk {DirectVersion} from GitHub (direct)...");
 
         using var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
-        request.Headers.UserAgent.ParseAdd("stellarisKIT-WindhawkInstaller/1.0");
+        request.Headers.UserAgent.ParseAdd("kaliteConfig-WindhawkInstaller/1.0");
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
 
@@ -110,7 +110,7 @@ public sealed class WindhawkInstallerService
         {
             throw new UnauthorizedAccessException(
                 "Administrator rights are required to install Windhawk (it installs a system service). " +
-                "Relaunch stellarisKIT elevated and retry.");
+                "Relaunch kaliteConfig elevated and retry.");
         }
 
         if (!File.Exists(installerPath))

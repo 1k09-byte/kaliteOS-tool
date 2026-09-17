@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ContentDialog
-    x:Class="stellarisKIT.Controls.ThreadListDialog"
+    x:Class="kaliteConfig.Controls.ThreadListDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:stellarisKIT.Controls"
+    xmlns:controls="using:kaliteConfig.Controls"
     Title="Threads"
     CloseButtonText="Close"
     DefaultButton="Close"

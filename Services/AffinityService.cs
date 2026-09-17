@@ -1,5 +1,5 @@
-using stellarisKIT.Models;
-using stellarisKIT.Native;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     /// <summary>
     /// Read-only device inventory for the affinity page (layout pass: no system

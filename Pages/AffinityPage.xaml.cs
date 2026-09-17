@@ -2,10 +2,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
-using stellarisKIT.Models;
-using stellarisKIT.ViewModels;
+using kaliteConfig.Models;
+using kaliteConfig.ViewModels;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class AffinityPage : Page
     {
@@ -76,7 +76,7 @@ namespace stellarisKIT.Pages
                 var result = await restartDialog.ShowAsync();
                 if (result == ContentDialogResult.Primary)
                 {
-                    await stellarisKIT.Services.AffinityService.RestartDeviceAsync(ViewModel.SelectedDevice.DeviceInstanceId);
+                    await kaliteConfig.Services.AffinityService.RestartDeviceAsync(ViewModel.SelectedDevice.DeviceInstanceId);
                 }
             }
         }

@@ -9,9 +9,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using Microsoft.UI.Dispatching;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>Outcome of one apply pass over a single process.</summary>
 public sealed class RuleApplyResult
@@ -70,8 +70,8 @@ public sealed class ProfileWatcherService : IDisposable
             _dispatcher = null;
         }
         _profilePath = profilePath
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "stellarisKIT", "threadtuner-profiles.json");
-        _logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "stellarisKIT", "rules-debug.log");
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "threadtuner-profiles.json");
+        _logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "rules-debug.log");
     }
 
     /// <summary>Temporary diagnostics for the "rules don't stick" report. Appends, never throws.</summary>

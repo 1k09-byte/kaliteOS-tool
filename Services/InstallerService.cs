@@ -1,4 +1,4 @@
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +11,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public class InstallerService : IInstallerService
     {
@@ -377,7 +377,7 @@ namespace stellarisKIT.Services
                         }
                         if (changed)
                         {
-                            string tmp = prefPath + ".stellarisKIT.tmp";
+                            string tmp = prefPath + ".kaliteConfig.tmp";
                             File.WriteAllText(tmp, root.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
                             File.Move(tmp, prefPath, overwrite: true);
                         }
@@ -474,8 +474,8 @@ namespace stellarisKIT.Services
             if (selected.Count == 0) return;
 
             string commonData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            string cacheDir = Path.Combine(commonData, "stellarisKIT", "extensions");
-            string unpackRoot = Path.Combine(commonData, "stellarisKIT", "unpacked");
+            string cacheDir = Path.Combine(commonData, "kaliteConfig", "extensions");
+            string unpackRoot = Path.Combine(commonData, "kaliteConfig", "unpacked");
             try { Directory.CreateDirectory(cacheDir); } catch { return; }
             try { Directory.CreateDirectory(unpackRoot); } catch { return; }
 

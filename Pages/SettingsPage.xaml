@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page
-    x:Class="stellarisKIT.Pages.SettingsPage"
+    x:Class="kaliteConfig.Pages.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dev="using:DevWinUI"
-    xmlns:local="using:stellarisKIT"
-    xmlns:pages="using:stellarisKIT.Pages"
+    xmlns:local="using:kaliteConfig"
+    xmlns:pages="using:kaliteConfig.Pages"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
     <Page.Resources>
         <!-- Consistent settings layout, cloned from WinUI-Gallery Pages/SettingsPage.xaml

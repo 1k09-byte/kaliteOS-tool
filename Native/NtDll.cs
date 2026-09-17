@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace stellarisKIT.Native
+namespace kaliteConfig.Native
 {
     public static class NtDll
     {

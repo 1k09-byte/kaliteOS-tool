@@ -1,6 +1,6 @@
 using System;
 
-namespace stellarisKIT.Models
+namespace kaliteConfig.Models
 {
     /// <summary>
     /// Single tracked registry modification — used by the undo/redo stack

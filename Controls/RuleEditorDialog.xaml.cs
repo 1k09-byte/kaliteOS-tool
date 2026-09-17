@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using stellarisKIT.Models;
-using stellarisKIT.Native;
-using stellarisKIT.Services;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
+using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -13,7 +13,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Controls;
+namespace kaliteConfig.Controls;
 
 public sealed class PriorityOption
 {

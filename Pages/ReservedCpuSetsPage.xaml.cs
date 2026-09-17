@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
-using stellarisKIT.ViewModels;
+using kaliteConfig.ViewModels;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class ReservedCpuSetsPage : Page
     {

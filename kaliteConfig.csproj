@@ -87,6 +87,36 @@
     <DefineConstants>$(DefineConstants);CONSUMER</DefineConstants>
   </PropertyGroup>
 
+  <!--  The bundled SCEWIN tool (Assets\scewin\SCEWIN_64.exe + driver .sys
+        files) must land next to the exe — the app runs it to auto-export
+        BIOS settings. The WASDK content targets drop CopyToOutputDirectory
+        metadata, so copy explicitly.
+        NOTE: as content, .sys/.exe files are PRI-indexed on unpackaged
+        builds; skipping PRI indexing for them avoids build breakage. -->
+  <ItemGroup>
+    <Content Update="Assets\scewin\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <Target Name="DeployScewinTool" BeforeTargets="Build">
+    <ItemGroup>
+      <ScewinToolFiles Include="Assets\scewin\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ScewinToolFiles)"
+          DestinationFiles="@(ScewinToolFiles -> '$(OutDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="DeployScewinToolToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <ScewinToolFiles Include="Assets\scewin\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ScewinToolFiles)"
+          DestinationFiles="@(ScewinToolFiles -> '$(PublishDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'$(PublishDir)' != ''" />
+  </Target>
+
   <!--  Unpackaged publish otherwise ships without the app's own .pri
         (only framework PRIs are publish assets), and the app then dies
         silently at startup (0xC000027B). Top it up after publish. -->

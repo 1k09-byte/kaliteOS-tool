@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using stellarisKIT.Models;
-using stellarisKIT.Native;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 public enum CpuBoundState
 {
@@ -110,7 +110,7 @@ public sealed class GamingModeResult
 /// Gaming mode switch.
 ///
 /// All changes funnel through one restore map so that "restore" always means
-/// "the state before stellarisKIT touched anything", no matter how many
+/// "the state before kaliteConfig touched anything", no matter how many
 /// times auto-raise and gaming mode overlapped.
 /// </summary>
 public sealed class GamingModeService

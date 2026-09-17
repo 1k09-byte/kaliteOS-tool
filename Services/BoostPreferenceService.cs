@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Persistent per-thread Priority-boost preferences. NOT rules: an unticked
@@ -42,7 +42,7 @@ public sealed class BoostPreferenceService
     {
         _path = path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "stellarisKIT", "boost-prefs.json");
+            "kaliteConfig", "boost-prefs.json");
         _ = LoadAsync();
     }
 

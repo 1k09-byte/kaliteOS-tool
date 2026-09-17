@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Principal;
 using System.Diagnostics;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public sealed class ReservedCpuSetsService
     {
@@ -13,7 +13,7 @@ namespace stellarisKIT.Services
         private const string ValueName = "ReservedCpuSets";
         
         private const string RunKeyPath = @"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run";
-        private const string RunValueName = "stellarisKIT_ReservedCpuSets";
+        private const string RunValueName = "kaliteConfig_ReservedCpuSets";
 
         public ulong? GetReservedCpuMask()
         {

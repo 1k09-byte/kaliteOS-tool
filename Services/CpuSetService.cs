@@ -4,9 +4,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using stellarisKIT.Native;
+using kaliteConfig.Native;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Reads full CPU topology via <c>GetSystemCpuSetInformation</c> and reads/writes

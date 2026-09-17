@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public class AmdDriverPackageConfig
     {
@@ -32,7 +32,7 @@ namespace stellarisKIT.Services
         {
             try
             {
-                string toolsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "stellarisKIT", "Tools");
+                string toolsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "Tools");
                 Directory.CreateDirectory(toolsDir);
                 string zPath = Path.Combine(toolsDir, "7za.exe");
                 

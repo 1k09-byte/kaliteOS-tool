@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     /// <summary>
     /// Native built-in AMD Adrenalin installer package inspection, custom component slimming,

@@ -1,13 +1,13 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using stellarisKIT.Native;
-using stellarisKIT.Services;
+using kaliteConfig.Native;
+using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Controls;
+namespace kaliteConfig.Controls;
 
 /// <summary>
 /// Shared CPU affinity / CPU Sets picker flyouts. Used by the rule editor

@@ -2,14 +2,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using stellarisKIT.Native;
+using kaliteConfig.Native;
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Controls;
+namespace kaliteConfig.Controls;
 
 public sealed partial class ThreadRow : ObservableObject
 {

@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using stellarisKIT.Models;
-using stellarisKIT.Services;
+using kaliteConfig.Models;
+using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -9,7 +9,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.ViewModels
+namespace kaliteConfig.ViewModels
 {
     /// <summary>
     /// Full tuning-pass ViewModel: groups devices by category, provides

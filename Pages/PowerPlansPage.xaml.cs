@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Linq;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class PowerPlansPage : Page
     {

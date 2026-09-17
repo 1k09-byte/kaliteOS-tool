@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using stellarisKIT.Models;
-using stellarisKIT.Native;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Thread-level tuning backed ONLY by documented Win32 APIs:

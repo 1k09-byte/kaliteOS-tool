@@ -1,7 +1,7 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace stellarisKIT.Models
+namespace kaliteConfig.Models
 {
     public enum RadeonPackageCategory
     {

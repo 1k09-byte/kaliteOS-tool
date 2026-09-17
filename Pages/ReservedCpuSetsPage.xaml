@@ -1,9 +1,9 @@
 <Page
-    x:Class="stellarisKIT.Pages.ReservedCpuSetsPage"
+    x:Class="kaliteConfig.Pages.ReservedCpuSetsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:stellarisKIT.Pages"
-    xmlns:models="using:stellarisKIT.ViewModels">
+    xmlns:local="using:kaliteConfig.Pages"
+    xmlns:models="using:kaliteConfig.ViewModels">
     
     <Grid>
         <Grid.RowDefinitions>
@@ -35,7 +35,7 @@
             <InfoBar IsOpen="{x:Bind ViewModel.IsNotElevated, Mode=OneWay}"
                      Severity="Warning"
                      Title="Elevation Required"
-                     Message="You must run stellarisKIT as Administrator to save reserved CPU sets."
+                     Message="You must run kaliteConfig as Administrator to save reserved CPU sets."
                      IsClosable="False" />
         </StackPanel>
 

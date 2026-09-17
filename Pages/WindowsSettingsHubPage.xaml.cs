@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class WindowsSettingsHubPage : Page
     {

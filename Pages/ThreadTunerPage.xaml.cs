@@ -1,23 +1,23 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using stellarisKIT.Controls;
-using stellarisKIT.Models;
-using stellarisKIT.Services;
-using stellarisKIT.ViewModels;
+using kaliteConfig.Controls;
+using kaliteConfig.Models;
+using kaliteConfig.Services;
+using kaliteConfig.ViewModels;
 using System.Linq;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class ThreadTunerPage : Page
     {
         public ThreadTunerViewModel ViewModel { get; }
 
-        private readonly stellarisKIT.Services.StartupService _startup = new();
+        private readonly kaliteConfig.Services.StartupService _startup = new();
         private bool _syncingStartupToggle;
-        private List<stellarisKIT.Native.CpuSetEntry> _topologyCache = new();
+        private List<kaliteConfig.Native.CpuSetEntry> _topologyCache = new();
         private TunerProcessRow? _contextProcessRow;
 
         public ThreadTunerPage()

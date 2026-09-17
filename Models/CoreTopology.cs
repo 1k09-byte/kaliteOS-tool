@@ -1,4 +1,4 @@
-namespace stellarisKIT.Models
+namespace kaliteConfig.Models
 {
     /// <summary>
     /// Snapshot of the CPU's physical topology, built once from

@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using stellarisKIT.Pages;
+using kaliteConfig.Pages;
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using Windows.Foundation;
 using WinRT.Interop;
 
-namespace stellarisKIT
+namespace kaliteConfig
 {
     public sealed partial class MainWindow : Window
     {
@@ -20,7 +20,7 @@ namespace stellarisKIT
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
         private const int DWMWCP_ROUND = 2;
 
-        private stellarisKIT.Services.TrayIconService? _tray;
+        private kaliteConfig.Services.TrayIconService? _tray;
         private bool _allowExit;
         private bool _trayShown;
 
@@ -44,7 +44,7 @@ namespace stellarisKIT
             {
                 IntPtr hwnd = WindowNative.GetWindowHandle(this);
                 int preference = DWMWCP_ROUND;
-                stellarisKIT.Native.DwmApi.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+                kaliteConfig.Native.DwmApi.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
             }
             catch
             {
@@ -63,14 +63,14 @@ namespace stellarisKIT
 
             // Close button minimizes to the system tray instead of exiting.
             // Exit only via the tray menu (or Settings, which calls AllowExit+Close).
-            _tray = new stellarisKIT.Services.TrayIconService();
+            _tray = new kaliteConfig.Services.TrayIconService();
             _tray.OnOpen += () =>
             {
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     AppWindow.Show();
                     var hwnd = WindowNative.GetWindowHandle(this);
-                    _ = stellarisKIT.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
+                    _ = kaliteConfig.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
                 });
             };
             _tray.OnExit += () =>
@@ -282,6 +282,9 @@ namespace stellarisKIT
                          break;
                     case "WindowsSettingsPage":
                          ContentFrame.Navigate(typeof(WindowsSettingsHubPage));
+                         break;
+                    case "BiosManagerPage":
+                         ContentFrame.Navigate(typeof(BiosManagerPage));
                          break;
                     case "Settings":
                          ContentFrame.Navigate(typeof(SettingsPage));

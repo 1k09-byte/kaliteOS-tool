@@ -1,6 +1,6 @@
 using Microsoft.Win32;
-using stellarisKIT.Models;
-using stellarisKIT.Native;
+using kaliteConfig.Models;
+using kaliteConfig.Native;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 public sealed class PowerService
 {

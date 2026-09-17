@@ -1,11 +1,11 @@
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     /// <summary>
     /// Detects physical core count and hybrid (P-core / E-core) topology via

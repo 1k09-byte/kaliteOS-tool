@@ -2,11 +2,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using stellarisKIT.Models;
-using stellarisKIT.ViewModels;
+using kaliteConfig.Models;
+using kaliteConfig.ViewModels;
 using System;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class GpuDriversPage : Page
     {

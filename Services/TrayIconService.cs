@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// System-tray icon via raw Win32 (Shell_NotifyIcon + a hidden message window).

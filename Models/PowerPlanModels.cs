@@ -3,7 +3,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace stellarisKIT.Models;
+namespace kaliteConfig.Models;
 
 public sealed partial class PowerScheme : ObservableObject
 {

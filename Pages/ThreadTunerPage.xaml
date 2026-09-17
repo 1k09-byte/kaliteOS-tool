@@ -1,9 +1,9 @@
 <Page
-    x:Class="stellarisKIT.Pages.ThreadTunerPage"
+    x:Class="kaliteConfig.Pages.ThreadTunerPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:stellarisKIT.Pages"
-    xmlns:models="using:stellarisKIT.Models"
+    xmlns:local="using:kaliteConfig.Pages"
+    xmlns:models="using:kaliteConfig.Models"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     NavigationCacheMode="Enabled">
     <Page.Transitions>
@@ -154,7 +154,7 @@
                 <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="150" Padding="12,4"
                         ToolTipService.ToolTip="Raises the selected process to Above Normal and lowers other background processes to Below Normal. Select a process row first."/>
                 <Button x:Name="PageRestoreButton" Content="Restore" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,4"
-                        ToolTipService.ToolTip="Revert every priority stellarisKIT changed (Gaming mode lowering and CPU-bound auto-raise)."/>
+                        ToolTipService.ToolTip="Revert every priority kaliteConfig changed (Gaming mode lowering and CPU-bound auto-raise)."/>
             </StackPanel>
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
                 <TextBlock Text="Start with Windows" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

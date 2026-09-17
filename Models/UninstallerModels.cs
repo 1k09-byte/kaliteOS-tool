@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 
-namespace stellarisKIT.Models;
+namespace kaliteConfig.Models;
 
 public enum InstallType
 {

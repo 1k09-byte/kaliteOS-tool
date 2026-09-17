@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using Microsoft.Win32;
 
-namespace stellarisKIT.Services
+namespace kaliteConfig.Services
 {
     public class ChromiumExtensionInstaller
     {

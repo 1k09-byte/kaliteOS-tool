@@ -1,0 +1,297 @@
+<Page
+    x:Class="kaliteConfig.Pages.BiosManagerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:kaliteConfig.Models"
+    xmlns:vm="using:kaliteConfig.ViewModels"
+    NavigationCacheMode="Enabled"
+    Background="Transparent">
+
+    <Page.Resources>
+        <!-- Row for the pre-export review dialog: Name → Old → New -->
+        <DataTemplate x:Key="ChangeSummaryTemplate" x:DataType="vm:ChangeSummary">
+            <Grid Padding="4,6" ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" MinWidth="120">
+                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{x:Bind PathText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{x:Bind OldValue}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{x:Bind NewValue}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource AccentFillColorDefaultBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Sticky action bar: load/export/revert always visible -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" Background="Transparent" Margin="0,0,0,4">
+            <CommandBar.PrimaryCommands>
+                <AppBarButton Icon="OpenFile" Label="Load dump" Click="LoadDump_Click" />
+                <AppBarButton Icon="Sync" Label="Export &amp; load" Click="ExportLoad_Click" IsEnabled="{x:Bind ViewModel.CanExportNow, Mode=OneWay}" />
+                <AppBarButton Icon="Save" Label="Export…" Click="Export_Click" IsEnabled="{x:Bind ViewModel.HasDocument, Mode=OneWay}" />
+                <AppBarSeparator />
+                <AppBarButton Icon="Undo" Label="Revert all" Command="{x:Bind ViewModel.ResetAllCommand}" IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
+                <AppBarButton Icon="ClearSelection" Label="Reset default" Command="{x:Bind ViewModel.ResetSettingCommand}" CommandParameter="{x:Bind ViewModel.SelectedRow, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.HasSelectedRow, Mode=OneWay}" />
+            </CommandBar.PrimaryCommands>
+            <CommandBar.Content>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Bind ViewModel.ModifiedCountText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource AccentFillColorDefaultBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
+            </CommandBar.Content>
+        </CommandBar>
+
+        <InfoBar
+            Grid.Row="1"
+            IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+            Severity="Error"
+            Title="Couldn't load dump"
+            Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+            IsClosable="True"
+            Margin="12,0,12,4" />
+
+        <!-- Search pinned above the list, always visible without scrolling -->
+        <AutoSuggestBox
+            Grid.Row="2"
+            x:Name="SearchBox"
+            QueryIcon="Find"
+            PlaceholderText="Search setting name, token, help text, or value…"
+            TextChanged="SearchBox_TextChanged"
+            IsEnabled="{x:Bind ViewModel.HasDocument, Mode=OneWay}"
+            Margin="12,0,12,8" />
+
+        <!-- Three panes: menu tree | settings list | detail/editor -->
+        <Grid Grid.Row="3" x:Name="PaneRoot">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="DetailColumn" Width="340" />
+            </Grid.ColumnDefinitions>
+
+            <Border
+                Grid.Column="0"
+                BorderThickness="0,0,1,0"
+                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                Padding="4,0,4,8">
+                <TreeView
+                    x:Name="SectionTree"
+                    ItemsSource="{x:Bind ViewModel.Sections, Mode=OneWay}"
+                    SelectionMode="Single"
+                    SelectionChanged="SectionTree_SelectionChanged">
+                    <TreeView.ItemTemplate>
+                        <DataTemplate x:DataType="models:BiosMenuSection">
+                            <TreeViewItem ItemsSource="{x:Bind Children}" DataContext="{x:Bind}" IsExpanded="False">
+                                <StackPanel Orientation="Horizontal" Spacing="6" Padding="0,3">
+                                    <TextBlock Text="{x:Bind Name}" />
+                                    <TextBlock Text="{x:Bind CountText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </TreeViewItem>
+                        </DataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </Border>
+
+            <ListView
+                Grid.Column="1"
+                x:Name="SettingsList"
+                ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
+                SelectionMode="Single"
+                SelectionChanged="SettingsList_SelectionChanged"
+                Padding="4,0">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BiosSettingRow">
+                        <Grid Height="46" ColumnSpacing="8" Padding="14,4,10,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <!-- Left accent stripe on modified rows only -->
+                            <Border
+                                Grid.Column="0"
+                                Width="3"
+                                CornerRadius="1.5"
+                                Margin="0,4,8,4"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                Visibility="{x:Bind ModifiedVisibility, Mode=OneWay}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind TokenLineText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </StackPanel>
+                            <!-- Current value pill; tap opens a quick editor when the detail pane is collapsed -->
+                            <Border
+                                Grid.Column="2"
+                                CornerRadius="12"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                Padding="12,4"
+                                VerticalAlignment="Center"
+                                Tapped="ValuePill_Tapped">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse
+                                        Width="7"
+                                        Height="7"
+                                        Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                        VerticalAlignment="Center"
+                                        Visibility="{x:Bind ModifiedVisibility, Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind ValueDisplay, Mode=OneWay}" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- Detail / edit pane -->
+            <Border
+                Grid.Column="2"
+                x:Name="DetailPane"
+                BorderThickness="1,0,0,0"
+                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                Padding="16,10,16,12">
+                <ScrollViewer>
+                    <Grid>
+                        <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.DetailVisibility, Mode=OneWay}">
+                            <TextBlock Text="{x:Bind ViewModel.SelectedRow.Name, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{x:Bind ViewModel.SelectedRow.SectionText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
+                            <TextBlock
+                                Text="{x:Bind ViewModel.SelectedRow.HelpText, Mode=OneWay}"
+                                Style="{StaticResource BodyTextBlockStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextWrapping="Wrap" />
+
+                            <!-- Metadata: muted, small — must not compete with the editor -->
+                            <Grid ColumnSpacing="10" RowSpacing="3" Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="96" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Token" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.SelectedRow.TokenValueText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Offset" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SelectedRow.OffsetValueText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Width" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.SelectedRow.WidthValueText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="BIOS default" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.SelectedRow.BiosDefaultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
+                            </Grid>
+
+                            <!-- The editor gets the most visual weight -->
+                            <TextBlock Text="Value" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0" />
+                            <ComboBox
+                                ItemsSource="{x:Bind ViewModel.SelectedRow.Options, Mode=OneWay}"
+                                SelectedValuePath="RawToken"
+                                DisplayMemberPath="Display"
+                                SelectedValue="{x:Bind ViewModel.EditingSelectedToken, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.EditingEnumeratedVisibility, Mode=OneWay}"
+                                HorizontalAlignment="Stretch"
+                                MinHeight="34" />
+                            <TextBox
+                                Text="{x:Bind ViewModel.EditingValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="0x-prefixed hex or decimal"
+                                Visibility="{x:Bind ViewModel.EditingFreeformVisibility, Mode=OneWay}" />
+                            <TextBlock
+                                Text="{x:Bind ViewModel.EditingValidationMessage, Mode=OneWay}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.EditingErrorVisibility, Mode=OneWay}" />
+                            <Button
+                                Content="Reset to BIOS default"
+                                Command="{x:Bind ViewModel.ResetSettingCommand}"
+                                CommandParameter="{x:Bind ViewModel.SelectedRow, Mode=OneWay}"
+                                HorizontalAlignment="Left"
+                                Margin="0,4,0,0" />
+                        </StackPanel>
+                        <TextBlock
+                            Text="Select a setting to view and edit it."
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Visibility="{x:Bind ViewModel.NoDetailVisibility, Mode=OneWay}" />
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Loading overlay -->
+            <Grid
+                Grid.Column="0"
+                Grid.ColumnSpan="3"
+                Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                Visibility="{x:Bind ViewModel.LoadingVisibility, Mode=OneWay}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <ProgressRing IsActive="True" Width="44" Height="44" HorizontalAlignment="Center" />
+                    <TextBlock Text="{x:Bind ViewModel.LoadingText, Mode=OneWay}" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Empty state overlay -->
+            <Grid
+                Grid.Column="0"
+                Grid.ColumnSpan="3"
+                Visibility="{x:Bind ViewModel.EmptyVisibility, Mode=OneWay}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                    <FontIcon Glyph="&#xE9D9;" FontSize="40" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Load a SCEWIN dump to begin" HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        Text="Open a text file produced by SCEWIN_64.exe /o /s to browse and edit BIOS settings."
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        TextWrapping="Wrap"
+                        MaxWidth="420"
+                        TextAlignment="Center" />
+                    <Button Content="Load dump" HorizontalAlignment="Center" Margin="0,6,0,0" Click="LoadDump_Click" Style="{StaticResource AccentButtonStyle}" />
+                </StackPanel>
+            </Grid>
+
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="Adaptive">
+                    <!-- Below 1000px the detail pane collapses; the value pill's
+                         tap action opens a quick-edit dialog instead. -->
+                    <VisualState x:Name="Narrow">
+                        <VisualState.Setters>
+                            <Setter Target="DetailColumn.Width" Value="0" />
+                            <Setter Target="DetailPane.Visibility" Value="Collapsed" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Wide">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="1000" />
+                        </VisualState.StateTriggers>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+
+        <!-- Status footer -->
+        <Border
+            Grid.Row="4"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+            Padding="12,6,12,6">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.FileNameText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

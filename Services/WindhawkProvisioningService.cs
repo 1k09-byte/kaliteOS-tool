@@ -1,5 +1,5 @@
-using stellarisKIT.Models;
-using stellarisKIT.Services;
+using kaliteConfig.Models;
+using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// The "Install Windhawk" half of the provisioning flow: ensures Windhawk is
@@ -215,7 +215,7 @@ public sealed class WindhawkProvisioningService
     {
         // Match AutoOS DownloadHelper behavior: attach User-Agent and follow redirects.
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.UserAgent.ParseAdd("stellarisKIT-WindhawkProvisioner/1.0");
+        request.Headers.UserAgent.ParseAdd("kaliteConfig-WindhawkProvisioner/1.0");
         using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
         totalBytes = response.Content.Headers.ContentLength ?? totalBytes;
@@ -266,7 +266,7 @@ public sealed class WindhawkProvisioningService
             // unpackaged/un elevated configurations. The engine's service install
             // needs elevation and would silently fail otherwise.
             throw new UnauthorizedAccessException(
-                "Administrator rights are required to install Windhawk (it installs a system service). Relaunch stellarisKIT elevated and retry.");
+                "Administrator rights are required to install Windhawk (it installs a system service). Relaunch kaliteConfig elevated and retry.");
         }
 
         // AutoOS AppsStage.cs: Process.Start(windhawk_setup.exe, "/S", Hidden)

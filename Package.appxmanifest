@@ -50,7 +50,7 @@
              resolves this task by package family instead. Requested at runtime
              via StartupService (TaskId must match). -->
         <desktop:Extension Category="windows.startupTask" Executable="$targetnametoken$.exe" EntryPoint="Windows.FullTrustApplication">
-          <desktop:StartupTask TaskId="StellarisKitStartup" Enabled="false" DisplayName="stellarisKIT" />
+          <desktop:StartupTask TaskId="KaliteConfigStartup" Enabled="false" DisplayName="kaliteConfig" />
         </desktop:Extension>
       </Extensions>
     </Application>

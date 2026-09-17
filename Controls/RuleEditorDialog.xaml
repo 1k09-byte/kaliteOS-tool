@@ -1,9 +1,9 @@
 <ContentDialog
-    x:Class="stellarisKIT.Controls.RuleEditorDialog"
+    x:Class="kaliteConfig.Controls.RuleEditorDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:models="using:stellarisKIT.Models"
-    xmlns:services="using:stellarisKIT.Services"
+    xmlns:models="using:kaliteConfig.Models"
+    xmlns:services="using:kaliteConfig.Services"
     Title="New rule"
     PrimaryButtonText="Apply"
     CloseButtonText="Cancel"

@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 
-namespace stellarisKIT.Converters
+namespace kaliteConfig.Converters
 {
     /// <summary>
     /// WinUI's Image/BitmapImage cannot decode SVG (helium/riot/discord/whatsapp

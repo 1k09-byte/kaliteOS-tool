@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace stellarisKIT.Native
+namespace kaliteConfig.Native
 {
     public static class Advapi32
     {

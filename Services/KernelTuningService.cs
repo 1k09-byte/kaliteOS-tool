@@ -1,10 +1,10 @@
 using Microsoft.Win32;
-using stellarisKIT.Native;
+using kaliteConfig.Native;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// Applies the kernel timer/interrupt tweaks (backed by the supplied .reg logic)

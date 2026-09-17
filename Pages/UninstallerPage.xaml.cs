@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
-using stellarisKIT.Models;
+using kaliteConfig.Models;
 using System;
 using System.Linq;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class UninstallerPage : Page
     {

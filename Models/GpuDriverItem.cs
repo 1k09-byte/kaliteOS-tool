@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 
-namespace stellarisKIT.Models
+namespace kaliteConfig.Models
 {
     public partial class GpuDriverItem : ObservableObject
     {

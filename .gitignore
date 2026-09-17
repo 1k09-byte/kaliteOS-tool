@@ -31,7 +31,7 @@ test.cs
 test.png
 
 # IDE files
-stellarisKIT.csproj.user
+kaliteConfig.csproj.user
 
 # Distribution artifacts (built installers - published as GitHub release assets)
 dist/

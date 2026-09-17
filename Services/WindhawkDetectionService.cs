@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
 
-namespace stellarisKIT.Services;
+namespace kaliteConfig.Services;
 
 /// <summary>
 /// What was found on this machine when probing for a Windhawk installation.

@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using System;
 
-namespace stellarisKIT.Converters;
+namespace kaliteConfig.Converters;
 
 /// <summary>bool → Visibility (Visibility.Collapsed when false), with an optional "invert" parameter.</summary>
 public sealed class BoolToVisibilityConverter : IValueConverter

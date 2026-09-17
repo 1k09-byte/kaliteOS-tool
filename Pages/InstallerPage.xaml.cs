@@ -2,10 +2,10 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using stellarisKIT.Models;
-using stellarisKIT.ViewModels;
+using kaliteConfig.Models;
+using kaliteConfig.ViewModels;
 
-namespace stellarisKIT.Pages
+namespace kaliteConfig.Pages
 {
     public sealed partial class InstallerPage : Page
     {
