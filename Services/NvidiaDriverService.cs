@@ -119,7 +119,7 @@ namespace kaliteConfig.Services
             return build >= 22000 ? 135 : 57;
         }
 
-        public async Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, CancellationToken ct)
+        public async Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, CancellationToken ct, bool studioChannel = false, bool notebookGpu = false)
         {
             var results = new List<NvidiaDriverPackage>();
             var pfid = await GetPfidFromModelStringAsync(gpuModelName, ct);
@@ -127,7 +127,9 @@ namespace kaliteConfig.Services
                 return results;
 
             int osId = GetOsId();
-            string apiUrl = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={osId}&languageCode=1033&beta=0&isWHQL=0&dltype=-1&dch=1&sort1=0&numberOfResults={numberOfResults}";
+            // dtid 1 = Game Ready, 3 = Studio (NVIDIA AjaxDriverService); notebook flag preserved for future pfid mapping
+            int dtid = studioChannel ? 3 : 1;
+            string apiUrl = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={osId}&languageCode=1033&beta=0&isWHQL=0&dltype=-1&dch=1&sort1=0&numberOfResults={numberOfResults}&dtid={dtid}";
 
             try
             {

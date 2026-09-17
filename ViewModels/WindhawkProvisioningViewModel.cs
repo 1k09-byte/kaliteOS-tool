@@ -69,11 +69,41 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
         ? Microsoft.UI.Xaml.Visibility.Visible
         : Microsoft.UI.Xaml.Visibility.Collapsed;
 
+    public double DownloadPercentValue => DownloadPercent ?? 0;
+    public bool IsProgressIndeterminate => IsBusy && DownloadPercent == null;
+    public Microsoft.UI.Xaml.Visibility DeterminateProgressVisibility => IsBusy && DownloadPercent.HasValue
+        ? Microsoft.UI.Xaml.Visibility.Visible
+        : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility IndeterminateProgressVisibility => IsBusy && !DownloadPercent.HasValue
+        ? Microsoft.UI.Xaml.Visibility.Visible
+        : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility StatusTextVisibility => !IsBusy || string.IsNullOrWhiteSpace(StatusText)
+        ? Microsoft.UI.Xaml.Visibility.Collapsed
+        : Microsoft.UI.Xaml.Visibility.Visible;
+
     partial void OnIsBusyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanRun));
         OnPropertyChanged(nameof(CanTestImport));
         OnPropertyChanged(nameof(BusyVisibility));
+        OnPropertyChanged(nameof(IsProgressIndeterminate));
+        OnPropertyChanged(nameof(DeterminateProgressVisibility));
+        OnPropertyChanged(nameof(IndeterminateProgressVisibility));
+        OnPropertyChanged(nameof(StatusTextVisibility));
+        OnPropertyChanged(nameof(DownloadPercentValue));
+    }
+
+    partial void OnDownloadPercentChanged(double? value)
+    {
+        OnPropertyChanged(nameof(DownloadPercentValue));
+        OnPropertyChanged(nameof(IsProgressIndeterminate));
+        OnPropertyChanged(nameof(DeterminateProgressVisibility));
+        OnPropertyChanged(nameof(IndeterminateProgressVisibility));
+    }
+
+    partial void OnStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(StatusTextVisibility));
     }
 
     public void RefreshDetection()

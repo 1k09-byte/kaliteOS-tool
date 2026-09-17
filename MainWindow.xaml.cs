@@ -126,7 +126,11 @@ namespace kaliteConfig
                 {
                     await ShowElevationDialogAsync();
                 }
+                await TryRunKaliteOSAutoSetupAsync();
             };
+            // Window has no Loaded event (WinUI 3) — also schedule via Activated so auto-setup
+            // is not missed if NavView is already loaded before we subscribe.
+            this.Activated += async (_, _) => await TryRunKaliteOSAutoSetupAsync();
             SuppressSidebarTooltips();
         }
 
@@ -352,6 +356,159 @@ namespace kaliteConfig
             board.Children.Add(flash);
 
             board.Begin();
+        }
+
+        private bool _kaliteOSAutoSetupRan;
+
+        /// <summary>
+        /// KaliteOS first-launch auto-provisioning: checks HKLM\SOFTWARE\KaliteOS IsInstalled.
+        /// 0 (or missing) → show progress overlay and silently install Windhawk + import bundled KaliteOS mods.
+        /// 1 → do nothing. On success, writes IsInstalled=1 so next launch is a no-op.
+        /// Progress is surfaced via the startup overlay's determinate/indeterminate ProgressBar and status TextBlocks.
+        /// </summary>
+        private async Task TryRunKaliteOSAutoSetupAsync()
+        {
+            if (_kaliteOSAutoSetupRan) return;
+
+            int isInstalled;
+            try { isInstalled = Services.KaliteOSRegistryService.GetIsInstalled(); }
+            catch { return; }
+
+            if (isInstalled == 1)
+            {
+                _kaliteOSAutoSetupRan = true; // no-op: mark done so we don't re-check
+                return;
+            }
+
+            // Must have overlay/controls available - if not yet loaded, defer (don't mark ran)
+            if (KaliteOSStartupOverlay == null || KaliteOSProgressBar == null) return;
+
+            // Only mark as started after we know we need to run and controls exist
+            if (_kaliteOSAutoSetupRan) return;
+            _kaliteOSAutoSetupRan = true;
+
+            // Small delay so window layout settles before overlay appears
+            await Task.Delay(600);
+
+            // Show overlay
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                KaliteOSStartupOverlay.Visibility = Visibility.Visible;
+                KaliteOSProgressBar.IsIndeterminate = true;
+                KaliteOSProgressBar.Value = 0;
+                KaliteOSProgressText.Text = "Preparing Windhawk installation…";
+                KaliteOSPercentText.Text = "";
+                KaliteOSPercentText.Visibility = Visibility.Collapsed;
+            });
+
+            var vm = new ViewModels.WindhawkProvisioningViewModel();
+            // Prime detection
+            vm.RefreshDetection();
+
+            // Bridge ViewModel progress -> overlay
+            void UpdateFromVm()
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    string status = vm.StatusText;
+                    if (string.IsNullOrWhiteSpace(status))
+                        status = vm.IsBusy ? "Working…" : "Preparing…";
+                    KaliteOSProgressText.Text = status;
+
+                    var pct = vm.DownloadPercent;
+                    if (pct.HasValue)
+                    {
+                        KaliteOSProgressBar.IsIndeterminate = false;
+                        KaliteOSProgressBar.Value = Math.Clamp(pct.Value, 0, 100);
+                        KaliteOSPercentText.Text = $"{pct.Value:F0}%";
+                        KaliteOSPercentText.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        // During Installing/Importing phases DownloadPercent is null → indeterminate
+                        KaliteOSProgressBar.IsIndeterminate = vm.IsBusy;
+                        if (!vm.IsBusy) KaliteOSProgressBar.Value = 100;
+                        KaliteOSPercentText.Visibility = Visibility.Collapsed;
+                    }
+                });
+            }
+
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(vm.StatusText) || e.PropertyName == nameof(vm.DownloadPercent) || e.PropertyName == nameof(vm.IsBusy))
+                    UpdateFromVm();
+            };
+            UpdateFromVm();
+
+            try
+            {
+                // If not elevated, provisioning will fail with UnauthorizedAccessException.
+                // Surface that clearly via overlay instead of silently swallowing.
+                if (!Services.WindhawkDetectionService.IsRunningElevated())
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        KaliteOSProgressBar.IsIndeterminate = false;
+                        KaliteOSProgressText.Text = "Administrator rights are required to install Windhawk (it installs a system service). Please restart as Administrator — auto-setup will retry on next elevated launch.";
+                        KaliteOSProgressBar.Value = 0;
+                    });
+                    // Keep registry at 0 so next elevated launch retries; auto-hide after delay
+                    await Task.Delay(5000);
+                    DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
+                    return;
+                }
+
+                await vm.RunProvisioningAsync();
+
+                // Success check: Windhawk now installed (with CLI)
+                bool installed = false;
+                try { installed = vm.Installation.IsInstalled && vm.Installation.CliPath != null; } catch { }
+                // Also consider legacy installed without CLI as partial success → still mark done to avoid loop
+                if (!installed)
+                {
+                    try { installed = Services.KaliteOSRegistryService.GetIsInstalled() == 1; } catch { }
+                    // If ViewModel reports installed at all, treat as success
+                    if (vm.Installation.IsInstalled) installed = true;
+                }
+
+                if (installed)
+                {
+                    try { Services.KaliteOSRegistryService.SetIsInstalled(1); } catch { }
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        KaliteOSProgressBar.IsIndeterminate = false;
+                        KaliteOSProgressBar.Value = 100;
+                        KaliteOSProgressText.Text = "Done — Windhawk installed and KaliteOS mods imported.";
+                        KaliteOSPercentText.Text = "100%";
+                        KaliteOSPercentText.Visibility = Visibility.Visible;
+                    });
+                    await Task.Delay(2200);
+                    DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
+                }
+                else
+                {
+                    // Import may have succeeded partially but verification failed — keep overlay with error
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        KaliteOSProgressBar.IsIndeterminate = false;
+                        string msg = vm.HasMessage ? vm.Message : "Windhawk provisioning finished but verification failed.";
+                        KaliteOSProgressText.Text = msg + " Will retry on next launch (IsInstalled stays 0).";
+                    });
+                    await Task.Delay(6000);
+                    DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
+                }
+            }
+            catch (Exception ex)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    KaliteOSProgressBar.IsIndeterminate = false;
+                    KaliteOSProgressText.Text = $"Auto-setup failed: {ex.Message} — will retry on next launch.";
+                    KaliteOSPercentText.Visibility = Visibility.Collapsed;
+                });
+                await Task.Delay(6000);
+                DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
+            }
         }
 
         private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement

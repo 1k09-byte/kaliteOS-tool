@@ -51,6 +51,21 @@ namespace kaliteConfig.Pages
             return status is GpuDriverStatus.UpdateAvailable or GpuDriverStatus.NotInstalled or GpuDriverStatus.Failed;
         }
 
+        public static Visibility ProgressVis(GpuDriverStatus status)
+        {
+            return status is GpuDriverStatus.Downloading or GpuDriverStatus.Installing ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public static bool InstallPhaseVis(GpuDriverStatus status)
+        {
+            return status == GpuDriverStatus.Installing;
+        }
+
+        public static Visibility ErrorVis(string? errorMessage)
+        {
+            return string.IsNullOrWhiteSpace(errorMessage) ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         // One action button per card: install when a driver is ready to install,
         // otherwise a plain "Check for updates".
         public static Visibility InstallBtnVis(GpuDriverStatus status)

@@ -81,15 +81,45 @@
                          Margin="0,0,0,12" />
 
                 <toolkit:SettingsCard Header="Windhawk" Description="{x:Bind Vm.InstallStatusText, Mode=OneWay}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ProgressBar Width="120" IsIndeterminate="True"
-                                     Visibility="{x:Bind Vm.BusyVisibility, Mode=OneWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button x:Name="WindhawkInstallButton" Content="Install Windhawk &amp; Import Settings"
                                 Style="{StaticResource AccentButtonStyle}"
                                 IsEnabled="{x:Bind Vm.CanRun, Mode=OneWay}"
                                 Click="WindhawkInstall_Click" />
                     </StackPanel>
                 </toolkit:SettingsCard>
+
+                <!-- Windhawk installation progress bar (determinate when downloading, indeterminate when installing/importing) -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Margin="0,0,0,12"
+                        Visibility="{x:Bind Vm.BusyVisibility, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{x:Bind Vm.StatusText, Mode=OneWay}"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind Vm.DownloadPercentValue, Mode=OneWay}"
+                                       Visibility="{x:Bind Vm.DeterminateProgressVisibility, Mode=OneWay}"
+                                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </Grid>
+                        <!-- Determinate: downloading -->
+                        <ProgressBar Minimum="0" Maximum="100"
+                                     Value="{x:Bind Vm.DownloadPercentValue, Mode=OneWay}"
+                                     Visibility="{x:Bind Vm.DeterminateProgressVisibility, Mode=OneWay}" />
+                        <!-- Indeterminate: installing / importing -->
+                        <ProgressBar IsIndeterminate="True"
+                                     Visibility="{x:Bind Vm.IndeterminateProgressVisibility, Mode=OneWay}" />
+                    </StackPanel>
+                </Border>
 
             </StackPanel>
         </ScrollViewer>

@@ -43,6 +43,12 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial string DetectStatusText { get; set; } = "Detecting GPUs...";
 
+        [ObservableProperty]
+        public partial bool NotebookGpu { get; set; }
+
+        [ObservableProperty]
+        public partial bool StudioChannel { get; set; }
+
         public string AdapterCountText => $"{DetectedGpus.Count} adapter{(DetectedGpus.Count == 1 ? "" : "s")}";
 
         // NVIDIA properties
@@ -185,7 +191,7 @@ namespace kaliteConfig.ViewModels
                 try
                 {
                     // Fetch up to 15 versions for dropdown selection
-                    var packages = await _nvidiaService.GetDriversAsync(gpu.Name, 15, CancellationToken.None);
+                    var packages = await _nvidiaService.GetDriversAsync(gpu.Name, 15, CancellationToken.None, StudioChannel, NotebookGpu);
                     NvidiaPackages.Clear();
                     foreach(var pkg in packages) NvidiaPackages.Add(pkg);
 
@@ -217,7 +223,8 @@ namespace kaliteConfig.ViewModels
                 try
                 {
                     var amdApi = new AmdDriverApiService();
-                    var driverInfo = await amdApi.GetLatestDriverAsync(_cts?.Token ?? CancellationToken.None);
+                    var variant = NotebookGpu ? AmdDriverApiService.AmdPackageVariant.Notebook : AmdDriverApiService.AmdPackageVariant.Desktop;
+                    var driverInfo = await amdApi.GetLatestDriverAsync(variant, _cts?.Token ?? CancellationToken.None);
                     if (driverInfo != null)
                     {
                         item.LatestVersion = driverInfo.Version;
@@ -289,7 +296,7 @@ namespace kaliteConfig.ViewModels
                         var gpu = DetectedGpus.FirstOrDefault(g => g.Vendor.Equals("NVIDIA"));
                         if (gpu != null)
                         {
-                            var best = await _nvidiaService.GetDriversAsync(gpu.Name, 1, _cts.Token);
+                            var best = await _nvidiaService.GetDriversAsync(gpu.Name, 1, _cts.Token, StudioChannel, NotebookGpu);
                             if (best.Count > 0) item.DownloadUrl = best[0].DownloadUrl;
                         }
                     }

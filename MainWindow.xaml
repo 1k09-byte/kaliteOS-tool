@@ -236,5 +236,57 @@
                 </Border.Transitions>
             </Border>
         </Grid>
+
+        <!-- KaliteOS first-launch auto-provisioning overlay.
+             Visible only when HKLM\SOFTWARE\KaliteOS IsInstalled == 0,
+             shows live Windhawk install progress with determinate + indeterminate bars.
+             Background is solid/opaque (E6 ~90% black) so underlying UI is fully hidden;
+             no see-through ghost behind the progress card. -->
+        <Border x:Name="KaliteOSStartupOverlay"
+                Grid.RowSpan="2"
+                Visibility="Collapsed"
+                Background="#E6000000"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Canvas.ZIndex="100">
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="480">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="24">
+                    <StackPanel Spacing="16">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE713;" FontSize="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Setting up KaliteOS" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="First launch detected — installing Windhawk and importing mods. This may take a few minutes…"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" FontSize="12" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <ProgressBar x:Name="KaliteOSProgressBar"
+                                         Minimum="0" Maximum="100" Value="0"
+                                         IsIndeterminate="True" />
+                            <TextBlock x:Name="KaliteOSProgressText"
+                                       Text="Preparing…"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="KaliteOSPercentText"
+                                       Text=""
+                                       FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                       Visibility="Collapsed" />
+                        </StackPanel>
+
+                        <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
+                                   Text="Do not close the app. Progress is shown above; Windhawk installs silently and the bundled KaliteOS mods are imported automatically." />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
