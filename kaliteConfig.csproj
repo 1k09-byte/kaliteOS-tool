@@ -62,6 +62,7 @@
 
   <ItemGroup>
     <PackageReference Include="DevWinUI" Version="10.4.1" />
+    <PackageReference Include="LLT.NvAPIWrapper.Net" Version="1.1.28-pre.42" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
@@ -103,18 +104,13 @@
     <ItemGroup>
       <ScewinToolFiles Include="Assets\scewin\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(ScewinToolFiles)"
-          DestinationFiles="@(ScewinToolFiles -> '$(OutDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ScewinToolFiles)" DestinationFiles="@(ScewinToolFiles -> '$(OutDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <Target Name="DeployScewinToolToPublish" AfterTargets="Publish">
     <ItemGroup>
       <ScewinToolFiles Include="Assets\scewin\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(ScewinToolFiles)"
-          DestinationFiles="@(ScewinToolFiles -> '$(PublishDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true"
-          Condition="'$(PublishDir)' != ''" />
+    <Copy SourceFiles="@(ScewinToolFiles)" DestinationFiles="@(ScewinToolFiles -> '$(PublishDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 
   <!--  Unpackaged publish otherwise ships without the app's own .pri

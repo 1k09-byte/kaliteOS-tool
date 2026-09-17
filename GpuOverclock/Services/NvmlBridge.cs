@@ -1,0 +1,127 @@
+using System;
+using System.Runtime.InteropServices;
+
+namespace kaliteConfig.GpuOverclock.Services
+{
+    /// <summary>
+    /// Minimal dynamic bridge to nvml.dll — the same driver-shipped library
+    /// nvidia-smi itself links against — used only for fields classic NVAPI
+    /// does not expose: absolute power draw in milliwatts and the absolute
+    /// power limit. Loaded lazily with LoadLibrary; if the library or any
+    /// entry point is missing, every read returns false and the module simply
+    /// hides those fields (never surfaces zeros as real values).
+    ///
+    /// Note: binds to device index 0. On multi-GPU rigs this is the primary
+    /// adapter in NVML ordering, which matches the typical single-GPU target
+    /// for this module; the %-of-limit telemetry from NVAPI stays authoritative.
+    /// </summary>
+    internal static unsafe class NvmlBridge
+    {
+        private static bool _attempted;
+        private static IntPtr _lib;
+        private delegate int InitDelegate();
+        private delegate int DeviceGetHandleDelegate(uint index, out IntPtr device);
+        private delegate int GetPowerUsageDelegate(IntPtr device, out uint milliwatts);
+        private delegate int GetPowerLimitConstraintsDelegate(IntPtr device, out uint minMw, out uint maxMw);
+        private delegate int GetPowerManagementLimitDelegate(IntPtr device, out uint milliwatts);
+
+        private static InitDelegate? _init;
+        private static DeviceGetHandleDelegate? _getHandle;
+        private static GetPowerUsageDelegate? _getPowerUsage;
+        private static GetPowerLimitConstraintsDelegate? _getConstraints;
+        private static GetPowerManagementLimitDelegate? _getLimit;
+
+        private static IntPtr _device;
+        private static bool _deviceReady;
+
+        private static bool TryLoad()
+        {
+            if (_attempted) return _lib != IntPtr.Zero;
+            _attempted = true;
+
+            // Modern drivers (5xx+) place nvml.dll in System32; older installs
+            // only had it under Program Files\NVIDIA Corporation\NVSMI.
+            foreach (var path in new[] { "nvml.dll", @"C:\Program Files\NVIDIA Corporation\NVSMI\nvml.dll" })
+            {
+                _lib = NativeLibraryShim.Load(path);
+                if (_lib != IntPtr.Zero) break;
+            }
+            if (_lib == IntPtr.Zero) return false;
+
+            try
+            {
+                _init = Marshal.GetDelegateForFunctionPointer<InitDelegate>(
+                    NativeLibraryShim.GetExport(_lib, "nvmlInit_v2"));
+                _getHandle = Marshal.GetDelegateForFunctionPointer<DeviceGetHandleDelegate>(
+                    NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetHandleByIndex_v2"));
+                _getPowerUsage = Marshal.GetDelegateForFunctionPointer<GetPowerUsageDelegate>(
+                    NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetPowerUsage"));
+                _getConstraints = Marshal.GetDelegateForFunctionPointer<GetPowerLimitConstraintsDelegate>(
+                    NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetPowerManagementLimitConstraints"));
+                _getLimit = Marshal.GetDelegateForFunctionPointer<GetPowerManagementLimitDelegate>(
+                    NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetPowerManagementLimit"));
+                return _init!() == 0 && _getHandle!(0, out _device) == 0;
+            }
+            catch
+            {
+                _lib = IntPtr.Zero;
+                return false;
+            }
+        }
+
+        private static bool EnsureDevice()
+        {
+            if (!TryLoad()) return false;
+            if (!_deviceReady)
+            {
+                if (_getHandle!(0, out _device) != 0) return false;
+                _deviceReady = true;
+            }
+            return true;
+        }
+
+        /// <summary>Current board power draw in milliwatts.</summary>
+        public static bool TryReadPowerDrawMw(out uint milliwatts)
+        {
+            milliwatts = 0;
+            if (!EnsureDevice()) return false;
+            return _getPowerUsage!(_device, out milliwatts) == 0 && milliwatts > 0;
+        }
+
+        /// <summary>Currently active power management limit in milliwatts.</summary>
+        public static bool TryReadPowerLimitMw(out uint milliwatts)
+        {
+            milliwatts = 0;
+            if (!EnsureDevice()) return false;
+            return _getLimit!(_device, out milliwatts) == 0 && milliwatts > 0;
+        }
+
+        /// <summary>Default (factory) power limit in milliwatts, when the driver reports it.</summary>
+        public static bool TryReadDefaultPowerLimitMw(out uint milliwatts)
+        {
+            milliwatts = 0;
+            // Constraints give min/max; the default limit sits at the driver's
+            // factory target. nvmlDeviceGetPowerManagementDefaultLimit is the
+            // direct source when present.
+            if (!EnsureDevice()) return false;
+            var p = NativeLibraryShim.GetExportOptional(_lib, "nvmlDeviceGetPowerManagementDefaultLimit");
+            if (p == IntPtr.Zero) return false;
+            var d = Marshal.GetDelegateForFunctionPointer<GetPowerManagementLimitDelegate>(p);
+            return d(_device, out milliwatts) == 0 && milliwatts > 0;
+        }
+    }
+
+    /// <summary>Kernel32 loader helpers (avoids pulling in a P/Invoke source generator surface in several files).</summary>
+    internal static class NativeLibraryShim
+    {
+        [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadLibraryW(string fileName);
+
+        [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+        public static IntPtr Load(string path) => LoadLibraryW(path);
+        public static IntPtr GetExport(IntPtr module, string name) => GetProcAddress(module, name);
+        public static IntPtr GetExportOptional(IntPtr module, string name) => GetProcAddress(module, name);
+    }
+}

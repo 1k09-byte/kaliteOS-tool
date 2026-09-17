@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Phase-2 hardware verification harness (spec section 9). Console app that
+    compiles the module's REAL services (no fakes) and runs the safety state
+    machine end-to-end against the actual GPU. Lives under tools/ so the main
+    app build never sees it (kaliteConfig.csproj removes tools/** from compile).
+    Run from an elevated prompt on the target machine:
+      dotnet run (project tools/OcVerify, platform x64)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The REAL controller code — same files the app ships. -->
+    <Compile Include="..\..\GpuOverclock\Models\**\*.cs" LinkBase="GpuOverclock\Models" />
+    <Compile Include="..\..\GpuOverclock\Services\**\*.cs" LinkBase="GpuOverclock\Services" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LLT.NvAPIWrapper.Net" Version="1.1.28-pre.42" />
+    <!-- Same package the app uses; brings System.Diagnostics.EventLog for TdrWatchdogService. -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+  </ItemGroup>
+
+</Project>
