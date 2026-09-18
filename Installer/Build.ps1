@@ -12,13 +12,31 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$Platform = "x64"
+    [string]$Platform = "x64",
+    # Clean rebuild (default ON): wipes the publish folder and all obj/
+    # intermediates before publishing. Incremental reuse of those folders
+    # once shipped an installer whose exe and compiled XAML (.pri) came from
+    # different builds — the app then died in MainWindow.InitializeComponent
+    # on every launch. Release/installer builds always start clean; pass
+    # -Clean:$false only for a faster throwaway local check.
+    [bool]$Clean = $true
 )
 
 $ErrorActionPreference = "Stop"
 $projectDir = Split-Path -Parent $PSScriptRoot
 $publishDir = Join-Path $projectDir "publish\win-x64"
 $issFile    = Join-Path $PSScriptRoot "kaliteConfig.iss"
+
+if ($Clean) {
+    Write-Host "--> clean: wiping publish output and obj/ intermediates..."
+    if (Test-Path -LiteralPath $publishDir) {
+        Remove-Item -LiteralPath $publishDir -Recurse -Force
+    }
+    $objDir = Join-Path $projectDir "obj"
+    if (Test-Path -LiteralPath $objDir) {
+        Remove-Item -LiteralPath $objDir -Recurse -Force
+    }
+}
 
 # Version straight from the evaluated csproj so installer + app never
 # drift (the csproj computes Version with a date-based expression, so ask
