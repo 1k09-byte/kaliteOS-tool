@@ -159,9 +159,11 @@ namespace kaliteConfig
             // Window has no Loaded event (WinUI 3) — also schedule via Activated so auto-setup
             // is not missed if NavView is already loaded before we subscribe.
             this.Activated += async (_, _) => await TryRunKaliteOSAutoSetupAsync();
+            this.Activated += (_, _) => { if (!_versionToastShown) { _versionToastShown = true; ShowVersionToast(); } };
             SuppressSidebarTooltips();
         }
 
+        private bool _versionToastShown;
         private bool _materialWatchAttached;
 
         /// <summary>
@@ -564,6 +566,53 @@ namespace kaliteConfig
             }
 
             return null;
+        }
+
+        private async void ShowVersionToast()
+        {
+#if DEBUG
+            VersionText.Text = "Welcome to dev tool";
+#else
+            try
+            {
+                var package = Windows.ApplicationModel.Package.Current;
+                var version = package.Id.Version;
+                VersionText.Text = $"kaliteConfig v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+            }
+            catch
+            {
+                VersionText.Text = $"kaliteConfig v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "release"}";
+            }
+#endif
+
+            var board = new Storyboard();
+            
+            var opAnim = new DoubleAnimation { To = 1, Duration = TimeSpan.FromMilliseconds(400) };
+            Storyboard.SetTarget(opAnim, VersionToast);
+            Storyboard.SetTargetProperty(opAnim, "Opacity");
+            
+            var trAnim = new DoubleAnimation { To = 84, Duration = TimeSpan.FromMilliseconds(600), EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut } };
+            Storyboard.SetTarget(trAnim, VersionToastTransform);
+            Storyboard.SetTargetProperty(trAnim, "Y");
+
+            board.Children.Add(opAnim);
+            board.Children.Add(trAnim);
+            board.Begin();
+
+            await Task.Delay(8000);
+
+            var boardOut = new Storyboard();
+            var opAnimOut = new DoubleAnimation { To = 0, Duration = TimeSpan.FromMilliseconds(400) };
+            Storyboard.SetTarget(opAnimOut, VersionToast);
+            Storyboard.SetTargetProperty(opAnimOut, "Opacity");
+            
+            var trAnimOut = new DoubleAnimation { To = 0, Duration = TimeSpan.FromMilliseconds(400), EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseIn } };
+            Storyboard.SetTarget(trAnimOut, VersionToastTransform);
+            Storyboard.SetTargetProperty(trAnimOut, "Y");
+
+            boardOut.Children.Add(opAnimOut);
+            boardOut.Children.Add(trAnimOut);
+            boardOut.Begin();
         }
     }
 }

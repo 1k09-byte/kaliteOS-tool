@@ -5,6 +5,7 @@ using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,8 +17,231 @@ public sealed partial class UninstallerViewModel : ObservableObject
     private readonly UninstallService _uninstallService = new();
     private readonly LeftoverScannerService _scannerService = new();
     private readonly InstallMonitorService _monitorService = new();
+    private readonly DriverStoreService _driverService = new();
+    private readonly StartupManagerService _startupService = new();
 
     public ObservableCollection<UninstallerItem> Apps { get; } = new();
+
+    // ---- Driver packages section (driver store, oem##.inf) ----
+
+    public ObservableCollection<DriverPackageItem> DriverPackages { get; } = new();
+    public ObservableCollection<DriverPackageItem> FilteredDrivers { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDriversEmpty))]
+    public partial bool IsLoadingDrivers { get; set; }
+    [ObservableProperty]
+    public partial string DriverSearchQuery { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string DriverSummaryText { get; set; } = "Driver packages not scanned yet.";
+    [ObservableProperty]
+    public partial string DriverActionStatus { get; set; } = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDriversEmpty))]
+    public partial bool HasDriverResults { get; set; }
+    public bool ShowDriversEmpty => !IsLoadingDrivers && !HasDriverResults;
+    [ObservableProperty]
+    public partial DriverPackageItem? SelectedDriver { get; set; }
+
+    partial void OnDriverSearchQueryChanged(string value) => UpdateDriverFilter();
+
+    private void UpdateDriverFilter()
+    {
+        IEnumerable<DriverPackageItem> q = DriverPackages;
+        if (!string.IsNullOrWhiteSpace(DriverSearchQuery))
+            q = q.Where(d => d.DisplayName.Contains(DriverSearchQuery, StringComparison.OrdinalIgnoreCase) ||
+                             d.Provider.Contains(DriverSearchQuery, StringComparison.OrdinalIgnoreCase) ||
+                             d.ClassName.Contains(DriverSearchQuery, StringComparison.OrdinalIgnoreCase) ||
+                             d.PublishedName.Contains(DriverSearchQuery, StringComparison.OrdinalIgnoreCase));
+        var list = q.OrderBy(d => d.Provider).ThenBy(d => d.DisplayName).ToList();
+        FilteredDrivers.Clear();
+        foreach (var d in list) FilteredDrivers.Add(d);
+        long totalBytes = 0;
+        foreach (var d in DriverPackages) if (d.StoreSizeBytes > 0) totalBytes += d.StoreSizeBytes;
+        string total = totalBytes switch { < 1024 => $"{totalBytes:F0} B", < 1024 * 1024 => $"{totalBytes / 1024:F1} KB", < 1024 * 1024 * 1024 => $"{totalBytes / 1024 / 1024:F1} MB", _ => $"{totalBytes / 1024 / 1024 / 1024:F1} GB" };
+        DriverSummaryText = $"{FilteredDrivers.Count} shown • {DriverPackages.Count} third-party package(s) • {total} in store";
+        HasDriverResults = FilteredDrivers.Count > 0;
+    }
+
+    [RelayCommand]
+    private async Task LoadDriversAsync()
+    {
+        if (IsLoadingDrivers) return;
+        IsLoadingDrivers = true;
+        DriverActionStatus = string.Empty;
+        try
+        {
+            var progress = new Progress<string>(s => DriverSummaryText = s);
+            var items = await _driverService.GetPackagesAsync(CancellationToken.None, progress);
+            DriverPackages.Clear();
+            foreach (var item in items) DriverPackages.Add(item);
+            UpdateDriverFilter();
+        }
+        catch { DriverSummaryText = "Driver scan failed."; }
+        finally { IsLoadingDrivers = false; }
+    }
+
+    [RelayCommand]
+    private async Task RemoveDriverAsync()
+    {
+        var targets = DriverPackages.Where(d => d.IsSelected).ToList();
+        if (SelectedDriver != null && targets.Count == 0) targets.Add(SelectedDriver);
+        if (targets.Count == 0) { DriverActionStatus = "Nothing selected."; return; }
+        IsLoadingDrivers = true;
+        try
+        {
+            int ok = 0;
+            var errors = new List<string>();
+            foreach (var driver in targets)
+            {
+                try
+                {
+                    DriverSummaryText = $"Removing {driver.PublishedName}…";
+                    var err = await Task.Run(() => _driverService.DeletePackageAsync(driver).GetAwaiter().GetResult());
+                    if (err != null) { errors.Add($"{driver.PublishedName}: {err}"); continue; }
+                    ok++;
+                }
+                catch (Exception ex) { errors.Add($"{driver.PublishedName}: {ex.Message}"); }
+            }
+            IsLoadingDrivers = false; // release first: reload guards on it
+            await LoadDriversAsync();
+            DriverActionStatus = errors.Count == 0
+                ? $"Removed {ok} driver package{(ok == 1 ? "" : "s")}. A restart may be needed for devices using them."
+                : $"{ok} removed, {errors.Count} failed: " + string.Join("; ", errors.Take(3));
+        }
+        finally { IsLoadingDrivers = false; }
+    }
+
+    // ---- Startup tab (Run values, services, scheduled tasks) ----
+
+    public ObservableCollection<StartupEntry> StartupHkcu { get; } = new();
+    public ObservableCollection<StartupEntry> FilteredHkcu { get; } = new();
+    public ObservableCollection<StartupEntry> StartupHklm { get; } = new();
+    public ObservableCollection<StartupEntry> FilteredHklm { get; } = new();
+    public ObservableCollection<StartupEntry> StartupServices { get; } = new();
+    public ObservableCollection<StartupEntry> FilteredServices { get; } = new();
+    public ObservableCollection<StartupEntry> StartupTasks { get; } = new();
+    public ObservableCollection<StartupEntry> FilteredTasks { get; } = new();
+
+    [ObservableProperty]
+    public partial string StartupSearchQuery { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial bool HideMicrosoftServices { get; set; } = true;
+    [ObservableProperty]
+    public partial string StartupSummaryText { get; set; } = "Startup entries not scanned yet.";
+    [ObservableProperty]
+    public partial string StartupStatusText { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial bool IsLoadingStartup { get; set; }
+    [ObservableProperty]
+    public partial bool StartupLoaded { get; set; }
+
+    partial void OnStartupSearchQueryChanged(string value) => UpdateStartupFilter();
+    partial void OnHideMicrosoftServicesChanged(bool value) => UpdateStartupFilter();
+
+    private bool _suppressStartupToggle;
+
+    private void UpdateStartupFilter()
+    {
+        FilterStartupList(StartupHkcu, FilteredHkcu);
+        FilterStartupList(StartupHklm, FilteredHklm);
+        FilterStartupList(StartupServices, FilteredServices,
+            e => !HideMicrosoftServices || !StartupManagerService.IsMicrosoftCompany(e.Company));
+        FilterStartupList(StartupTasks, FilteredTasks);
+        int total = StartupHkcu.Count + StartupHklm.Count + StartupServices.Count + StartupTasks.Count;
+        int shown = FilteredHkcu.Count + FilteredHklm.Count + FilteredServices.Count + FilteredTasks.Count;
+        StartupSummaryText = $"{shown} shown • {total} startup entries";
+    }
+
+    private void FilterStartupList(
+        ObservableCollection<StartupEntry> source,
+        ObservableCollection<StartupEntry> target,
+        Func<StartupEntry, bool>? extra = null)
+    {
+        target.Clear();
+        foreach (var e in source)
+        {
+            if (extra != null && !extra(e)) continue;
+            if (!string.IsNullOrWhiteSpace(StartupSearchQuery)
+                && !e.Name.Contains(StartupSearchQuery, StringComparison.OrdinalIgnoreCase)
+                && !e.Command.Contains(StartupSearchQuery, StringComparison.OrdinalIgnoreCase)
+                && !e.Id.Contains(StartupSearchQuery, StringComparison.OrdinalIgnoreCase))
+                continue;
+            target.Add(e);
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadStartupAsync()
+    {
+        if (IsLoadingStartup) return;
+        IsLoadingStartup = true;
+        StartupStatusText = string.Empty;
+        try
+        {
+            var progress = new Progress<string>(s => StartupSummaryText = s);
+            var scan = await _startupService.ScanAsync(CancellationToken.None, progress);
+            FillStartupList(StartupHkcu, scan.UserRun);
+            FillStartupList(StartupHklm, scan.MachineRun);
+            FillStartupList(StartupServices, scan.Services);
+            FillStartupList(StartupTasks, scan.Tasks);
+            UpdateStartupFilter();
+            StartupLoaded = true;
+        }
+        catch { StartupSummaryText = "Startup scan failed."; }
+        finally { IsLoadingStartup = false; }
+    }
+
+    private void FillStartupList(ObservableCollection<StartupEntry> target, List<StartupEntry> items)
+    {
+        foreach (var e in target) e.PropertyChanged -= OnStartupEntryToggled;
+        target.Clear();
+        foreach (var e in items) { e.PropertyChanged += OnStartupEntryToggled; target.Add(e); }
+    }
+
+    /// <summary>
+    /// Commits checkbox flips through the service (same pattern as the
+    /// kernel-tweak toggles in PowerPlansViewModel). Reverts the checkbox
+    /// when the write fails so the UI never lies about the applied state.
+    /// </summary>
+    private async void OnStartupEntryToggled(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_suppressStartupToggle || e.PropertyName != nameof(StartupEntry.IsEnabled)) return;
+        if (sender is not StartupEntry entry) return;
+        bool want = entry.IsEnabled;
+        string? err = await _startupService.SetEnabledAsync(entry, want);
+        if (err is null)
+        {
+            if (entry.Kind == StartupEntryKind.Service)
+                entry.EntryType = want ? "Auto" : "Disabled";
+            StartupStatusText = $"{entry.Name} {(want ? "enabled" : "disabled")}.";
+        }
+        else
+        {
+            _suppressStartupToggle = true;
+            try { entry.IsEnabled = !want; }
+            finally { _suppressStartupToggle = false; }
+            StartupStatusText = $"Couldn't change {entry.Name}: {err}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteStartupEntryAsync(StartupEntry? entry)
+    {
+        if (entry is null) return;
+        string? err = await _startupService.DeleteAsync(entry);
+        if (err is null)
+        {
+            foreach (var master in new[] { StartupHkcu, StartupHklm, StartupServices, StartupTasks })
+                if (master.Contains(entry)) { master.Remove(entry); break; }
+            UpdateStartupFilter();
+            StartupStatusText = $"Removed {entry.Name}.";
+        }
+        else
+        {
+            StartupStatusText = $"Couldn't remove {entry.Name}: {err}";
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowEmpty))]
@@ -30,6 +254,12 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public partial int FilterIndex { get; set; }
     [ObservableProperty]
     public partial bool ShowSystem { get; set; }
+    /// <summary>
+    /// True while the Uninstaller tab is active. The search/sort/export
+    /// toolbar describes applications only, so it hides on the other tabs.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsUninstallerTabActive { get; set; } = true;
     [ObservableProperty]
     public partial string SummaryText { get; set; } = "Loading…";
     [ObservableProperty]

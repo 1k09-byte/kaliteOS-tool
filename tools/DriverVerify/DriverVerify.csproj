@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Driver-store verification harness. Console app that compiles the REAL
+    Models/DriverPackageItem.cs and Services/DriverStoreService.cs (no fakes)
+    and checks the pure logic: pnputil output parsing across the shapes seen
+    in the wild, version splitting, and the delete safety guards (refusal
+    paths only — never a real delete). Lives under tools/ so the main app
+    build never sees it (kaliteConfig.csproj removes tools/** from compile).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The REAL driver-store code, same files the app ships. -->
+    <Compile Include="..\..\Models\DriverPackageItem.cs" Link="Models\DriverPackageItem.cs" />
+    <Compile Include="..\..\Services\DriverStoreService.cs" Link="Services\DriverStoreService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+</Project>

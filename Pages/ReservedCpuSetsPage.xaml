@@ -44,8 +44,6 @@
                 <AppBarButton Icon="SelectAll" Label="Check All" Command="{x:Bind ViewModel.SelectAllCommand}" />
                 <AppBarButton Icon="ClearSelection" Label="Uncheck All" Command="{x:Bind ViewModel.SelectNoneCommand}" />
                 <AppBarButton Icon="Switch" Label="Invert" Command="{x:Bind ViewModel.InvertSelectionCommand}" />
-                <AppBarSeparator />
-                <AppBarButton Icon="Save" Label="Save" Command="{x:Bind ViewModel.SaveCommand}" />
             </CommandBar.PrimaryCommands>
             <CommandBar.SecondaryCommands>
                 <AppBarToggleButton Label="Apply at Startup" 

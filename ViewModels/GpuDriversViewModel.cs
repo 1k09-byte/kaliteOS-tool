@@ -49,12 +49,26 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool StudioChannel { get; set; }
 
+        public int StudioChannelIndex
+        {
+            get => StudioChannel ? 1 : 0;
+            set => StudioChannel = (value == 1);
+        }
+        partial void OnStudioChannelChanged(bool value) => OnPropertyChanged(nameof(StudioChannelIndex));
+
         /// <summary>
         /// Look up the laptop variant of the GPU ("… Laptop GPU" products).
         /// Auto-enabled at detection time when WMI reports a laptop GPU.
         /// </summary>
         [ObservableProperty]
         public partial bool NotebookGpu { get; set; }
+
+        public int NotebookGpuIndex
+        {
+            get => NotebookGpu ? 1 : 0;
+            set => NotebookGpu = (value == 1);
+        }
+        partial void OnNotebookGpuChanged(bool value) => OnPropertyChanged(nameof(NotebookGpuIndex));
 
         [ObservableProperty]
         public partial string DetectStatusText { get; set; } = "Detecting GPUs...";

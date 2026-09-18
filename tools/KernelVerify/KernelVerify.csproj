@@ -2,7 +2,7 @@
 
   <!--
     Kernel tweak verification harness. Console app that compiles the REAL
-    Services/KernelTuningService.cs (plus its only native dependency,
+    Services/WindowsSettingsService.cs (plus its only native dependency,
     Native/PowrProf.cs — no fakes) and checks the pure logic: access-denied
     message truthfulness (admin vs elevated-blocked), tweak lookup, and
     that the elevation probe never throws. Lives under tools/ so the main
@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <!-- The REAL service code, same files the app ships. -->
-    <Compile Include="..\..\Services\KernelTuningService.cs" Link="Services\KernelTuningService.cs" />
+    <Compile Include="..\..\Services\WindowsSettingsService.cs" Link="Services\WindowsSettingsService.cs" />
     <Compile Include="..\..\Native\PowrProf.cs" Link="Native\PowrProf.cs" />
   </ItemGroup>
 

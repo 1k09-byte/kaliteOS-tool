@@ -300,12 +300,37 @@ public sealed class UninstallService
             var dir = item.InstallLocation?.Trim().Trim('"');
             if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
             {
+                KillProcessesInDirectory(dir);
+                // Give file locks a moment to release
+                System.Threading.Thread.Sleep(500);
                 Directory.Delete(dir, true);
                 return true;
             }
         }
         catch { }
         return false;
+    }
+
+    private void KillProcessesInDirectory(string directory)
+    {
+        try
+        {
+            directory = Path.GetFullPath(directory);
+            foreach (var process in Process.GetProcesses())
+            {
+                try
+                {
+                    var exePath = process.MainModule?.FileName;
+                    if (!string.IsNullOrEmpty(exePath) && exePath.StartsWith(directory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        process.Kill();
+                        process.WaitForExit(2000);
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 
     /// <summary>Splits an uninstall command into exe + arguments.

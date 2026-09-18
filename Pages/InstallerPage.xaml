@@ -8,6 +8,7 @@
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     xmlns:dev="using:DevWinUI"
     xmlns:converters="using:kaliteConfig.Converters"
+    xmlns:pm="using:kaliteConfig.PackageManager.Views"
     NavigationCacheMode="Enabled">
     <Page.Transitions>
         <TransitionCollection>
@@ -103,6 +104,14 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
+        <Pivot Grid.RowSpan="2">
+            <PivotItem Header="Install">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
         <!-- The XAML Dialog -->
         <ContentDialog x:Name="BrowserDetailsDialog"
@@ -252,5 +261,11 @@
 
             </StackPanel>
         </ScrollViewer>
+                </Grid>
+            </PivotItem>
+            <PivotItem Header="Packages">
+                <pm:PackageManagerPage />
+            </PivotItem>
+        </Pivot>
     </Grid>
 </Page>

@@ -40,6 +40,13 @@ namespace kaliteConfig.ViewModels
             LoadCores();
         }
 
+        private bool _isBulkUpdating;
+
+        private void OnCoreSelectionChanged()
+        {
+            if (!_isBulkUpdating) Save();
+        }
+
         private void LoadCores()
         {
             Cores.Clear();
@@ -50,7 +57,7 @@ namespace kaliteConfig.ViewModels
             for (int i = 0; i < processorCount; i++)
             {
                 bool isReserved = (actualMask & (1UL << i)) != 0;
-                Cores.Add(new CpuCoreItem(i, isReserved));
+                Cores.Add(new CpuCoreItem(i, isReserved, OnCoreSelectionChanged));
             }
         }
 
@@ -72,28 +79,37 @@ namespace kaliteConfig.ViewModels
         [RelayCommand]
         private void SelectAll()
         {
+            _isBulkUpdating = true;
             foreach (var core in Cores)
             {
                 core.IsReserved = true;
             }
+            _isBulkUpdating = false;
+            Save();
         }
 
         [RelayCommand]
         private void SelectNone()
         {
+            _isBulkUpdating = true;
             foreach (var core in Cores)
             {
                 core.IsReserved = false;
             }
+            _isBulkUpdating = false;
+            Save();
         }
 
         [RelayCommand]
         private void InvertSelection()
         {
+            _isBulkUpdating = true;
             foreach (var core in Cores)
             {
                 core.IsReserved = !core.IsReserved;
             }
+            _isBulkUpdating = false;
+            Save();
         }
 
         [RelayCommand]
@@ -154,16 +170,24 @@ namespace kaliteConfig.ViewModels
 
     public partial class CpuCoreItem : ObservableObject
     {
+        private readonly Action _onChanged;
+
         public int Index { get; }
-        public string Name => $"Core {Index}";
+        public string Name => $"CPU {Index}";
 
         [ObservableProperty]
         public partial bool IsReserved { get; set; }
 
-        public CpuCoreItem(int index, bool isReserved)
+        public CpuCoreItem(int index, bool isReserved, Action onChanged)
         {
             Index = index;
-            IsReserved = isReserved;
+            IsReserved = isReserved; // Fires before _onChanged is attached
+            _onChanged = onChanged;
+        }
+
+        partial void OnIsReservedChanged(bool value)
+        {
+            _onChanged?.Invoke();
         }
     }
 }

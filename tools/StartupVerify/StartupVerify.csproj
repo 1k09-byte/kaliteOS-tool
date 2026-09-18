@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Startup-manager verification harness. Console app that compiles the REAL
+    Models/StartupEntry.cs and Services/StartupManagerService.cs (no fakes)
+    and checks the pure logic: schtasks CSV/XML parsing, toggle mappings,
+    Run merge, and the backup store round-trip against an HKCU sandbox
+    (never HKLM, never the real Run keys). Lives under tools/ so the main
+    app build never sees it (kaliteConfig.csproj removes tools/**).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The REAL startup code, same files the app ships. -->
+    <Compile Include="..\..\Models\StartupEntry.cs" Link="Models\StartupEntry.cs" />
+    <Compile Include="..\..\Services\StartupManagerService.cs" Link="Services\StartupManagerService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="System.Management" Version="10.0.11" />
+  </ItemGroup>
+
+</Project>

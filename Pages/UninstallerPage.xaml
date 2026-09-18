@@ -41,16 +41,19 @@
             </Button>
             <StackPanel Grid.Column="1">
                 <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                    <Run Text="Windows Settings" /><Run Text="  ›  Uninstaller" FontWeight="SemiBold" />
+                    <Run Text="Windows Settings" /><Run Text="  ›  U/R" FontWeight="SemiBold" />
                 </TextBlock>
-                <TextBlock Text="Uninstaller" Style="{StaticResource TitleTextBlockStyle}" Margin="0,2,0,0" />
+                <TextBlock Text="U/R" Style="{StaticResource TitleTextBlockStyle}" Margin="0,2,0,0"
+                           ToolTipService.ToolTip="Uninstaller &amp; remover — applications, driver packages, startup entries" />
                 <TextBlock Text="{Binding SummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
             </StackPanel>
             <Button Grid.Column="2" Content="Refresh" Command="{Binding LoadAppsCommand}" VerticalAlignment="Bottom" />
         </Grid>
 
-        <!-- Toolbar: search + sort + filter chips -->
-        <Grid Grid.Row="1" Margin="36,16,36,0" ColumnSpacing="16">
+        <!-- Toolbar: search + sort + filter chips (applications only —
+             hidden on the Remover/Startup tabs) -->
+        <Grid Grid.Row="1" Margin="36,16,36,0" ColumnSpacing="16"
+              Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MaxWidth="420" />
                 <ColumnDefinition Width="Auto" />
@@ -74,16 +77,20 @@
         </Grid>
 
         <!-- Command bar: batch actions live in the details pane; this row keeps
-             view-level actions only. -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="36,12,36,12" Spacing="8">
+             view-level actions only. Applications only — hidden elsewhere. -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="36,12,36,12" Spacing="8"
+                    Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
             <Button Content="Export list..." Command="{Binding ExportListCommand}" />
             <CheckBox Content="Show system components" Margin="8,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ShowSystem, Mode=TwoWay}"
                       ToolTipService.ToolTip="Include Windows system components in the list" />
             <TextBlock x:Name="SelectionText" Text="" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
         </StackPanel>
 
+        <!-- Main area: Applications and Driver packages tabs (WinUI Pivot) -->
+        <Pivot x:Name="MainPivot" Grid.Row="3" Margin="36,0,36,24" SelectionChanged="MainPivot_SelectionChanged">
+            <PivotItem Header="Uninstaller">
         <!-- Main split: list + details -->
-        <Grid Grid.Row="3" Margin="36,0,36,24" ColumnSpacing="16">
+        <Grid Margin="0,12,0,0" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="340" />
@@ -270,5 +277,383 @@
                 </Grid>
             </Border>
         </Grid>
+            </PivotItem>
+            <PivotItem Header="Remover">
+                <Grid Margin="0,12,0,0" ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="340" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" ColumnSpacing="12" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MaxWidth="420" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <AutoSuggestBox Grid.Column="0" PlaceholderText="Search provider, name, class, INF..." QueryIcon="Find"
+                                            Text="{Binding DriverSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadDriversCommand}" VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid Grid.Row="1" Margin="12,0,8,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Driver" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="Version" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Date" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Class" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="INF" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="DriverList" Grid.Row="2" ItemsSource="{Binding FilteredDrivers}" SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
+                                  SelectionMode="Extended" ShowsScrollingPlaceholders="True" SelectionChanged="DriverList_SelectionChanged">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0,0,0,4" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:DriverPackageItem">
+                                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1" CornerRadius="8" Padding="12,10">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3*" />
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding FriendlyKind}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding DriverVersion}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding DriverDate}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="3" Text="{Binding FriendlyClass}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                            <Border Grid.Column="4" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding PublishedName}" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock Grid.Row="2" Text="No driver packages match." HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Visibility="{Binding ShowDriversEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        <Border Grid.Row="2" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.9" CornerRadius="8"
+                                Visibility="{Binding IsLoadingDrivers, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="380">
+                                <ProgressRing IsActive="{Binding IsLoadingDrivers}" Width="44" Height="44" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding DriverSummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextAlignment="Center" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                        <Grid>
+                            <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="{Binding SelectedDriver, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert}">
+                                <FontIcon Glyph="&#xE8F9;" FontSize="32" Foreground="{ThemeResource TextFillColorDisabledBrush}" HorizontalAlignment="Center" />
+                                <TextBlock Text="Select a driver package to see details and actions."
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" TextAlignment="Center" FontSize="12" />
+                            </StackPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding SelectedDriver, Converter={StaticResource NullToVisibilityConverter}}">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding SelectedDriver.FriendlyKind}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SelectedDriver.Provider}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                            <TextBlock Text="{Binding SelectedDriver.DriverVersion}" FontSize="11" />
+                                        </Border>
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                            <TextBlock Text="{Binding SelectedDriver.FriendlyClass}" FontSize="11" />
+                                        </Border>
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                            <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" />
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Driver date" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.DriverDate}" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Signer" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.SignerName}" FontSize="12" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Driver store size" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.FormattedSize}" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Published INF" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" TextWrapping="Wrap"
+                                                   IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button Content="Remove package" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                                            Click="DetailsRemoveDriver_Click" />
+                                    <TextBlock Text="{Binding DriverActionStatus}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Visibility="{Binding DriverActionStatus, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </PivotItem>
+            <PivotItem Header="Startup">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" ColumnSpacing="12" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="420" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <AutoSuggestBox Grid.Column="0" PlaceholderText="Search name or command..." QueryIcon="Find"
+                                        Text="{Binding StartupSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
+                        <CheckBox Grid.Column="1" Content="Hide Microsoft services" IsChecked="{Binding HideMicrosoftServices, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Hide services whose binary reports a Microsoft company name" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding StartupSummaryText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <Button Content="Refresh" Command="{Binding LoadStartupCommand}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="20">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="HKCU Run" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                <Grid Margin="28,0,52,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="1*" />
+                                        <ColumnDefinition Width="4*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding FilteredHkcu}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:StartupEntry">
+                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,4">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="1*" />
+                                                        <ColumnDefinition Width="4*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                               TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Id}" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
+                                                               IsTextSelectionEnabled="True" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Command}" />
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
+                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                            ToolTipService.ToolTip="Delete this entry">
+                                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="HKLM Run" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                <Grid Margin="28,0,52,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="1*" />
+                                        <ColumnDefinition Width="4*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding FilteredHklm}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:StartupEntry">
+                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,4">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="1*" />
+                                                        <ColumnDefinition Width="4*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                               TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Id}" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
+                                                               IsTextSelectionEnabled="True" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Command}" />
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
+                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                            ToolTipService.ToolTip="Delete this entry">
+                                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Services" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                <Grid Margin="28,0,52,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="1*" />
+                                        <ColumnDefinition Width="4*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding FilteredServices}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:StartupEntry">
+                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,4">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="1*" />
+                                                        <ColumnDefinition Width="4*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
+                                                              ToolTipService.ToolTip="Checked = automatic start; unchecked = disabled" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                               TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Id}" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
+                                                               IsTextSelectionEnabled="True" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Command}" />
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
+                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                            ToolTipService.ToolTip="Delete this service (cannot be undone here)">
+                                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Scheduled Tasks" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                <Grid Margin="28,0,52,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="1*" />
+                                        <ColumnDefinition Width="4*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding FilteredTasks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:StartupEntry">
+                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,4">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="1*" />
+                                                        <ColumnDefinition Width="4*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                               TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Id}" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
+                                                               IsTextSelectionEnabled="True" VerticalAlignment="Center"
+                                                               ToolTipService.ToolTip="{x:Bind Command}" />
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
+                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                            ToolTipService.ToolTip="Delete this task">
+                                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <TextBlock Text="{Binding StartupStatusText}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Visibility="{Binding StartupStatusText, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </PivotItem>
+        </Pivot>
     </Grid>
 </Page>

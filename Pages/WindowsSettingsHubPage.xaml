@@ -20,13 +20,9 @@
         <ScrollViewer Grid.Row="1" Padding="36,0,36,24" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="SettingsPanel" HorizontalAlignment="Stretch" Spacing="4">
                 
-                <TextBlock Text="Scheduling" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-
                 <toolkit:SettingsCard x:Name="Win32PSCard" Header="Win32 priority separation (Win32PrioritySeparation)" Description="Reading current value…" Margin="0,0,0,12">
                      <ComboBox x:Name="Win32PSBox" PlaceholderText="Select a preset" SelectionChanged="Win32PSBox_SelectionChanged" />
                 </toolkit:SettingsCard>
-
-                <TextBlock Text="Kernel" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
 
                 <toolkit:SettingsCard x:Name="ThreadedDpcCard" Header="Threaded DPCs" Description="Reading…" Margin="0,0,0,12">
                      <ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="ThreadedDpc" />
@@ -40,8 +36,9 @@
                      <ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration" />
                 </toolkit:SettingsCard>
 
-
-                <TextBlock Text="Memory &amp; Services" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
+                <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)" Description="Reading…" Margin="0,0,0,12">
+                     <ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus" />
+                </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold (SvcHostSplitThresholdInKB)"
                                       Description="RAM size above which Windows stops grouping services into shared svchost processes. Windows default: 380000 (~371 GB, effectively never split on typical RAM). Takes effect after a restart." Margin="0,0,0,12">
@@ -50,8 +47,6 @@
                         <Button Content="Reset" Click="SvcSplitReset_Click" ToolTipService.ToolTip="Delete the value and return to the Windows default" />
                     </StackPanel>
                 </toolkit:SettingsCard>
-
-                <TextBlock Text="Windhawk" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
 
                 <!-- Live Windhawk provisioning: real detection + install/import flow.
                      The old hardcoded "v1.7.3 / legacy path" InfoBar was fake — it

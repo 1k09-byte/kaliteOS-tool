@@ -173,10 +173,19 @@ namespace kaliteConfig
 #endif
         }
 
+        private static System.Threading.Mutex? _singleInstanceMutex;
+
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
             try 
             {
+                _singleInstanceMutex = new System.Threading.Mutex(true, "kaliteConfigAppMutex", out bool isFirstInstance);
+                if (!isFirstInstance)
+                {
+                    Environment.Exit(0);
+                    return;
+                }
+
                 _window = new MainWindow();
                 _windowStatic = _window;
 

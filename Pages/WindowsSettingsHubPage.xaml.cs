@@ -8,7 +8,7 @@ namespace kaliteConfig.Pages
 {
     public sealed partial class WindowsSettingsHubPage : Page
     {
-        private readonly Services.KernelTuningService _kernel = new();
+        private readonly Services.WindowsSettingsService _kernel = new();
         private readonly ViewModels.WindhawkProvisioningViewModel Vm = new();
         private bool _loadingWin32PS;
         private bool _loadingKernelToggles;
@@ -56,9 +56,9 @@ namespace kaliteConfig.Pages
                 try { current = _kernel.ReadWin32PS(); }
                 catch (Exception ex) { Win32PSCard.Description = $"Unreadable: {ex.Message}"; }
                 int selected = -1;
-                for (int i = 0; i < Services.KernelTuningService.Win32PSPresets.Length; i++)
+                for (int i = 0; i < Services.WindowsSettingsService.Win32PSPresets.Length; i++)
                 {
-                    var (value, label) = Services.KernelTuningService.Win32PSPresets[i];
+                    var (value, label) = Services.WindowsSettingsService.Win32PSPresets[i];
                     Win32PSBox.Items.Add(label);
                     if (current == value) selected = i;
                 }
@@ -85,8 +85,8 @@ namespace kaliteConfig.Pages
         private void Win32PSBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_loadingWin32PS || Win32PSBox.SelectedIndex < 0) return;
-            if (Win32PSBox.SelectedIndex >= Services.KernelTuningService.Win32PSPresets.Length) return; // custom row
-            var (value, label) = Services.KernelTuningService.Win32PSPresets[Win32PSBox.SelectedIndex];
+            if (Win32PSBox.SelectedIndex >= Services.WindowsSettingsService.Win32PSPresets.Length) return; // custom row
+            var (value, label) = Services.WindowsSettingsService.Win32PSPresets[Win32PSBox.SelectedIndex];
             try
             {
                 _kernel.WriteWin32PS(value);
@@ -110,20 +110,22 @@ namespace kaliteConfig.Pages
                     "Stops Windows steering device interrupts across cores (active scheme).");
                 LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard,
                     "Serializes timer expiration (active scheme).");
+                LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
+                    "Boosts multimedia thread priorities (needs restart).");
             }
             finally { _loadingKernelToggles = false; }
         }
 
         private void LoadOneKernelToggle(string id, ToggleSwitch toggle, CommunityToolkit.WinUI.Controls.SettingsCard card, string caption)
         {
-            var def = Services.KernelTuningService.Find(id);
+            var def = Services.WindowsSettingsService.Find(id);
             if (def == null) return;
             try
             {
                 var det = _kernel.Detect(def);
-                toggle.IsOn = det.State == Services.KernelTuningService.TweakState.On;
+                toggle.IsOn = det.State == Services.WindowsSettingsService.TweakState.On;
                 card.Description = det.Describe(caption)
-                    + (det.State != Services.KernelTuningService.TweakState.WindowsDefault && _kernel.HasBackup(def)
+                    + (det.State != Services.WindowsSettingsService.TweakState.WindowsDefault && _kernel.HasBackup(def)
                         ? " Right-click the toggle to restore the original value."
                         : "");
             }
@@ -136,7 +138,7 @@ namespace kaliteConfig.Pages
         private void KernelToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loadingKernelToggles || sender is not ToggleSwitch toggle || toggle.Tag is not string id) return;
-            var def = Services.KernelTuningService.Find(id);
+            var def = Services.WindowsSettingsService.Find(id);
             if (def == null) return;
             try
             {
@@ -151,6 +153,7 @@ namespace kaliteConfig.Pages
                     "InterruptRouting" => IrqRoutingCard,
                     "TimerExpiration" => TimerExpCard,
                     "ThreadedDpc" => ThreadedDpcCard,
+                    "MmcssStatus" => MmcssCard,
                     _ => null,
                 };
                 if (card != null) card.Description += $" Write denied: {ex.Message}";
@@ -163,7 +166,7 @@ namespace kaliteConfig.Pages
         private void KernelToggle_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
         {
             if (sender is not FrameworkElement fe || fe.Tag is not string id) return;
-            var def = Services.KernelTuningService.Find(id);
+            var def = Services.WindowsSettingsService.Find(id);
             if (def == null || !_kernel.HasBackup(def)) return; // never written by the app
 
             var menu = new MenuFlyout();
@@ -192,9 +195,9 @@ namespace kaliteConfig.Pages
                 catch (Exception ex) { SvcSplitCard.Description = $"Unreadable: {ex.Message}"; return; }
 
                 int selected = -1;
-                for (int i = 0; i < Services.KernelTuningService.SvcSplitPresets.Length; i++)
+                for (int i = 0; i < Services.WindowsSettingsService.SvcSplitPresets.Length; i++)
                 {
-                    var (value, label) = Services.KernelTuningService.SvcSplitPresets[i];
+                    var (value, label) = Services.WindowsSettingsService.SvcSplitPresets[i];
                     SvcSplitBox.Items.Add(label);
                     if (current == value) selected = i;
                 }
@@ -223,8 +226,8 @@ namespace kaliteConfig.Pages
         private void SvcSplitBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_loadingSvcSplit || SvcSplitBox.SelectedIndex < 0) return;
-            if (SvcSplitBox.SelectedIndex >= Services.KernelTuningService.SvcSplitPresets.Length) return; // custom row
-            var (value, _) = Services.KernelTuningService.SvcSplitPresets[SvcSplitBox.SelectedIndex];
+            if (SvcSplitBox.SelectedIndex >= Services.WindowsSettingsService.SvcSplitPresets.Length) return; // custom row
+            var (value, _) = Services.WindowsSettingsService.SvcSplitPresets[SvcSplitBox.SelectedIndex];
             try
             {
                 if (value == 380000u)

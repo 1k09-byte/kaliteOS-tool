@@ -404,6 +404,21 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
 
             var c = caps.Value;
+
+            if (c.IsNotebook || c.GpuName.Contains("Laptop", StringComparison.OrdinalIgnoreCase) || c.GpuName.Contains("Mobile", StringComparison.OrdinalIgnoreCase))
+            {
+                SetUnsupported("Overclocking is disabled for laptop GPUs to prevent exceeding manufacturer power limits.");
+                return;
+            }
+
+            if (c.GpuName.Contains("Integrated", StringComparison.OrdinalIgnoreCase) || 
+                c.GpuName.Contains("Intel", StringComparison.OrdinalIgnoreCase) || 
+                c.GpuName.Contains("Radeon", StringComparison.OrdinalIgnoreCase))
+            {
+                SetUnsupported("Overclocking is disabled for integrated graphics processors.");
+                return;
+            }
+
             _caps = c;
             _gpuName = c.GpuName;
             _driverVersion = c.DriverVersion;

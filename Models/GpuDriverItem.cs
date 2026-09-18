@@ -54,12 +54,11 @@ namespace kaliteConfig.Models
 
         public Visibility PrimaryVis => IsPrimary ? Visibility.Visible : Visibility.Collapsed;
         public Visibility SecondaryVis => IsPrimary ? Visibility.Collapsed : Visibility.Visible;
-
-        // Update-available / up-to-date pill in the card header.
-        public Visibility UpdatePillVis => Status == GpuDriverStatus.UpdateAvailable
-            ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility UpToDatePillVis => Status == GpuDriverStatus.UpToDate ? Visibility.Visible : Visibility.Collapsed;
         // -------------------------------------
+
+        // Check-button state: the button itself carries "up to date" once a
+        // check has confirmed it (disabled — nothing to do), stays actionable
+        // otherwise, and goes quiet while a download/install is running.
 
         // Fallback official page (used when lookup/download fails, and for page-only vendors).
         [ObservableProperty]
@@ -77,8 +76,8 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
-        [NotifyPropertyChangedFor(nameof(UpdatePillVis))]
-        [NotifyPropertyChangedFor(nameof(UpToDatePillVis))]
+        [NotifyPropertyChangedFor(nameof(CheckActionText))]
+        [NotifyPropertyChangedFor(nameof(IsCheckEnabled))]
         public partial GpuDriverStatus Status { get; set; } = GpuDriverStatus.NotChecked;
 
         [ObservableProperty]
@@ -115,6 +114,17 @@ namespace kaliteConfig.Models
             GpuDriverStatus.Failed => "Retry",
             _ => "Install"
         };
+
+        public string CheckActionText => Status switch
+        {
+            GpuDriverStatus.UpToDate => "Up to date",
+            GpuDriverStatus.Downloading => "Downloading…",
+            GpuDriverStatus.Installing => "Installing…",
+            _ => "Check for updates",
+        };
+
+        public bool IsCheckEnabled => Status is not (
+            GpuDriverStatus.UpToDate or GpuDriverStatus.Downloading or GpuDriverStatus.Installing);
     }
 
     public enum GpuDriverStatus

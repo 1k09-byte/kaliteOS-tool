@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="kaliteConfig.PackageManager.Views.PackageListView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:kaliteConfig.PackageManager.Views"
+    mc:Ignorable="d">
+
+    <!-- Shared package list: one ItemsRepeater, row content delegated to
+         PackageRow. ViewMode/Action wiring is pushed into realized rows in
+         ElementPrepared (code), so no fragile cross-template bindings. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
+        <ItemsRepeater x:Name="Repeater" ElementPrepared="Repeater_ElementPrepared">
+            <ItemsRepeater.ItemTemplate>
+                <DataTemplate>
+                    <local:PackageRow Margin="0,0,0,8" HorizontalAlignment="Stretch"
+                                      HorizontalContentAlignment="Stretch" />
+                </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+    </ScrollViewer>
+</UserControl>

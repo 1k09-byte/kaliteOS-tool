@@ -26,7 +26,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     public partial string LoadingStatus { get; set; } = "Loading…";
 
     public ObservableCollection<KernelTweakItem> KernelTweaks { get; } = new();
-    private readonly KernelTuningService _kernelService = new();
+    private readonly WindowsSettingsService _kernelService = new();
     private bool _suppressKernelWrite;
 
     /// <summary>Marshals LoadingStatus updates onto the UI thread. Progress&lt;T&gt;
@@ -208,7 +208,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
             foreach (var item in KernelTweaks)
                 item.PropertyChanged -= KernelTweak_PropertyChanged;
             KernelTweaks.Clear();
-            foreach (var def in KernelTuningService.All)
+            foreach (var def in WindowsSettingsService.All)
             {
                 uint? raw = null;
                 string loadError = string.Empty;
@@ -238,7 +238,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     {
         if (_suppressKernelWrite) return;
         if (sender is not KernelTweakItem item || e.PropertyName != nameof(KernelTweakItem.IsOn)) return;
-        var def = KernelTuningService.Find(item.Id);
+        var def = WindowsSettingsService.Find(item.Id);
         if (def == null) return;
         try
         {
@@ -257,7 +257,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     private void ResetKernelTweak(KernelTweakItem? item)
     {
         if (item == null) return;
-        var def = KernelTuningService.Find(item.Id);
+        var def = WindowsSettingsService.Find(item.Id);
         if (def == null) return;
         try
         {

@@ -115,12 +115,46 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public void RefreshDisplayedProcesses()
     {
         string filter = (RulesFilter ?? string.Empty).Trim();
-        DisplayedProcesses.Clear();
+        var matching = new List<TunerProcessRow>();
         foreach (var p in Processes)
         {
             if (filter.Length == 0
                 || p.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
                 || p.Pid.ToString().Contains(filter, StringComparison.Ordinal))
+            {
+                matching.Add(p);
+            }
+        }
+        
+        var matchingPids = new HashSet<int>();
+        foreach (var m in matching) matchingPids.Add(m.Pid);
+
+        for (int i = DisplayedProcesses.Count - 1; i >= 0; i--)
+        {
+            if (!matchingPids.Contains(DisplayedProcesses[i].Pid))
+            {
+                DisplayedProcesses.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < matching.Count; i++)
+        {
+            var p = matching[i];
+            if (i < DisplayedProcesses.Count)
+            {
+                if (DisplayedProcesses[i].Pid != p.Pid)
+                {
+                    int currentIdx = -1;
+                    for(int j = i + 1; j < DisplayedProcesses.Count; j++) {
+                        if (DisplayedProcesses[j].Pid == p.Pid) { currentIdx = j; break; }
+                    }
+                    if (currentIdx != -1) 
+                        DisplayedProcesses.Move(currentIdx, i);
+                    else 
+                        DisplayedProcesses.Insert(i, p);
+                }
+            }
+            else
             {
                 DisplayedProcesses.Add(p);
             }
@@ -154,6 +188,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         _dispatcher.TryEnqueue(() => 
         {
             var livePids = new HashSet<int>(active.Select(p => p.Pid));
+            bool changed = false;
 
             foreach (var p in active)
             {
@@ -162,7 +197,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 {
                     // New process: take the row as enumerated.
                     Processes.Add(p);
-                    RefreshDisplayedProcesses();
+                    changed = true;
                     if (!string.IsNullOrEmpty(p.Path))
                     {
                         _ = ExtractIconAsync(p);
@@ -170,13 +205,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 }
                 else
                 {
-                    // Settings (priority, efficiency, affinity, state) can change
-                    // at runtime — through this app or externally — so re-read the
-                    // static fields on every poll. Otherwise the row keeps showing
-                    // the value from when the process first appeared, making a
-                    // successful change look like nothing happened. Each write is
-                    // guarded so an unchanged value doesn't fire PropertyChanged
-                    // and force a row re-render on every tick.
                     if (existing.PriorityText != p.PriorityText) existing.PriorityText = p.PriorityText;
                     if (existing.PriorityValue != p.PriorityValue) existing.PriorityValue = p.PriorityValue;
                     if (existing.AffinitySummary != p.AffinitySummary) existing.AffinitySummary = p.AffinitySummary;
@@ -193,8 +221,13 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 if (!livePids.Contains(Processes[i].Pid))
                 {
                     Processes.RemoveAt(i);
-                    RefreshDisplayedProcesses();
+                    changed = true;
                 }
+            }
+
+            if (changed)
+            {
+                RefreshDisplayedProcesses();
             }
         });
     }
