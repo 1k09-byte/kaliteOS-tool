@@ -25,12 +25,18 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
     private CancellationTokenSource? _cts;
     private UpdateCheckService.LatestRelease? _pending;
 
-    [ObservableProperty] private bool _isAvailable;
-    [ObservableProperty] private string _latestVersion = string.Empty;
-    [ObservableProperty] private string _notes = string.Empty;
-    [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private double? _downloadPercent;
-    [ObservableProperty] private string _statusText = string.Empty;
+    [ObservableProperty]
+    public partial bool IsAvailable { get; set; }
+    [ObservableProperty]
+    public partial string LatestVersion { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Notes { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+    [ObservableProperty]
+    public partial double? DownloadPercent { get; set; }
+    [ObservableProperty]
+    public partial string StatusText { get; set; } = string.Empty;
 
     public Microsoft.UI.Xaml.Visibility BannerVisibility => IsAvailable
         ? Microsoft.UI.Xaml.Visibility.Visible

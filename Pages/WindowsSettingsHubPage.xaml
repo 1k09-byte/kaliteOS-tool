@@ -15,15 +15,11 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="WS — Windows Settings" Margin="36,24,36,12" Style="{StaticResource TitleTextBlockStyle}" />
+        <TextBlock Grid.Row="0" Text="Windows Settings" Margin="36,24,36,12" Style="{StaticResource TitleTextBlockStyle}" />
 
         <ScrollViewer Grid.Row="1" Padding="36,0,36,24" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="SettingsPanel" MaxWidth="1064" HorizontalAlignment="Center" Spacing="4">
+            <StackPanel x:Name="SettingsPanel" HorizontalAlignment="Stretch" Spacing="4">
                 
-                <toolkit:SettingsCard Header="powerplans" Margin="0,0,0,12">
-                     <Button Content="Open Tuner" Style="{StaticResource AccentButtonStyle}" Click="PowerPlans_Click" />
-                </toolkit:SettingsCard>
-
                 <TextBlock Text="Scheduling" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
 
                 <toolkit:SettingsCard x:Name="Win32PSCard" Header="Win32 priority separation (Win32PrioritySeparation)" Description="Reading current value…" Margin="0,0,0,12">
@@ -54,13 +50,6 @@
                         <Button Content="Reset" Click="SvcSplitReset_Click" ToolTipService.ToolTip="Delete the value and return to the Windows default" />
                     </StackPanel>
                 </toolkit:SettingsCard>
-
-                <TextBlock Text="Apps &amp; Cleanup" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-
-                <toolkit:SettingsCard Header="Uninstaller" Description="Remove apps, clean leftovers — like GeekUninstaller / BCU" Margin="0,0,0,24">
-                     <Button Content="Open Uninstaller" Style="{StaticResource AccentButtonStyle}" Click="Uninstaller_Click"/>
-                </toolkit:SettingsCard>
-
 
                 <TextBlock Text="Windhawk" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
 

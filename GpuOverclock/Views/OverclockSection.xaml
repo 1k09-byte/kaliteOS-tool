@@ -49,16 +49,6 @@
             </Grid>
         </Border>
 
-        <!-- ============ Unsupported card ============ -->
-        <Border Style="{StaticResource OcCardStyle}" Padding="20"
-                Visibility="{x:Bind local:OverclockSection.NotSupportedVis(Vm.IsSupported), Mode=OneWay}">
-            <StackPanel Spacing="4">
-                <TextBlock Text="Overclocking unavailable" FontWeight="SemiBold" />
-                <TextBlock Text="{x:Bind Vm.UnsupportedMessage, Mode=OneWay}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
-
         <!-- The overclock card sits under a full-cover risk gate until the user
              explicitly accepts the risk. Both live in one Grid cell so the gate
              overlays the card completely when visible. -->
@@ -219,7 +209,7 @@
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
                                        ToolTipService.ToolTip="Type an exact offset — commits through the same confirmation countdown as dragging." />
                         </Grid>
-                        <Slider x:Name="CoreOffsetSlider"
+                        <Slider
                                 Minimum="{x:Bind Vm.CoreOffsetMin, Mode=OneWay}"
                                 Maximum="{x:Bind Vm.CoreOffsetMax, Mode=OneWay}"
                                 Value="{x:Bind Vm.CoreOffsetValue, Mode=OneWay}"
@@ -239,7 +229,7 @@
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
                                        ToolTipService.ToolTip="Type an exact offset — commits through the same confirmation countdown as dragging." />
                         </Grid>
-                        <Slider x:Name="MemOffsetSlider"
+                        <Slider
                                 Minimum="{x:Bind Vm.MemOffsetMin, Mode=OneWay}"
                                 Maximum="{x:Bind Vm.MemOffsetMax, Mode=OneWay}"
                                 Value="{x:Bind Vm.MemOffsetValue, Mode=OneWay}"
@@ -259,7 +249,7 @@
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
                                        ToolTipService.ToolTip="Type an exact value — commits through the same confirmation countdown as dragging." />
                         </Grid>
-                        <Slider x:Name="PowerLimitSlider"
+                        <Slider
                                 Minimum="{x:Bind Vm.PowerLimitMin, Mode=OneWay}"
                                 Maximum="{x:Bind Vm.PowerLimitMax, Mode=OneWay}"
                                 Value="{x:Bind Vm.PowerLimitValue, Mode=OneWay}"
@@ -280,7 +270,7 @@
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
                                        ToolTipService.ToolTip="Type an exact value — commits through the same confirmation countdown as dragging." />
                         </Grid>
-                        <Slider x:Name="TempLimitSlider"
+                        <Slider
                                 Minimum="{x:Bind Vm.TempLimitMin, Mode=OneWay}"
                                 Maximum="{x:Bind Vm.TempLimitMax, Mode=OneWay}"
                                 Value="{x:Bind Vm.TempLimitValue, Mode=OneWay}"
@@ -306,7 +296,7 @@
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
                                        ToolTipService.ToolTip="Type an exact flat offset — commits through the same confirmation countdown as dragging." />
                         </Grid>
-                        <Slider x:Name="VfFlatSlider"
+                        <Slider
                                 Minimum="{x:Bind Vm.VfFlatMin, Mode=OneWay}"
                                 Maximum="{x:Bind Vm.VfFlatMax, Mode=OneWay}"
                                 Value="{x:Bind Vm.VfFlatValue, Mode=OneWay}"
@@ -486,13 +476,13 @@
                                                 <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
                                                 <Border CornerRadius="6" Padding="5,1"
                                                         Background="{ThemeResource SubtleFillColorTertiaryBrush}"
-                                                        Visibility="{x:Bind local:OverclockSection.BoolToVis(HasConfirmedAt), Mode=OneWay}">
+                                                         Visibility="{x:Bind local:OverclockSection.BoolToVis(HasConfirmedAt), Mode=OneTime}">
                                                     <TextBlock Text="validated" FontSize="10"
                                                                Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                                                 </Border>
                                                 <Border CornerRadius="6" Padding="5,1"
                                                         Background="{ThemeResource SubtleFillColorTertiaryBrush}"
-                                                        Visibility="{x:Bind local:OverclockSection.BoolToVis(HasBeenManuallyValidated), Mode=OneWay}"
+                                                         Visibility="{x:Bind local:OverclockSection.BoolToVis(HasBeenManuallyValidated), Mode=OneTime}"
                                                         ToolTipService.ToolTip="Manually applied and confirmed at least once — eligible for per-game auto-switch.">
                                                     <TextBlock Text="auto-switch ready ✓" FontSize="10"
                                                                Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
@@ -502,12 +492,12 @@
                                                        Text="{x:Bind Summary}" />
                                             <TextBlock FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                                        Text="Not yet validated — apply manually once to enable auto-switch."
-                                                       Visibility="{x:Bind local:OverclockSection.InverseBoolToVis(HasBeenManuallyValidated), Mode=OneWay}" />
+                                                        Visibility="{x:Bind local:OverclockSection.InverseBoolToVis(HasBeenManuallyValidated), Mode=OneTime}" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                             <ToggleSwitch OnContent="At startup" OffContent="At startup"
                                                           HorizontalAlignment="Left"
-                                                          IsOn="{x:Bind IsStartupDefault, Mode=OneWay}"
+                                                           IsOn="{x:Bind IsStartupDefault, Mode=OneTime}"
                                                           Toggled="StartupDefault_Toggled" Tag="{x:Bind}" />
                                             <Button Content="Apply" Style="{StaticResource AccentButtonStyle}"
                                                     Click="ApplyProfile_Click" Tag="{x:Bind}" />

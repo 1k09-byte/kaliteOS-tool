@@ -26,8 +26,6 @@ namespace kaliteConfig.Pages
             this.ViewModel = new ThreadTunerViewModel();
             this.DataContext = ViewModel;
             
-            // Clean unreferenced events and start background analytics tracking
-            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
             this.Loaded += ThreadTunerPage_Loaded;
             this.Unloaded += ThreadTunerPage_Unloaded;
         }
@@ -84,11 +82,6 @@ namespace kaliteConfig.Pages
         }
 
         
-
-        private async void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            // Removed Dashboard binding logic as UI is full width list
-        }
 
         private async void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
         {
@@ -151,30 +144,6 @@ namespace kaliteConfig.Pages
         private void ThreadTunerPage_Unloaded(object sender, RoutedEventArgs e)
         {
             // Pause ViewModel timer on unload
-        }
-
-        /// <summary>
-        /// Resolves a theme resource to a brush. Theme accent keys such as
-        /// "SystemAccentColorLight2" hold a <see cref="Windows.UI.Color"/>, not a
-        /// Brush, so a direct cast crashes the moment a tab is clicked. Falls
-        /// back to white rather than throwing when the key is missing.
-        /// </summary>
-        private static Microsoft.UI.Xaml.Media.Brush ThemeBrush(string key)
-        {
-            if (Application.Current.Resources.TryGetValue(key, out object? value))
-            {
-                if (value is Microsoft.UI.Xaml.Media.Brush brush)
-                {
-                    return brush;
-                }
-
-                if (value is Windows.UI.Color color)
-                {
-                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
-                }
-            }
-
-            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
         }
 
         private TunerProcessRow? GetRow(object sender) => (sender as FrameworkElement)?.DataContext as TunerProcessRow;
@@ -497,17 +466,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        private void ShowNotImplemented(string title)
-        {
-            _ = new ContentDialog
-            {
-                Title = title,
-                Content = new TextBlock { Text = "This module will be mapped to the kernel in a future update." },
-                CloseButtonText = "Close",
-                XamlRoot = this.XamlRoot
-            }.ShowAsync();
-        }
-
         private void Action_Boost(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.Tag is string tag)
@@ -518,7 +476,7 @@ namespace kaliteConfig.Pages
         }
 
 
-        private void Action_Threads(object sender, RoutedEventArgs e)
+        private void Action_Threads(object sender, RoutedEventArgs? e)
         {
             ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
         }

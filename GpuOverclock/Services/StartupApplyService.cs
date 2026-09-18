@@ -197,20 +197,5 @@ namespace kaliteConfig.GpuOverclock.Services
             return false;
         }
 
-        /// <summary>
-        /// Waits for the machine to leave AwaitingConfirmation/Applying.
-        /// Returns false only if the window is still open when the timeout
-        /// hits (treat as not confirmed — the caller must not mark validated).
-        /// </summary>
-        private async Task<bool> WaitForWindowCloseAsync(TimeSpan timeout)
-        {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            while (sw.Elapsed < timeout)
-            {
-                if (_safety.CurrentState is SafetyState.Idle or SafetyState.Reverting) return true;
-                await Task.Delay(100);
-            }
-            return false;
-        }
     }
 }

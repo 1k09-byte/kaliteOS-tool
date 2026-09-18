@@ -12,17 +12,24 @@ namespace kaliteConfig.ViewModels
 
         public ObservableCollection<CpuCoreItem> Cores { get; } = new();
 
-        [ObservableProperty] private bool _isElevated;
+        [ObservableProperty]
+        public partial bool IsElevated { get; set; }
         public bool IsNotElevated => !IsElevated;
         
-        [ObservableProperty] private bool _requiresPerBootReapply;
-        [ObservableProperty] private bool _applyAtStartup;
+        [ObservableProperty]
+        public partial bool RequiresPerBootReapply { get; set; }
+        [ObservableProperty]
+        public partial bool ApplyAtStartup { get; set; }
         
-        [ObservableProperty] private bool _hasError;
-        [ObservableProperty] private string _errorText = string.Empty;
+        [ObservableProperty]
+        public partial bool HasError { get; set; }
+        [ObservableProperty]
+        public partial string ErrorText { get; set; } = string.Empty;
 
-        [ObservableProperty] private bool _hasSuccess;
-        [ObservableProperty] private string _successText = string.Empty;
+        [ObservableProperty]
+        public partial bool HasSuccess { get; set; }
+        [ObservableProperty]
+        public partial string SuccessText { get; set; } = string.Empty;
 
         public ReservedCpuSetsViewModel()
         {
@@ -150,7 +157,8 @@ namespace kaliteConfig.ViewModels
         public int Index { get; }
         public string Name => $"Core {Index}";
 
-        [ObservableProperty] private bool _isReserved;
+        [ObservableProperty]
+        public partial bool IsReserved { get; set; }
 
         public CpuCoreItem(int index, bool isReserved)
         {

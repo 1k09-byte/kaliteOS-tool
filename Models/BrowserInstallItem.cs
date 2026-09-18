@@ -7,51 +7,51 @@ namespace kaliteConfig.Models
     public partial class BrowserInstallItem : ObservableObject
     {
         [ObservableProperty]
-        private string name = string.Empty;
+        public partial string Name { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string imagePath = string.Empty;
+        public partial string ImagePath { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string downloadUrl = string.Empty;
+        public partial string DownloadUrl { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string silentInstallArgs = string.Empty;
+        public partial string SilentInstallArgs { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string installerFileName = string.Empty;
+        public partial string InstallerFileName { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string installedCheckPath = string.Empty;
+        public partial string InstalledCheckPath { get; set; } = string.Empty;
 
         /// <summary>
         /// For portable tools (zip downloads with no installer): directory the payload is
         /// extracted into under %PROGRAMDATA%. Empty for regular installers.
         /// </summary>
         [ObservableProperty]
-        private string toolInstallDir = string.Empty;
+        public partial string ToolInstallDir { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string description = string.Empty;
+        public partial string Description { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string errorMessage = string.Empty;
+        public partial string ErrorMessage { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private double downloadProgress = 0;
+        public partial double DownloadProgress { get; set; } = 0;
 
         [ObservableProperty]
-        private bool isIndeterminate = false;
+        public partial bool IsIndeterminate { get; set; } = false;
 
         [ObservableProperty]
-        private BrowserInstallStatus status = BrowserInstallStatus.NotInstalled;
+        public partial BrowserInstallStatus Status { get; set; } = BrowserInstallStatus.NotInstalled;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
-        private double installProgress = 0;
+        public partial double InstallProgress { get; set; } = 0;
 
         [ObservableProperty]
-        private bool isVisible = true;
+        public partial bool IsVisible { get; set; } = true;
 
         public string StatusText => Status switch
         {

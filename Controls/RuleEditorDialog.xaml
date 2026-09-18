@@ -142,7 +142,7 @@
                         </Grid.ColumnDefinitions>
                         <CheckBox Grid.Column="0" Content="CPU affinity" VerticalAlignment="Center"
                                   IsChecked="{x:Bind AffinityEnabled, Mode=TwoWay}" />
-                        <TextBlock Grid.Column="1" x:Name="AffinitySummaryText" Text="All logical processors" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="DraftAffinitySummaryText" Text="All logical processors" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
                         <Button Grid.Column="2" x:Name="AffinityChooseButton" Content="Choose..." Click="AffinityChoose_Click" />
                     </Grid>
                 </Border>
@@ -270,7 +270,7 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox Grid.Column="0" x:Name="SavedRuleAffinityBox" Content="CPU affinity" VerticalAlignment="Center" Checked="SavedRuleAffinity_Changed" Unchecked="SavedRuleAffinity_Changed" ToolTipService.ToolTip="Tick to pin this thread to specific cores, untick to leave affinity unchanged" />
-                                        <TextBlock Grid.Column="1" x:Name="SavedRuleAffinityText" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" x:Name="SavedRuleAffinityText" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" TextTrimming="CharacterEllipsis" Text="{x:Bind AffinitySummaryText, Mode=OneWay}" />
                                         <Button Grid.Column="2" Content="Choose..." Click="SavedRulePin_Click" Loaded="SavedRulePin_Loaded" ToolTipService.ToolTip="Pin this thread to specific logical processors (affinity mask)" />
                                     </Grid>
                                 </StackPanel>

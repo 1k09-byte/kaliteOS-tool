@@ -318,6 +318,12 @@ namespace kaliteConfig
                     case "BiosManagerPage":
                          ContentFrame.Navigate(typeof(BiosManagerPage));
                          break;
+                    case "PowerPlansPage":
+                         ContentFrame.Navigate(typeof(PowerPlansPage));
+                         break;
+                    case "UninstallerPage":
+                         ContentFrame.Navigate(typeof(UninstallerPage));
+                         break;
                     case "Settings":
                          ContentFrame.Navigate(typeof(SettingsPage));
                          break;

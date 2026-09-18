@@ -69,12 +69,10 @@ namespace kaliteConfig.Services
         private const int CORE_GROUP_AFFINITY_OFFSET  = 24;
         
         // RelationNumaNode
-        private const int NUMA_NODE_NUMBER_OFFSET = 0;
         private const int NUMA_GROUP_AFFINITY_OFFSET = 24; // 4 (NodeNumber) + 20 (Reserved) = 24
         
         // RelationCache
         private const int CACHE_LEVEL_OFFSET     = 0;
-        private const int CACHE_TYPE_OFFSET      = 8;
         private const int CACHE_GROUP_AFFINITY_OFFSET = 40; // 32 (Fields) + 2 (GroupCount) + 6 (Pad) = 40
 
         private static CoreTopology Detect()

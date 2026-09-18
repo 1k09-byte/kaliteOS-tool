@@ -126,7 +126,7 @@ public sealed class TrayIconService : IDisposable
     private static extern IntPtr CreatePopupMenu();
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool AppendMenuW(IntPtr menu, uint flags, nuint id, string text);
+    private static extern bool AppendMenuW(IntPtr menu, uint flags, nuint id, string? text);
 
     [DllImport("user32.dll")]
     private static extern uint TrackPopupMenu(IntPtr menu, uint flags, int x, int y, IntPtr hwnd);

@@ -22,14 +22,11 @@ namespace kaliteConfig.GpuOverclock.Services
         private delegate int InitDelegate();
         private delegate int DeviceGetHandleDelegate(uint index, out IntPtr device);
         private delegate int GetPowerUsageDelegate(IntPtr device, out uint milliwatts);
-        private delegate int GetPowerLimitConstraintsDelegate(IntPtr device, out uint minMw, out uint maxMw);
         private delegate int GetPowerManagementLimitDelegate(IntPtr device, out uint milliwatts);
 
         private static InitDelegate? _init;
         private static DeviceGetHandleDelegate? _getHandle;
         private static GetPowerUsageDelegate? _getPowerUsage;
-        private static GetPowerLimitConstraintsDelegate? _getConstraints;
-        private static GetPowerManagementLimitDelegate? _getLimit;
 
         private static IntPtr _device;
         private static bool _deviceReady;
@@ -56,10 +53,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetHandleByIndex_v2"));
                 _getPowerUsage = Marshal.GetDelegateForFunctionPointer<GetPowerUsageDelegate>(
                     NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetPowerUsage"));
-                _getConstraints = Marshal.GetDelegateForFunctionPointer<GetPowerLimitConstraintsDelegate>(
-                    NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetPowerManagementLimitConstraints"));
-                _getLimit = Marshal.GetDelegateForFunctionPointer<GetPowerManagementLimitDelegate>(
-                    NativeLibraryShim.GetExport(_lib, "nvmlDeviceGetPowerManagementLimit"));
                 return _init!() == 0 && _getHandle!(0, out _device) == 0;
             }
             catch
@@ -86,14 +79,6 @@ namespace kaliteConfig.GpuOverclock.Services
             milliwatts = 0;
             if (!EnsureDevice()) return false;
             return _getPowerUsage!(_device, out milliwatts) == 0 && milliwatts > 0;
-        }
-
-        /// <summary>Currently active power management limit in milliwatts.</summary>
-        public static bool TryReadPowerLimitMw(out uint milliwatts)
-        {
-            milliwatts = 0;
-            if (!EnsureDevice()) return false;
-            return _getLimit!(_device, out milliwatts) == 0 && milliwatts > 0;
         }
 
         /// <summary>Default (factory) power limit in milliwatts, when the driver reports it.</summary>

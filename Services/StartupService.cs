@@ -21,7 +21,6 @@ public sealed class StartupService
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValueName = "kaliteConfig";
     private const string StartupTaskId = "KaliteConfigStartup";
-    private const int AppmodelErrorNoPackage = 15700;
     private const int ErrorInsufficientBuffer = 122;
 
     public static bool IsPackaged

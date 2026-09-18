@@ -7,35 +7,49 @@ namespace kaliteConfig.Models;
 
 public sealed partial class PowerScheme : ObservableObject
 {
-    [ObservableProperty] private Guid _id;
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private string _description = string.Empty;
-    [ObservableProperty] private bool _isActive;
-    [ObservableProperty] private bool _isBuiltIn;
+    [ObservableProperty]
+    public partial Guid Id { get; set; }
+    [ObservableProperty]
+    public partial string Name { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Description { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial bool IsActive { get; set; }
+    [ObservableProperty]
+    public partial bool IsBuiltIn { get; set; }
     
     public ObservableCollection<PowerSubgroup> Subgroups { get; } = new();
 }
 
 public sealed partial class PowerSubgroup : ObservableObject
 {
-    [ObservableProperty] private Guid _id;
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private string _description = string.Empty;
+    [ObservableProperty]
+    public partial Guid Id { get; set; }
+    [ObservableProperty]
+    public partial string Name { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Description { get; set; } = string.Empty;
     
     public ObservableCollection<PowerSetting> Settings { get; } = new();
 }
 
 public sealed partial class PowerSetting : ObservableObject
 {
-    [ObservableProperty] private Guid _id;
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private string _description = string.Empty;
+    [ObservableProperty]
+    public partial Guid Id { get; set; }
+    [ObservableProperty]
+    public partial string Name { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Description { get; set; } = string.Empty;
     
     // 0 = Range, 1 = Boolean, 2 = Choices (Enum)
-    [ObservableProperty] private uint _type;
+    [ObservableProperty]
+    public partial uint Type { get; set; }
     
-    [ObservableProperty] private double _acValueIndex;
-    [ObservableProperty] private double _dcValueIndex;
+    [ObservableProperty]
+    public partial double AcValueIndex { get; set; }
+    [ObservableProperty]
+    public partial double DcValueIndex { get; set; }
     
     // For Range/Enum types
     public ObservableCollection<PowerSettingChoice> PossibleChoices { get; } = new();

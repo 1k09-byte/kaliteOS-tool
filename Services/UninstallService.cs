@@ -104,6 +104,17 @@ public sealed class UninstallService
         return items;
     }
 
+    /// <summary>
+    /// Package.IsStub needs Windows 10 2004+ (10.0.19041); the app supports
+    /// back to 17763, so guard the call — older systems treat every package
+    /// as non-stub.
+    /// </summary>
+    private static bool IsStubPackage(Windows.ApplicationModel.Package package)
+    {
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041)) return false;
+        return package.IsStub;
+    }
+
     private IEnumerable<UninstallerItem> GetAppXPackages()
     {
         var items = new List<UninstallerItem>();
@@ -116,7 +127,7 @@ public sealed class UninstallService
             
             foreach (var package in packages)
             {
-                if (package.IsFramework || package.IsResourcePackage || package.IsStub) continue;
+                if (package.IsFramework || package.IsResourcePackage || IsStubPackage(package)) continue;
                 
                 try
                 {

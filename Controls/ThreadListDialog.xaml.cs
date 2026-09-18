@@ -13,20 +13,30 @@ namespace kaliteConfig.Controls;
 
 public sealed partial class ThreadRow : ObservableObject
 {
-    [ObservableProperty] private int _tid;
-    [ObservableProperty] private string _currentText = "—";
-    [ObservableProperty] private int _currentLevel = int.MinValue;
-    [ObservableProperty] private int _base;
-    [ObservableProperty] private string _description = string.Empty;
-    [ObservableProperty] private bool _isNamed;
-    [ObservableProperty] private string _startAddress = string.Empty;
-    [ObservableProperty] private bool _canEdit = true;
-    [ObservableProperty] private bool _suspended;
+    [ObservableProperty]
+    public partial int Tid { get; set; }
+    [ObservableProperty]
+    public partial string CurrentText { get; set; } = "—";
+    [ObservableProperty]
+    public partial int CurrentLevel { get; set; } = int.MinValue;
+    [ObservableProperty]
+    public partial int Base { get; set; }
+    [ObservableProperty]
+    public partial string Description { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial bool IsNamed { get; set; }
+    [ObservableProperty]
+    public partial string StartAddress { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial bool CanEdit { get; set; } = true;
+    [ObservableProperty]
+    public partial bool Suspended { get; set; }
     /// <summary>Per-row Priority-boost tick. Checked = boost allowed (default);
     /// unticked = boost forced off live AND persisted so it stays off for this
     /// thread identity across every future process launch. Backed by
     /// BoostPreferenceService — never a rule, never touches priority.</summary>
-    [ObservableProperty] private bool _boostAllowed = true;
+    [ObservableProperty]
+    public partial bool BoostAllowed { get; set; } = true;
     public string ProcessName { get; set; } = string.Empty;
     public string StartAddressValue { get; set; } = string.Empty;
 }

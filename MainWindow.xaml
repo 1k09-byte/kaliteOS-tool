@@ -201,6 +201,24 @@
                         <FontIcon Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+
+                <NavigationViewItem Content="Power" Tag="PowerPlansPage" Margin="0" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE945;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="Uninstall" Tag="UninstallerPage" Margin="0" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE74D;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>

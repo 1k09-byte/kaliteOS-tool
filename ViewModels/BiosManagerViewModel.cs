@@ -47,7 +47,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     private readonly DispatcherQueue _dispatcher;
     private ScewinDocument? _document;
     private List<BiosSettingRow> _allRows = new();
-    private Dictionary<BiosSetting, BiosSettingRow> _rowByItem = new();
     private BiosMenuSection? _selectedSection;
     private CancellationTokenSource? _filterCts;
     private string _searchText = string.Empty;
@@ -60,41 +59,41 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     // ---- observable state ----
 
     [ObservableProperty]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private string _loadingText = "Loading…";
+    public partial string LoadingText { get; set; } = "Loading…";
 
     [ObservableProperty]
-    private bool _hasDocument;
+    public partial bool HasDocument { get; set; }
 
     [ObservableProperty]
-    private string _fileNameText = "";
+    public partial string FileNameText { get; set; } = "";
 
     [ObservableProperty]
-    private string _summaryText = "";
+    public partial string SummaryText { get; set; } = "";
 
     [ObservableProperty]
-    private string _statusText = "";
+    public partial string StatusText { get; set; } = "";
 
     [ObservableProperty]
-    private bool _hasError;
+    public partial bool HasError { get; set; }
 
     [ObservableProperty]
-    private string _errorText = "";
+    public partial string ErrorText { get; set; } = "";
 
     [ObservableProperty]
-    private BiosSettingRow? _selectedRow;
+    public partial BiosSettingRow? SelectedRow { get; set; }
 
     [ObservableProperty]
-    private int _modifiedCount;
+    public partial int ModifiedCount { get; set; }
 
     public ObservableCollection<BiosMenuSection> Sections { get; } = new();
 
     public ObservableCollection<BiosCategory> Categories { get; } = new();
 
     [ObservableProperty]
-    private ObservableCollection<BiosSettingRow> _rows = new();
+    public partial ObservableCollection<BiosSettingRow> Rows { get; set; } = new();
 
     // ---- derived state ----
 
@@ -125,10 +124,10 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     public string EditingSelectedToken => SelectedRow?.SelectedToken ?? "";
 
     [ObservableProperty]
-    private bool _showOnlyChanges;
+    public partial bool ShowOnlyChanges { get; set; }
 
     [ObservableProperty]
-    private BiosCategory? _selectedCategoryItem = BiosCategory.All;
+    public partial BiosCategory? SelectedCategoryItem { get; set; } = BiosCategory.All;
 
     partial void OnSelectedCategoryItemChanged(BiosCategory? value) => ApplyFilterNow();
 
@@ -354,7 +353,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
 
         foreach (var row in _allRows) row.StateChanged -= OnRowStateChanged;
         _allRows = doc.Items.Select(i => new BiosSettingRow(i)).ToList();
-        _rowByItem = _allRows.ToDictionary(r => r.Item);
         foreach (var row in _allRows) row.StateChanged += OnRowStateChanged;
 
         Sections.Clear();
@@ -379,17 +377,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     private void OnRowStateChanged() => UpdateModifiedCount();
 
     private void UpdateModifiedCount() => ModifiedCount = _allRows.Count(r => r.IsModified);
-
-    private List<BiosSettingRow> RowsForSection(BiosMenuSection? section)
-    {
-        if (section is null || section.IsRoot) return _allRows;
-        var map = _rowByItem;
-        return section.SelfAndDescendants()
-            .SelectMany(s => s.Settings)
-            .Select(s => map.TryGetValue(s, out var row) ? row : null)
-            .OfType<BiosSettingRow>()
-            .ToList();
-    }
 
     private List<BiosSettingRow> ComputeFilteredRows()
     {

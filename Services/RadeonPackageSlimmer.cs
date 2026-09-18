@@ -398,26 +398,6 @@ namespace kaliteConfig.Services
             return true;
         }
 
-        private static string? FindSubDir(string root, params string[] segments)
-        {
-            string path = Path.Combine(root, Path.Combine(segments));
-            return Directory.Exists(path) ? path : null;
-        }
-
-        private static long GetDirSize(string dir)
-        {
-            try
-            {
-                return new DirectoryInfo(dir)
-                    .EnumerateFiles("*", SearchOption.AllDirectories)
-                    .Sum(fi => fi.Length);
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
         /// <summary>
         /// Checks if the GPU HDMI/DisplayPort audio device is enabled in Device Manager.
         /// </summary>

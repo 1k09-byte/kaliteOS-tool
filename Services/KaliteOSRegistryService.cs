@@ -17,11 +17,6 @@ namespace kaliteConfig.Services
         public const string SubKeyPath = @"SOFTWARE\KaliteOS";
         public const string ValueName = "IsInstalled";
 
-        private static RegistryKey OpenBase(RegistryHive hive, RegistryView view, bool writable)
-        {
-            return RegistryKey.OpenBaseKey(hive, view);
-        }
-
         /// <summary>
         /// Returns the current IsInstalled value. Missing key/value → 0 (needs install).
         /// Checks HKLM 64-bit first, then HKLM 32-bit, then HKCU as fallback.

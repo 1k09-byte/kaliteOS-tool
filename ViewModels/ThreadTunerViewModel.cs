@@ -29,13 +29,13 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public ObservableCollection<TunerProfile> DisplayedProfiles { get; } = new();
 
     [ObservableProperty]
-    private TunerProcessRow? _selectedProcess;
+    public partial TunerProcessRow? SelectedProcess { get; set; }
 
     [ObservableProperty]
-    private TunerProfile? _selectedProfile;
+    public partial TunerProfile? SelectedProfile { get; set; }
 
     [ObservableProperty]
-    private string _rulesFilter = string.Empty;
+    public partial string RulesFilter { get; set; } = string.Empty;
 
     public ThreadTunerViewModel()
     {

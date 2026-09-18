@@ -37,7 +37,6 @@ public sealed class WindhawkImportService
     private const string BackupFormat = "windhawk-user-data-v1";
     private const string WindhawkRegistryKey = @"SOFTWARE\Windhawk";
     private const string EngineModsKey = WindhawkRegistryKey + @"\Engine\Mods";
-    private const string LegacyModsKey = WindhawkRegistryKey + @"\Mods";
     private const string SettingsKey = WindhawkRegistryKey + @"\Settings";
 
     /// <summary>Parses and validates a backup file without touching Windhawk.</summary>

@@ -46,12 +46,6 @@ namespace kaliteConfig.Pages
             await Vm.RunProvisioningAsync();
         }
 
-        private void PowerPlans_Click(object sender, RoutedEventArgs e)
-            => Frame.Navigate(typeof(PowerPlansPage));
-
-        private void Uninstaller_Click(object sender, RoutedEventArgs e)
-            => Frame.Navigate(typeof(UninstallerPage));
-
         private void LoadWin32PS()
         {
             _loadingWin32PS = true;
