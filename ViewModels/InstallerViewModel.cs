@@ -199,11 +199,9 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Vivaldi",
                 ImagePath = "ms-appx:///Assets/vivaldi-logo.png",
-                // The plain "Vivaldi.Installer.exe" alias 404s; Vivaldi only
-                // publishes versioned filenames (verified live against
-                // downloads.vivaldi.com and the official download page).
-                // This URL is what vivaldi.com/download/ currently links.
-                DownloadUrl = "https://downloads.vivaldi.com/stable/Vivaldi.8.2.4133.52.x64.exe",
+                // The plain "Vivaldi.Installer.exe" alias 404s; but this permalink
+                // intelligently redirects to the latest stable x64 build.
+                DownloadUrl = "https://vivaldi.com/download/Vivaldi.x64.exe",
                 // Verified switches from the installer binary itself
                 // (--vivaldi-silent, --vivaldi-mini, --vivaldi-unpack,
                 // --system-level). --do-not-launch-chrome is a Chrome-era
