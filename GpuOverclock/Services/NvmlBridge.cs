@@ -23,10 +23,12 @@ namespace kaliteConfig.GpuOverclock.Services
         private delegate int DeviceGetHandleDelegate(uint index, out IntPtr device);
         private delegate int GetPowerUsageDelegate(IntPtr device, out uint milliwatts);
         private delegate int GetPowerManagementLimitDelegate(IntPtr device, out uint milliwatts);
+        private delegate int GetPcieThroughputDelegate(IntPtr device, int counter, out uint kilobytes);
 
         private static InitDelegate? _init;
         private static DeviceGetHandleDelegate? _getHandle;
         private static GetPowerUsageDelegate? _getPowerUsage;
+        private static GetPcieThroughputDelegate? _getPcieThroughput;
 
         private static IntPtr _device;
         private static bool _deviceReady;
@@ -79,6 +81,29 @@ namespace kaliteConfig.GpuOverclock.Services
             milliwatts = 0;
             if (!EnsureDevice()) return false;
             return _getPowerUsage!(_device, out milliwatts) == 0 && milliwatts > 0;
+        }
+
+        /// <summary>
+        /// Cumulative PCIe transfer counters in KB (counter 0 = host-to-device,
+        /// 1 = device-to-host). Callers difference across ticks for a rate.
+        /// Resolved optionally AFTER the core load succeeds, so a missing
+        /// export can never disable the power reads that share this bridge.
+        /// </summary>
+        public static bool TryReadPcieThroughputKb(int counter, out uint kilobytes)
+        {
+            kilobytes = 0;
+            if (!EnsureDevice()) return false;
+            if (_getPcieThroughput is null)
+            {
+                var p = NativeLibraryShim.GetExportOptional(_lib, "nvmlDeviceGetPcieThroughput");
+                if (p == IntPtr.Zero) return false;
+                try
+                {
+                    _getPcieThroughput = Marshal.GetDelegateForFunctionPointer<GetPcieThroughputDelegate>(p);
+                }
+                catch { return false; }
+            }
+            return _getPcieThroughput(_device, counter, out kilobytes) == 0;
         }
 
         /// <summary>Default (factory) power limit in milliwatts, when the driver reports it.</summary>

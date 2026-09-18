@@ -35,7 +35,21 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate)
             {
                 if (_initialized) return GpuResult.Ok();
-                return InitializeNoLock();
+                try
+                {
+                    NVIDIA.Initialize();
+                    _initialized = true;
+                    return GpuResult.Ok();
+                }
+                catch (NVIDIAApiException ex)
+                {
+                    return GpuResult.Fail(OverclockErrorKind.NvApiInitFailed, $"NVAPI status: {ex.Status}");
+                }
+                catch (Exception ex)
+                {
+                    // Missing/broken nvapi.dll lands here (DllNotFoundException/BadImageFormat).
+                    return GpuResult.Fail(OverclockErrorKind.NvApiInitFailed, ex.GetType().Name);
+                }
             }
         }
 
@@ -92,7 +106,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     }
                     catch (NVIDIAApiException) { /* some domains refuse on some cards */ }
 
-                    int? gpuTemp = null, hotspot = null;
+                    int? gpuTemp = null, hotspot = null, memTemp = null;
                     try
                     {
                         var sensors = gpu.ThermalInformation?.ThermalSensors?.ToList();
@@ -101,6 +115,10 @@ namespace kaliteConfig.GpuOverclock.Services
                         // Hotspot: a second GPU-target sensor, when the driver exposes one.
                         var second = sensors?.Where(s => s.Target == ThermalSettingsTarget.GPU).Skip(1).FirstOrDefault();
                         if (second != null) hotspot = second.CurrentTemperature;
+                        // VRAM temperature: exposed as a Memory-target sensor on
+                        // some boards/drivers; usually absent on consumer cards.
+                        var mem = sensors?.FirstOrDefault(s => s.Target == ThermalSettingsTarget.Memory);
+                        if (mem != null) memTemp = mem.CurrentTemperature;
                     }
                     catch (NVIDIAApiException) { }
 
@@ -127,6 +145,11 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         powerW = mw / 1000.0;
                     }
+
+                    // PCIe throughput: NVML exposes cumulative KB counters;
+                    // differenced across ticks here into KB/s (null until the
+                    // second tick, on counter reset, or when refused).
+                    var (pcieTx, pcieRx) = ReadPcieRates();
 
                     int? fanRpm = null, fanPct = null;
                     try
@@ -188,6 +211,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         MemClockMHz = memMhz,
                         GpuTempC = gpuTemp,
                         HotspotTempC = hotspot,
+                        MemTempC = memTemp,
                         VoltageMv = voltageMv,
                         PowerDrawW = powerW,
                         PowerDrawPercentOfLimit = powerPct,
@@ -197,6 +221,8 @@ namespace kaliteConfig.GpuOverclock.Services
                         VramUsageMb = vramUsedMb,
                         PcieGen = pcieGen,
                         PcieWidth = pcieWidth,
+                        PcieTxKBs = pcieTx,
+                        PcieRxKBs = pcieRx,
                     });
                 }
                 catch (NVIDIAApiException ex)
@@ -213,6 +239,45 @@ namespace kaliteConfig.GpuOverclock.Services
         // Cached absolute power limit (watts) from NVML so %-of-limit can be
         // cross-checked; refreshed on ReadCapabilities.
         internal double? _powerLimitWCache;
+
+        // Previous NVML PCIe counters for rate computation (always touched
+        // under _gate, same as every other controller field).
+        private uint? _pciePrevTxKb, _pciePrevRxKb;
+        private DateTime _pciePrevAt = DateTime.MinValue;
+
+        /// <summary>
+        /// Differences the cumulative NVML PCIe counters across ticks into
+        /// KB/s rates. Null until the second successful tick, when a counter
+        /// resets, or when NVML refuses the counters.
+        /// </summary>
+        private (double? TxKBs, double? RxKBs) ReadPcieRates()
+        {
+            try
+            {
+                if (!NvmlBridge.TryReadPcieThroughputKb(0, out uint tx)
+                    || !NvmlBridge.TryReadPcieThroughputKb(1, out uint rx))
+                    return (null, null);
+                var now = DateTime.UtcNow;
+                double? txRate = null, rxRate = null;
+                if (_pciePrevTxKb.HasValue && _pciePrevRxKb.HasValue)
+                {
+                    double dt = (now - _pciePrevAt).TotalSeconds;
+                    if (dt > 0.2 && tx >= _pciePrevTxKb.Value && rx >= _pciePrevRxKb.Value)
+                    {
+                        txRate = (tx - _pciePrevTxKb.Value) / dt;
+                        rxRate = (rx - _pciePrevRxKb.Value) / dt;
+                    }
+                }
+                _pciePrevTxKb = tx;
+                _pciePrevRxKb = rx;
+                _pciePrevAt = now;
+                return (txRate, rxRate);
+            }
+            catch
+            {
+                return (null, null);
+            }
+        }
 
         // ---------- capabilities ----------
 
@@ -297,29 +362,34 @@ namespace kaliteConfig.GpuOverclock.Services
                     // Absolute power limit in watts from NVML (powers the W-column).
                     if (NvmlBridge.TryReadDefaultPowerLimitMw(out var defMw)) _powerLimitWCache = defMw / 1000.0;
 
-                    // V/F curve + voltage-boost probes: best-effort, never throw.
-                    // False on non-supporting drivers (and on machines whose
-                    // curve queries are refused) — the V/F UI stays hidden then.
+                    // ---- v2 probes: V/F curve + voltage boost (support-detected, never assumed) ----
                     bool vfSupported = false;
-                    int vfPoints = 0;
+                    int vfCount = 0;
                     try
                     {
-                        var vfp = GPUApi.GetVFPCurve(gpu.Handle);
-                        var gpuEntries = vfp.GPUCurveEntries;
-                        var boostRange = BoostTableRange(PublicClockDomain.Graphics);
-                        if (gpuEntries is { Length: > 0 } && boostRange is { } br
-                            && QueryDeltaRangeMhz(PublicClockDomain.Graphics) is not null)
+                        var gr = BoostTableRange(PublicClockDomain.Graphics);
+                        if (gr is not null && gr.Value.Last > gr.Value.First)
                         {
-                            int slice = br.Last - br.First + 1;
-                            if (slice == gpuEntries.Length)
+                            // Any V/F base source answering means the curve UI can render.
+                            try
                             {
-                                vfSupported = true;
-                                vfPoints = gpuEntries.Length;
+                                var st = GPUApi.GetClientClkVFPointsStatus(gpu.Handle, 1);
+                                if (st.Points is { Length: > 0 }) vfSupported = true;
                             }
+                            catch (NVIDIAApiException) { }
+                            if (!vfSupported)
+                            {
+                                try
+                                {
+                                    var vfp = GPUApi.GetVFPCurve(gpu.Handle);
+                                    if (vfp.GPUCurveEntries is { Length: > 0 }) vfSupported = true;
+                                }
+                                catch (NVIDIAApiException) { }
+                            }
+                            if (vfSupported) vfCount = gr.Value.Last - gr.Value.First + 1;
                         }
                     }
                     catch (NVIDIAApiException) { }
-                    catch (NVIDIANotSupportedException) { }
 
                     bool vbSupported = false;
                     try
@@ -327,7 +397,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         _ = GPUApi.GetCoreVoltageBoostPercent(gpu.Handle);
                         vbSupported = true;
                     }
-                    catch (NVIDIANotSupportedException) { }
                     catch (NVIDIAApiException) { }
 
                     return GpuResult<GpuCapabilities>.Ok(new GpuCapabilities
@@ -343,7 +412,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         CurrentTempLimitC = tempCur,
                         FanControlSupported = fanSupported,
                         VfCurveSupported = vfSupported,
-                        VfCurvePointCount = vfPoints,
+                        VfCurvePointCount = vfCount,
                         VoltageBoostSupported = vbSupported,
                     });
                 }
@@ -529,7 +598,6 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
-                if (_gpu is null) return GpuResult.Fail(OverclockErrorKind.GpuNotDetected);
                 try
                 {
                     var allowed = QueryDeltaRangeMhz(domain);
@@ -732,14 +800,27 @@ namespace kaliteConfig.GpuOverclock.Services
         }
 
         // ---------- voltage / V-F curve (v2) ----------
-        //
-        // The base curve (voltages + stock frequencies) comes from
-        // GetVFPCurve; per-point offsets live in the clock boost table, so
-        // reads AND writes go through the boost table with the other domain
-        // preserved — the same path SetClockOffset uses. Raw millivolt
-        // override is vBIOS-locked on Ampere/Ada; only the boost-percent
-        // query is attempted, and its refusal is a normal ControlUnsupported.
 
+        /// <summary>
+        /// Reads the graphics-domain V/F curve. Base voltages/frequencies come
+        /// from the driver's V/F point status (preferred) or the static VFP
+        /// curve (fallback); current per-point offsets come from the boost
+        /// table; per-point editable ranges come from the boost ranges (with
+        /// the PStates20 delta range as fallback).
+        ///
+        /// INDEX-ALIGNMENT NOTE (verify on hardware): when the V/F status
+        /// point count equals the graphics boost-table slice length the join
+        /// is 1:1 (the expected shape — both describe the same table). When
+        /// counts differ, voltage/frequency labels are proportionally
+        /// resampled for DISPLAY ONLY; offsets always address exact
+        /// boost-table indices, so the write path is unaffected either way.
+        ///
+        /// BASE-STABILITY NOTE: the queried base is a session-start anchor.
+        /// Callers must cache it and re-read offsets only (never re-derive
+        /// the base after an apply), so labels can't drift mid-session.
+        /// "Reset to stock" is a zero-delta write, which restores driver
+        /// stock regardless of how the base labels were derived.
+        /// </summary>
         public GpuResult<GpuVoltageFrequencyCurve> ReadVoltageFrequencyCurve()
         {
             lock (_gate)
@@ -747,34 +828,28 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!EnsureGpu(out var fail)) return GpuResult<GpuVoltageFrequencyCurve>.Fail(fail.ErrorKind, fail.Detail);
                 try
                 {
-                    PrivateVFPCurveV1 vfp;
+                    var range = BoostTableRange(PublicClockDomain.Graphics);
+                    if (range is null) return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
+                    int first = range.Value.First, last = range.Value.Last;
+                    int n = last - first + 1;
+                    if (n <= 0) return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
+
+                    if (!TryReadVfBaseLabels(out var voltsMv, out var baseMhz))
+                        return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
+
+                    var pointRanges = QueryPointRangesMhz(PublicClockDomain.Graphics, first, last);
+                    if (pointRanges is null) return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
+
+                    int[] curDeltaMhz = new int[n];
                     try
                     {
-                        vfp = GPUApi.GetVFPCurve(_gpu!.Handle);
+                        var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
+                        var src = table.GPUDeltas;
+                        for (int i = 0; i < n && first + i < src.Length; i++)
+                            curDeltaMhz[i] = src[first + i].FrequencyDeltaInkHz / 1000;
                     }
-                    catch (NVIDIANotSupportedException)
-                    {
-                        return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
-                    }
-                    var entries = vfp.GPUCurveEntries;
-                    if (entries is null || entries.Length == 0)
-                        return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
+                    catch (NVIDIAApiException) { /* offsets stay 0 — base still valid */ }
 
-                    // Per-point editable range: same driver-queried source as
-                    // the sliders, so curve clamps and slider clamps agree.
-                    // Null (not queryable) means we cannot clamp safely.
-                    var allowed = QueryDeltaRangeMhz(PublicClockDomain.Graphics);
-                    if (allowed is null)
-                        return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
-
-                    // Live offsets, best-effort: zeros when the boost-table
-                    // read disagrees on length (driver inconsistency).
-                    int[] live = new int[entries.Length];
-                    var offs = ReadVfCurveOffsetsNoLock();
-                    if (offs.IsSuccess && offs.Value is { Length: var n } && n == entries.Length)
-                        live = offs.Value;
-
-                    // Voltage boost is optional: refused on vBIOS-locked cards.
                     bool vbSupported = false;
                     uint vbCurrent = 0;
                     try
@@ -782,7 +857,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         vbCurrent = GPUApi.GetCoreVoltageBoostPercent(_gpu!.Handle).Percent;
                         vbSupported = true;
                     }
-                    catch (NVIDIANotSupportedException) { }
                     catch (NVIDIAApiException) { }
 
                     var curve = new GpuVoltageFrequencyCurve
@@ -790,18 +864,24 @@ namespace kaliteConfig.GpuOverclock.Services
                         VoltageBoostSupported = vbSupported,
                         CurrentVoltageBoostPercent = vbCurrent,
                     };
-                    for (int i = 0; i < entries.Length; i++)
+                    for (int i = 0; i < n; i++)
                     {
+                        int srcIdx = voltsMv.Length == n ? i
+                            : (int)((long)i * (voltsMv.Length - 1) / Math.Max(1, n - 1));
                         curve.Points.Add(new VfCurvePoint
                         {
-                            VoltageMv = (int)(entries[i].VoltageInMicroV / 1000),
-                            BaseFrequencyMHz = (int)(entries[i].FrequencyInkHz / 1000),
-                            OffsetMHz = live[i],
-                            MinOffsetMHz = allowed.Value.MinMhz,
-                            MaxOffsetMHz = allowed.Value.MaxMhz,
+                            VoltageMv = voltsMv[srcIdx],
+                            BaseFrequencyMHz = baseMhz[srcIdx],
+                            OffsetMHz = curDeltaMhz[i],
+                            MinOffsetMHz = pointRanges[i].MinMhz,
+                            MaxOffsetMHz = pointRanges[i].MaxMhz,
                         });
                     }
                     return GpuResult<GpuVoltageFrequencyCurve>.Ok(curve);
+                }
+                catch (NVIDIANotSupportedException)
+                {
+                    return GpuResult<GpuVoltageFrequencyCurve>.Fail(OverclockErrorKind.ControlUnsupported);
                 }
                 catch (NVIDIAApiException ex)
                 {
@@ -810,42 +890,115 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        public GpuResult<int[]> ReadVfCurveOffsets()
+        /// <summary>
+        /// V/F base labels (voltages in mV, stock frequencies in MHz) from the
+        /// live point status, falling back to the static VFP curve. Returns
+        /// false when neither source answers.
+        /// </summary>
+        private bool TryReadVfBaseLabels(out int[] voltsMv, out int[] baseMhz)
         {
-            lock (_gate)
-            {
-                if (!EnsureGpu(out var fail)) return GpuResult<int[]>.Fail(fail.ErrorKind, fail.Detail);
-                return ReadVfCurveOffsetsNoLock();
-            }
-        }
-
-        /// <summary>Lock-free boost-table slice read; callers must hold _gate.</summary>
-        private GpuResult<int[]> ReadVfCurveOffsetsNoLock()
-        {
+            voltsMv = Array.Empty<int>();
+            baseMhz = Array.Empty<int>();
             try
             {
-                var range = BoostTableRange(PublicClockDomain.Graphics);
-                if (range is null) return GpuResult<int[]>.Fail(OverclockErrorKind.ControlUnsupported);
-                var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
-                var deltas = table.GPUDeltas;
-                int count = range.Value.Last - range.Value.First + 1;
-                if (range.Value.First < 0 || range.Value.Last >= deltas.Length || count <= 0)
-                    return GpuResult<int[]>.Fail(OverclockErrorKind.ControlUnsupported);
-                var result = new int[count];
-                for (int i = 0; i < count; i++)
-                    result[i] = deltas[range.Value.First + i].FrequencyDeltaInkHz / 1000;
-                return GpuResult<int[]>.Ok(result);
+                var status = GPUApi.GetClientClkVFPointsStatus(_gpu!.Handle, 1);
+                var pts = status.Points;
+                if (pts is { Length: > 0 })
+                {
+                    voltsMv = new int[pts.Length];
+                    baseMhz = new int[pts.Length];
+                    for (int i = 0; i < pts.Length; i++)
+                    {
+                        voltsMv[i] = pts[i].VoltageInMilliV > 0
+                            ? (int)pts[i].VoltageInMilliV
+                            : (int)(pts[i].VoltageInMicroV / 1000);
+                        baseMhz[i] = (int)Math.Round(pts[i].FrequencyInkHz / 1000.0);
+                    }
+                    return true;
+                }
             }
-            catch (NVIDIANotSupportedException)
+            catch (NVIDIAApiException) { }
+            try
             {
-                return GpuResult<int[]>.Fail(OverclockErrorKind.ControlUnsupported);
+                var vfp = GPUApi.GetVFPCurve(_gpu!.Handle);
+                var entries = vfp.GPUCurveEntries;
+                if (entries is { Length: > 0 })
+                {
+                    voltsMv = new int[entries.Length];
+                    baseMhz = new int[entries.Length];
+                    for (int i = 0; i < entries.Length; i++)
+                    {
+                        voltsMv[i] = (int)(entries[i].VoltageInMicroV / 1000);
+                        baseMhz[i] = (int)Math.Round(entries[i].FrequencyInkHz / 1000.0);
+                    }
+                    return true;
+                }
             }
-            catch (NVIDIAApiException ex)
-            {
-                return GpuResult<int[]>.Fail(MapStatus(ex), ex.Status.ToString());
-            }
+            catch (NVIDIAApiException) { }
+            return false;
         }
 
+        /// <summary>
+        /// Per-point editable offset ranges (MHz) for one clock domain's
+        /// boost-table slice. Primary source is the boost-range entries
+        /// covering each point; entries whose min/max look like ABSOLUTE
+        /// frequencies (floor above zero — real delta ranges always extend to
+        /// or below zero, since underclocking is allowed) are rejected as
+        /// garbage, because clamping an offset to an absolute-frequency range
+        /// would catapult the clock. Falls back to the uniform PStates20
+        /// delta range; null when neither is queryable.
+        /// </summary>
+        private List<(int MinMhz, int MaxMhz)>? QueryPointRangesMhz(PublicClockDomain domain, int first, int last)
+        {
+            int n = last - first + 1;
+            if (n <= 0) return null;
+
+            try
+            {
+                var ranges = GPUApi.GetClockBoostRanges(_gpu!.Handle);
+                var list = new List<(int, int)>(n);
+                bool allCovered = true;
+                for (int i = first; i <= last; i++)
+                {
+                    bool found = false;
+                    foreach (var r in ranges.ClockBoostRanges)
+                    {
+                        if (r.ClockDomain != domain) continue;
+                        if (i < r.FirstPointIndex || i > r.LastPointIndex) continue;
+                        // Delta-range discriminator (see doc comment).
+                        if (r.MaximumInkHz > r.MinimumInkHz
+                            && r.MinimumInkHz <= 0
+                            && Math.Abs((long)r.MaximumInkHz) <= 2_000_000
+                            && Math.Abs((long)r.MinimumInkHz) <= 2_000_000)
+                        {
+                            list.Add(((int)Math.Round(r.MinimumInkHz / 1000.0),
+                                      (int)Math.Round(r.MaximumInkHz / 1000.0)));
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) { allCovered = false; break; }
+                }
+                if (allCovered && list.Count == n) return list;
+            }
+            catch (NVIDIAApiException) { }
+
+            var uniform = QueryDeltaRangeMhz(domain);
+            if (uniform is null) return null;
+            var result = new List<(int, int)>(n);
+            for (int i = 0; i < n; i++) result.Add((uniform.Value.MinMhz, uniform.Value.MaxMhz));
+            return result;
+        }
+
+        /// <summary>
+        /// Writes per-point graphics-domain offsets (MHz, boost-table point
+        /// order). Count must match the live slice; every point is clamped to
+        /// its driver-queried range first (the driver accepts out-of-range
+        /// deltas without error — same defense-in-depth as SetClockOffset).
+        /// Other domains are preserved from current driver state.
+        /// Monotonicity is NOT re-checked here — the caller validates
+        /// client-side before committing (GpuVoltageFrequencyCurve.ValidateMonotonic).
+        /// </summary>
         public GpuResult SetVoltageFrequencyCurveOffsets(IReadOnlyList<int> offsetsMhz)
         {
             lock (_gate)
@@ -855,30 +1008,25 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     var range = BoostTableRange(PublicClockDomain.Graphics);
                     if (range is null) return GpuResult.Fail(OverclockErrorKind.ControlUnsupported);
-                    int count = range.Value.Last - range.Value.First + 1;
-                    if (offsetsMhz.Count != count)
-                    {
+                    int first = range.Value.First, last = range.Value.Last;
+                    int n = last - first + 1;
+                    if (offsetsMhz.Count != n)
                         return GpuResult.Fail(OverclockErrorKind.WriteRejected,
-                            $"Curve has {count} points but {offsetsMhz.Count} offsets were supplied.");
-                    }
+                            $"V/F curve point count changed (expected {n}, got {offsetsMhz.Count}) — re-read the curve and retry.");
 
-                    // Clamp every point to the driver-queried range first: the
-                    // driver accepts out-of-range deltas without error.
-                    var allowed = QueryDeltaRangeMhz(PublicClockDomain.Graphics);
+                    var pointRanges = QueryPointRangesMhz(PublicClockDomain.Graphics, first, last);
+                    if (pointRanges is null) return GpuResult.Fail(OverclockErrorKind.ControlUnsupported);
 
-                    // Build from the driver's CURRENT table so the memory
-                    // domain's offsets survive untouched.
-                    var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
+                    var table = GPUApi.GetClockBoostTable(_gpu.Handle, 1);
                     var src = table.GPUDeltas;
                     var deltas = new PrivateClockBoostTableV1.GPUDelta[src.Length];
                     for (int i = 0; i < src.Length; i++)
                     {
-                        if (i >= range.Value.First && i <= range.Value.Last)
+                        if (i >= first && i <= last)
                         {
-                            int want = offsetsMhz[i - range.Value.First];
-                            if (allowed is { } al)
-                                want = Math.Clamp(want, al.MinMhz, al.MaxMhz);
-                            deltas[i] = new PrivateClockBoostTableV1.GPUDelta(want * 1000);
+                            int k = i - first;
+                            int clamped = Math.Clamp(offsetsMhz[k], pointRanges[k].MinMhz, pointRanges[k].MaxMhz);
+                            deltas[i] = new PrivateClockBoostTableV1.GPUDelta(clamped * 1000);
                         }
                         else
                         {
@@ -900,6 +1048,38 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
+        /// <summary>
+        /// Reads the CURRENT per-point graphics-domain offsets straight from
+        /// the boost table — the revert anchor and resync source for curve
+        /// batches. Empty when unsupported.
+        /// </summary>
+        public GpuResult<int[]> ReadVfCurveOffsets()
+        {
+            lock (_gate)
+            {
+                try
+                {
+                    if (!EnsureGpu(out var fail)) return GpuResult<int[]>.Fail(fail.ErrorKind, fail.Detail);
+                    var range = BoostTableRange(PublicClockDomain.Graphics);
+                    if (range is null) return GpuResult<int[]>.Ok(Array.Empty<int>());
+                    var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
+                    var src = table.GPUDeltas;
+                    // Insane range from the driver (negative first index past
+                    // the end, empty slice): refuse cleanly instead of
+                    // indexing out of range (a thrown exception here would
+                    // escape the controller's never-throw contract).
+                    int count = range.Value.Last - range.Value.First + 1;
+                    if (range.Value.First < 0 || range.Value.Last >= src.Length || count <= 0)
+                        return GpuResult<int[]>.Fail(OverclockErrorKind.ControlUnsupported);
+                    var anchor = new int[count];
+                    for (int i = 0; i < anchor.Length && range.Value.First + i < src.Length; i++)
+                        anchor[i] = src[range.Value.First + i].FrequencyDeltaInkHz / 1000;
+                    return GpuResult<int[]>.Ok(anchor);
+                }
+                catch (NVIDIAApiException ex) { return GpuResult<int[]>.Fail(MapStatus(ex), ex.Status.ToString()); }
+            }
+        }
+
         public GpuResult<uint> ReadVoltageBoostPercent()
         {
             lock (_gate)
@@ -907,8 +1087,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!EnsureGpu(out var fail)) return GpuResult<uint>.Fail(fail.ErrorKind, fail.Detail);
                 try
                 {
-                    uint pct = GPUApi.GetCoreVoltageBoostPercent(_gpu!.Handle).Percent;
-                    return GpuResult<uint>.Ok(pct);
+                    return GpuResult<uint>.Ok(GPUApi.GetCoreVoltageBoostPercent(_gpu!.Handle).Percent);
                 }
                 catch (NVIDIANotSupportedException)
                 {
@@ -928,7 +1107,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!EnsureGpu(out var fail)) return fail;
                 try
                 {
-                    percent = Math.Clamp(percent, 0u, 100u);
+                    percent = Math.Min(percent, 100);
                     GPUApi.SetCoreVoltageBoostPercent(_gpu!.Handle, new PrivateVoltageBoostPercentV1(percent));
                     return GpuResult.Ok();
                 }
@@ -986,25 +1165,8 @@ namespace kaliteConfig.GpuOverclock.Services
             try
             {
                 NVIDIA.Initialize();
-            }
-            catch (NVIDIAApiException ex)
-            {
-                return GpuResult.Fail(OverclockErrorKind.NvApiInitFailed, $"NVAPI status: {ex.Status}");
-            }
-            catch (Exception ex)
-            {
-                // Missing/broken nvapi.dll lands here (DllNotFoundException/BadImageFormat).
-                return GpuResult.Fail(OverclockErrorKind.NvApiInitFailed, ex.GetType().Name);
-            }
-
-            // Fast no-NVIDIA check: machines without an NVIDIA adapter (AMD/Intel
-            // iGPU-only, basic display driver) fail here with GpuNotDetected so
-            // the UI shows "Overclocking unavailable" instead of touching NVAPI
-            // further. _initialized stays false so a later eGPU plug-in can retry.
-            try
-            {
-                if (PhysicalGPU.GetPhysicalGPUs().Length == 0)
-                    return GpuResult.Fail(OverclockErrorKind.GpuNotDetected);
+                _initialized = true;
+                return GpuResult.Ok();
             }
             catch (NVIDIAApiException ex)
             {
@@ -1014,9 +1176,6 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 return GpuResult.Fail(OverclockErrorKind.NvApiInitFailed, ex.GetType().Name);
             }
-
-            _initialized = true;
-            return GpuResult.Ok();
         }
 
         private static OverclockErrorKind MapStatus(NVIDIAApiException ex) => ex.Status switch
