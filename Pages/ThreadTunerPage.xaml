@@ -142,6 +142,7 @@
             <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
                 <SelectorBarItem x:Name="TabProcesses" Text="Processes" />
                 <SelectorBarItem x:Name="TabRules" Text="Rules" />
+                <SelectorBarItem x:Name="TabThreadTune" Text="Thread Tune" />
                 <SelectorBarItem x:Name="TabReservedCpuSets" Text="Core Reservation" />
             </SelectorBar>
             
@@ -328,6 +329,98 @@
 
         <!-- Reserved CPU Sets Panel -->
         <Frame x:Name="ReservedCpuSetsFrame" Grid.Row="3" Visibility="Collapsed" Margin="24,12,24,12" />
+
+        <!-- Thread Tune Panel -->
+        <Grid x:Name="ThreadTunePanel" Grid.Row="3" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Info bar -->
+            <Grid Grid.Row="0" Margin="12,4,12,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <TextBlock Text="Thread Tune" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Untick the checkbox to disable priority boost for a thread permanently. This prevents Windows from dynamically raising that thread's priority, reducing scheduler overhead and freeing CPU cycles."
+                               Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" Margin="12,0,0,0">
+                    <ToggleSwitch Header="Auto-disable unnamed" IsOn="{x:Bind ViewModel.AutoDisableUnnamedBoosts, Mode=TwoWay}" VerticalAlignment="Center" />
+                    <ToggleSwitch Header="Hide unnamed threads" IsOn="{x:Bind ViewModel.HideUnnamedThreads, Mode=TwoWay}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Column headers -->
+            <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
+                    Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="2.5*" />
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="100" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Boost" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="TID" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="2" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="3" Text="Description" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="4" Text="PID" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <!-- Thread list -->
+            <ListView x:Name="ThreadTuneList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedThreadBoostRows, Mode=OneWay}"
+                      SelectionMode="None" ShowsScrollingPlaceholders="False">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ThreadBoostRow">
+                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
+                            <Grid Padding="4,6" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="2.5*" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="100" />
+                                </Grid.ColumnDefinitions>
+
+                                <CheckBox Grid.Column="0" IsChecked="{x:Bind BoostEnabled, Mode=TwoWay}" IsEnabled="{x:Bind local:ThreadTunerPage.NotProtected(IsProtected), Mode=OneWay}"
+                                          MinWidth="0" Padding="0" VerticalAlignment="Center"
+                                          Click="ThreadBoost_Clicked" />
+
+                                <TextBlock Grid.Column="1" Text="{x:Bind Tid}" VerticalAlignment="Center" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                                <TextBlock Grid.Column="2" Text="{x:Bind ProcessName, Mode=OneWay}" VerticalAlignment="Center"
+                                           FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+
+                                <TextBlock Grid.Column="3" Text="{x:Bind Description, Mode=OneWay}" VerticalAlignment="Center"
+                                           FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+
+                                <TextBlock Grid.Column="4" Text="{x:Bind Pid}" VerticalAlignment="Center" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsThreadTuneLoading, Mode=OneWay}" Spacing="12">
+                <ProgressRing IsActive="{x:Bind ViewModel.IsThreadTuneLoading, Mode=OneWay}" Width="48" Height="48" HorizontalAlignment="Center" />
+                <TextBlock Text="{x:Bind ViewModel.ThreadTuneLoadingText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Footer -->
+            <Grid Grid.Row="3" Margin="12,8,12,12">
+                <TextBlock x:Name="ThreadTuneCountText" Text="0 threads" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
 
         <Grid x:Name="ProcessesFooter" Grid.Row="4" Margin="24,12,24,12">
             <StackPanel Orientation="Horizontal" Spacing="24">

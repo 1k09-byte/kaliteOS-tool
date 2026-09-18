@@ -713,6 +713,7 @@ public sealed class ProfileWatcherService : IDisposable
             // matching this launch arms app-wide Gaming mode. The exit watcher
             // deactivates it when the last armed process is gone.
             bool gamingRule = matched.Any(p => p.GamingModeAuto);
+
             if (gamingRule)
             {
                 // Prune armed pids whose processes are already gone (a missed
@@ -731,12 +732,13 @@ public sealed class ProfileWatcherService : IDisposable
 
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                if (!App.Current.GamingMode.IsActive)
+                if (gamingRule && !App.Current.GamingMode.IsActive)
                 {
                     _watcherInitiatedGamingMode = true;
                     await App.Current.GamingMode.ActivateAsync(pid, armed);
                     Log($"gaming-mode: activated for [{name}] pid={pid}, protected={armed.Count}");
                 }
+
             }
 
             if (matched.Count == 0)

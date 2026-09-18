@@ -129,8 +129,8 @@
                         </Grid.ColumnDefinitions>
                         <CheckBox Grid.Column="0" Content="Automatic Gaming mode" VerticalAlignment="Center"
                                   IsChecked="{x:Bind GamingAutoChecked, Mode=TwoWay}"
-                                  ToolTipService.ToolTip="When this process launches, boost it to Above Normal and lower other background processes to Below Normal. Restores everything when the last matching process exits." />
-                        <TextBlock Grid.Column="1" Text="Boost this process + lower background load while it runs" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                  ToolTipService.ToolTip="When this process launches, boost it to Above Normal and shove all background processes down into Efficiency Mode (EcoQoS). Restores everything when the game exits." />
+                        <TextBlock Grid.Column="1" Text="Boost this process + squash background load into Efficiency Mode" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                     </Grid>
                 </Border>
                 <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">

@@ -14,6 +14,15 @@ internal static partial class NativeMethods
         internal const int StatusBufferTooSmall = unchecked((int)0xC0000023);
         internal const int StatusInfoLengthMismatch = unchecked((int)0xC0000004);
 
+        internal const int ProcessIoPriority = 33;
+
+        [LibraryImport("ntdll.dll")]
+        internal static partial int NtSetInformationProcess(
+            SafeProcessHandle processHandle,
+            int processInformationClass,
+            ref uint processInformation,
+            uint processInformationLength);
+
         // NTSTATUS return (0 = success). Undocumented/version-fragile: every caller
         // must validate sizes and degrade gracefully — see NativeSnapshotService.
         [LibraryImport("ntdll.dll")]
@@ -38,6 +47,5 @@ internal static partial class NativeMethods
             IntPtr threadInformation,
             int threadInformationLength,
             out uint returnLength);
-
     }
 }

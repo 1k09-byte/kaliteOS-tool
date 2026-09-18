@@ -80,6 +80,22 @@ public partial class ThreadDiagnosticRow : ObservableObject
     [ObservableProperty] public partial string EfficiencyText { get; set; } = "Unknown";
 }
 
+/// <summary>
+/// One row in the Thread Tune tab: a single OS thread with a toggleable
+/// priority boost checkbox and the bold parent-process name.
+/// </summary>
+public partial class ThreadBoostRow : ObservableObject
+{
+    [ObservableProperty] public partial int Tid { get; set; }
+    [ObservableProperty] public partial int Pid { get; set; }
+    [ObservableProperty] public partial string ProcessName { get; set; } = string.Empty;
+    [ObservableProperty] public partial string Description { get; set; } = "(unnamed)";
+    [ObservableProperty] public partial bool BoostEnabled { get; set; } = true;
+    [ObservableProperty] public partial bool IsProtected { get; set; }
+    /// <summary>True while a SetBoostAsync call is in flight — suppresses re-entry.</summary>
+    [ObservableProperty] public partial bool IsBusy { get; set; }
+}
+
 public partial class CoreCell : ObservableObject
 {
     [ObservableProperty] public partial int Index { get; set; }
@@ -231,6 +247,7 @@ public sealed partial class TunerProfile : ObservableObject
     [ObservableProperty] public partial List<ulong>? CpuSetIds { get; set; }
     [ObservableProperty] public partial bool? EfficiencyMode { get; set; }
     [ObservableProperty] public partial bool AutoApply { get; set; } = true;
+    
     /// <summary>
     /// When true, this rule additionally triggers app-wide Gaming mode
     /// (background lowering + target boost) whenever the process launches.

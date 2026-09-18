@@ -48,15 +48,30 @@ namespace kaliteConfig.Pages
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
+            // Thread Tune is expensive — only scan when active.
+            ViewModel.IsThreadTuneTabActive = sender.SelectedItem == TabThreadTune;
+
             if (sender.SelectedItem == TabRules)
             {
                 ProcessesGrid.Visibility = Visibility.Collapsed;
                 ProcessesHeader.Visibility = Visibility.Collapsed;
                 ProcessesFooter.Visibility = Visibility.Collapsed;
                 ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
+                ThreadTunePanel.Visibility = Visibility.Collapsed;
                 RulesPanel.Visibility = Visibility.Visible;
                 ViewModel.SyncProfiles();
                 RefreshRulesMeta();
+            }
+            else if (sender.SelectedItem == TabThreadTune)
+            {
+                ProcessesGrid.Visibility = Visibility.Collapsed;
+                ProcessesHeader.Visibility = Visibility.Collapsed;
+                ProcessesFooter.Visibility = Visibility.Collapsed;
+                RulesPanel.Visibility = Visibility.Collapsed;
+                ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
+                ThreadTunePanel.Visibility = Visibility.Visible;
+                // Kick off the initial load immediately.
+                _ = ViewModel.LoadThreadBoostRowsAsync();
             }
             else if (sender.SelectedItem == TabReservedCpuSets)
             {
@@ -64,6 +79,7 @@ namespace kaliteConfig.Pages
                 ProcessesHeader.Visibility = Visibility.Collapsed;
                 ProcessesFooter.Visibility = Visibility.Collapsed;
                 RulesPanel.Visibility = Visibility.Collapsed;
+                ThreadTunePanel.Visibility = Visibility.Collapsed;
                 ReservedCpuSetsFrame.Visibility = Visibility.Visible;
                 
                 if (ReservedCpuSetsFrame.Content == null)
@@ -78,6 +94,7 @@ namespace kaliteConfig.Pages
                 ProcessesFooter.Visibility = Visibility.Visible;
                 RulesPanel.Visibility = Visibility.Collapsed;
                 ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
+                ThreadTunePanel.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -639,6 +656,46 @@ namespace kaliteConfig.Pages
             {
                 _ = OpenRuleEditorAsync(p, isNew: false);
             }
+        }
+
+        // ---- Thread Tune helpers ─────────────────────────────────────
+
+        /// <summary>Binding helper: returns true when the thread is NOT protected (CheckBox enabled).</summary>
+        public static bool NotProtected(bool isProtected) => !isProtected;
+
+        /// <summary>
+        /// Fires when the user clicks a thread priority-boost checkbox.
+        /// Immediately persists the new state via the Win32 API.
+        /// </summary>
+        private async void ThreadBoost_Clicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox cb && cb.DataContext is ThreadBoostRow row && !row.IsBusy)
+            {
+                row.IsBusy = true;
+                try
+                {
+                    await App.Current.ThreadTuning.SetBoostAsync((uint)row.Tid, row.BoostEnabled);
+                }
+                catch (Exception ex)
+                {
+                    // Revert the checkbox on failure
+                    row.BoostEnabled = !row.BoostEnabled;
+                    _ = new ContentDialog
+                    {
+                        Title = "Priority Boost",
+                        Content = new TextBlock { Text = $"Could not change boost for TID {row.Tid} ({row.ProcessName}):\n{ex.Message}", TextWrapping = TextWrapping.Wrap },
+                        CloseButtonText = "Close",
+                        XamlRoot = this.XamlRoot,
+                    }.ShowAsync();
+                }
+                finally
+                {
+                    row.IsBusy = false;
+                }
+            }
+
+            // Update footer count
+            ThreadTuneCountText.Text = $"{ViewModel.DisplayedThreadBoostRows.Count} threads";
         }
     }
 }

@@ -509,6 +509,66 @@ public sealed class ProcessTuningService
         }).ConfigureAwait(false);
     }
 
+    public async Task SetGlobalEfficiencyModeAsync(bool enable, IReadOnlySet<string> skipProcessNames)
+    {
+        await Task.Run(() =>
+        {
+            var procs = Process.GetProcesses();
+            foreach (var proc in procs)
+            {
+                int pid;
+                string name;
+                try { pid = proc.Id; name = proc.ProcessName + ".exe"; }
+                catch { continue; }
+
+                if (IsCritical(name, pid) || skipProcessNames.Contains(name) || skipProcessNames.Contains(proc.ProcessName))
+                {
+                    proc.Dispose();
+                    continue;
+                }
+
+                try
+                {
+                    using var process = NativeMethods.Handles.OpenProcess(
+                        NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
+                    if (!process.IsInvalid)
+                    {
+                        var state = new ProcessPowerThrottlingState
+                        {
+                            Version = NativeMethods.Power.Version,
+                            ControlMask = NativeMethods.Power.ExecutionSpeed,
+                            StateMask = enable ? NativeMethods.Power.ExecutionSpeed : 0,
+                        };
+                        NativeMethods.Power.SetProcessInformation(
+                                process, ProcessInformationClass.ProcessPowerThrottling,
+                                ref state, NativeMethods.Power.StateSize());
+
+                        // Enforce Memory Stratification (Anti-Stutter)
+                        // If enabling background gaming mode, throttle memory priority to 1 (lowest)
+                        // This allows Windows to blindly page background processes to disk when RAM is full immediately.
+                        // If restoring, set back to 5 (Normal).
+                        var memPriority = new ProcessMemoryPriorityInfo
+                        {
+                            MemoryPriority = enable ? 1u : 5u
+                        };
+                        NativeMethods.Power.SetProcessInformation(
+                                process, ProcessInformationClass.ProcessMemoryPriority,
+                                ref memPriority, NativeMethods.Power.MemoryPrioritySize());
+
+                        // Enforce IO Stratification (Anti-Stutter)
+                        // Limits disk IO rates so background tasks don't violently collide with game asset streaming.
+                        uint ioPriority = enable ? 0u : 2u; // 0 = Very Low, 2 = Normal
+                        NativeMethods.Ntdll.NtSetInformationProcess(
+                            process, NativeMethods.Ntdll.ProcessIoPriority,
+                            ref ioPriority, sizeof(uint));
+                    }
+                }
+                catch { }
+                finally { proc.Dispose(); }
+            }
+        }).ConfigureAwait(false);
+    }
+
     /// <summary>Reads back Efficiency Mode (EcoQoS) via GetProcessInformation.</summary>
     public async Task<bool> GetEfficiencyAsync(int pid)
     {

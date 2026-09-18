@@ -5,6 +5,7 @@ namespace kaliteConfig.Native;
 
 internal enum ProcessInformationClass : uint
 {
+    ProcessMemoryPriority = 0,
     ProcessPowerThrottling = 4,
 }
 
@@ -20,6 +21,15 @@ internal struct ProcessPowerThrottlingState
     internal uint Version;
     internal uint ControlMask;
     internal uint StateMask;
+}
+
+/// <summary>MEMORY_PRIORITY_INFORMATION for ProcessMemoryPriority (SetProcessInformation
+/// info class 0). Levels per Windows docs: 1 very low, 2 low, 3 medium,
+/// 4 below normal, 5 normal.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct ProcessMemoryPriorityInfo
+{
+    internal uint MemoryPriority;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -57,6 +67,14 @@ internal static partial class NativeMethods
             SafeProcessHandle process,
             ProcessInformationClass infoClass,
             ref ProcessPowerThrottlingState info,
+            uint size);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool SetProcessInformation(
+            SafeProcessHandle process,
+            ProcessInformationClass infoClass,
+            ref ProcessMemoryPriorityInfo info,
             uint size);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
@@ -100,6 +118,7 @@ internal static partial class NativeMethods
             uint size);
 
         internal static uint StateSize() => (uint)Marshal.SizeOf<ProcessPowerThrottlingState>();
+        internal static uint MemoryPrioritySize() => (uint)Marshal.SizeOf<ProcessMemoryPriorityInfo>();
 
         internal static uint ThreadStateSize() => (uint)Marshal.SizeOf<ThreadPowerThrottlingState>();
     }
