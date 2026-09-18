@@ -53,6 +53,48 @@ public sealed class KernelTuningService
         return null;
     }
 
+    /// <summary>
+    /// True when THIS process token carries the Administrator role — the real
+    /// elevation check. Never throws (false on any failure).
+    /// </summary>
+    public static bool IsElevated()
+    {
+        try
+        {
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            return new System.Security.Principal.WindowsPrincipal(identity)
+                .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Builds the truthful access-denied error. "Run as admin" is only claimed
+    /// when the process genuinely is NOT elevated; an elevated process that is
+    /// still denied gets the real key path, the OS error, and the likely
+    /// culprits (security software, hardened key ACLs). Pure logic — unit-tested.
+    /// </summary>
+    internal static string AccessDeniedMessage(string keyPath, string valueName, bool elevated, string osError)
+    {
+        if (!elevated)
+            return "Administrator rights are required to change kernel tweaks. " +
+                   "Restart kaliteConfig as administrator and try again.";
+        return $"Access was denied writing HKLM\\{keyPath}\\{valueName} even though kaliteConfig IS running " +
+               "as administrator. A security product (antivirus/EDR) may be blocking kernel registry writes, " +
+               "or this key's permissions were changed on your system. Confirm Task Manager > Details shows " +
+               $"Elevated=Yes for kaliteConfig, then retry with such protection paused. (OS error: {osError})";
+    }
+
+    /// <summary>Wraps a registry access failure with the truthful message for this tweak.</summary>
+    private static UnauthorizedAccessException Denied(TweakDef def, Exception inner)
+    {
+        string resolved;
+        try { resolved = ResolveKey(def); }
+        catch { resolved = def.SubKey; } // never let reporting break the original error
+        return new UnauthorizedAccessException(
+            AccessDeniedMessage(resolved, def.ValueName, IsElevated(), inner.Message), inner);
+    }
+
     public static string ResolveKey(TweakDef def)
     {
         if (!def.PerActiveScheme) return def.SubKey;
@@ -194,9 +236,9 @@ public sealed class KernelTuningService
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
             key.SetValue(def.ValueName, enable ? def.OnValue : def.OffValue, RegistryValueKind.DWord);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            throw new UnauthorizedAccessException("Administrator rights are required to change kernel tweaks.");
+            throw Denied(def, ex);
         }
     }
 
@@ -229,18 +271,19 @@ public sealed class KernelTuningService
     /// <summary>Writes the value. Takes effect after a restart.</summary>
     public void WriteWin32PS(uint value)
     {
+        var def = new TweakDef("Win32PrioritySeparation", "", "", PriorityControlKey, Win32PSValue, 0, 0, false, false);
         try
         {
             // Same protection as the kernel toggles: snapshot before first write.
-            EnsureBackup(new TweakDef("Win32PrioritySeparation", "", "", PriorityControlKey, Win32PSValue, 0, 0, false, false));
+            EnsureBackup(def);
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(PriorityControlKey, true);
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
             key.SetValue(Win32PSValue, value, RegistryValueKind.DWord);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            throw new UnauthorizedAccessException("Administrator rights are required to change this value.");
+            throw Denied(def, ex);
         }
     }
 
@@ -253,9 +296,9 @@ public sealed class KernelTuningService
             using var key = baseKey.OpenSubKey(ResolveKey(def), true);
             key?.DeleteValue(def.ValueName, false);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            throw new UnauthorizedAccessException("Administrator rights are required to change kernel tweaks.");
+            throw Denied(def, ex);
         }
     }
 
@@ -293,33 +336,35 @@ public sealed class KernelTuningService
 
     public void WriteSvcSplit(uint valueKb)
     {
+        var def = new TweakDef("SvcHostSplitThresholdInKB", "", "", SvcSplitKey, SvcSplitValue, 0, 0, false, false);
         try
         {
             // Same protection as the kernel toggles: snapshot before first write.
-            EnsureBackup(new TweakDef("SvcHostSplitThresholdInKB", "", "", SvcSplitKey, SvcSplitValue, 0, 0, false, false));
+            EnsureBackup(def);
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(SvcSplitKey, true);
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
             key.SetValue(SvcSplitValue, valueKb, RegistryValueKind.DWord);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            throw new UnauthorizedAccessException("Administrator rights are required to change this value.");
+            throw Denied(def, ex);
         }
     }
 
     /// <summary>Deletes the value, restoring the Windows default (~380000 KB).</summary>
     public void ResetSvcSplit()
     {
+        var def = new TweakDef("SvcHostSplitThresholdInKB", "", "", SvcSplitKey, SvcSplitValue, 0, 0, false, false);
         try
         {
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.OpenSubKey(SvcSplitKey, true);
             key?.DeleteValue(SvcSplitValue, false);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            throw new UnauthorizedAccessException("Administrator rights are required to change this value.");
+            throw Denied(def, ex);
         }
     }
 }
