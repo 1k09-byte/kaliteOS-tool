@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
@@ -59,5 +60,52 @@ namespace kaliteConfig.GpuOverclock.Services
         /// restore call, so a stale forced speed can never persist silently.
         /// </summary>
         GpuResult RestoreFanAuto();
+
+        // ---------- voltage / V-F curve (v2) ----------
+        //
+        // NOTE on the v2 brief's async signatures: this interface's contract
+        // is synchronous methods serialized behind an internal lock (NVAPI is
+        // not thread-safe); callers that must not block the UI thread wrap
+        // calls in Task.Run. The V/F members follow that same convention
+        // rather than introducing a second async convention + a new
+        // WriteResult type — GpuResult is the module's established shape.
+
+        /// <summary>
+        /// Reads the graphics-domain V/F base curve (voltages + stock
+        /// frequencies, read-only) with the CURRENT per-point offsets and the
+        /// driver-queried per-point editable ranges. Fails with
+        /// ControlUnsupported when the driver refuses the curve queries.
+        /// </summary>
+        GpuResult<GpuVoltageFrequencyCurve> ReadVoltageFrequencyCurve();
+
+        /// <summary>
+        /// Writes per-point clock offsets (MHz, point order) for the graphics
+        /// domain by rewriting the boost table; other domains are preserved
+        /// from the driver's current state. Every point is clamped to its
+        /// driver-queried range before writing. Count must match the curve
+        /// from <see cref="ReadVoltageFrequencyCurve"/>.
+        /// </summary>
+        GpuResult SetVoltageFrequencyCurveOffsets(IReadOnlyList<int> offsetsMhz);
+
+        /// <summary>
+        /// Current per-point graphics-domain offsets from the boost table —
+        /// the revert anchor / resync source for curve batches. Empty when
+        /// the curve is unsupported.
+        /// </summary>
+        GpuResult<int[]> ReadVfCurveOffsets();
+
+        /// <summary>
+        /// Current voltage-boost percent, or ControlUnsupported when the
+        /// driver refuses the query (the normal case on Ampere/Ada — the
+        /// vBIOS locks raw voltage control there).
+        /// </summary>
+        GpuResult<uint> ReadVoltageBoostPercent();
+
+        /// <summary>
+        /// Sets voltage-boost percent (0-100). Refused on GPUs where the
+        /// vBIOS locks voltage control — surfaced as ControlUnsupported or
+        /// WriteRejected, never thrown.
+        /// </summary>
+        GpuResult SetVoltageBoostPercent(uint percent);
     }
 }

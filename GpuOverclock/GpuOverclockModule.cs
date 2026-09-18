@@ -22,6 +22,8 @@ namespace kaliteConfig.GpuOverclock
         public ProfileStorageService Profiles { get; }
         public OverclockChangeLogger ChangeLog { get; }
         public StartupTaskService StartupTask { get; }
+        public GameProcessWatcherService GameWatcher { get; }
+        public GameProfileAutoApplyService GameAutoApply { get; }
 
         private GpuOverclockModule()
         {
@@ -33,10 +35,14 @@ namespace kaliteConfig.GpuOverclock
             FanCurve = new FanCurveExecutionService(Controller);
             Profiles = new ProfileStorageService();
             StartupTask = new StartupTaskService();
+            GameWatcher = new GameProcessWatcherService();
+            GameAutoApply = new GameProfileAutoApplyService(Controller, Safety, Profiles, ChangeLog, FanCurve, GameWatcher);
         }
 
         public void Dispose()
         {
+            try { GameAutoApply.Dispose(); } catch { }
+            try { GameWatcher.Dispose(); } catch { }
             Telemetry.Dispose();
             FanCurve.DisposeAsync().GetAwaiter().GetResult();
             Safety.DisposeAsync().GetAwaiter().GetResult();

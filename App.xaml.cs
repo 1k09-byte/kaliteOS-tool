@@ -179,8 +179,49 @@ namespace kaliteConfig
             {
                 _window = new MainWindow();
                 _windowStatic = _window;
+
+                // Overclock module teardown on close: stops telemetry, ends the
+                // fan-curve loop with a real driver hand-back (spec §5 — closing
+                // the app must never leave a forced fan speed), disarms the TDR
+                // watchdog. Best-effort; never delays the close.
+                _window.Closed += (_, _) =>
+                {
+                    try { GpuOverclock.GpuOverclockModule.Instance.Dispose(); }
+                    catch { }
+                };
+
                 ThemeService = new ThemeService().Initialize(_window);
                 _window.Activate();
+
+                // Startup reapply (spec 6): the elevated Task Scheduler task
+                // launches the app with --apply-overclock-startup at login.
+                // The designated, pre-boot-validated profile is reapplied on a
+                // background thread after the driver has settled — through the
+                // full safety machine with the shortened headless window.
+                if (Environment.GetCommandLineArgs().Contains("--apply-overclock-startup", StringComparer.OrdinalIgnoreCase))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(8000); // let NVAPI/driver settle after login
+                            var module = GpuOverclock.GpuOverclockModule.Instance;
+                            var startup = new GpuOverclock.Services.StartupApplyService(
+                                module.Controller, module.Safety, module.Profiles, module.ChangeLog,
+                                msg => module.ChangeLog.Log(new GpuOverclock.Models.AppliedChangeLogEntry
+                                {
+                                    Timestamp = DateTime.Now,
+                                    ControlName = "Startup reapply",
+                                    OldValue = "-",
+                                    NewValue = msg,
+                                    Source = GpuOverclock.Models.OverclockChangeSource.StartupApply,
+                                    Result = GpuOverclock.Models.OverclockChangeResult.Success,
+                                }));
+                            await startup.ApplyDefaultProfileAtStartupAsync();
+                        }
+                        catch { /* startup reapply must never break app launch */ }
+                    });
+                }
             }
             catch (Exception ex)
             {

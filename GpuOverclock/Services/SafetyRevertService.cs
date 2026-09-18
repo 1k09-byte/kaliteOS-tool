@@ -68,8 +68,38 @@ namespace kaliteConfig.GpuOverclock.Services
         private bool _anchorFanWasAuto = true;
         private PendingChange[] _pending = Array.Empty<PendingChange>();
 
+        // v2 anchors: pre-batch V/F per-point offsets + voltage-boost percent.
+        // Captured only when the batch actually touches those controls.
+        private int[]? _anchorVfOffsets;
+        private uint? _anchorVoltageBoostPercent;
+
         /// <summary>Countdown length; user-configurable per spec.</summary>
         public int ConfirmationSeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Per-control-type countdown overrides (v2). Curve edits are
+        /// inherently more failure-prone than a single clock offset, so the
+        /// V/F curve and voltage-boost controls default to a longer window
+        /// (22 s vs the 15 s global default). A batch containing several
+        /// controls uses the LONGEST applicable window. Entries can be
+        /// reconfigured per control name (see OcControlNames) without
+        /// touching the global default.
+        /// </summary>
+        public Dictionary<string, int> ConfirmationSecondsByControl { get; } = new()
+        {
+            [OcControlNames.VoltageFrequencyCurve] = 22,
+            [OcControlNames.VoltageBoost] = 22,
+        };
+
+        /// <summary>Longest confirmation window applicable to this batch.</summary>
+        public int GetConfirmationSecondsFor(IEnumerable<string> controlNames)
+        {
+            int seconds = ConfirmationSeconds;
+            foreach (var name in controlNames)
+                if (ConfirmationSecondsByControl.TryGetValue(name, out int per) && per > seconds)
+                    seconds = per;
+            return seconds;
+        }
 
         public event EventHandler<SafetyStateChangedEventArgs>? StateChanged;
         public event Action<SafetyState, string?>? Reverted; // (state reached Idle with reason, detail)
@@ -120,6 +150,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 _changeCount = batch.Length;
                 _revertReason = null;
                 _lastWriteResult = null;
+                _silentWindow = false;
                 Raise(SafetyState.Applying, 0, null, null);
             }
 
@@ -131,6 +162,18 @@ namespace kaliteConfig.GpuOverclock.Services
                 _anchorOffsets = off.IsSuccess ? (off.Value.CoreOffsetMHz, off.Value.MemOffsetMHz) : null;
                 _anchorLimits = lim.IsSuccess ? (lim.Value.PowerLimitPercent, lim.Value.TempLimitC) : null;
                 _anchorFanWasAuto = true; // fan batches are dedicated; see ApplyFanBatchAsync
+                _anchorVfOffsets = null;
+                _anchorVoltageBoostPercent = null;
+                if (batch.Any(c => c.ControlName == OcControlNames.VoltageFrequencyCurve))
+                {
+                    var vf = _controller.ReadVfCurveOffsets();
+                    if (vf.IsSuccess && vf.Value is { Length: > 0 }) _anchorVfOffsets = (int[])vf.Value.Clone();
+                }
+                if (batch.Any(c => c.ControlName == OcControlNames.VoltageBoost))
+                {
+                    var vb = _controller.ReadVoltageBoostPercent();
+                    if (vb.IsSuccess) _anchorVoltageBoostPercent = vb.Value;
+                }
                 _pending = batch;
             }
 
@@ -170,7 +213,7 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate)
             {
                 _state = SafetyState.AwaitingConfirmation;
-                _countdownRemaining = ConfirmationSeconds;
+                _countdownRemaining = GetConfirmationSecondsFor(batch.Select(c => c.ControlName));
                 Raise(SafetyState.AwaitingConfirmation, _countdownRemaining, null, _lastWriteResult);
             }
 
@@ -197,6 +240,8 @@ namespace kaliteConfig.GpuOverclock.Services
                 _changeCount = 1;
                 _anchorFanWasAuto = fanWasAuto;
                 _pending = new[] { change };
+                _revertReason = null;
+                _silentWindow = false;
                 Raise(SafetyState.Applying, 0, null, null);
             }
 
@@ -223,7 +268,7 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate)
             {
                 _state = SafetyState.AwaitingConfirmation;
-                _countdownRemaining = ConfirmationSeconds;
+                _countdownRemaining = GetConfirmationSecondsFor(new[] { change.ControlName });
                 Raise(SafetyState.AwaitingConfirmation, _countdownRemaining, null, result);
             }
             _watchdog.Arm();
@@ -238,15 +283,46 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate)
             {
                 if (_state != SafetyState.AwaitingConfirmation) return;
+            }
+            ConfirmInternal();
+        }
+
+        private void ConfirmInternal()
+        {
+            lock (_gate)
+            {
                 _state = SafetyState.Idle;
                 _pending = Array.Empty<PendingChange>();
                 _revertReason = null;
                 _countdownRemaining = 0;
+                _silentWindow = false;
                 _watchdog.Disarm();
                 _countdownTimer?.Change(Timeout.Infinite, Timeout.Infinite);
                 Raise(SafetyState.Idle, 0, null, null);
             }
         }
+
+        /// <summary>
+        /// Headless confirmation for STARTUP reapply only (spec 6): the user
+        /// cannot see a confirmation prompt at login time, so the designated
+        /// startup profile's window is allowed to expire naturally instead of
+        /// being force-confirmed — the countdown runs, the TDR watchdog is
+        /// armed the whole time, and only a real driver reset can trigger a
+        /// revert before the window closes. This keeps the full safety
+        /// mechanism (armed window + revert path) while not blocking a
+        /// headless session on UI that cannot be shown.
+        /// </summary>
+        public void ConfirmSilently()
+        {
+            lock (_gate)
+            {
+                if (_state != SafetyState.AwaitingConfirmation) return;
+            }
+            // Mark the window as "user absent": expiry behaves like confirm.
+            _silentWindow = true;
+        }
+
+        private bool _silentWindow;
 
         /// <summary>Manual "Revert now" — available during the whole window.</summary>
         public void RevertNow() => BeginRevert("manual revert");
@@ -254,16 +330,25 @@ namespace kaliteConfig.GpuOverclock.Services
         private void OnCountdownTick()
         {
             int remaining;
+            bool silent;
             lock (_gate)
             {
                 if (_state != SafetyState.AwaitingConfirmation) return;
                 _countdownRemaining--;
                 remaining = _countdownRemaining;
+                silent = _silentWindow;
                 if (remaining > 0)
                 {
                     Raise(SafetyState.AwaitingConfirmation, remaining, null, null);
                     return;
                 }
+            }
+            if (silent)
+            {
+                // Headless startup window expired with no TDR: the batch becomes
+                // the new last-known-good — no revert, no UI prompt was shown.
+                ConfirmInternal();
+                return;
             }
             BeginRevert("confirmation timeout");
         }
@@ -280,6 +365,8 @@ namespace kaliteConfig.GpuOverclock.Services
             bool fanWasAuto;
             (int, int)? anchorOff;
             (double, int?)? anchorLim;
+            int[]? anchorVf;
+            uint? anchorVb;
 
             lock (_gate)
             {
@@ -296,6 +383,8 @@ namespace kaliteConfig.GpuOverclock.Services
                 fanWasAuto = _anchorFanWasAuto;
                 anchorOff = _anchorOffsets;
                 anchorLim = _anchorLimits;
+                anchorVf = _anchorVfOffsets;
+                anchorVb = _anchorVoltageBoostPercent;
             }
 
             // Revert writes (outside the lock — controller has its own).
@@ -310,6 +399,10 @@ namespace kaliteConfig.GpuOverclock.Services
                     OcControlNames.TemperatureLimit when anchorLim != null && anchorLim.Value.Item2 != null
                         => _controller.SetTempLimitC(anchorLim.Value.Item2!.Value),
                     OcControlNames.FanSpeed when fanWasAuto => _controller.RestoreFanAuto(),
+                    OcControlNames.VoltageFrequencyCurve when anchorVf != null
+                        => _controller.SetVoltageFrequencyCurveOffsets(anchorVf),
+                    OcControlNames.VoltageBoost when anchorVb != null
+                        => _controller.SetVoltageBoostPercent(anchorVb.Value),
                     _ => GpuResult.Ok(), // nothing to restore for this control
                 };
                 if (!res.IsSuccess) failures.Add($"{change.ControlName}: {res.Detail ?? "revert write failed"}");

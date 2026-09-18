@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:kaliteConfig.Models"
     xmlns:vm="using:kaliteConfig.ViewModels"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     NavigationCacheMode="Enabled"
     Background="Transparent">
 
@@ -38,12 +39,10 @@
         <!-- Sticky action bar: load/export/revert always visible -->
         <CommandBar Grid.Row="0" DefaultLabelPosition="Right" Background="Transparent" Margin="0,0,0,4">
             <CommandBar.PrimaryCommands>
-                <AppBarButton Icon="OpenFile" Label="Load dump" Click="LoadDump_Click" />
-                <AppBarButton Icon="Sync" Label="Export &amp; load" Click="ExportLoad_Click" IsEnabled="{x:Bind ViewModel.CanExportNow, Mode=OneWay}" />
+                <AppBarButton Icon="OpenFile" Label="Import" Click="LoadDump_Click" />
                 <AppBarButton Icon="Save" Label="Export…" Click="Export_Click" IsEnabled="{x:Bind ViewModel.HasDocument, Mode=OneWay}" />
                 <AppBarSeparator />
                 <AppBarButton Icon="Undo" Label="Revert all" Command="{x:Bind ViewModel.ResetAllCommand}" IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
-                <AppBarButton Icon="ClearSelection" Label="Reset default" Command="{x:Bind ViewModel.ResetSettingCommand}" CommandParameter="{x:Bind ViewModel.SelectedRow, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.HasSelectedRow, Mode=OneWay}" />
             </CommandBar.PrimaryCommands>
             <CommandBar.Content>
                 <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10" VerticalAlignment="Center">
@@ -81,30 +80,56 @@
                 <ColumnDefinition x:Name="DetailColumn" Width="340" />
             </Grid.ColumnDefinitions>
 
+            <!-- Category nav: WinUI Settings-style list (rounded selection,
+                 name + count), fed by keyword buckets (CPU, PCIe, Security…).
+                 Replaces the old ListBox+TreeView hybrid. -->
             <Border
                 Grid.Column="0"
                 BorderThickness="0,0,1,0"
-                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                Padding="4,0,4,8">
-                <TreeView
-                    x:Name="SectionTree"
-                    ItemsSource="{x:Bind ViewModel.Sections, Mode=OneWay}"
-                    SelectionMode="Single"
-                    SelectionChanged="SectionTree_SelectionChanged">
-                    <TreeView.ItemTemplate>
-                        <DataTemplate x:DataType="models:BiosMenuSection">
-                            <!-- DataContext comes from the tree container by
-                                 inheritance; binding it to itself here would
-                                 re-trigger DataContextChanged forever (stack overflow). -->
-                            <TreeViewItem ItemsSource="{x:Bind Children}" IsExpanded="False">
-                                <StackPanel Orientation="Horizontal" Spacing="6" Padding="0,3">
-                                    <TextBlock Text="{x:Bind Name}" />
-                                    <TextBlock Text="{x:Bind CountText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </TreeViewItem>
-                        </DataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
+                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Text="Categories"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Margin="16,8,12,8" />
+                    <ListView
+                        Grid.Row="1"
+                        x:Name="CategoryList"
+                        SelectionMode="Single"
+                        Padding="4,0"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto"
+                        ScrollViewer.VerticalScrollMode="Enabled"
+                        ItemsSource="{x:Bind ViewModel.Categories, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedCategoryItem, Mode=TwoWay}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BiosCategory">
+                                <Grid Height="36" Padding="12,0" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Grid.Column="0"
+                                        Text="{x:Bind DisplayName}"
+                                        VerticalAlignment="Center"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        Text="{x:Bind CountText}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
             </Border>
 
             <ListView
@@ -113,10 +138,14 @@
                 ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
                 SelectionMode="Single"
                 SelectionChanged="SettingsList_SelectionChanged"
-                Padding="4,0">
+                Padding="4,0,14,0"
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                ScrollViewer.VerticalScrollMode="Enabled"
+                ScrollViewer.IsVerticalScrollChainingEnabled="True"
+                ScrollViewer.IsVerticalRailEnabled="True">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="vm:BiosSettingRow">
-                        <Grid Height="46" ColumnSpacing="8" Padding="14,4,10,4">
+                        <Grid Height="46" ColumnSpacing="8" Padding="14,4,18,4" Background="Transparent">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -164,7 +193,7 @@
                 BorderThickness="1,0,0,0"
                 BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                 Padding="16,10,16,12">
-                <ScrollViewer>
+                <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Hidden">
                     <Grid>
                         <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.DetailVisibility, Mode=OneWay}">
                             <TextBlock Text="{x:Bind ViewModel.SelectedRow.Name, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
@@ -199,11 +228,15 @@
 
                             <!-- The editor gets the most visual weight -->
                             <TextBlock Text="Value" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0" />
+                            <!-- Selection is written back from code-behind: a TwoWay
+                                 SelectedValue binding can fire before ItemsSource is
+                                 ready and write an empty value over the real one. -->
                             <ComboBox
+                                x:Name="ValueCombo"
                                 ItemsSource="{x:Bind ViewModel.SelectedRow.Options, Mode=OneWay}"
                                 SelectedValuePath="RawToken"
                                 DisplayMemberPath="Display"
-                                SelectedValue="{x:Bind ViewModel.EditingSelectedToken, Mode=TwoWay}"
+                                SelectionChanged="ValueCombo_SelectionChanged"
                                 Visibility="{x:Bind ViewModel.EditingEnumeratedVisibility, Mode=OneWay}"
                                 HorizontalAlignment="Stretch"
                                 MinHeight="34" />
@@ -271,24 +304,30 @@
                         TextWrapping="Wrap"
                         MaxWidth="420"
                         TextAlignment="Center" />
-                    <Button Content="Load dump" HorizontalAlignment="Center" Margin="0,6,0,0" Click="LoadDump_Click" Style="{StaticResource AccentButtonStyle}" />
+                    <Button Content="Import dump" HorizontalAlignment="Center" Margin="0,6,0,0" Click="LoadDump_Click" Style="{StaticResource AccentButtonStyle}" />
                 </StackPanel>
             </Grid>
 
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroup x:Name="Adaptive">
                     <!-- Below 1000px the detail pane collapses; the value pill's
-                         tap action opens a quick-edit dialog instead. -->
-                    <VisualState x:Name="Narrow">
-                        <VisualState.Setters>
-                            <Setter Target="DetailColumn.Width" Value="0" />
-                            <Setter Target="DetailPane.Visibility" Value="Collapsed" />
-                        </VisualState.Setters>
-                    </VisualState>
+                         tap action opens a quick-edit dialog instead. A state
+                         with no trigger is NEVER applied by WinUI, so Narrow
+                         gets an always-true MinWindowWidth=0 trigger and sits
+                         AFTER Wide (later active states win). -->
                     <VisualState x:Name="Wide">
                         <VisualState.StateTriggers>
                             <AdaptiveTrigger MinWindowWidth="1000" />
                         </VisualState.StateTriggers>
+                    </VisualState>
+                    <VisualState x:Name="Narrow">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="0" />
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="DetailColumn.Width" Value="0" />
+                            <Setter Target="DetailPane.Visibility" Value="Collapsed" />
+                        </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>

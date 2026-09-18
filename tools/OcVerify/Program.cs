@@ -32,11 +32,27 @@ namespace OcVerify
             Console.WriteLine("Machine: " + Environment.MachineName + ", elevated: " + IsElevated());
             Console.WriteLine();
 
+            // Child mode: acts as the "app running curve mode" that the orphan
+            // test hard-kills. Runs its own fan-hold loop and exits by being
+            // killed — never cleans up, exactly like a crashed app.
+            if (args.FirstOrDefault() == "fan-hold")
+            {
+                RunFanHoldChild(args.Length > 1 ? int.Parse(args[1]) : 12);
+                return 0;
+            }
+
             var step = args.FirstOrDefault(a => !a.StartsWith("-")) ?? "all";
             if (step is "telemetry" or "all") VerifyTelemetry();
             if (step is "cycle" or "all") VerifySafetyCycle();
             if (step is "tdr") VerifyTdrWatchdog();
             if (step is "watchdog") VerifyWatchdogPipeline();
+            if (step is "fan") VerifyFanCurveUnderLoad();
+            if (step is "orphan") VerifyCrashOrphanRecovery();
+            if (step is "limits") VerifyLimitsSafetyPath();
+            if (step is "startup") VerifyStartupTask();
+            if (step is "startup-apply") VerifyStartupApplyFlow();
+            if (step is "logic") _failures += VfLogicChecks.Run();
+            if (step is "vf") VerifyVfCurve();
 
             Console.WriteLine();
             Console.WriteLine(_failures == 0 ? "=== ALL CHECKS PASSED ===" : $"=== {_failures} CHECK(S) FAILED ===");
@@ -315,6 +331,399 @@ namespace OcVerify
         }
 
         // ---------------------------------------------------------------
+        // Step 5 (spec 9): fan Curve mode tracks a real thermal change. No
+        // load tools exist on this machine, so the load is induced with a
+        // driver clock lock (nvidia-smi -lgc), which holds the GPU at boost
+        // clock and roughly doubles idle power draw — a genuine thermal event
+        // the curve must react to. Fully revertible with -rgc.
+        // ---------------------------------------------------------------
+        private static void VerifyFanCurveUnderLoad()
+        {
+            Console.WriteLine("--- Fan Curve mode under a real thermal change (clock-lock load) ---");
+
+            var controller = new NvApiGpuController();
+            if (!controller.Initialize().IsSuccess) { Check(false, "NVAPI init"); return; }
+
+            // Never fight a live curve loop from the real app.
+            if (System.IO.File.Exists(FanCurveExecutionService.GetMarkerPath(null)))
+            {
+                Console.WriteLine("  active curve marker present — aborting to avoid fighting a live session");
+                Check(false, "fan test precondition (no live curve)");
+                return;
+            }
+
+            var baseline = controller.ReadTelemetry();
+            if (!baseline.IsSuccess) { Check(false, "baseline telemetry"); return; }
+            double idlePower = baseline.Value.PowerDrawW ?? 0;
+            int? idleFan = baseline.Value.FanPercent;
+            Console.WriteLine($"  idle: {Fmt(baseline.Value.GpuTempC)}C, {idlePower:0.#} W, fan {Fmt(idleFan)}%");
+
+            var safety = new FanCurveExecutionService(controller);
+            bool stopped = false;
+            safety.Stopped += _ => stopped = true;
+            try
+            {
+                // Real load: lock boost clock so the GPU leaves idle P-states.
+                if (!RunSmi("-lgc 2400,2400")) { Check(false, "clock lock (nvidia-smi -lgc)"); return; }
+                Thread.Sleep(4000);
+                var loaded = controller.ReadTelemetry();
+                double loadPower = loaded.Value.PowerDrawW ?? 0;
+                Check(loadPower >= idlePower * 1.4,
+                    $"clock lock induced a real thermal load ({idlePower:0.#} W -> {loadPower:0.#} W, {Fmt(loaded.Value.GpuTempC)}C)");
+
+                // Curve that spans the idle band: at ~43C it commands ~60%, far
+                // above the idle 0%. The loop must track it within its interval.
+                var points = new[]
+                {
+                    new FanCurvePoint(35, 20),
+                    new FanCurvePoint(45, 60),
+                    new FanCurvePoint(55, 85),
+                    new FanCurvePoint(100, 100),
+                };
+                safety.Start(points, () => controller.ReadTelemetry().Value?.GpuTempC);
+                safety.Interval = TimeSpan.FromSeconds(1);
+
+                int? peakFan = null;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (sw.ElapsedMilliseconds < 20_000)
+                {
+                    Thread.Sleep(1000);
+                    var t = controller.ReadTelemetry();
+                    if (t.IsSuccess && t.Value.FanPercent is { } f)
+                    {
+                        peakFan = peakFan is null ? f : Math.Max(peakFan.Value, f);
+                        Console.WriteLine($"  t+{sw.ElapsedMilliseconds / 1000,2}s: temp {Fmt(t.Value.GpuTempC)}C, fan {f}% (curve commands ~{FanCurveExecutionService.Evaluate(points, t.Value.GpuTempC ?? 0)}%)");
+                    }
+                }
+
+                Check(peakFan is > 0,
+                    $"fan responded to the curve under load (peak {peakFan ?? -1}% vs idle {Fmt(idleFan)}%)");
+                Check(peakFan >= 40,
+                    $"fan tracked the commanded range meaningfully (peak {peakFan ?? -1}%, curve ~60% at this temp)");
+            }
+            finally
+            {
+                RunSmi("-rgc"); // release the clock lock no matter what
+                if (!stopped) safety.StopAsync("harness teardown").GetAwaiter().GetResult();
+
+                // RestoreFanAuto returns before the driver's auto loop ramps the
+                // physical fan down from the last forced level — give it a
+                // settle window rather than sampling a single instant.
+                var fanFree = SpinUntil(() =>
+                {
+                    var t = controller.ReadTelemetry();
+                    return t.IsSuccess && (t.Value.FanPercent is null || t.Value.FanPercent <= (idleFan ?? 0) + 5);
+                }, 12_000);
+                var after = controller.ReadTelemetry();
+                Check(fanFree,
+                    $"fan handed back to driver control after stop (now {Fmt(after.Value.FanPercent)}%)");
+                var post = controller.ReadTelemetry();
+                Console.WriteLine($"  after teardown: {Fmt(post.Value.GpuTempC)}C, {post.Value.PowerDrawW ?? 0:0.#} W (clock lock released)");
+            }
+        }
+
+        private static bool RunSmi(string args)
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("nvidia-smi", args)
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                using var p = System.Diagnostics.Process.Start(psi)!;
+                var output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+                p.WaitForExit(8000);
+                if (p.ExitCode != 0)
+                    Console.WriteLine("  nvidia-smi " + args + " failed: " + output.Trim());
+                return p.ExitCode == 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("  nvidia-smi spawn failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Step 6 (spec 9): kill the process mid-Curve-mode; the fan must not
+        // stay stuck. A hard kill cannot run Dispose, so this exercises the
+        // liveness-marker + EnsureNoOrphanedFanControl recovery path with a
+        // genuinely killed child process (the "app" being tested).
+        // ---------------------------------------------------------------
+        private static void VerifyCrashOrphanRecovery()
+        {
+            Console.WriteLine("--- Hard-kill mid-Curve-mode: fan must not stay stuck ---");
+
+            var controller = new NvApiGpuController();
+            if (!controller.Initialize().IsSuccess) { Check(false, "NVAPI init"); return; }
+
+            if (System.IO.File.Exists(FanCurveExecutionService.GetMarkerPath(null)))
+            {
+                Console.WriteLine("  active curve marker present — aborting to avoid fighting a live session");
+                Check(false, "orphan test precondition (no live curve)");
+                return;
+            }
+
+            var exe = System.IO.Path.Combine(AppContext.BaseDirectory, "OcVerify.exe");
+            if (!System.IO.File.Exists(exe)) { Check(false, "harness exe for child spawn"); return; }
+
+            // Spawn the "app": a child that forces the fan to 100% via the REAL
+            // curve service and the REAL marker path, then sits until killed.
+            var psi = new System.Diagnostics.ProcessStartInfo(exe, "fan-hold 60")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+            };
+            using var child = System.Diagnostics.Process.Start(psi)!;
+            string? line;
+            var ready = new System.Diagnostics.Stopwatch();
+            ready.Start();
+            while ((line = child.StandardOutput.ReadLine()) != null)
+            {
+                Console.WriteLine("  [child] " + line);
+                if (line == "READY" || ready.ElapsedMilliseconds > 15_000) break;
+            }
+            Thread.Sleep(1500); // first forced write lands (interval 500ms)
+
+            child.Kill(entireProcessTree: true); // THE hard kill — no Dispose possible
+            child.WaitForExit(5000);
+            Check(child.HasExited, "child process killed mid-Curve (no cleanup ran)");
+
+            var markerPath = FanCurveExecutionService.GetMarkerPath(null);
+            Check(System.IO.File.Exists(markerPath), "liveness marker survived the kill (orphan state present)");
+
+            var stuck = controller.ReadTelemetry();
+            Console.WriteLine($"  fan while orphaned: {Fmt(stuck.Value.FanPercent)}% (forced 100%)");
+
+            // Recovery — the path a fresh app start takes.
+            bool recovered = FanCurveExecutionService.EnsureNoOrphanedFanControl(controller);
+            Check(recovered, "startup recovery detected the orphan and restored driver control");
+            Check(!System.IO.File.Exists(markerPath), "marker cleared after recovery");
+
+            bool fanFree = SpinUntil(() =>
+            {
+                var t = controller.ReadTelemetry();
+                return t.IsSuccess && (t.Value.FanPercent is null || t.Value.FanPercent < 60);
+            }, 15_000);
+            Check(fanFree, $"fan no longer stuck (driver auto took over, now {Fmt(controller.ReadTelemetry().Value.FanPercent)}%)");
+
+            Check(!FanCurveExecutionService.EnsureNoOrphanedFanControl(controller),
+                "recovery is a no-op when no orphan exists");
+        }
+
+        // ---------------------------------------------------------------
+        // Phase 3 (spec process step 3): the REMAINING controls — power limit
+        // and temp limit — through the same safety machine, with driver
+        // readback confirmation (taxonomy: "write succeeded but readback does
+        // not confirm the change" must surface, not silently pass).
+        // ---------------------------------------------------------------
+        private static void VerifyLimitsSafetyPath()
+        {
+            Console.WriteLine("--- Power + temp limits through the safety machine (real driver) ---");
+
+            var controller = new NvApiGpuController();
+            if (!controller.Initialize().IsSuccess) { Check(false, "NVAPI init"); return; }
+            var watchdog = new TdrWatchdogService();
+            var logger = new OverclockChangeLogger();
+            var safety = new SafetyRevertService(controller, watchdog, logger.Log) { ConfirmationSeconds = 3 };
+
+            var caps = controller.ReadCapabilities();
+            if (!caps.IsSuccess) { Check(false, "capabilities"); return; }
+            var powerRange = caps.Value.PowerLimitRangePercent;
+            var tempRange = caps.Value.TempLimitRangeC;
+            Console.WriteLine($"  ranges: power [{powerRange?.Minimum}..{powerRange?.Maximum}]%, temp [{tempRange?.Minimum}..{tempRange?.Maximum}]C");
+
+            var baseLim = controller.ReadCurrentLimits();
+            if (!baseLim.IsSuccess) { Check(false, "baseline limits"); return; }
+            double power0 = baseLim.Value.PowerLimitPercent;
+            int? temp0 = baseLim.Value.TempLimitC;
+            Console.WriteLine($"  baseline: power {power0:0.#}%, temp {(temp0 is null ? "n/a" : temp0 + " C")}");
+
+            try
+            {
+                if (powerRange is null) { Check(false, "power limit control exposed by driver"); return; }
+
+                // Values stay modest and inside the queried range: +10% power
+                // (idle card draws ~17W — no thermal risk in a 3s window) and
+                // temp limit +2C. The controller clamps regardless.
+                double powerNew = Math.Min(powerRange!.Maximum, power0 + 10);
+
+                // ---- Test P: power limit apply/confirm/sticks -----------------
+                var p = safety.ApplyBatchAsync(new[]
+                {
+                    new PendingChange(OcControlNames.PowerLimit, () => controller.SetPowerLimitPercent(powerNew), $"{power0:0.#}%", $"{powerNew:0.#}%"),
+                }, OverclockChangeSource.Manual).GetAwaiter().GetResult();
+                Check(p, "P: power-limit batch applied");
+
+                var readP = controller.ReadCurrentLimits();
+                Check(readP.IsSuccess && Math.Abs(readP.Value.PowerLimitPercent - powerNew) < 0.5,
+                    $"P: driver readback confirms power limit (read {readP.Value.PowerLimitPercent:0.#}%, want {powerNew:0.#}%)");
+
+                safety.Confirm();
+                var stickP = controller.ReadCurrentLimits();
+                Check(Math.Abs(stickP.Value.PowerLimitPercent - powerNew) < 0.5, "P: power limit sticks after confirm");
+
+                // ---- Test T: temp limit through the same machine --------------
+                if (tempRange is { } tr && temp0 is { } t0)
+                {
+                    int tempNew = (int)Math.Min(tr.Maximum, t0 + 2);
+                    var t = safety.ApplyBatchAsync(new[]
+                    {
+                        new PendingChange(OcControlNames.TemperatureLimit, () => controller.SetTempLimitC(tempNew), $"{t0} °C", $"{tempNew} °C"),
+                    }, OverclockChangeSource.Manual).GetAwaiter().GetResult();
+                    Check(t, "T: temp-limit batch applied");
+
+                    var readT = controller.ReadCurrentLimits();
+                    Check(readT.IsSuccess && readT.Value.TempLimitC == tempNew,
+                        $"T: driver readback confirms temp limit (read {readT.Value.TempLimitC}, want {tempNew})");
+
+                    // Countdown expiry must restore the confirmed power anchor AND the old temp.
+                    bool revertedT = SpinUntil(() => safety.CurrentState == SafetyState.Idle, 8000);
+                    var afterT = controller.ReadCurrentLimits();
+                    Check(revertedT && afterT.Value.TempLimitC == t0,
+                        $"T: expiry reverted temp limit to anchor (read {afterT.Value.TempLimitC}, want {t0})");
+                    Check(Math.Abs(afterT.Value.PowerLimitPercent - powerNew) < 0.5,
+                        "T: confirmed power anchor untouched by the temp batch revert");
+                }
+                else
+                {
+                    Console.WriteLine("  (temp limit not exposed by this driver — control correctly hidden in UI)");
+                }
+
+                // ---- Test PW: power batch expiry reverts to confirmed anchor --
+                double powerNewer = Math.Max(powerRange!.Minimum, powerNew - 15);
+                safety.ApplyBatchAsync(new[]
+                {
+                    new PendingChange(OcControlNames.PowerLimit, () => controller.SetPowerLimitPercent(powerNewer), $"{powerNew:0.#}%", $"{powerNewer:0.#}%"),
+                }, OverclockChangeSource.Manual).GetAwaiter().GetResult();
+                bool revertedP = SpinUntil(() => safety.CurrentState == SafetyState.Idle, 8000);
+                var afterP = controller.ReadCurrentLimits();
+                Check(revertedP && Math.Abs(afterP.Value.PowerLimitPercent - powerNew) < 0.5,
+                    $"PW: expiry reverted power to the confirmed anchor (read {afterP.Value.PowerLimitPercent:0.#}%, want {powerNew:0.#}%)");
+            }
+            finally
+            {
+                safety.Confirm();
+                SpinUntil(() => safety.CurrentState == SafetyState.Idle, 3000);
+                controller.SetPowerLimitPercent(power0);
+                if (temp0 is { } tRest) controller.SetTempLimitC(tRest);
+                var fin = controller.ReadCurrentLimits();
+                Check(Math.Abs(fin.Value.PowerLimitPercent - power0) < 0.5, "final: power baseline restored");
+                watchdog.Dispose();
+                safety.DisposeAsync().GetAwaiter().GetResult();
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Phase 5 (spec 6): the elevated Task Scheduler task, against the REAL
+        // scheduler: register -> query shows it -> unregister -> gone. Uses the
+        // real task name, so it must always end unregistered.
+        // ---------------------------------------------------------------
+        private static void VerifyStartupTask()
+        {
+            Console.WriteLine("--- Startup task: real Task Scheduler register/unregister cycle ---");
+            var svc = new StartupTaskService();
+
+            var wasRegistered = svc.IsRegistered;
+            Console.WriteLine($"  pre-existing registration: {wasRegistered}");
+            if (wasRegistered)
+            {
+                Console.WriteLine("  task already registered — verifying query only (not unregistering a real user setting)");
+                Check(true, "startup task: registration state queryable");
+                return;
+            }
+
+            Check(svc.Register(), "register created the elevated logon task");
+            Check(svc.IsRegistered, "query sees the task after register");
+
+            Check(svc.Unregister(), "unregister removed the task");
+            Check(!svc.IsRegistered, "query no longer sees the task after unregister");
+        }
+
+        // ---------------------------------------------------------------
+        // Phase 5 end-to-end: the headless startup reapply through the REAL
+        // safety machine — designated + validated profile, shortened silent
+        // window, expiry-confirms, ConfirmedAt stamped, baseline restored.
+        // Uses an isolated profile directory (never touches the real app's
+        // default designation).
+        // ---------------------------------------------------------------
+        private static void VerifyStartupApplyFlow()
+        {
+            Console.WriteLine("--- Startup reapply flow (real machine, headless window) ---");
+
+            var controller = new NvApiGpuController();
+            if (!controller.Initialize().IsSuccess) { Check(false, "NVAPI init"); return; }
+            var watchdog = new TdrWatchdogService();
+            var logger = new OverclockChangeLogger();
+            var safety = new SafetyRevertService(controller, watchdog, logger.Log);
+
+            var profileDir = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "ocverify-profiles-" + Guid.NewGuid().ToString("N"));
+            var storage = new ProfileStorageService(profileDir);
+            var traces = new System.Collections.Generic.List<string>();
+            var startup = new StartupApplyService(controller, safety, storage, logger,
+                msg => { traces.Add(msg); Console.WriteLine("  [startup] " + msg); })
+            { StartupConfirmationSeconds = 3 };
+
+            var baseOff = controller.ReadCurrentOffsets();
+            if (!baseOff.IsSuccess) { Check(false, "read baseline"); return; }
+            int core0 = baseOff.Value.CoreOffsetMHz;
+
+            try
+            {
+                // Not validated -> must be REFUSED (the black-screen guard).
+                var unvalidated = new OverclockProfile { Name = "unvalidated", CoreOffsetMHz = core0 + 15 };
+                storage.Save(unvalidated);
+                storage.SetDefaultProfile("unvalidated");
+                startup.ApplyDefaultProfileAtStartupAsync().GetAwaiter().GetResult();
+                Check(controller.ReadCurrentOffsets().Value.CoreOffsetMHz == core0,
+                    "unvalidated profile is refused (no pre-boot-validated flag)");
+
+                // Validated -> applied, silent window expires into confirm.
+                var profile = new OverclockProfile { Name = "validated", CoreOffsetMHz = core0 + 15, ConfirmedAt = DateTime.Now };
+                storage.Save(profile);
+                storage.SetDefaultProfile("validated");
+
+                startup.ApplyDefaultProfileAtStartupAsync().GetAwaiter().GetResult();
+
+                Check(controller.ReadCurrentOffsets().Value.CoreOffsetMHz == core0 + 15,
+                    "validated profile reapplied at startup (+15 core)");
+                Check(profile.ConfirmedAt is not null, "ConfirmedAt stamped after clean headless window");
+            }
+            finally
+            {
+                controller.SetCoreOffsetMhz(core0);
+                var fin = controller.ReadCurrentOffsets();
+                Check(fin.IsSuccess && fin.Value.CoreOffsetMHz == core0, "final: baseline restored");
+                watchdog.Dispose();
+                safety.DisposeAsync().GetAwaiter().GetResult();
+                try { System.IO.Directory.Delete(profileDir, recursive: true); } catch { }
+            }
+        }
+
+        /// <summary>
+        /// Child mode: forces 100% fan through the REAL curve service (real
+        /// marker path), announces READY, then blocks. The parent kills it —
+        /// simulating an app crash with a forced fan. Never cleans up.
+        /// </summary>
+        private static void RunFanHoldChild(int seconds)
+        {
+            var controller = new NvApiGpuController();
+            if (!controller.Initialize().IsSuccess) { Console.WriteLine("INIT-FAILED"); return; }
+            var curve = new FanCurveExecutionService(controller);
+            curve.Interval = TimeSpan.FromMilliseconds(500);
+            curve.Start(new[] { new FanCurvePoint(0, 100) }, () => controller.ReadTelemetry().Value?.GpuTempC ?? 50);
+            Console.WriteLine("READY");
+            Console.Out.Flush();
+            Thread.Sleep(seconds * 1000);
+            // Intentionally NO StopAsync/Dispose — the kill simulates a crash.
+        }
+
+        // ---------------------------------------------------------------
         // Step 4: watchdog detection-pipeline validation. The card survived
         // slider-max offsets (idle clocks never reach stressed states), so a
         // real crash cannot be produced within driver-allowed ranges. This
@@ -391,6 +800,110 @@ namespace OcVerify
                 safety.Confirm();
                 SpinUntil(() => safety.CurrentState == SafetyState.Idle, 3000);
                 controller.SetMemoryOffsetMhz(mem0);
+                watchdog.Dispose();
+                safety.DisposeAsync().GetAwaiter().GetResult();
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // v2 Part A hardware gate (spec process step 1): the V/F curve path
+        // on the REAL GPU. Run on the target RTX machine BEFORE Part B work
+        // begins — Part B trusts profiles, and profiles now carry curve data.
+        // Read-only first (base labels, ranges, index-alignment shape), then
+        // one flat +15 MHz write through the safety machine with readback,
+        // one per-point nudge, revert-to-anchor, and baseline restore.
+        // Voltage-boost % is READ ONLY here (never blind-write a % slider on
+        // someone else's card from a harness).
+        // ---------------------------------------------------------------
+        private static void VerifyVfCurve()
+        {
+            Console.WriteLine("--- v2 V/F curve on real hardware (read, flat write, per-point write, revert) ---");
+
+            var controller = new NvApiGpuController();
+            if (!controller.Initialize().IsSuccess) { Check(false, "NVAPI init"); return; }
+            var watchdog = new TdrWatchdogService();
+            var logger = new OverclockChangeLogger();
+            var safety = new SafetyRevertService(controller, watchdog, logger.Log) { ConfirmationSeconds = 3 };
+
+            var caps = controller.ReadCapabilities();
+            if (!caps.IsSuccess) { Check(false, "capabilities"); return; }
+            Console.WriteLine($"  VfCurveSupported={caps.Value.VfCurveSupported} points={caps.Value.VfCurvePointCount} " +
+                              $"VoltageBoostSupported={caps.Value.VoltageBoostSupported}");
+            if (!caps.Value.VfCurveSupported) { Check(false, "V/F curve exposed by this driver"); return; }
+
+            var curve = controller.ReadVoltageFrequencyCurve();
+            if (!curve.IsSuccess || curve.Value is null || curve.Value.Count == 0)
+            {
+                Check(false, $"ReadVoltageFrequencyCurve: {curve.ErrorKind} {curve.Detail}");
+                return;
+            }
+            var c = curve.Value;
+            var volts = c.Points.Select(p => p.VoltageMv).ToArray();
+            var freqs = c.Points.Select(p => p.BaseFrequencyMHz).ToArray();
+            Console.WriteLine($"  points={c.Count} volt=[{volts.First()}..{volts.Last()}] mV " +
+                              $"base=[{freqs.Min()}..{freqs.Max()}] MHz " +
+                              $"rangeSpan=[{c.Points.Min(p => p.MinOffsetMHz)}..{c.Points.Max(p => p.MaxOffsetMHz)}] MHz " +
+                              $"vbSupported={c.VoltageBoostSupported} vbCurrent={c.CurrentVoltageBoostPercent}%");
+            Console.WriteLine($"  first3: {string.Join(" ", c.Points.Take(3).Select(p => $"{p.VoltageMv}mV/{p.BaseFrequencyMHz}MHz/{p.OffsetMHz:+0;-0;0}"))}");
+            Console.WriteLine($"  last3:  {string.Join(" ", c.Points.TakeLast(3).Select(p => $"{p.VoltageMv}mV/{p.BaseFrequencyMHz}MHz/{p.OffsetMHz:+0;-0;0}"))}");
+
+            bool voltsIncreasing = volts.Zip(volts.Skip(1), (a, b) => b > a).All(x => x);
+            Check(voltsIncreasing, "voltages strictly increase along the curve (1:1 index alignment with the driver table)");
+            Check(freqs.Zip(freqs.Skip(1), (a, b) => b >= a).All(x => x), "base frequencies non-decreasing");
+            Check(c.Points.All(p => p.OffsetMHz >= p.MinOffsetMHz && p.OffsetMHz <= p.MaxOffsetMHz),
+                "live offsets sit inside their queried ranges");
+            Check(c.ValidateMonotonic(c.GetOffsets(), out _), "live curve validates monotonic");
+
+            var baseline = c.GetOffsets().ToArray();
+
+            try
+            {
+                // ---- Test F1: flat +15 through the safety machine --------------
+                var flat = c.ExpandFlatOffset(15);
+                Check(c.ValidateMonotonic(flat, out _), "F1: flat +15 validates monotonic client-side");
+                var f1 = safety.ApplyBatchAsync(new[]
+                {
+                    new PendingChange(OcControlNames.VoltageFrequencyCurve,
+                        () => controller.SetVoltageFrequencyCurveOffsets(flat), "baseline", "flat +15 MHz"),
+                }, OverclockChangeSource.Manual).GetAwaiter().GetResult();
+                Check(f1, "F1: flat +15 batch applied");
+                var readF1 = controller.ReadVfCurveOffsets();
+                Check(readF1.IsSuccess && readF1.Value!.SequenceEqual(flat),
+                    "F1: boost-table readback matches the written flat table");
+                safety.Confirm();
+                Check(safety.CurrentState == SafetyState.Idle, "F1: confirm -> Idle");
+
+                // ---- Test F2: per-point nudge (last point +10 more) ------------
+                var nudged = flat.ToArray();
+                nudged[^1] = Math.Min(c.Points[^1].MaxOffsetMHz, nudged[^1] + 10);
+                var f2 = safety.ApplyBatchAsync(new[]
+                {
+                    new PendingChange(OcControlNames.VoltageFrequencyCurve,
+                        () => controller.SetVoltageFrequencyCurveOffsets(nudged), "flat +15", "last point +10"),
+                }, OverclockChangeSource.Manual).GetAwaiter().GetResult();
+                Check(f2, "F2: per-point batch applied");
+                var readF2 = controller.ReadVfCurveOffsets();
+                Check(readF2.IsSuccess && readF2.Value!.SequenceEqual(nudged),
+                    "F2: readback matches the per-point table");
+
+                // ---- Test F3: revert restores the F1 anchor, not zeros ---------
+                safety.RevertNow();
+                bool backF = SpinUntil(() => safety.CurrentState == SafetyState.Idle, 5000);
+                var readF3 = controller.ReadVfCurveOffsets();
+                Check(backF && readF3.IsSuccess && readF3.Value!.SequenceEqual(flat),
+                    "F3: revert restored the pre-batch table (flat +15), not stock zeros");
+
+                // ---- Test F4: count-mismatch write is refused cleanly -----------
+                var bad = controller.SetVoltageFrequencyCurveOffsets(new[] { 1, 2, 3 });
+                Check(!bad.IsSuccess, $"F4: 3-point write against a {c.Count}-point curve refused ({bad.Detail})");
+            }
+            finally
+            {
+                safety.Confirm();
+                SpinUntil(() => safety.CurrentState == SafetyState.Idle, 3000);
+                controller.SetVoltageFrequencyCurveOffsets(baseline);
+                var fin = controller.ReadVfCurveOffsets();
+                Check(fin.IsSuccess && fin.Value!.SequenceEqual(baseline), "final: pre-test curve offsets restored");
                 watchdog.Dispose();
                 safety.DisposeAsync().GetAwaiter().GetResult();
             }

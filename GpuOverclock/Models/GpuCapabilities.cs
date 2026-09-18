@@ -44,9 +44,27 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>True when at least one cooler is software-controllable.</summary>
         public bool FanControlSupported { get; init; }
 
+        /// <summary>
+        /// True when the driver exposed a readable graphics-domain V/F curve
+        /// (base voltages + frequencies + per-point offset ranges). False when
+        /// the curve queries are refused — the V/F UI must stay hidden then.
+        /// </summary>
+        public bool VfCurveSupported { get; init; }
+
+        /// <summary>Number of editable V/F curve points (graphics domain).</summary>
+        public int VfCurvePointCount { get; init; }
+
+        /// <summary>
+        /// True only when the driver actually answers the voltage-boost-percent
+        /// query (GetCoreVoltageBoostPercent). Queried live — never assumed
+        /// from the GPU generation. On Ampere/Ada the vBIOS locks raw voltage
+        /// control, so this is typically false there.
+        /// </summary>
+        public bool VoltageBoostSupported { get; init; }
+
         public bool AnyControlSupported
             => CoreOffsetRangeMHz is not null || MemOffsetRangeMHz is not null
                || PowerLimitRangePercent is not null || TempLimitRangeC is not null
-               || FanControlSupported;
+               || FanControlSupported || VfCurveSupported || VoltageBoostSupported;
     }
 }

@@ -1,5 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using kaliteConfig.Controls;
 using kaliteConfig.Models;
 using kaliteConfig.Services;
 using System;
@@ -18,6 +21,7 @@ namespace kaliteConfig.ViewModels
         private readonly GpuDriverService _gpuService = new();
         private readonly NvidiaDriverService _nvidiaService = new();
         private readonly AmdDriverService _amdService = new();
+        private readonly NvidiaPackageService _packageService = new();
         
         private CancellationTokenSource? _cts;
 
@@ -39,6 +43,17 @@ namespace kaliteConfig.ViewModels
 
         [ObservableProperty]
         public partial bool IsDetecting { get; set; }
+
+        /// <summary>Driver channel for the NVIDIA lookup: Game Ready (default) or Studio.</summary>
+        [ObservableProperty]
+        public partial bool StudioChannel { get; set; }
+
+        /// <summary>
+        /// Look up the laptop variant of the GPU ("… Laptop GPU" products).
+        /// Auto-enabled at detection time when WMI reports a laptop GPU.
+        /// </summary>
+        [ObservableProperty]
+        public partial bool NotebookGpu { get; set; }
 
         [ObservableProperty]
         public partial string DetectStatusText { get; set; } = "Detecting GPUs...";
@@ -126,8 +141,25 @@ namespace kaliteConfig.ViewModels
                     driver.VramText = match.VramText;
                     driver.IsPrimary = match.IsPrimary;
 
+                    // Laptop GPUs ship distinct driver packages ("… Laptop GPU"
+                    // products in NVIDIA's catalog) — default the notebook lookup
+                    // on when WMI reports one, so the first Check is correct.
+                    if (driver.Vendor.Equals("NVIDIA", StringComparison.OrdinalIgnoreCase))
+                        NotebookGpu = match.Name.Contains("Laptop", StringComparison.OrdinalIgnoreCase);
+
                     driver.InstalledVersion = generic ? string.Empty : match.DriverVersion;
-                    if (driver.Status is GpuDriverStatus.NotChecked or GpuDriverStatus.NotInstalled or GpuDriverStatus.UpToDate)
+
+                    // Adapter present but Windows has no driver loaded for it
+                    // (ConfigManagerErrorCode 28/31/43 → empty version): show the
+                    // card in the NotInstalled state so the action button reads
+                    // "Install" and the pipeline can fetch a driver for it.
+                    if (!generic && string.IsNullOrEmpty(match.DriverVersion))
+                    {
+                        driver.Status = GpuDriverStatus.NotInstalled;
+                        driver.GpuTypeText = match.GpuType;
+                        driver.DeviceTypeText = match.DeviceType;
+                    }
+                    else if (driver.Status is GpuDriverStatus.NotChecked or GpuDriverStatus.NotInstalled or GpuDriverStatus.UpToDate)
                         driver.Status = generic ? GpuDriverStatus.NotInstalled : GpuDriverStatus.NotChecked;
                 }
 
@@ -184,8 +216,13 @@ namespace kaliteConfig.ViewModels
                 item.Status = GpuDriverStatus.Downloading;
                 try
                 {
-                    // Fetch up to 15 versions for dropdown selection
-                    var packages = await _nvidiaService.GetDriversAsync(gpu.Name, 15, CancellationToken.None);
+                    // Fetch up to 15 versions for dropdown selection. Prefer
+                    // the PCI device ID (hardware identity — works even when
+                    // Windows can't name a driverless card); name lookup is the
+                    // fallback.
+                    var packages = await _nvidiaService.GetDriversByDeviceIdAsync(gpu.PnpDeviceId ?? "", 15, StudioChannel, CancellationToken.None);
+                    if (packages.Count == 0)
+                        packages = await _nvidiaService.GetDriversAsync(gpu.Name, 15, StudioChannel, NotebookGpu, CancellationToken.None);
                     NvidiaPackages.Clear();
                     foreach(var pkg in packages) NvidiaPackages.Add(pkg);
 
@@ -194,18 +231,39 @@ namespace kaliteConfig.ViewModels
                         SelectedNvidiaPackage = NvidiaPackages[0];
                         item.LatestVersion = NvidiaPackages[0].Version;
                         item.DownloadUrl = NvidiaPackages[0].DownloadUrl;
-                        item.Status = string.IsNullOrEmpty(item.InstalledVersion) ? GpuDriverStatus.NotInstalled : GpuDriverStatus.UpdateAvailable;
                         item.ErrorMessage = string.Empty;
+
+                        // Real comparison: translate the WMI/registry driver-store
+                        // version (e.g. 32.0.15.6614) to NVIDIA's format (566.14)
+                        // and compare numerically. Registry wins when WMI and the
+                        // driver store disagree (registry reflects what actually
+                        // loaded; WMI can lag after a pending update).
+                        string? effectiveVersion =
+                            NvidiaVersionHelper.FromWmiVersion(
+                                string.IsNullOrEmpty(gpu.RegistryVersion) ? gpu.DriverVersion : gpu.RegistryVersion)
+                            ?? gpu.DriverVersion;
+
+                        if (string.IsNullOrEmpty(effectiveVersion))
+                        {
+                            item.Status = GpuDriverStatus.NotInstalled;
+                        }
+                        else
+                        {
+                            int cmp = NvidiaVersionHelper.Compare(effectiveVersion, item.LatestVersion);
+                            item.Status = cmp < 0 ? GpuDriverStatus.UpdateAvailable : GpuDriverStatus.UpToDate;
+                        }
                     }
                     else
                     {
-                        item.ErrorMessage = "Lookup failed — use the vendor page.";
+                        // Undocumented NVIDIA lookup returned nothing usable —
+                        // never present a stale cache as current fact.
+                        item.ErrorMessage = "Unable to check — NVIDIA lookup unavailable. Use the vendor page.";
                         item.Status = GpuDriverStatus.Failed;
                     }
                 }
                 catch (Exception ex)
                 {
-                    item.ErrorMessage = $"Lookup failed: {ex.Message}";
+                    item.ErrorMessage = $"Unable to check — NVIDIA lookup unavailable: {ex.Message}";
                     item.Status = GpuDriverStatus.Failed;
                 }
                 return;
@@ -217,7 +275,8 @@ namespace kaliteConfig.ViewModels
                 try
                 {
                     var amdApi = new AmdDriverApiService();
-                    var driverInfo = await amdApi.GetLatestDriverAsync(_cts?.Token ?? CancellationToken.None);
+                    var variant = NotebookGpu ? AmdDriverApiService.AmdPackageVariant.Notebook : AmdDriverApiService.AmdPackageVariant.Desktop;
+                    var driverInfo = await amdApi.GetLatestDriverAsync(variant, _cts?.Token ?? CancellationToken.None);
                     if (driverInfo != null)
                     {
                         item.LatestVersion = driverInfo.Version;
@@ -240,6 +299,20 @@ namespace kaliteConfig.ViewModels
             }
         }
 
+        /// <summary>
+        /// Unique temp path per download (GUID suffix) — a fixed name like
+        /// "nvidia_driver.exe" gets locked by a crashed prior run, antivirus
+        /// scanning, or a still-running installer, and FileStream(Create) then
+        /// throws "file being used by another process".
+        /// </summary>
+        private static string TempDownloadPath(string baseName)
+        {
+            string stem = Path.GetFileNameWithoutExtension(baseName);
+            string ext = Path.GetExtension(baseName);
+            if (string.IsNullOrEmpty(stem)) stem = "driver_download";
+            return Path.Combine(Path.GetTempPath(), $"{stem}_{Guid.NewGuid():N}{ext}");
+        }
+
         [RelayCommand]
         private async Task InstallDriverAsync(GpuDriverItem? item)
         {
@@ -251,6 +324,11 @@ namespace kaliteConfig.ViewModels
                 GpuDriverService.OpenUrl(item.VendorPageUrl);
                 return;
             }
+
+            // Real UAC-sensitive operations follow — confirm first with a
+            // summary of what is about to happen.
+            bool confirmed = await ConfirmInstallAsync(item);
+            if (!confirmed) return;
 
             _cts = new CancellationTokenSource();
             IsInstalling = true;
@@ -277,51 +355,17 @@ namespace kaliteConfig.ViewModels
             }
 
             try
-            {
-                if (item.Vendor.Equals("NVIDIA", StringComparison.OrdinalIgnoreCase))
+            {                if (item.Vendor.Equals("NVIDIA", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (SelectedNvidiaPackage != null) 
-                    {
-                        item.DownloadUrl = SelectedNvidiaPackage.DownloadUrl;
-                    }
-                    else
-                    {
-                        var gpu = DetectedGpus.FirstOrDefault(g => g.Vendor.Equals("NVIDIA"));
-                        if (gpu != null)
-                        {
-                            var best = await _nvidiaService.GetDriversAsync(gpu.Name, 1, _cts.Token);
-                            if (best.Count > 0) item.DownloadUrl = best[0].DownloadUrl;
-                        }
-                    }
-                    
-                    if (string.IsNullOrEmpty(item.DownloadUrl))
-                    {
-                        item.ErrorMessage = "No URL selected. Click Check to resolve driver.";
-                        item.Status = GpuDriverStatus.Failed;
-                        IsInstalling = false;
-                        return;
-                    }
-                    
-                    // Proceed to download and extract
-                    progress.Report(GpuDriverStatus.Downloading);
-                    string tempPath = Path.Combine(Path.GetTempPath(), item.InstallerFileName);
-                    
-                    // Simple download routine inline:
-                    using var response = await new HttpClient().GetAsync(item.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
-                    response.EnsureSuccessStatusCode();
-                    
-                    using var contentStream = await response.Content.ReadAsStreamAsync(_cts.Token);
-                    using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-                    await contentStream.CopyToAsync(fileStream, _cts.Token);
-                    fileStream.Close();
-                    
-                    progress.Report(GpuDriverStatus.Installing);
-                    bool success = await _nvidiaService.InstallSilentAsync(tempPath, true, logProgress, _cts.Token);
-                    
-                    if (success) progress.Report(GpuDriverStatus.Installed);
-                    else { item.ErrorMessage = "Install failed or threw errors."; progress.Report(GpuDriverStatus.Failed); }
-                    
-                    if (File.Exists(tempPath)) File.Delete(tempPath);
+                    await InstallNvidiaModernAsync(item, progress, downloadProgress, logProgress, _cts.Token);
+                    IsInstalling = false;
+                    _cts.Dispose();
+                    _cts = null;
+                    return;
+
+                    // Legacy inline pipeline removed: NVIDIA installs now go
+                    // through InstallNvidiaModernAsync (verify → extract →
+                    // component picker → elevated setup.exe). See Part 2-6.
                 }
                 else if (item.Vendor.Equals("AMD", StringComparison.OrdinalIgnoreCase))
                 {
@@ -336,15 +380,14 @@ namespace kaliteConfig.ViewModels
                     }
 
                     progress.Report(GpuDriverStatus.Downloading);
-                    string tempPath = Path.Combine(Path.GetTempPath(), item.InstallerFileName);
+                    string tempPath = TempDownloadPath(item.InstallerFileName);
                     
                     using var response = await new HttpClient().GetAsync(item.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
                     response.EnsureSuccessStatusCode();
                     
                     using var contentStream = await response.Content.ReadAsStreamAsync(_cts.Token);
-                    using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-                    await contentStream.CopyToAsync(fileStream, _cts.Token);
-                    fileStream.Close();
+                    using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.Read, 8192, true))
+                        await contentStream.CopyToAsync(fileStream, _cts.Token);
                     
                     string extractDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AMD_Extract");
                     System.IO.Directory.CreateDirectory(extractDir);
@@ -397,6 +440,255 @@ namespace kaliteConfig.ViewModels
         private void CancelInstall()
         {
             _cts?.Cancel();
+        }
+
+        /// <summary>
+        /// Full NVIDIA pipeline: download (nvidia.com-enforced) → WinVerifyTrust
+        /// signature gate → 7z extraction → component picker dialog (Part 4) →
+        /// setup.cfg rewrite → elevated silent setup.exe. All failures surface
+        /// in the dialog; nothing executes without passing verification.
+        /// </summary>
+        private async Task InstallNvidiaModernAsync(
+            GpuDriverItem item, IProgress<GpuDriverStatus> progress,
+            IProgress<double> downloadProgress, Action<string> log, CancellationToken ct)
+        {
+            // Resolve URL if the check hasn't run yet. Prefer the PCI device
+            // ID (works even for a driverless card Windows can't name); fall
+            // back to the product-name lookup.
+            if (string.IsNullOrEmpty(item.DownloadUrl))
+            {
+                var gpu = DetectedGpus.FirstOrDefault(g => g.Vendor.Equals("NVIDIA"));
+                if (gpu is not null)
+                {
+                    var best = await _nvidiaService.GetDriversByDeviceIdAsync(gpu.PnpDeviceId ?? "", 1, StudioChannel, ct);
+                    if (best.Count == 0)
+                        best = await _nvidiaService.GetDriversAsync(gpu.Name, 1, StudioChannel, NotebookGpu, ct);
+                    if (best.Count > 0) item.DownloadUrl = best[0].DownloadUrl;
+                }
+            }
+            if (string.IsNullOrEmpty(item.DownloadUrl))
+            {
+                item.ErrorMessage = "Unable to resolve a download URL. Run Check for updates first.";
+                item.Status = GpuDriverStatus.Failed;
+                return;
+            }
+            if (!NvidiaPackageService.IsAllowedUrl(item.DownloadUrl))
+            {
+                item.ErrorMessage = "Refusing download: URL is not an https://*.nvidia.com location.";
+                item.Status = GpuDriverStatus.Failed;
+                return;
+            }
+
+            var xamlRoot = App.MainWindow?.Content?.XamlRoot;
+            if (xamlRoot is null)
+            {
+                item.ErrorMessage = "Window not available.";
+                item.Status = GpuDriverStatus.Failed;
+                return;
+            }
+
+            // The dialog opens immediately and tracks the whole pipeline:
+            // download → verify → extract → component list → install.
+            var dialog = new NvidiaComponentPickerDialog(xamlRoot);
+            var installTcs = new TaskCompletionSource();
+            var dialogDispatch = dialog.DispatcherQueue;
+
+            void DialogStatus(string m) => dialogDispatch.TryEnqueue(() => dialog.ReportStatus(m));
+            void DialogProgress(double p) => dialogDispatch.TryEnqueue(() => dialog.ReportDownloadProgress(p));
+            void DialogFail(string m)
+            {
+                dialogDispatch.TryEnqueue(() => dialog.FailEarly(m));
+                item.ErrorMessage = m;
+                item.Status = GpuDriverStatus.Failed;
+            }
+
+            _ = dialog.ShowAsync();
+
+            item.Status = GpuDriverStatus.Downloading;
+            DialogStatus($"Downloading the official package ({item.LatestVersion}) from nvidia.com…");
+            string packagePath;
+            try
+            {
+                packagePath = await _packageService.DownloadAsync(item.DownloadUrl, new Progress<double>(p =>
+                {
+                    downloadProgress.Report(p);
+                    DialogProgress(p);
+                }), ct);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                DialogFail($"Download failed: {ex.Message}");
+                return;
+            }
+
+            // Part 2 gate: signature verification BEFORE anything touches the file.
+            DialogStatus("Verifying NVIDIA digital signature…");
+            InstallProgressIndeterminate(dialog);
+            var (info, verifyError) = await _packageService.VerifyAsync(packagePath, ct);
+            if (info is null || verifyError is not null)
+            {
+                DialogFail($"Package rejected: {verifyError}. The package was not extracted or executed.");
+                TryDelete(packagePath);
+                return;
+            }
+            dialogDispatch.TryEnqueue(() => dialog.SetVerification(info));
+            DialogStatus($"Signature valid: {info.SignatureSubject}");
+
+            // Part 3: extraction (7z SFX).
+            DialogStatus("Extracting package contents…");
+            InstallProgressIndeterminate(dialog);
+            string extractDir;
+            try
+            {
+                extractDir = await _packageService.ExtractAsync(packagePath, log, ct);
+            }
+            catch (Exception ex)
+            {
+                DialogFail($"Extraction failed: {ex.Message}");
+                return;
+            }
+
+            // Part 3/4: parse setup.cfg into the component list.
+            DialogStatus("Reading component list from setup.cfg…");
+            List<NvidiaComponent> components;
+            try
+            {
+                components = await _packageService.ParseComponentsAsync(extractDir, log);
+            }
+            catch (Exception ex)
+            {
+                DialogFail($"Component parsing failed: {ex.Message}");
+                return;
+            }
+            if (components.Count == 0)
+            {
+                DialogFail("No installable components found in the package.");
+                return;
+            }
+
+            // Hand the dialog over to the user for component selection.
+            dialogDispatch.TryEnqueue(() => dialog.SetComponents(components));
+            item.Status = GpuDriverStatus.UpdateAvailable; // back to actionable; dialog owns the rest
+
+            dialog.InstallRequested += async (_, request) =>
+            {
+                try
+                {
+                    // Apply the selection to setup.cfg.
+                    await _packageService.ApplySelectionAsync(extractDir, dialog.Result!.Value.Components,
+                        DialogStatus);
+
+                    // Part 5: elevated silent install of the kept components.
+                    var (exit, reboot, _) = await _packageService.InstallAsync(
+                        extractDir, request.CleanInstall, DialogStatus, ct);
+
+                    bool success = exit == 0 || reboot;
+                    dialog.CompleteInstall(success, reboot,
+                        success
+                            ? (reboot ? "Install complete — a restart is required." : "Install complete.")
+                            : $"Installer failed with exit code {exit}. The extracted package was kept at {NvidiaPackageService.TempRoot} for inspection.");
+
+                    if (success)
+                    {
+                        item.ErrorMessage = string.Empty;
+                        await _gpuService.RefreshInstalledVersionAsync(item, "NVIDIA", ct);
+                        progress.Report(reboot ? GpuDriverStatus.Installed : GpuDriverStatus.Installed);
+                        NvidiaPackageService.CleanupTemp(keepForDebug: false);
+                    }
+                    else
+                    {
+                        item.ErrorMessage = $"Install failed (exit {exit}).";
+                        item.Status = GpuDriverStatus.Failed;
+                        NvidiaPackageService.CleanupTemp(keepForDebug: true);
+                    }
+                }
+                catch (OperationCanceledException) { /* cancelled */ }
+                catch (Exception ex)
+                {
+                    dialog.CompleteInstall(false, false, $"Install error: {ex.Message}");
+                    item.ErrorMessage = $"Install error: {ex.Message}";
+                    item.Status = GpuDriverStatus.Failed;
+                }
+                finally
+                {
+                    installTcs.TrySetResult();
+                }
+            };
+
+            await installTcs.Task; // keep IsInstalling until the dialog finishes
+        }
+
+        private static void InstallProgressIndeterminate(NvidiaComponentPickerDialog dialog)
+            => dialog.DispatcherQueue.TryEnqueue(() =>
+            {
+                dialog.SetIndeterminate();
+            });
+
+        /// <summary>
+        /// Pre-install confirmation dialog: version transition summary plus a
+        /// screen-flicker warning. Also the gate that keeps the install from
+        /// ever starting without explicit user consent.
+        /// </summary>
+        private static async Task<bool> ConfirmInstallAsync(GpuDriverItem item)
+        {
+            var window = App.MainWindow;
+            var xamlRoot = window?.Content?.XamlRoot;
+            if (xamlRoot is null) return false;
+
+            string transition = string.IsNullOrEmpty(item.InstalledVersion)
+                ? $"install driver {item.LatestVersion}"
+                : $"update from {item.InstalledVersion} to {item.LatestVersion}";
+
+            var dialog = new ContentDialog
+            {
+                Title = "Install display driver",
+                Content = new StackPanel
+                {
+                    Spacing = 10,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = $"Ready to {transition} ({item.Vendor}).",
+                            TextWrapping = TextWrapping.Wrap,
+                        },
+                        new TextBlock
+                        {
+                            Text = "The screen may flicker or go black briefly during installation. " +
+                                   "Close games and save your work before continuing.",
+                            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources
+                                ["TextFillColorSecondaryBrush"],
+                            TextWrapping = TextWrapping.Wrap,
+                        },
+                    },
+                },
+                PrimaryButtonText = "Install",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = xamlRoot,
+            };
+
+            var result = await dialog.ShowAsync();
+            return result == ContentDialogResult.Primary;
+        }
+
+        /// <summary>Best-effort delete: AV scanners often hold a fresh file briefly.</summary>
+        private static void TryDelete(string path)
+        {
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                    return;
+                }
+                catch (IOException)
+                {
+                    System.Threading.Thread.Sleep(250 * (attempt + 1));
+                }
+                catch { return; }
+            }
         }
     }
 }

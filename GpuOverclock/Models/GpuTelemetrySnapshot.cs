@@ -29,6 +29,12 @@ namespace kaliteConfig.GpuOverclock.Models
         /// </summary>
         public int? HotspotTempC { get; init; }
 
+        /// <summary>
+        /// Memory (VRAM) temperature in °C when the driver exposes a
+        /// Memory-target thermal sensor. Often absent on consumer cards — null then.
+        /// </summary>
+        public int? MemTempC { get; init; }
+
         /// <summary>GPU core voltage in millivolts (private NVAPI API; null if refused).</summary>
         public double? VoltageMv { get; init; }
 
@@ -60,5 +66,15 @@ namespace kaliteConfig.GpuOverclock.Models
 
         /// <summary>Active PCIe link width (lanes).</summary>
         public int? PcieWidth { get; init; }
+
+        /// <summary>
+        /// PCIe host-to-device throughput in KB/s (NVML cumulative counter
+        /// differenced across ticks). Null until two ticks have elapsed or
+        /// when NVML refuses the counter.
+        /// </summary>
+        public double? PcieTxKBs { get; init; }
+
+        /// <summary>PCIe device-to-host throughput in KB/s (same source as <see cref="PcieTxKBs"/>).</summary>
+        public double? PcieRxKBs { get; init; }
     }
 }

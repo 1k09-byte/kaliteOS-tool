@@ -1,0 +1,80 @@
+name: Release
+
+# Publishes a release whenever a version tag is pushed (e.g. v0.3.0.2).
+#
+# TWO supported paths (they compose — pick one per release):
+#   A. App Publisher GUI: bump + local build + create release + upload asset.
+#      The tag it creates triggers this workflow, which rebuilds, sees the
+#      asset already attached, and stands down green (idempotent step below).
+#   B. Script: Installer/Release-NewVersion.ps1 -Version X (tag push only).
+#      No release exists yet, so this workflow builds it and creates the
+#      release with generated notes here.
+#
+# Either way the workflow first verifies the tag matches the csproj version
+# (drift is what used to make the in-app updater loop forever).
+# The app's startup updater picks the release up from there.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install Inno Setup 6
+        run: choco install innosetup -y
+
+      - name: Verify tag matches csproj version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v', 'V')
+          $xml = [xml](Get-Content kaliteConfig.csproj)
+          $ver = @($xml.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          Write-Host "Tag version: $tag; csproj version: $ver"
+          if ([string]::IsNullOrWhiteSpace($ver)) { throw "Could not read <Version> from kaliteConfig.csproj." }
+          if ($tag -ne $ver) {
+            throw "Tag '${{ github.ref_name }}' does not match csproj <Version>$ver</Version>. " +
+                  "Releasing a mismatched build makes the in-app updater loop forever — " +
+                  "release via Installer/Release-NewVersion.ps1, which keeps them in lockstep."
+          }
+
+      - name: Build installer
+        run: powershell -ExecutionPolicy Bypass -File Installer/Build.ps1 -Configuration Release
+
+      # Idempotent: never fail just because the release already exists.
+      # (App Publisher creates the release + uploads its local build first;
+      # the tag it made still triggers this workflow.)
+      - name: Ensure GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $asset = Get-ChildItem "dist/kaliteConfig-Setup-*.exe" | Select-Object -First 1
+          if (-not $asset) { throw "Build produced no dist/kaliteConfig-Setup-*.exe to publish." }
+          $existing = $null
+          try { $existing = gh release view "$tag" --json assets 2>$null | ConvertFrom-Json } catch { }
+          if ($existing -and $existing.assets.name -contains $asset.Name) {
+            Write-Host "Release $tag already carries $($asset.Name) (published via App Publisher) — standing down."
+            exit 0
+          }
+          if ($existing) {
+            Write-Host "Release $tag exists but lacks the installer — uploading $($asset.Name)..."
+            gh release upload "$tag" "$($asset.FullName)" --clobber
+          } else {
+            Write-Host "Creating release $tag with $($asset.Name)..."
+            gh release create "$tag" --title "$tag" --generate-notes "$($asset.FullName)"
+          }

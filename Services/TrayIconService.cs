@@ -231,6 +231,30 @@ public sealed class TrayIconService : IDisposable
         return ok;
     }
 
+    /// <summary>
+    /// Updates the hover tooltip (NIM_MODIFY). Used for the persistent
+    /// "currently active game profile" indicator — the user is usually not
+    /// looking at the main window when an auto-switch fires, but the tray
+    /// is always one hover away. No-op when the icon isn't up.
+    /// </summary>
+    public bool UpdateTooltip(string tooltip)
+    {
+        try
+        {
+            if (!_added || _hwnd == IntPtr.Zero) return false;
+            var data = new NOTIFYICONDATA
+            {
+                cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATA>(),
+                hWnd = _hwnd,
+                uID = 1,
+                uFlags = NIF_TIP,
+                szTip = tooltip.Length > 127 ? tooltip.Substring(0, 127) : tooltip,
+            };
+            return Shell_NotifyIconW(NIM_MODIFY, ref data);
+        }
+        catch { return false; }
+    }
+
     private IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
         try

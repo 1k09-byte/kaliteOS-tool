@@ -50,6 +50,64 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     /// <summary>Latest full release info relevant to the consumer app; null when none/newer/failed.</summary>
     public sealed record LatestRelease(string Version, string Notes, string DownloadUrl, long SizeBytes);
 
+    /// <summary>One downloadable setup asset inside a release.</summary>
+    internal sealed record SetupAsset(string Name, string DownloadUrl, long SizeBytes);
+
+    /// <summary>Best-effort file log for update diagnostics (the UI stays silent by design).</summary>
+    internal static void LogDiag(string message)
+    {
+        try
+        {
+            var dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "kaliteConfig", "logs");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "updater.log"),
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}\n");
+        }
+        catch { }
+    }
+
+    private static string PendingMarkerPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "kaliteConfig", "update-pending.json");
+
+    /// <summary>
+    /// Records the version an update was just launched for. If the app later
+    /// still offers that same version, the install didn't take (different
+    /// install folder, dev copy, side-by-side flavor) — and the UI can say so
+    /// instead of looping silently.
+    /// </summary>
+    internal static void WritePendingUpdate(string version)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(PendingMarkerPath);
+            if (dir != null) Directory.CreateDirectory(dir);
+            File.WriteAllText(PendingMarkerPath,
+                JsonSerializer.Serialize(new { version, at = DateTime.Now }));
+        }
+        catch { }
+    }
+
+    /// <summary>Version recorded by <see cref="WritePendingUpdate"/>, or null when none.</summary>
+    internal static string? ReadPendingUpdateVersion()
+    {
+        try
+        {
+            if (!File.Exists(PendingMarkerPath)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(PendingMarkerPath));
+            if (doc.RootElement.TryGetProperty("version", out var v)
+                && v.ValueKind == JsonValueKind.String)
+            {
+                var s = v.GetString();
+                return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+            }
+            return null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Running app version ("0.1.0" style), or null when unreadable.</summary>
     public static string? CurrentVersion
     {
@@ -91,15 +149,24 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
 
     /// <summary>
     /// Queries the latest release. Returns null when: network failed, no full
-    /// release exists yet, the release has no consumer setup asset, or the
-    /// release is not newer than the running build.
+    /// release exists yet, the release is not newer than the running build, or
+    /// the release has no setup asset built for ITS OWN version.
+    ///
+    /// That last rule is the update-loop guard: installing any prefix-matching
+    /// but stale asset (e.g. an older setup re-uploaded under a new tag)
+    /// "succeeds" without changing the installed version, so the popup
+    /// reappears forever. A version mismatch now means no offer, plus a log line.
     /// </summary>
     public async Task<LatestRelease?> CheckAsync(CancellationToken ct = default)
     {
         try
         {
             using var response = await _http.GetAsync(ReleasesApiUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (!response.IsSuccessStatusCode) return null; // 404 = no releases yet; 403 = rate limit
+            if (!response.IsSuccessStatusCode)
+            {
+                LogDiag($"check: HTTP {(int)response.StatusCode} — no offer");
+                return null; // 404 = no releases yet; 403 = rate limit
+            }
 
             using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -110,35 +177,66 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
             string notes = root.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String
                 ? FirstParagraph(b.GetString()) : "";
 
-            string? assetUrl = null;
-            long size = 0;
-            if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+            if (!IsNewer(tag, CurrentVersion))
             {
-                foreach (var asset in assets.EnumerateArray())
-                {
-                    string name = asset.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
-                        ? n.GetString() ?? "" : "";
-                    if ((!name.StartsWith(AssetNamePrefix, StringComparison.OrdinalIgnoreCase)
-                         && !name.StartsWith(LegacyAssetNamePrefix, StringComparison.OrdinalIgnoreCase))
-                        || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    assetUrl = asset.TryGetProperty("browser_download_url", out var u) && u.ValueKind == JsonValueKind.String
-                        ? u.GetString() : null;
-                    size = asset.TryGetProperty("size", out var s) && s.TryGetInt64(out long sz) ? sz : 0;
-                    break;
-                }
+                LogDiag($"check: tag '{tag}' not newer than running {CurrentVersion ?? "?"} — no offer");
+                return null;
             }
 
-            if (string.IsNullOrEmpty(assetUrl) || !IsNewer(tag, CurrentVersion))
-                return null;
+            SetupAsset? picked = null;
+            if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+                picked = PickSetupAsset(assets, tag);
 
-            return new LatestRelease(tag.TrimStart('v', 'V'), notes, assetUrl!, size);
+            if (picked is null)
+            {
+                LogDiag($"check: tag '{tag}' has no setup asset matching its own version — no offer (not installing a stale asset)");
+                return null;
+            }
+
+            LogDiag($"check: offering {picked.Name} ({picked.SizeBytes} bytes) over running {CurrentVersion}");
+            return new LatestRelease(tag.TrimStart('v', 'V'), notes, picked.DownloadUrl, picked.SizeBytes);
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Picks the release's setup asset for <paramref name="tag"/>: candidates
+    /// carry either setup prefix and end in .exe, but only one whose filename
+    /// contains the release's own version is eligible. The full-flavor prefix
+    /// wins over the legacy consumer prefix when both match (single-flavor
+    /// going forward; old consumer installs migrate to it).
+    /// Pure logic — unit-tested in tools/UpdateVerify without network.
+    /// </summary>
+    internal static SetupAsset? PickSetupAsset(JsonElement assetsArray, string tag)
+    {
+        string version = tag.TrimStart('v', 'V').Trim();
+        if (version.Length == 0) return null;
+
+        var matching = new System.Collections.Generic.List<SetupAsset>();
+        foreach (var asset in assetsArray.EnumerateArray())
+        {
+            string name = asset.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
+                ? n.GetString() ?? "" : "";
+            if ((!name.StartsWith(AssetNamePrefix, StringComparison.OrdinalIgnoreCase)
+                 && !name.StartsWith(LegacyAssetNamePrefix, StringComparison.OrdinalIgnoreCase))
+                || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!name.Contains(version, StringComparison.OrdinalIgnoreCase))
+                continue; // not built for this release — never install it as "the update"
+
+            string? url = asset.TryGetProperty("browser_download_url", out var u) && u.ValueKind == JsonValueKind.String
+                ? u.GetString() : null;
+            if (string.IsNullOrEmpty(url)) continue;
+            long size = asset.TryGetProperty("size", out var s) && s.TryGetInt64(out long sz) ? sz : 0;
+            matching.Add(new SetupAsset(name, url!, size));
+        }
+
+        if (matching.Count == 0) return null;
+        return matching.FirstOrDefault(a => a.Name.StartsWith(AssetNamePrefix, StringComparison.OrdinalIgnoreCase))
+            ?? matching[0];
     }
 
     /// <summary>Downloads the release asset to %TEMP%. Returns the local path.</summary>

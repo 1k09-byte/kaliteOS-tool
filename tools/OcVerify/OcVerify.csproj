@@ -28,6 +28,8 @@
 
   <ItemGroup>
     <PackageReference Include="LLT.NvAPIWrapper.Net" Version="1.1.28-pre.42" />
+    <!-- GameProcessWatcherService uses WMI (same package the app uses). -->
+    <PackageReference Include="System.Management" Version="10.0.11" />
     <!-- Same package the app uses; brings System.Diagnostics.EventLog for TdrWatchdogService. -->
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
   </ItemGroup>

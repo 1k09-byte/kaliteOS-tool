@@ -439,8 +439,11 @@ namespace kaliteConfig.ViewModels
                 // Available cores (Performance only) are already stripped of the OS core 0 in TopologyService
                 var rawCores = new List<ulong>(topology.PerformanceCoreMasks);
 
-                // Classify into tiers
-                var highTier = new List<AffinityDeviceItem>();
+                // Classify into tiers. Graphics and Network get SEPARATE physical
+                // cores — NIC interrupts are frequent (especially Wi-Fi 7 under
+                // load) and sharing a core with the GPU's DPCs hurts both.
+                var graphicsTier = new List<AffinityDeviceItem>();
+                var networkTier = new List<AffinityDeviceItem>();
                 var normalTier = new List<AffinityDeviceItem>();
 
                 foreach (var dev in allDevices)
@@ -448,12 +451,12 @@ namespace kaliteConfig.ViewModels
                     switch (dev.Category)
                     {
                         case "Graphics":
-                            highTier.Add(dev);
+                            graphicsTier.Add(dev);
                             break;
                         case "Network":
-                            // Prefer to treat NIC as High tier; on <= 4 cores, fall to normal
+                            // Prefer a dedicated core when we can afford it.
                             if (topology.PhysicalCores > 4)
-                                highTier.Add(dev);
+                                networkTier.Add(dev);
                             else
                                 normalTier.Add(dev);
                             break;
@@ -532,15 +535,17 @@ namespace kaliteConfig.ViewModels
                 if (validCcxs.Count >= 2)
                 {
                     // Multi-CCX (e.g. Ryzen 9, Threadripper, multi-socket)
-                    // Isolate GPU on the largest CCX, throw NIC and Peripherals on standard CCX
+                    // GPU on the largest CCX; NIC and peripherals on the next CCX
+                    // but on DIFFERENT physical cores.
                     gpuMask = BuildMask(validCcxs[0], coresPerGroup);
                     nicMask = BuildMask(validCcxs[1], coresPerGroup);
-                    peripheralMask = BuildMask(validCcxs[1], coresPerGroup); // Share CCX with NIC
+                    peripheralMask = BuildMask(validCcxs[1], coresPerGroup);
                 }
                 else
                 {
-                    // Single CCX / Unified L3 Cache
-                    // Space them out physically in the same pool
+                    // Single CCX / unified L3: each tier gets its own physical
+                    // core (or pair of threads), taken from opposite ends of the
+                    // pool so GPU/NIC/peripherals never share a physical core.
                     var pool = validCcxs[0];
                     gpuMask = BuildMask(pool, coresPerGroup);
                     nicMask = BuildMask(pool, coresPerGroup);
@@ -596,8 +601,9 @@ namespace kaliteConfig.ViewModels
                         }
                     }
                 }
-                ApplyTier(highTier, gpuMask, -1);   // -1 = Undefined
-                ApplyTier(normalTier, peripheralMask, -1); // -1 = Undefined
+                ApplyTier(graphicsTier, gpuMask, -1);        // GPU alone on its core(s)
+                ApplyTier(networkTier, nicMask, -1);         // NICs on a different core
+                ApplyTier(normalTier, peripheralMask, -1);   // USB/audio on a third
 
                 if (modifiedIds.Count > 0)
                 {

@@ -73,6 +73,19 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             Notes = string.IsNullOrWhiteSpace(release.Notes)
                 ? "No release notes provided."
                 : release.Notes;
+            // Loop guard: this exact version was already installed once but the
+            // running app still reports older — the install didn't take (wrong
+            // folder, dev copy, or a side-by-side older flavor). Say so instead
+            // of looping the same offer silently.
+            var pending = UpdateCheckService.ReadPendingUpdateVersion();
+            if (!string.IsNullOrEmpty(pending)
+                && string.Equals(pending, release.Version, StringComparison.OrdinalIgnoreCase))
+            {
+                Notes += "\n\nNote: an update to this version was already installed once, but this copy still " +
+                         "reports the older version — the install didn't take. You may be launching kaliteConfig " +
+                         "from a different folder (a dev build, or the old separate Consumer install — uninstall " +
+                         "any 'kaliteConfig Consumer' copy once and launch from the Start Menu).";
+            }
             IsAvailable = true;
             OnPropertyChanged(nameof(BannerTitle));
         }
@@ -93,22 +106,29 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
         {
             var progress = new Progress<double>(p => DownloadPercent = p);
             string installerPath = await _service.DownloadAsync(_pending, progress, _cts.Token);
+            var info = new FileInfo(installerPath);
+            UpdateCheckService.LogDiag($"update: downloaded {info.Name} ({info.Length} bytes) for version {_pending.Version}");
 
             StatusText = "Launching installer…";
-            // Inno Setup silent flags (NOT NSIS /S — Inno ignores /S, which made
-            // the "installed" update a no-op and the app re-prompted forever):
+            // Inno Setup silent flags (/CLOSEAPPLICATIONS is the real one —
+            // /FORCECLOSEAPPLICATIONS does not exist and was silently ignored,
+            // leaving a locked exe to fail the file replacement):
             // /VERYSILENT no wizard, /SUPPRESSMSGBOXES no popups, /NORESTART,
             // /CLOSEAPPLICATIONS lets Inno close a still-running instance.
             // The app runs elevated (requireAdministrator manifest), so the
             // child inherits elevation.
+            // Remember this version BEFORE launching: if the app restarts and
+            // still offers it, the install didn't take (see CheckForUpdateAsync).
+            UpdateCheckService.WritePendingUpdate(_pending.Version);
             var psi = new ProcessStartInfo
             {
                 FileName = installerPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /FORCECLOSEAPPLICATIONS",
+                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
+            UpdateCheckService.LogDiag($"update: launching {info.Name} for version {_pending.Version}");
             Process.Start(psi);
 
             // Exit so the installer can overwrite the locked exe. The setup

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Updater verification harness. Console app that compiles the REAL
+    Services/UpdateCheckService.cs (no fakes) and checks the pure update
+    logic offline: version comparison plus release asset selection (the
+    update loop guard). Lives under tools/ so the main app build never
+    sees it (kaliteConfig.csproj removes tools/** from compile).
+      dotnet run with project tools/UpdateVerify
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The REAL updater code — same file the app ships. -->
+    <Compile Include="..\..\Services\UpdateCheckService.cs" Link="Services\UpdateCheckService.cs" />
+  </ItemGroup>
+
+</Project>

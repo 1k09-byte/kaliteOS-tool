@@ -47,11 +47,84 @@ watchdog fired and drove a genuine revert to the anchor.
 Two synthetic self-test events (provider `nvlddmkm`, text "kaliteConfig OcVerify
 self-test") remain in the System event log from this validation — harmless, labeled.
 
+## Phase-2 completion + Phase-3 results (2026-09-17, later session)
+
+| Spec item | Result |
+|---|---|
+| §9 Fan Curve tracks a real thermal change | PASS — no load tools on the machine, so load was induced with a driver clock lock (`nvidia-smi -lgc 2400`): power 5.2 → 16.7 W. The curve tracked within the polling interval through the whole drift (fan 52 → 48 → 44 → 40% following the commanded curve as temp fell), and after stop the fan handed back to driver auto (0%). |
+| §9 Kill the app mid-Curve-mode | PASS — reproduced the bug class for real: a child process forced 100% fan through the real curve service and was hard-killed (no Dispose possible). The fan stayed stuck at 100% — then the new recovery path (`EnsureNoOrphanedFanControl`, liveness marker with pid) detected the orphan on "next start", restored driver control (100% → 0%), and cleared the marker. Recovery is a verified no-op when no orphan exists. |
+| §Process(3) Power limit through the safety machine | PASS — 100 → 110% applied, driver readback confirmed (110%), sticks after confirm, expiry reverted to the confirmed anchor. |
+| §Process(3) Temp limit through the safety machine | PASS — 84 → 86 °C applied, readback confirmed, expiry reverted to anchor (84 °C); the confirmed power anchor was untouched by the temp batch's revert (batch isolation). |
+
+New code from this session: `FanCurveExecutionService` now maintains a liveness marker
+(pid + forced %) while the curve loop runs and clears it on stop; module init calls
+`EnsureNoOrphanedFanControl` which restores driver fan control and logs an AutoRevert
+entry when a dead process's marker is found — a hard-killed app can no longer leave a
+stuck fan. The harness gained `fan`, `orphan`, and `limits` steps.
+
+## Phase-4 + Phase-5 results (2026-09-17, final session)
+
+**Phase 4 (fan control incl. Curve mode) — COMPLETE:**
+- Spec §5 re-detect gap fixed: `RefreshAsync` stops the curve loop with a real Auto
+  hand-back when the GPU is re-detected (the loop would otherwise force speeds on
+  whatever adapter the re-resolved controller returns).
+- Integration wiring added: the Drivers page Re-detect button now calls
+  `Vm.RefreshAsync`; `GpuOverclockModule.Dispose` is wired on window close (app
+  closing → fan restored to Auto, watchdog disarmed).
+- UI flows verified end-to-end against the running app via UIA
+  (`tools/uia-smoke.ps1`): Drivers nav → risk gate → accept → telemetry live →
+  Curve UI appears → back to Auto; fan returned to driver control (0%).
+- New unit tests (FanLifecycleTests): stop restores Auto + clears marker; dead-pid
+  orphan recovered; LIVE-pid marker never touched — this test caught a real bug
+  (own-pid stale/fresh marker ambiguity during double init), fixed via marker
+  freshness (loop rewrites marker every tick).
+
+**Phase 5 (profiles + startup reapply) — COMPLETE:**
+- Default-profile designation in `ProfileStorageService` (`startup-default.marker`,
+  deliberately not `.json` so the loader can't see it as a phantom profile — caught
+  by a test), delete-clears-default, `ConfirmedAt` round-trips.
+- `SafetyRevertService.ConfirmSilently`: a headless window whose expiry confirms
+  instead of reverts (per-batch flag, not sticky); TDR still reverts immediately;
+  a subsequent NORMAL batch still reverts on expiry (all unit-tested).
+- `StartupApplyService`: re-applies the designated profile through the SAME safety
+  machine with a shortened 5 s headless window; refuses profiles without the
+  pre-boot-validated `ConfirmedAt` flag (black-screen guard); stamps `ConfirmedAt`
+  only when the window closed cleanly without a TDR revert.
+- App wiring: `--apply-overclock-startup` arg → background reapply after the driver
+  settles; "At startup" toggle per profile + `validated` badge; registering the
+  Task Scheduler task requires a designated default first.
+- Real-hardware checks: Task Scheduler register→query→unregister cycle PASS;
+  headless startup-apply flow PASS (unvalidated refused, validated applied +15 core,
+  ConfirmedAt stamped, baseline restored).
+
+The stated spec-6 tradeoff, implemented as designed: startup reapply is never exempt
+from the safety machine — it uses a shorter window whose expiry confirms, with the
+TDR watchdog armed the whole time, because blocking login on an invisible prompt is
+not an option; the pre-boot-validated flag is what makes a profile safe to reapply.
+
+## Phase-6 results (2026-09-17, change-log viewer + export)
+
+**Phase 6 (transparency tooling) — code complete, unit-tested:**
+- Change-log viewer gained Result (OK / Reverted / Failed) and Source (Manual /
+  Profile apply / Startup apply / Auto revert) filters, a "no matching entries"
+  empty state, and an initial population on module init (startup-path entries —
+  orphan recovery, headless reapply — were previously invisible until the first
+  safety event).
+- Filter mapping (ComboBox index → enum) and the combined predicate live in
+  `OverclockLogFilter` — pure logic, unit-tested, not embedded in the ViewModel.
+- New `OverclockVerificationExporter` builds a Markdown verification record from
+  the change-log tail in the same shape as this document: GPU/driver header,
+  per-result summary counts, and a chronological table of every audited write
+  (control, old → new, source, result, failure reason). Cells are pipe-escaped so
+  values can never break the table (unit-tested, including the empty-log case).
+- Export from the viewer writes through a save picker: brokered WinUI picker
+  first, Win32 common dialog fallback for elevated sessions (the app runs
+  elevated — the same pattern BiosManager uses).
+- 13 new unit tests (`OverclockLogViewerTests`); full suite 41/41 PASS and the
+  app project builds clean on x64. End-to-end UI verification (open viewer →
+  filter → export → file contents) still to be exercised on the real machine.
+
 ## Remaining before calling the module done (next phases)
 
 - [ ] Real triggered TDR with the fixed watchdog (memory-stress tool or under-load offset)
-- [ ] Fan Curve mode tracking a real load within the polling interval
-- [ ] Kill the app mid-Curve-mode → fan must not stay stuck (Dispose path restores Auto)
-- [ ] GPU re-detect (RefreshAsync) end-to-end in the UI
-- [ ] Phase 3: remaining controls on the same safety path (power/temp limits via UI flow)
-- [ ] Phase 5: startup reapply via Task Scheduler incl. elevated task validation
+- [ ] Phase-6 UI walkthrough on hardware: viewer filters, export round-trip (via `tools/uia-smoke.ps1`)

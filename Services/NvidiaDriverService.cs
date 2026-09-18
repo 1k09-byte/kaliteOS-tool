@@ -20,12 +20,28 @@ namespace kaliteConfig.Services
 
         /// <summary>
         /// Looks up the Product Family ID matching the detected GPU model string.
-        /// Caches the PFID mapping.
+        /// Tries the candidates in order (exact product names from the TypeID=3
+        /// list, e.g. "NVIDIA GeForce RTX 4070 SUPER" or laptop variants named
+        /// "… Laptop GPU"), then a fuzzy family match. Caches by primary name.
         /// </summary>
-        private async Task<string?> GetPfidFromModelStringAsync(string gpuModelName, CancellationToken ct)
+        private async Task<string?> GetPfidFromModelStringAsync(string gpuModelName, bool notebookVariant, CancellationToken ct)
         {
-            if (_pfidCache.TryGetValue(gpuModelName, out var cachedPfid))
-                return cachedPfid;
+            // Candidate names: WMI name plus the notebook/desktop spelling of
+            // the same chip. NVIDIA lists laptop GPUs as their own products
+            // ("GeForce RTX 4070 Laptop GPU") whose driver packages differ
+            // from the desktop part, so the variant matters.
+            bool wmiIsLaptop = gpuModelName.Contains("Laptop", StringComparison.OrdinalIgnoreCase);
+            string stripped = gpuModelName.Replace(" Laptop GPU", "", StringComparison.OrdinalIgnoreCase)
+                                          .Replace(" (Notebook)", "", StringComparison.OrdinalIgnoreCase).Trim();
+            var candidates = new List<string> { gpuModelName };
+            if (notebookVariant && !wmiIsLaptop)
+                candidates.Add(stripped + " Laptop GPU");
+            else if (!notebookVariant && wmiIsLaptop)
+                candidates.Add(stripped);
+
+            foreach (var candidate in candidates)
+                if (_pfidCache.TryGetValue(candidate, out var cached))
+                    return cached;
 
             try
             {
@@ -38,7 +54,7 @@ namespace kaliteConfig.Services
                 var doc = XDocument.Parse(xmlResponse);
                 var lookupValues = doc.Descendants("LookupValue");
 
-                // Exact match first
+                // Exact match on any candidate first
                 foreach (var node in lookupValues)
                 {
                     string? name = node.Element("Name")?.Value;
@@ -46,15 +62,18 @@ namespace kaliteConfig.Services
                     
                     if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(val))
                     {
-                        if (name.Equals(gpuModelName, StringComparison.OrdinalIgnoreCase))
+                        foreach (var candidate in candidates)
                         {
-                            _pfidCache[gpuModelName] = val;
-                            return val;
+                            if (name.Equals(candidate, StringComparison.OrdinalIgnoreCase))
+                            {
+                                foreach (var c in candidates) _pfidCache[c] = val;
+                                return val;
+                            }
                         }
                     }
                 }
 
-                // If exact match fails, try fuzzy match
+                // If exact match fails, try fuzzy family match on the primary name
                 foreach (var node in lookupValues)
                 {
                     string? name = node.Element("Name")?.Value;
@@ -64,7 +83,7 @@ namespace kaliteConfig.Services
                     {
                         if (ModelMatchesFamily(gpuModelName, name))
                         {
-                            _pfidCache[gpuModelName] = val;
+                            foreach (var c in candidates) _pfidCache[c] = val;
                             return val;
                         }
                     }
@@ -119,15 +138,32 @@ namespace kaliteConfig.Services
             return build >= 22000 ? 135 : 57;
         }
 
-        public async Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, CancellationToken ct)
+        /// <summary>
+        /// Driver lookup with channel selection. VERIFIED against NVIDIA's own
+        /// driver-results page JS (clientlib-driverflownvlookup): the query is
+        ///   func=DriverManualLookup&pfid=…&osID=…&languageCode=1033
+        ///   &isWHQL={1 for Game Ready, 0 for Studio}&beta=0&dltype=-1&dch=1
+        ///   &upCRD={0 for Game Ready, 1 for Studio}&ctk=null&sort1=0
+        /// (dltype must stay -1; the old dltype=0/1 channel guess returns
+        /// DriverDownloadIDNotFound.)
+        /// ACCURACY FLAG: undocumented endpoint, reverse-engineered from
+        /// nvidia.com's own traffic; may change without notice. Empty result
+        /// list = "unable to check", never presented as ground truth.
+        /// </summary>
+        public async Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, bool studioChannel, CancellationToken ct)
+            => await GetDriversAsync(gpuModelName, numberOfResults, studioChannel, notebookVariant: false, ct);
+
+        public async Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, bool studioChannel, bool notebookVariant, CancellationToken ct)
         {
             var results = new List<NvidiaDriverPackage>();
-            var pfid = await GetPfidFromModelStringAsync(gpuModelName, ct);
+            var pfid = await GetPfidFromModelStringAsync(gpuModelName, notebookVariant, ct);
             if (string.IsNullOrEmpty(pfid))
                 return results;
 
             int osId = GetOsId();
-            string apiUrl = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={osId}&languageCode=1033&beta=0&isWHQL=0&dltype=-1&dch=1&sort1=0&numberOfResults={numberOfResults}";
+            int upCrd = studioChannel ? 1 : 0;
+            int isWhql = studioChannel ? 0 : 1;   // Studio listings register as WHQL=0 in NVIDIA's own query
+            string apiUrl = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={osId}&languageCode=1033&isWHQL={isWhql}&beta=0&dltype=-1&dch=1&upCRD={upCrd}&ctk=null&sort1=0&numberOfResults={numberOfResults}";
 
             try
             {
@@ -161,6 +197,61 @@ namespace kaliteConfig.Services
             return results;
         }
 
+        /// <summary>Game Ready channel convenience overload.</summary>
+        public Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, CancellationToken ct)
+            => GetDriversAsync(gpuModelName, numberOfResults, studioChannel: false, notebookVariant: false, ct);
+
+        /// <summary>
+        /// Lookup by PCI device ID (the DEV_XXXX hex from the PnP DeviceID).
+        /// VERIFIED LIVE: deviceID=2783 returns the correct Game Ready driver
+        /// for the RTX 4070 (DEV_2783) — works even when no driver is installed
+        /// and Windows can't name the card. Same undocumented endpoint; see the
+        /// accuracy flag on the name-based overload.
+        /// </summary>
+        public async Task<List<NvidiaDriverPackage>> GetDriversByDeviceIdAsync(string pciDeviceId, int numberOfResults, bool studioChannel, CancellationToken ct)
+        {
+            var results = new List<NvidiaDriverPackage>();
+
+            // Extract the hex device id (DEV_2783 → "2783").
+            var m = System.Text.RegularExpressions.Regex.Match(
+                pciDeviceId ?? "", @"DEV_([0-9A-F]{4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return results;
+            string deviceId = m.Groups[1].Value;
+
+            int osId = GetOsId();
+            int upCrd = studioChannel ? 1 : 0;
+            int isWhql = studioChannel ? 0 : 1;
+            string apiUrl = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&deviceID={deviceId}&osID={osId}&languageCode=1033&isWHQL={isWhql}&beta=0&dltype=-1&dch=1&upCRD={upCrd}&ctk=null&sort1=0&numberOfResults={numberOfResults}";
+
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(20));
+                string json = await _httpClient.GetStringAsync(apiUrl, cts.Token);
+                var root = System.Text.Json.Nodes.JsonNode.Parse(json);
+                var ids = root?["IDS"]?.AsArray();
+                if (ids == null) return results;
+
+                foreach (var id in ids)
+                {
+                    var info = id?["downloadInfo"] ?? id;
+                    string? version = info?["Version"]?.GetValue<string>();
+                    string? url = info?["DownloadURL"]?.GetValue<string>();
+                    if (string.IsNullOrWhiteSpace(url))
+                        url = id?["DownloadURL"]?.GetValue<string>();
+                    string? releaseDate = info?["ReleaseDateTime"]?.GetValue<string>();
+                    if (!string.IsNullOrEmpty(version) && !string.IsNullOrEmpty(url))
+                        results.Add(new NvidiaDriverPackage(version.Trim(), url.Trim(), releaseDate?.Trim() ?? ""));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"GetDriversByDeviceIdAsync: {ex.Message}");
+            }
+            return results;
+        }
+
+        /// <summary>Older JSON-query implementation — superseded by the channel-aware overload above.</summary>
         private static IEnumerable<string> FindNvidiaDisplayInfs(string extractedDir)
         {
             if (!System.IO.Directory.Exists(extractedDir)) return Array.Empty<string>();

@@ -26,7 +26,7 @@ namespace kaliteConfig.GpuOverclock.Models
     public sealed class OverclockProfile
     {
         /// <summary>Bump when the persisted shape changes; loader migrates/ignores unknowns.</summary>
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
         public string Name { get; set; } = "";
@@ -36,6 +36,22 @@ namespace kaliteConfig.GpuOverclock.Models
         public int? MemOffsetMHz { get; set; }
         public double? PowerLimitPercent { get; set; }
         public int? TempLimitC { get; set; }
+
+        /// <summary>
+        /// Per-point V/F curve offsets in driver point order (v2). Null/empty
+        /// means "this profile doesn't touch the curve". Lengths are matched
+        /// against the live curve on apply — a count mismatch skips the curve
+        /// portion rather than writing misaligned points.
+        /// </summary>
+        public List<int>? VfCurveOffsets { get; set; }
+
+        /// <summary>
+        /// Simple-mode flat V/F offset (v2). UI convenience only: when set and
+        /// VfCurveOffsets is absent, apply expands it uniformly across all
+        /// points (clamped per-point). When both are present, the per-point
+        /// table wins.
+        /// </summary>
+        public int? GlobalVoltageBoostOffsetMHz { get; set; }
 
         public GpuFanMode FanMode { get; set; } = GpuFanMode.Auto;
         public int? FanStaticPercent { get; set; }
@@ -53,6 +69,29 @@ namespace kaliteConfig.GpuOverclock.Models
         /// </summary>
         public DateTime? ConfirmedAt { get; set; }
 
+        /// <summary>UI projection: this profile survived a confirmation window (pre-boot validated).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool HasConfirmedAt => ConfirmedAt is not null;
+
+        /// <summary>
+        /// Auto-switch eligibility (v2, per-game profiles): true only after
+        /// this profile was manually applied AND confirmed by the user through
+        /// the normal interactive safety state machine in a plain desktop
+        /// context — never set by startup reapply or game auto-apply paths.
+        /// A profile that was never manually validated can never auto-apply.
+        /// </summary>
+        public bool HasBeenManuallyValidated { get; set; }
+
+        /// <summary>When the manual validation above happened.</summary>
+        public DateTime? LastValidatedAt { get; set; }
+
+        /// <summary>
+        /// UI projection set by ProfileStorageService.LoadAll: this profile is
+        /// the one designated for startup reapply. Not serialized.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool IsStartupDefault { get; set; }
+
         [System.Text.Json.Serialization.JsonIgnore]
         public string Summary
         {
@@ -63,6 +102,8 @@ namespace kaliteConfig.GpuOverclock.Models
                 if (MemOffsetMHz is { } m && m != 0) parts.Add($"mem {m:+0;-0;0} MHz");
                 if (PowerLimitPercent is { } p) parts.Add($"power {p:0.#}%");
                 if (TempLimitC is { } t) parts.Add($"temp {t} °C");
+                if (VfCurveOffsets is { Count: > 0 }) parts.Add($"V/F curve ({VfCurveOffsets.Count} pts)");
+                else if (GlobalVoltageBoostOffsetMHz is { } v && v != 0) parts.Add($"V/F {v:+0;-0;0} MHz");
                 parts.Add(FanMode switch
                 {
                     GpuFanMode.Static => $"fan {FanStaticPercent}%",
@@ -81,6 +122,12 @@ namespace kaliteConfig.GpuOverclock.Models
         ProfileApply,
         StartupApply,
         AutoRevert,
+
+        /// <summary>
+        /// Unattended per-game auto-switch. Appended last so the log viewer's
+        /// index-based filter mapping for the earlier values never shifts.
+        /// </summary>
+        GameAutoApply,
     }
 
     /// <summary>Outcome of a logged change.</summary>

@@ -19,6 +19,24 @@ namespace kaliteConfig.ViewModels;
 public sealed record ChangeSummary(string Name, string PathText, string OldValue, string NewValue);
 
 /// <summary>
+/// A settings-category entry for the left nav (WinUI Settings-style).
+/// Either a keyword bucket ("CPU", "PCIe", "Security"…) or the special
+/// "All settings" / "Modified" views. Rows are recomputed per document.
+/// </summary>
+public sealed class BiosCategory
+{
+    public required string Key { get; init; }
+    public required string DisplayName { get; init; }
+    public int Count { get; init; }
+    // "All settings" and "Modified" don't carry static counts (Modified changes
+    // live); only keyword buckets show a badge.
+    public string CountText => Count > 0 ? $"({Count})" : "";
+
+    public static readonly BiosCategory All = new() { Key = "All", DisplayName = "All settings" };
+    public static readonly BiosCategory Modified = new() { Key = "Modified", DisplayName = "Modified" };
+}
+
+/// <summary>
 /// Drives the BIOS Manager page: import a SCEWIN dump, browse the menu tree,
 /// filter settings, edit values with per-item reset, review a change list and
 /// export a SCEWIN-compatible file. Parsing and filtering run off the UI
@@ -73,6 +91,8 @@ public sealed partial class BiosManagerViewModel : ObservableObject
 
     public ObservableCollection<BiosMenuSection> Sections { get; } = new();
 
+    public ObservableCollection<BiosCategory> Categories { get; } = new();
+
     [ObservableProperty]
     private ObservableCollection<BiosSettingRow> _rows = new();
 
@@ -100,11 +120,17 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     public Visibility EditingEnumeratedVisibility => EditingIsEnumerated ? Visibility.Visible : Visibility.Collapsed;
     public Visibility EditingFreeformVisibility => EditingIsEnumerated ? Visibility.Collapsed : Visibility.Visible;
 
-    public string EditingSelectedToken
-    {
-        get => SelectedRow?.SelectedToken ?? "";
-        set { if (SelectedRow is not null) SelectedRow.SelectedToken = value; }
-    }
+    // Read-only now: the ComboBox writes back via code-behind (a TwoWay
+    // binding could push an empty value while the picker repopulates).
+    public string EditingSelectedToken => SelectedRow?.SelectedToken ?? "";
+
+    [ObservableProperty]
+    private bool _showOnlyChanges;
+
+    [ObservableProperty]
+    private BiosCategory? _selectedCategoryItem = BiosCategory.All;
+
+    partial void OnSelectedCategoryItemChanged(BiosCategory? value) => ApplyFilterNow();
 
     public string EditingValueText
     {
@@ -341,6 +367,9 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         _selectedSection = doc.RootSection;
 
         Rows = new ObservableCollection<BiosSettingRow>(_allRows);
+        RebuildCategories();
+        SelectedCategoryItem = BiosCategory.All;
+        _selectedSection = null;
         UpdateModifiedCount();
     }
 
@@ -364,10 +393,66 @@ public sealed partial class BiosManagerViewModel : ObservableObject
 
     private List<BiosSettingRow> ComputeFilteredRows()
     {
-        var baseRows = RowsForSection(_selectedSection ?? _document?.RootSection);
+        IEnumerable<BiosSettingRow> rows = _allRows;
+
+        if (SelectedCategoryItem is { } category &&
+            !ReferenceEquals(category, BiosCategory.All))
+        {
+            rows = ReferenceEquals(category, BiosCategory.Modified)
+                ? rows.Where(r => r.IsModified)
+                : rows.Where(r => CategoryKeywords.TryGetValue(category.Key, out var terms) &&
+                                  terms.Any(t => r.Name.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                                                 r.SectionText.Contains(t, StringComparison.OrdinalIgnoreCase)));
+        }
+        else if (ShowOnlyChanges)
+        {
+            rows = rows.Where(r => r.IsModified);
+        }
+
+        var baseRows = rows.ToList();
         var query = _searchText.Trim();
         if (query.Length == 0) return baseRows;
         return baseRows.Where(r => r.Matches(query)).ToList();
+    }
+
+    /// <summary>
+    /// Keyword buckets that map dump setting names/paths to friendly category
+    /// names (like the BIOS's own menu: CPU, PCIe, Security…). Evaluated per
+    /// document so the counts always match what the filter will show.
+    /// </summary>
+    public static readonly Dictionary<string, string[]> CategoryKeywords = new()
+    {
+        ["CPU"] = new[] { "cpu", "processor", "core", "smt", "c-state", "cstate", "pstate", "cppc", "smt" },
+        ["Memory"] = new[] { "memory", "dram", "ddr", "mrc", "mem " },
+        ["PCIe"] = new[] { "pcie", "pci express", "pci ", "slot", "link speed", "lane", "aspm" },
+        ["Graphics"] = new[] { "gfx", "gpu", "igpu", "display", "video", "dGPU", "iGPU", "apu" },
+        ["USB"] = new[] { "usb" },
+        ["Storage"] = new[] { "sata", "nvme", "m.2", "storage", "raid", "ahci", "ide" },
+        ["Networking"] = new[] { "wifi", "wlan", "network", "lan", "ethernet", "bluetooth" },
+        ["Audio"] = new[] { "audio", "hda", "sound", "azalia" },
+        ["Thunderbolt"] = new[] { "thunderbolt", "tbt" },
+        ["Security"] = new[] { "security", "secure boot", "tpm", "fTPM", "password", "aes", "encrypt", "txt", "sgx", "pki", "vault" },
+        ["Power"] = new[] { "power", "voltage", "overclock", "oc ", "fan", "thermal", "temperature", "acpi", "battery", "clock power" },
+        ["Boot"] = new[] { "boot", "uefi", "csm", "legacy" },
+    };
+
+    /// <summary>Builds the category list (with live counts) for the loaded document.</summary>
+    private void RebuildCategories()
+    {
+        Categories.Clear();
+        Categories.Add(BiosCategory.All);
+        Categories.Add(BiosCategory.Modified);
+
+        foreach (var (key, terms) in CategoryKeywords)
+        {
+            var count = _allRows.Count(r =>
+                terms.Any(t => r.Name.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                               r.SectionText.Contains(t, StringComparison.OrdinalIgnoreCase)));
+            if (count > 0)
+            {
+                Categories.Add(new BiosCategory { Key = key, DisplayName = key, Count = count });
+            }
+        }
     }
 
     private void ApplyFilterNow() => Rows = new ObservableCollection<BiosSettingRow>(ComputeFilteredRows());

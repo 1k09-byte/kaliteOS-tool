@@ -1,12 +1,15 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.UI;
 
 namespace kaliteConfig.Pages
 {
@@ -107,19 +110,32 @@ namespace kaliteConfig.Pages
         private void SettingsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ViewModel.SelectedRow = e.AddedItems?.OfType<BiosSettingRow>().FirstOrDefault();
-        }
-
-        private void SectionTree_SelectionChanged(TreeView sender, TreeViewSelectionChangedEventArgs args)
-        {
-            var item = args.AddedItems?.FirstOrDefault() as TreeViewItem;
-            var section = (item?.Content as FrameworkElement)?.DataContext as BiosMenuSection
-                          ?? item?.DataContext as BiosMenuSection;
-            ViewModel.SelectSection(section);
+            // Recreate the picker's selection here (no TwoWay binding): while
+            // ItemsSource repopulates, SelectedValue can transiently resolve to
+            // nothing and write an empty value over the real one. One-way
+            // display plus this explicit sync avoids that race entirely.
+            if (ViewModel.SelectedRow is { } row && row.IsEnumerated)
+                ValueCombo.SelectedValue = row.SelectedToken;
         }
 
         private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
             ViewModel.FilterCommand.Execute(sender.Text);
+        }
+
+        // ---- category filters ----
+
+        /// <summary>
+        /// Writes the picked option back to the row. A TwoWay SelectedValue
+        /// binding can fire while the ComboBox is repopulating and push an
+        /// empty string over the current value ("Value is empty" bug), so the
+        /// write-back is done here once a real selection exists.
+        /// </summary>
+        private void ValueCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ViewModel.SelectedRow is not { } row || !row.IsEnumerated) return;
+            if (ValueCombo.SelectedItem is BiosOption option)
+                row.SelectedToken = option.RawToken;
         }
 
         // ---- quick edit (used when the detail pane is collapsed below 1000px) ----

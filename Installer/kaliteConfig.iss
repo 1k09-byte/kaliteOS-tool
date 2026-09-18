@@ -32,7 +32,7 @@ WizardStyle=modern
 DisableProgramGroupPage=yes
 UninstallDisplayName={#MyAppName}
 SetupIconFile=..\\Assets\\kaliteConfig.ico
-UninstallDisplayIcon={app}\\{#MyAppExe}
+UninstallDisplayIcon={app}\{#MyAppExe}
 
 [Files]
 Source: "{#PublishDir}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -40,17 +40,22 @@ Source: "{#PublishDir}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdir
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
 
+[Registry]
+; KaliteOS first-launch flag: 0 = needs Windhawk auto-provisioning, 1 = already done.
+; Written at install time as 0; the app flips it to 1 after a successful Windhawk + mods import.
+Root: HKLM; Subkey: "SOFTWARE\KaliteOS"; ValueType: dword; ValueName: "IsInstalled"; ValueData: "0"; Flags: createvalueifdoesntexist uninsdeletekeyifempty
+Root: HKLM; Subkey: "SOFTWARE\KaliteOS"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: createvalueifdoesntexist
+
 [Icons]
-Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"
-Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 
 [Run]
 ; shellexec is required: the app manifest is requireAdministrator, and plain
 ; CreateProcess cannot auto-elevate — it fails with error 740.
-; The second entry (no skipifsilent) relaunches the app after a SILENT
-; install too — the auto-updater exits the app for Setup to replace files,
-; and the user expects it to come back.
-Filename: "{app}\\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
-; Check: WizardSilent — interactive installs launch only via the Finish
-; checkbox above; this entry is for the auto-updater's silent installs.
-Filename: "{app}\\{#MyAppExe}"; Description: ""; Flags: nowait skipifsilent runasoriginaluser shellexec; Check: WizardSilent
+; postinstall without skipifsilent runs after SILENT installs too, so this
+; single entry relaunches the app for the auto-updater (which exits the app
+; so Setup can replace the files) as well as offering the Finish-page
+; checkbox on interactive installs. The app requires admin anyway, so no
+; runasoriginaluser demotion.
+Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec

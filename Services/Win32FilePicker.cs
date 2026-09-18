@@ -94,16 +94,39 @@ internal static class Win32FilePicker
             suggestedName: null, title: "Open SCEWIN dump");
     }
 
+    /// <summary>Open dialog with caller-defined filters — used by the
+    /// per-game profile binding picker (elevated-safe fallback path).</summary>
+    public static string? PickOpenFile(
+        nint owner,
+        (string Name, string Spec)[] filters,
+        string title)
+    {
+        return Show(new FileOpenDialogClass(), isOpen: true, owner, filters,
+            suggestedName: null, title: title);
+    }
+
     public static string? PickSaveFile(nint owner, string suggestedName)
     {
-        return Show(new FileSaveDialogClass(), isOpen: false, owner,
+        return PickSaveFile(owner, suggestedName,
             new[] { ("Text file (*.txt)", "*.txt") },
-            suggestedName: suggestedName, title: "Export modified dump");
+            title: "Export modified dump", defaultExtension: "txt");
+    }
+
+    /// <summary>Save dialog with caller-defined filters — used by the
+    /// overclock verification-record export (elevated-safe fallback path).</summary>
+    public static string? PickSaveFile(
+        nint owner, string suggestedName,
+        (string Name, string Spec)[] filters,
+        string title, string defaultExtension)
+    {
+        return Show(new FileSaveDialogClass(), isOpen: false, owner, filters,
+            suggestedName: suggestedName, title: title, defaultExtension: defaultExtension);
     }
 
     private static string? Show(
         object dialogClass, bool isOpen, nint owner,
-        (string Name, string Spec)[] filters, string? suggestedName, string title)
+        (string Name, string Spec)[] filters, string? suggestedName, string title,
+        string defaultExtension = "txt")
     {
         var dialog = (IFileDialog)dialogClass;
         nint specArray = nint.Zero;
@@ -117,7 +140,7 @@ internal static class Win32FilePicker
             dialog.SetOptions(fos);
             dialog.SetTitle(title);
             if (suggestedName is { Length: > 0 }) dialog.SetFileName(suggestedName);
-            if (!isOpen) dialog.SetDefaultExtension("txt");
+            if (!isOpen) dialog.SetDefaultExtension(defaultExtension);
 
             int size = Marshal.SizeOf<FilterSpec>();
             specArray = Marshal.AllocCoTaskMem(size * filters.Length);

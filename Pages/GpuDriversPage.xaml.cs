@@ -18,8 +18,23 @@ namespace kaliteConfig.Pages
             this.ViewModel = new GpuDriversViewModel();
             this.DataContext = ViewModel;
 
-            // Kick off hardware detection as soon as the page loads.
-            this.Loaded += async (_, _) => await ViewModel.DetectGpusCommand.ExecuteAsync(null);
+            // Kick off hardware detection as soon as the page loads, then
+            // automatically check for updates so the card shows current vs
+            // latest without a manual click.
+            this.Loaded += async (_, _) =>
+            {
+                await ViewModel.DetectGpusCommand.ExecuteAsync(null);
+                await ViewModel.CheckDriverCommand.ExecuteAsync(ViewModel.SelectedDriver);
+            };
+        }
+
+        // The overclock section re-detects with the rest of the page: a fresh
+        // GPU handle invalidates the controller's cached adapter, so the curve
+        // loop must hand fan control back to the driver first (spec §5).
+        private async void RedetectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try { await OverclockPanel.Vm.RefreshAsync(); }
+            catch { /* re-detect must never break the drivers page */ }
         }
 
         private async void CheckForUpdatesBtn_Click(object sender, RoutedEventArgs e)
@@ -62,6 +77,25 @@ namespace kaliteConfig.Pages
         public static Visibility CheckBtnVis(GpuDriverStatus status)
         {
             return InstallBtnVis(status) == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        // Progress block: visible while downloading or installing.
+        public static Visibility ProgressVis(GpuDriverStatus status)
+        {
+            return status is GpuDriverStatus.Downloading or GpuDriverStatus.Installing
+                ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        // Indeterminate bar during the install phase (no percentage available);
+        // during download it's a determinate bar fed by DownloadProgress.
+        public static bool InstallPhaseVis(GpuDriverStatus status)
+        {
+            return status == GpuDriverStatus.Installing;
+        }
+
+        public static Visibility ErrorVis(string errorMessage)
+        {
+            return string.IsNullOrEmpty(errorMessage) ? Visibility.Collapsed : Visibility.Visible;
         }
 
         public static BitmapImage VendorIcon(string vendor)
