@@ -35,6 +35,7 @@ namespace OcVerify
             AutoApply();
             GraphAxisTicks();
             FanRamp();
+            HardwareQuiesce();
             Console.WriteLine(_failures == 0
                 ? "  v2 logic: all passed"
                 : $"  v2 logic: {_failures} FAILED");
@@ -102,7 +103,12 @@ namespace OcVerify
             public bool IsInitialized => true;
             public GpuResult Initialize() => GpuResult.Ok();
             public GpuResult<GpuIdentity> GetIdentity() => throw new NotSupportedException();
-            public GpuResult<GpuTelemetrySnapshot> ReadTelemetry() => throw new NotSupportedException();
+            public int TelemetryReads;
+            public GpuResult<GpuTelemetrySnapshot> ReadTelemetry()
+            {
+                TelemetryReads++;
+                return GpuResult<GpuTelemetrySnapshot>.Ok(new GpuTelemetrySnapshot { Timestamp = DateTime.Now });
+            }
             public GpuResult<GpuCapabilities> ReadCapabilities()
                 => Caps is not null ? GpuResult<GpuCapabilities>.Ok(Caps) : throw new NotSupportedException();
             public GpuResult<(int CoreOffsetMHz, int MemOffsetMHz)> ReadCurrentOffsets() => GpuResult<(int, int)>.Ok((0, 0));
@@ -501,6 +507,42 @@ namespace OcVerify
                 "ramp snaps when closer than maxStep");
             Check(FanCurveExecutionService.RampTowards(50, 50, 5) == 50,
                 "ramp holds a reached target");
+        }
+        // Hardware quiesce gate: the 0xc0000005 guard for device restarts.
+        private static void HardwareQuiesce()
+        {
+            Check(!HardwareQuiesceGate.IsQuiesced, "gate starts open");
+            using (HardwareQuiesceGate.Hold("test"))
+            {
+                Check(HardwareQuiesceGate.IsQuiesced, "hold quiesces");
+                Check(HardwareQuiesceGate.Reason == "test", "hold reason visible");
+                using (HardwareQuiesceGate.Hold("inner"))
+                    Check(HardwareQuiesceGate.IsQuiesced, "nested hold stays quiesced");
+                Check(HardwareQuiesceGate.IsQuiesced, "inner release keeps outer hold");
+            }
+            Check(!HardwareQuiesceGate.IsQuiesced && HardwareQuiesceGate.Reason is null,
+                "release reopens gate and clears reason");
+
+            // Polling loop performs zero native reads while held, resumes after.
+            var fake = new FakeController();
+            var polling = new GpuTelemetryPollingService(fake, TimeSpan.FromMilliseconds(100));
+            int updates = 0;
+            polling.Update += _ => System.Threading.Interlocked.Increment(ref updates);
+            polling.Start();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (updates < 2 && sw.ElapsedMilliseconds < 5000) System.Threading.Thread.Sleep(50);
+            Check(updates >= 2, "telemetry flows before hold");
+            int readsBefore = fake.TelemetryReads;
+            using (HardwareQuiesceGate.Hold("test"))
+            {
+                System.Threading.Thread.Sleep(500);
+                Check(fake.TelemetryReads == readsBefore, "no native reads while quiesced");
+            }
+            sw.Restart();
+            while (fake.TelemetryReads <= readsBefore && sw.ElapsedMilliseconds < 3000)
+                System.Threading.Thread.Sleep(50);
+            Check(fake.TelemetryReads > readsBefore, "native reads resume after release");
+            polling.Dispose();
         }
     }
 }

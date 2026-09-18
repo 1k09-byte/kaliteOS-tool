@@ -97,14 +97,21 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     try
                     {
-                        var result = await Task.Run(() => _controller.ReadTelemetry(), token).ConfigureAwait(false);
-                        if (result.IsSuccess && result.Value != null)
+                        // Quiesced (device restarts in flight): skip the tick
+                        // entirely rather than calling into NVAPI/NVML on
+                        // handles a restart may have invalidated — a native
+                        // fault there bypasses every managed catch below.
+                        if (!HardwareQuiesceGate.IsQuiesced)
                         {
-                            Update?.Invoke(new TelemetryUpdate(result.Value, TelemetryHealth.Available, null));
-                        }
-                        else
-                        {
-                            Update?.Invoke(new TelemetryUpdate(null, TelemetryHealth.Unavailable, result.Detail));
+                            var result = await Task.Run(() => _controller.ReadTelemetry(), token).ConfigureAwait(false);
+                            if (result.IsSuccess && result.Value != null)
+                            {
+                                Update?.Invoke(new TelemetryUpdate(result.Value, TelemetryHealth.Available, null));
+                            }
+                            else
+                            {
+                                Update?.Invoke(new TelemetryUpdate(null, TelemetryHealth.Unavailable, result.Detail));
+                            }
                         }
                     }
                     catch (OperationCanceledException) { throw; }

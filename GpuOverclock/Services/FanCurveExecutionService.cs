@@ -207,18 +207,24 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     var target = Evaluate(_points, temp.Value);
                     var pct = lastApplied.HasValue ? RampTowards(lastApplied.Value, target, maxStep) : target;
-                    WriteMarkerSafe(pct); // liveness: pid + current forced % for crash recovery
-                    // GPU disconnected mid-session makes writes fail; the write
-                    // result is reported through Stopped and the loop exits.
-                    var res = await Task.Run(() => _controller.SetFanStaticPercent(pct), token).ConfigureAwait(false);
-                    if (res.IsSuccess)
+                    // Quiesced (device restarts in flight): hold the last
+                    // speed and skip the write — same native-handle hazard
+                    // as telemetry (see HardwareQuiesceGate).
+                    if (!HardwareQuiesceGate.IsQuiesced)
                     {
-                        lock (_gate) _lastAppliedPct = pct;
-                    }
-                    else if (res.ErrorKind == OverclockErrorKind.GpuDisconnected)
-                    {
-                        await StopAsync("GPU disconnected — fan restored to auto").ConfigureAwait(false);
-                        return;
+                        WriteMarkerSafe(pct); // liveness: pid + current forced % for crash recovery
+                        // GPU disconnected mid-session makes writes fail; the write
+                        // result is reported through Stopped and the loop exits.
+                        var res = await Task.Run(() => _controller.SetFanStaticPercent(pct), token).ConfigureAwait(false);
+                        if (res.IsSuccess)
+                        {
+                            lock (_gate) _lastAppliedPct = pct;
+                        }
+                        else if (res.ErrorKind == OverclockErrorKind.GpuDisconnected)
+                        {
+                            await StopAsync("GPU disconnected — fan restored to auto").ConfigureAwait(false);
+                            return;
+                        }
                     }
                 }
                 // temp == null: telemetry unavailable this tick — hold last speed

@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using kaliteConfig.GpuOverclock;
+using kaliteConfig.GpuOverclock.Services;
 using kaliteConfig.Models;
 using kaliteConfig.Services;
 using System;
@@ -425,13 +427,34 @@ namespace kaliteConfig.ViewModels
         {
             if (_pendingRestartIds.Count == 0) return;
             StatusText = $"Restarting {_pendingRestartIds.Count} device(s)...";
-            foreach (var id in _pendingRestartIds)
-            {
-                await AffinityService.RestartDeviceAsync(id);
-            }
+            await RestartDevicesQuiescedAsync(_pendingRestartIds, "affinity pending restarts");
             _pendingRestartIds.Clear();
             RequiresRestart = false;
             StatusText = "Device restarts complete.";
+        }
+
+        /// <summary>
+        /// Restarts devices with all native GPU access held off: a telemetry
+        /// or fan tick landing mid-restart can fault INSIDE nvapi64/nvml
+        /// (0xc0000005) where no managed catch can contain it — the exact
+        /// crash seen after Optimize restarts the GPU. Settles PnP, then
+        /// forces fresh native handles before anyone calls in again.
+        /// </summary>
+        private static async Task RestartDevicesQuiescedAsync(
+            IEnumerable<string> deviceIds, string reason)
+        {
+            using (HardwareQuiesceGate.Hold(reason))
+            {
+                foreach (var id in deviceIds)
+                {
+                    await AffinityService.RestartDeviceAsync(id);
+                }
+                // Let PnP re-enumeration (especially a restarted GPU) settle
+                // before any native call goes near it again.
+                await Task.Delay(TimeSpan.FromSeconds(4));
+                GpuOverclockModule.Instance.Controller.InvalidateGpu();
+                NvmlBridge.Reset();
+            }
         }
         
         public void UpdateMsiLimitInline(AffinityDeviceItem item, double newValue)
@@ -649,10 +672,7 @@ namespace kaliteConfig.ViewModels
                 if (modifiedIds.Count > 0)
                 {
                     StatusText = $"Restarting {modifiedIds.Count} modified device(s)...";
-                    foreach (var id in modifiedIds)
-                    {
-                        await AffinityService.RestartDeviceAsync(id);
-                    }
+                    await RestartDevicesQuiescedAsync(modifiedIds, "affinity optimize restart");
                 }
 
                 await RefreshDevicesAsync();
