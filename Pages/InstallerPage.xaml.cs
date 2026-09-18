@@ -89,18 +89,7 @@ namespace kaliteConfig.Pages
                 : Visibility.Collapsed;
         }
 
-        public static Visibility StatusToInstallingVisibility(bool isActionRunning)
-        {
-            return isActionRunning ? Visibility.Visible : Visibility.Collapsed;
-        }
-
         public static bool Not(bool val) => !val;
-
-        public static bool IsInstalledToHitTestVisible(BrowserInstallStatus status)
-        {
-            // Cards must always be clickable so the user can open the dialog to Uninstall
-            return true;
-        }
 
         public static string GetCloseButtonText(BrowserInstallStatus status) 
         {

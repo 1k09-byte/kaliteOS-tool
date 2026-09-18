@@ -32,7 +32,7 @@ namespace kaliteConfig.ViewModels
         // pure install page. (The reveal toggle was removed; these filters
         // still run after install/uninstall to keep cards in sync.)
         [ObservableProperty]
-        private bool _showInstalled = false;
+        public partial bool ShowInstalled { get; set; } = false;
 
         partial void OnShowInstalledChanged(bool value)
         {

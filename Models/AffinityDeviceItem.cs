@@ -5,60 +5,60 @@ namespace kaliteConfig.Models
     public partial class AffinityDeviceItem : ObservableObject
     {
         [ObservableProperty]
-        private string name = string.Empty;
+        public partial string Name { get; set; } = string.Empty;
 
         // Graphics / Network / Usb / Audio
         [ObservableProperty]
-        private string category = string.Empty;
+        public partial string Category { get; set; } = string.Empty;
 
         // PCI\VEN_xxxx&DEV_xxxx... instance path (used later to target IRQ/affinity policy).
         [ObservableProperty]
-        private string deviceInstanceId = string.Empty;
+        public partial string DeviceInstanceId { get; set; } = string.Empty;
 
         // Row selection for the tuning pass (MSI mode checkbox column).
         [ObservableProperty]
-        private bool isChecked = true;
+        public partial bool IsChecked { get; set; } = true;
 
         // Read-only layout placeholders until the tuning pass lands.
         [ObservableProperty]
-        private string irqText = "—";
+        public partial string IrqText { get; set; } = "—";
 
         [ObservableProperty]
-        private string affinityText = "—";
+        public partial string AffinityText { get; set; } = "—";
 
         [ObservableProperty]
-        private bool isVisible = true;
+        public partial bool IsVisible { get; set; } = true;
 
         // Dialog state (bound two-way; stored only — writers land in the tuning pass).
         [ObservableProperty]
-        private bool msiEnabled;
+        public partial bool MsiEnabled { get; set; }
 
         [ObservableProperty]
-        private double msiLimit = 1;
+        public partial double MsiLimit { get; set; } = 1;
 
         [ObservableProperty]
-        private double maxMsiLimit = 1;
+        public partial double MaxMsiLimit { get; set; } = 1;
 
         [ObservableProperty]
-        private string msiLimitText = "—";
+        public partial string MsiLimitText { get; set; } = "—";
 
         [ObservableProperty]
-        private string devicePolicyShort = "—";
+        public partial string DevicePolicyShort { get; set; } = "—";
 
         [ObservableProperty]
-        private string devicePriorityShort = "Undefined";
+        public partial string DevicePriorityShort { get; set; } = "Undefined";
 
         [ObservableProperty]
-        private string selectedPriority = "Undefined";
+        public partial string SelectedPriority { get; set; } = "Undefined";
 
         [ObservableProperty]
-        private string selectedPolicy = "IrqPolicyMachineDefault";
+        public partial string SelectedPolicy { get; set; } = "IrqPolicyMachineDefault";
 
         [ObservableProperty]
-        private string selectedThreadCountText = string.Empty;
+        public partial string SelectedThreadCountText { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private bool isProcessorMaskExpanded = true;
+        public partial bool IsProcessorMaskExpanded { get; set; } = true;
 
         public System.Collections.ObjectModel.ObservableCollection<ProcessorCoreGroup> CoreGroups { get; } = new();
 
@@ -95,7 +95,7 @@ namespace kaliteConfig.Models
         public string Label => $"Thread {Index}";
 
         [ObservableProperty]
-        private bool isChecked;
+        public partial bool IsChecked { get; set; }
     }
 
     /// <summary>Humanized dropdown option carrying the raw registry value.</summary>
@@ -106,7 +106,7 @@ namespace kaliteConfig.Models
         public int CoreIndex { get; set; }
 
         [ObservableProperty]
-        private string title = string.Empty;
+        public partial string Title { get; set; } = string.Empty;
 
         public System.Collections.ObjectModel.ObservableCollection<ProcessorThreadItem> Threads { get; } = new();
     }

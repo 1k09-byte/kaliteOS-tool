@@ -244,10 +244,13 @@ namespace kaliteConfig.Services
             _ => "Undefined"
         };
 
-        /// <summary>"2, 3, 4, 5" style list of set processors, like the reference tool.</summary>
+        /// <summary>"2, 3, 4, 5" style list of set processors, like the reference tool.
+        /// Null means no explicit override exists — the device runs on all
+        /// processors (system default).</summary>
         public static string AffinityMaskText(ulong? mask)
         {
-            if (mask is null or 0) return "—";
+            if (mask is null) return "All (default)";
+            if (mask == 0) return "—";
             var bits = new List<int>();
             ulong m = mask.Value;
             for (int i = 0; i < 64; i++)

@@ -114,33 +114,55 @@ public enum AffinityScope
     GameDefault,
 }
 
-public sealed class TunerThreadRule
+public sealed partial class TunerThreadRule : ObservableObject
 {
     /// <summary>Thread description match (contains, case-insensitive). Empty = match any (requires MatchAllThreads or StartAddress).</summary>
-    public string Description { get; set; } = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TargetText))]
+    public partial string Description { get; set; } = string.Empty;
     /// <summary>Start address match ("module+offset", exact, case-insensitive). Empty = match any.</summary>
-    public string StartAddress { get; set; } = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TargetText))]
+    public partial string StartAddress { get; set; } = string.Empty;
     /// <summary>When true, matches every thread of the process (used by built-in
     /// defaults for threads that carry no usable name). False for normal rules.</summary>
-    public bool MatchAllThreads { get; set; }
+    [ObservableProperty]
+    public partial bool MatchAllThreads { get; set; }
     /// <summary>Win32 thread priority to enforce (e.g. 0 Normal, 15 TimeCritical, -4 custom).</summary>
-    public int Priority { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    public partial int Priority { get; set; }
     /// <summary>Per-thread Efficiency Mode (EcoQoS). Null = leave unchanged.</summary>
-    public bool? EfficiencyMode { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    public partial bool? EfficiencyMode { get; set; }
     /// <summary>Per-thread dynamic priority boost. Null = leave unchanged.</summary>
-    public bool? BoostEnabled { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    public partial bool? BoostEnabled { get; set; }
     /// <summary>Thread affinity mask to enforce. Null = leave unchanged.</summary>
-    public ulong? AffinityMask { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    [NotifyPropertyChangedFor(nameof(AffinitySummaryText))]
+    public partial ulong? AffinityMask { get; set; }
     /// <summary>Processor group for AffinityMask. Null = keep live group.</summary>
-    public ushort? AffinityGroup { get; set; }
+    [ObservableProperty]
+    public partial ushort? AffinityGroup { get; set; }
     /// <summary>Ideal processor group. Null = leave unchanged (requires IdealIndex).</summary>
-    public ushort? IdealGroup { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    public partial ushort? IdealGroup { get; set; }
     /// <summary>Ideal processor index. Null = leave unchanged (requires IdealGroup).</summary>
-    public byte? IdealIndex { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    public partial byte? IdealIndex { get; set; }
     /// <summary>Thread memory priority 1-5 (MEMORY_PRIORITY_INFORMATION). Null = unchanged.</summary>
-    public uint? MemoryPriority { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailText))]
+    public partial uint? MemoryPriority { get; set; }
     /// <summary>Live threads this rule matched the last time it was evaluated. Display only.</summary>
-    public int TargetCount { get; set; }
+    [ObservableProperty]
+    public partial int TargetCount { get; set; }
 
     [JsonIgnore]
     public string TargetText =>

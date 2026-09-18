@@ -28,8 +28,7 @@
         </Grid.RowDefinitions>
         <TextBlock
             x:Name="PageHeader"
-            MaxWidth="1064"
-            HorizontalAlignment="Left"
+            HorizontalAlignment="Stretch"
             Margin="36,24,36,0"
             AutomationProperties.HeadingLevel="Level1"
             Style="{StaticResource TitleTextBlockStyle}"
@@ -40,15 +39,13 @@
             VerticalScrollBarVisibility="Auto"
             VerticalScrollMode="Auto">
             <StackPanel
-                MaxWidth="1064"
-                HorizontalAlignment="Left"
+                HorizontalAlignment="Stretch"
                 Spacing="{StaticResource SettingsCardSpacing}">
 
                 <!-- Consumer update banner (hidden unless a newer GitHub release exists).
                      Wired in code-behind only for the CONSUMER flavor — the full
                      flavor leaves Vm null and never checks, so this stays closed. -->
-                <InfoBar x:Name="UpdateBanner"
-                         Title="{x:Bind Vm.BannerTitle, Mode=OneWay}"
+                <InfoBar Title="{x:Bind Vm.BannerTitle, Mode=OneWay}"
                          Message="{x:Bind Vm.Notes, Mode=OneWay}"
                          IsOpen="{x:Bind Vm.IsAvailable, Mode=OneWay}"
                          Severity="Informational"

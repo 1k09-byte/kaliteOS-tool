@@ -53,18 +53,8 @@ namespace kaliteConfig.Pages
             }
         }
 
-        public static Visibility NullToVis(GpuDriverItem driver)
-        {
-            return driver != null ? Visibility.Visible : Visibility.Collapsed;
-        }
-
         public static Visibility PrimaryVis(bool isPrimary) => isPrimary ? Visibility.Visible : Visibility.Collapsed;
         public static Visibility SecondaryVis(bool isPrimary) => isPrimary ? Visibility.Collapsed : Visibility.Visible;
-
-        public static bool IsInstallButtonEnabled(GpuDriverStatus status)
-        {
-            return status is GpuDriverStatus.UpdateAvailable or GpuDriverStatus.NotInstalled or GpuDriverStatus.Failed;
-        }
 
         // One action button per card: install when a driver is ready to install,
         // otherwise a plain "Check for updates".

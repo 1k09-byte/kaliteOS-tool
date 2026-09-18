@@ -6,51 +6,51 @@ namespace kaliteConfig.Models
     public partial class GpuDriverItem : ObservableObject
     {
         [ObservableProperty]
-        private string name = string.Empty;
+        public partial string Name { get; set; } = string.Empty;
 
         // NVIDIA / AMD / Intel
         [ObservableProperty]
-        private string vendor = string.Empty;
+        public partial string Vendor { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string description = string.Empty;
+        public partial string Description { get; set; } = string.Empty;
 
         // Driver version currently on this machine ("" when nothing usable detected).
         [ObservableProperty]
-        private string installedVersion = string.Empty;
+        public partial string InstalledVersion { get; set; } = string.Empty;
 
         // Latest version from the vendor lookup ("" until checked).
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
-        private string latestVersion = string.Empty;
+        public partial string LatestVersion { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string downloadUrl = string.Empty;
+        public partial string DownloadUrl { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string silentInstallArgs = string.Empty;
+        public partial string SilentInstallArgs { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string installerFileName = string.Empty;
+        public partial string InstallerFileName { get; set; } = string.Empty;
 
         // --- UI BINDING (observable so detection results refresh live) ---
         [ObservableProperty]
-        private string hardwareName = string.Empty;
+        public partial string HardwareName { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string vramText = string.Empty;
+        public partial string VramText { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string gpuTypeText = string.Empty;
+        public partial string GpuTypeText { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string deviceTypeText = string.Empty;
+        public partial string DeviceTypeText { get; set; } = string.Empty;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(PrimaryVis))]
         [NotifyPropertyChangedFor(nameof(SecondaryVis))]
-        private bool isPrimary = false;
+        public partial bool IsPrimary { get; set; } = false;
 
         public Visibility PrimaryVis => IsPrimary ? Visibility.Visible : Visibility.Collapsed;
         public Visibility SecondaryVis => IsPrimary ? Visibility.Collapsed : Visibility.Visible;
@@ -63,33 +63,33 @@ namespace kaliteConfig.Models
 
         // Fallback official page (used when lookup/download fails, and for page-only vendors).
         [ObservableProperty]
-        private string vendorPageUrl = string.Empty;
+        public partial string VendorPageUrl { get; set; } = string.Empty;
 
         // True when the vendor installer has no reliable silent flags (AMD/Intel):
         // the app downloads (if a URL is known) then launches the vendor UI.
         [ObservableProperty]
-        private bool guidedInstallOnly;
+        public partial bool GuidedInstallOnly { get; set; }
 
         // True when there is no direct download at all (Intel): primary button opens the page.
         [ObservableProperty]
-        private bool isPageOnly;
+        public partial bool IsPageOnly { get; set; }
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
         [NotifyPropertyChangedFor(nameof(UpdatePillVis))]
         [NotifyPropertyChangedFor(nameof(UpToDatePillVis))]
-        private GpuDriverStatus status = GpuDriverStatus.NotChecked;
+        public partial GpuDriverStatus Status { get; set; } = GpuDriverStatus.NotChecked;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
-        private double downloadProgress = 0;
+        public partial double DownloadProgress { get; set; } = 0;
 
         [ObservableProperty]
-        private string errorMessage = string.Empty;
+        public partial string ErrorMessage { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private bool isVisible = true;
+        public partial bool IsVisible { get; set; } = true;
 
         public string StatusText => Status switch
         {

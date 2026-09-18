@@ -21,20 +21,29 @@ public sealed partial class UninstallerViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowEmpty))]
-    private bool _isLoading;
-    [ObservableProperty] private string _searchQuery = string.Empty;
-    [ObservableProperty] private int _sortIndex;
-    [ObservableProperty] private int _filterIndex;
-    [ObservableProperty] private bool _showSystem;
-    [ObservableProperty] private string _summaryText = "Loading…";
-    [ObservableProperty] private string _infoText = string.Empty;
-    [ObservableProperty] private string _loadingStatus = "Starting…";
-    [ObservableProperty] private string _actionStatus = string.Empty;
+    public partial bool IsLoading { get; set; }
+    [ObservableProperty]
+    public partial string SearchQuery { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial int SortIndex { get; set; }
+    [ObservableProperty]
+    public partial int FilterIndex { get; set; }
+    [ObservableProperty]
+    public partial bool ShowSystem { get; set; }
+    [ObservableProperty]
+    public partial string SummaryText { get; set; } = "Loading…";
+    [ObservableProperty]
+    public partial string InfoText { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string LoadingStatus { get; set; } = "Starting…";
+    [ObservableProperty]
+    public partial string ActionStatus { get; set; } = string.Empty;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowEmpty))]
-    private bool _hasResults;
+    public partial bool HasResults { get; set; }
     public bool ShowEmpty => !IsLoading && !HasResults;
-    [ObservableProperty] private UninstallerItem? _selectedApp;
+    [ObservableProperty]
+    public partial UninstallerItem? SelectedApp { get; set; }
 
     public ObservableCollection<UninstallerItem> FilteredApps { get; } = new();
 
@@ -72,13 +81,17 @@ public sealed partial class UninstallerViewModel : ObservableObject
     }
 
     // Monitor State
-    [ObservableProperty] private bool _isMonitoring;
+    [ObservableProperty]
+    public partial bool IsMonitoring { get; set; }
     private bool _iconsLoading;
     private bool _iconsDirty;
-    [ObservableProperty] private int _monitorProgress;
-    [ObservableProperty] private string _monitorStatus = "Ready to create installation snapshot.";
+    [ObservableProperty]
+    public partial int MonitorProgress { get; set; }
+    [ObservableProperty]
+    public partial string MonitorStatus { get; set; } = "Ready to create installation snapshot.";
     private InstallMonitorSnapshot? _beforeSnapshot;
-    [ObservableProperty] private InstallMonitorDiff? _latestSnapshotDiff;
+    [ObservableProperty]
+    public partial InstallMonitorDiff? LatestSnapshotDiff { get; set; }
 
     public UninstallerViewModel()
     {

@@ -15,11 +15,15 @@ public sealed partial class PowerPlansViewModel : ObservableObject
 
     public ObservableCollection<PowerScheme> Schemes { get; } = new();
 
-    [ObservableProperty] private PowerScheme? _selectedScheme;
+    [ObservableProperty]
+    public partial PowerScheme? SelectedScheme { get; set; }
 
-    [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string? _errorMessage;
-    [ObservableProperty] private string _loadingStatus = "Loading…";
+    [ObservableProperty]
+    public partial bool IsLoading { get; set; }
+    [ObservableProperty]
+    public partial string? ErrorMessage { get; set; }
+    [ObservableProperty]
+    public partial string LoadingStatus { get; set; } = "Loading…";
 
     public ObservableCollection<KernelTweakItem> KernelTweaks { get; } = new();
     private readonly KernelTuningService _kernelService = new();

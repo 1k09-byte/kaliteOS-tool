@@ -562,14 +562,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             VfFlatValue = uniform ? first : 0;
         }
 
-        private void RefreshVfRowsFromLive()
-        {
-            if (_liveCurve is null) return;
-            VfPoints.Clear();
-            foreach (var p in _liveCurve.Points) VfPoints.Add(new VfCurvePointRow(p));
-            SyncVfSimpleFromPoints();
-        }
-
         /// <summary>Simple mode: one flat offset across all points (UI shorthand — writes the full table).</summary>
         public void OnVfFlatCommitted(double value)
         {
@@ -1016,7 +1008,9 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 _module.Profiles.SetDefaultProfile(profile.Name);
             }
-            OnPropertyChanged(nameof(StartupDefaultName));
+            // Rebuild rows so every toggle/badge reflects storage truth —
+            // without this the previously-default row keeps showing On.
+            RefreshProfiles();
         }
 
         [RelayCommand]

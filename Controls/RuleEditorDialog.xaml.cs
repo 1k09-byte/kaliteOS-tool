@@ -127,7 +127,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
     private ulong _pendingAffinityMask;
     private List<ulong> _pendingCpuSetIds = new();
     private int _cpuCount;
-    private bool _threadsLoadedFor = false;
 
     public RuleEditorDialog()
     {
@@ -368,10 +367,11 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
 
     private void SavedRulePin_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not TunerThreadRule rule) return;
+        if (sender is not FrameworkElement anchor) return;
+        if (anchor.DataContext is not TunerThreadRule rule) return;
         ulong initial = rule.AffinityMask ?? AllMask();
         _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
-            sender as FrameworkElement,
+            anchor,
             _cpuCount,
             initial,
             mask =>
@@ -380,7 +380,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
                 if ((sender as FrameworkElement)?.DataContext is TunerThreadRule updated)
                 {
                     SyncSavedRuleAffinityRow(updated);
-                    UpdateSavedRuleAffinityText(updated);
                 }
             });
     }
@@ -390,7 +389,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         if ((sender as FrameworkElement)?.DataContext is TunerThreadRule rule)
         {
             SyncSavedRuleAffinityRow(rule);
-            UpdateSavedRuleAffinityText(rule);
         }
     }
 
@@ -398,26 +396,25 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
     /// unticking clears the pin. Keeps checkbox and summary text in sync.</summary>
     private void SavedRuleAffinity_Changed(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not TunerThreadRule rule) return;
+        if (sender is not FrameworkElement anchor) return;
+        if (anchor.DataContext is not TunerThreadRule rule) return;
         bool isChecked = sender is CheckBox cb && cb.IsChecked == true;
         if (isChecked && !rule.AffinityMask.HasValue)
         {
             // Ticked with no pin yet — open the picker to choose cores.
             _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
-                sender as FrameworkElement,
+                anchor,
                 _cpuCount,
                 AllMask(),
                 mask =>
                 {
                     rule.AffinityMask = mask == AllMask() ? null : mask;
                     SyncSavedRuleAffinityRow(rule);
-                    UpdateSavedRuleAffinityText(rule);
                 });
         }
         else if (!isChecked && rule.AffinityMask.HasValue)
         {
             rule.AffinityMask = null; // untick = stop pinning this thread
-            UpdateSavedRuleAffinityText(rule);
         }
     }
 
@@ -427,16 +424,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             && FindNamedDescendant(presenter, "SavedRuleAffinityBox") is CheckBox box)
         {
             box.IsChecked = rule.AffinityMask.HasValue;
-        }
-    }
-
-    private void UpdateSavedRuleAffinityText(TunerThreadRule rule)
-    {
-        // Find the affinity summary TextBlock in this rule's row container.
-        if (SavedRulesList.ContainerFromItem(rule) is ContentPresenter presenter
-            && FindNamedDescendant(presenter, "SavedRuleAffinityText") is TextBlock text)
-        {
-            text.Text = rule.AffinitySummaryText;
         }
     }
 
@@ -498,7 +485,7 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
     {
         if (_pendingAffinityMask == AllMask())
         {
-            AffinitySummaryText.Text = "All logical processors";
+            DraftAffinitySummaryText.Text = "All logical processors";
         }
         else
         {
@@ -507,7 +494,7 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             {
                 if ((_pendingAffinityMask & (1UL << i)) != 0) n++;
             }
-            AffinitySummaryText.Text = $"{n} of {_cpuCount} · 0x{_pendingAffinityMask:X}";
+            DraftAffinitySummaryText.Text = $"{n} of {_cpuCount} · 0x{_pendingAffinityMask:X}";
         }
     }
 

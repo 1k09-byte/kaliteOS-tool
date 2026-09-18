@@ -42,7 +42,7 @@ namespace kaliteConfig.Models
         public bool IsRemovable => !IsRequired;
 
         [ObservableProperty]
-        private bool _isSelected = true;
+        public partial bool IsSelected { get; set; } = true;
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ namespace kaliteConfig.Models
         public bool IsTelemetry { get; set; }
 
         [ObservableProperty]
-        private bool _isEnabled = true;
+        public partial bool IsEnabled { get; set; } = true;
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ namespace kaliteConfig.Models
         public bool IsTelemetry { get; set; }
 
         [ObservableProperty]
-        private bool _isSelected = true;
+        public partial bool IsSelected { get; set; } = true;
     }
 
 }

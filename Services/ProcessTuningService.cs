@@ -143,7 +143,7 @@ public sealed class ProcessTuningService
                         && obj["Name"] is { } nameValue
                         && !string.IsNullOrWhiteSpace(nameValue.ToString()))
                     {
-                        map[pid] = nameValue.ToString();
+                        map[pid] = nameValue.ToString() ?? string.Empty;
                     }
                 }
             }

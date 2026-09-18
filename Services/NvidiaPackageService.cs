@@ -147,19 +147,19 @@ namespace kaliteConfig.Services
         /// requires the signing subject to contain "NVIDIA". Returns null on
         /// success, or an error description on any failure.
         /// </summary>
-        private static unsafe string? VerifyNvidiaSignature(string filePath, out string subject)
+        private static string? VerifyNvidiaSignature(string filePath, out string subject)
         {
             subject = "";
             try
             {
                 var fileInfo = new WINTRUST_FILE_INFO
                 {
-                    cbStruct = (uint)sizeof(WINTRUST_FILE_INFO),
+                    cbStruct = (uint)Marshal.SizeOf<WINTRUST_FILE_INFO>(),
                     pcwszFilePath = filePath,
                 };
                 var data = new WINTRUST_DATA
                 {
-                    cbStruct = (uint)sizeof(WINTRUST_DATA),
+                    cbStruct = (uint)Marshal.SizeOf<WINTRUST_DATA>(),
                     dwUIChoice = 2,               // no UI
                     fdwRevocationChecks = 0,
                     dwUnionChoice = 1,            // file
@@ -180,7 +180,12 @@ namespace kaliteConfig.Services
 
                 // Certificate subject check via X509 (the file is countersigned
                 // by Microsoft's cross-sign; the leaf publisher is NVIDIA).
+                // No supported replacement exists for extracting the signer
+                // from a signed PE (X509CertificateLoader has no signed-file
+                // API on this target), so the obsolete call is intentional.
+#pragma warning disable SYSLIB0057
                 var cert = System.Security.Cryptography.X509Certificates.X509Certificate.CreateFromSignedFile(filePath);
+#pragma warning restore SYSLIB0057
                 subject = cert.Subject;
                 if (!subject.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase))
                     return $"Package signer is not NVIDIA: {subject}";

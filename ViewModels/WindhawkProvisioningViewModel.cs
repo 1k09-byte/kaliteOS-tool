@@ -26,13 +26,20 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
     private readonly WindhawkImportService _import = new();
     private CancellationTokenSource? _cts;
 
-    [ObservableProperty] private WindhawkInstallationInfo _installation = WindhawkInstallationInfo.NotInstalled;
-    [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusText = string.Empty;
-    [ObservableProperty] private double? _downloadPercent;
-    [ObservableProperty] private bool _hasMessage;
-    [ObservableProperty] private string _message = string.Empty;
-    [ObservableProperty] private InfoBarSeverity _messageSeverity = InfoBarSeverity.Informational;
+    [ObservableProperty]
+    public partial WindhawkInstallationInfo Installation { get; set; } = WindhawkInstallationInfo.NotInstalled;
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+    [ObservableProperty]
+    public partial string StatusText { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial double? DownloadPercent { get; set; }
+    [ObservableProperty]
+    public partial bool HasMessage { get; set; }
+    [ObservableProperty]
+    public partial string Message { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial InfoBarSeverity MessageSeverity { get; set; } = InfoBarSeverity.Informational;
 
     /// <summary>
     /// KaliteOS bundled file — always from Assets/Windhawk/KaliteOS.json (copied to mods-bundled.json).

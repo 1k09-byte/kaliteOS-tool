@@ -22,7 +22,8 @@ namespace kaliteConfig.ViewModels
         private readonly NvidiaDriverService _nvidiaService = new();
         private readonly AmdDriverService _amdService = new();
         private readonly NvidiaPackageService _packageService = new();
-        
+        private static readonly HttpClient _http = new();
+
         private CancellationTokenSource? _cts;
 
         public ObservableCollection<GpuDriverItem> Drivers { get; } = new();
@@ -382,7 +383,7 @@ namespace kaliteConfig.ViewModels
                     progress.Report(GpuDriverStatus.Downloading);
                     string tempPath = TempDownloadPath(item.InstallerFileName);
                     
-                    using var response = await new HttpClient().GetAsync(item.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
+                    using var response = await _http.GetAsync(item.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
                     response.EnsureSuccessStatusCode();
                     
                     using var contentStream = await response.Content.ReadAsStreamAsync(_cts.Token);
@@ -396,18 +397,6 @@ namespace kaliteConfig.ViewModels
                     
                     bool extracted = await _amdService.ExtractInstallerAsync(tempPath, extractDir, logProgress, _cts.Token);
                     if (!extracted) { item.ErrorMessage = "AMD Extraction failed."; progress.Report(GpuDriverStatus.Failed); return; }
-                    
-                    var slimmer = new RadeonPackageSlimmer();
-                    var packages = slimmer.DiscoverPackages(extractDir);
-                    var tasks = slimmer.DiscoverScheduledTasks(extractDir);
-                    
-                    bool approved = true;
-                    if (!approved)
-                    {
-                        item.ErrorMessage = "Canceled";
-                        progress.Report(GpuDriverStatus.Failed);
-                        return;
-                    }
                     
                     progress.Report(GpuDriverStatus.Installing);
                     
@@ -425,7 +414,7 @@ namespace kaliteConfig.ViewModels
             }
 
             IsInstalling = false;
-            _cts.Dispose();
+            _cts?.Dispose();
             _cts = null;
         }
 

@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Text.Json;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using Microsoft.UI.Dispatching;

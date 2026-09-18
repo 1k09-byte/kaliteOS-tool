@@ -13,27 +13,39 @@ public enum InstallType
 
 public sealed partial class UninstallerItem : ObservableObject
 {
-    [ObservableProperty] private string _id = string.Empty; // ProductCode, PFN, or Registry Key Name
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private string _publisher = string.Empty;
-    [ObservableProperty] private string _version = string.Empty;
-    [ObservableProperty] private string _installDate = string.Empty;
-    [ObservableProperty] private string _installLocation = string.Empty;
-    [ObservableProperty] private string _uninstallString = string.Empty;
-    [ObservableProperty] private string _quietUninstallString = string.Empty;
-    [ObservableProperty] private InstallType _installType;
+    // ProductCode, PFN, or Registry Key Name
+    [ObservableProperty] public partial string Id { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Name { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Publisher { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string Version { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string InstallDate { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string InstallLocation { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string UninstallString { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial string QuietUninstallString { get; set; } = string.Empty;
+    [ObservableProperty]
+    public partial InstallType InstallType { get; set; }
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveSize))]
     [NotifyPropertyChangedFor(nameof(FormattedSize))]
     [NotifyPropertyChangedFor(nameof(HasSize))]
     [NotifyPropertyChangedFor(nameof(ExactSizeBytes))]
     [NotifyPropertyChangedFor(nameof(SizeBarValue))]
-    private long _estimatedSize; // In bytes
-    [ObservableProperty] private bool _isSystemComponent;
-    [ObservableProperty] private string _displayIcon = string.Empty;
+    // In bytes
+    public partial long EstimatedSize { get; set; }
+    [ObservableProperty]
+    public partial bool IsSystemComponent { get; set; }
+    [ObservableProperty]
+    public partial string DisplayIcon { get; set; } = string.Empty;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasRealIcon))]
-    private BitmapImage? _icon;
+    public partial BitmapImage? Icon { get; set; }
     public bool HasRealIcon => Icon != null;
     public bool IsStoreApp => InstallType == InstallType.AppX;
     public string SourceLabel => InstallType switch { InstallType.AppX => "STORE", InstallType.Msi => "MSI", _ => "APP" };
@@ -60,7 +72,8 @@ public sealed partial class UninstallerItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasSize))]
     [NotifyPropertyChangedFor(nameof(ExactSizeBytes))]
     [NotifyPropertyChangedFor(nameof(SizeBarValue))]
-    private long _computedSize; // real on-disk size, bytes
+    // real on-disk size, bytes
+    public partial long ComputedSize { get; set; }
     public bool HasSize => EffectiveSize > 0;
 
     public bool HasUninstaller => !string.IsNullOrWhiteSpace(UninstallString) || !string.IsNullOrWhiteSpace(QuietUninstallString);
@@ -82,7 +95,8 @@ public sealed partial class UninstallerItem : ObservableObject
     }
     
     // For UI batch selection
-    [ObservableProperty] private bool _isSelected;
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
     
     public string FormattedSize
     {

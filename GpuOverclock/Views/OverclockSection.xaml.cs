@@ -40,21 +40,6 @@ namespace kaliteConfig.GpuOverclock.Views
 
         // ---------------- x:Bind visibility helpers ----------------
 
-        public static Visibility NotSupportedVis(bool isSupported)
-            => isSupported ? Visibility.Collapsed : Visibility.Visible;
-
-        public static Visibility TelemetryVis(bool telemetryAvailable)
-            => telemetryAvailable ? Visibility.Visible : Visibility.Collapsed;
-
-        public static Visibility TelemetryErrorVis(string errorText)
-            => string.IsNullOrEmpty(errorText) ? Visibility.Collapsed : Visibility.Visible;
-
-        public static Visibility HotspotVis(string hotspotText)
-            => string.IsNullOrEmpty(hotspotText) ? Visibility.Collapsed : Visibility.Visible;
-
-        public static Visibility StatusVis(string statusText)
-            => string.IsNullOrEmpty(statusText) ? Visibility.Collapsed : Visibility.Visible;
-
         public static Visibility BoolToVis(bool value)
             => value ? Visibility.Visible : Visibility.Collapsed;
 

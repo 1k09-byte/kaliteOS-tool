@@ -6,10 +6,8 @@ using Microsoft.UI.Xaml.Navigation;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.UI;
 
 namespace kaliteConfig.Pages
 {
@@ -37,12 +35,6 @@ namespace kaliteConfig.Pages
         private void LoadDump_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.LoadFileCommand.Execute(null);
-        }
-
-        /// <summary>Toolbar: run the bundled SCEWIN tool now and reload the dump.</summary>
-        private void ExportLoad_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.ExportAndLoadCommand.Execute(null);
         }
 
         /// <summary>

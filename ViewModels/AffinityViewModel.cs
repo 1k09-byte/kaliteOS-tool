@@ -107,12 +107,18 @@ namespace kaliteConfig.ViewModels
             int logical = topology.TotalLogicalCores;
             item.CoreGroups.Clear();
 
+            // No explicit override in the registry means the device runs on
+            // every logical processor — pre-check everything so the dialog
+            // shows the EFFECTIVE affinity instead of "0 of N selected".
+            ulong fullMask = logical >= 64 ? ulong.MaxValue : ((1UL << logical) - 1);
+            ulong effectiveMask = info.AffinityMask ?? fullMask;
+
             int coreIndex = 0;
 
             void MapCores(IEnumerable<ulong> masks, string label)
             {
                 // Note: masks includes core 0 if we're rendering the UI (Wait, TopologyService Detection removes reserved core 0!
-                // To avoid breaking the UI indices if we omitted Core 0, I should just render all cores. Wait! TopologyService.Detect removes Core 0 from PerformanceCoreMasks! 
+                // To avoid breaking the UI indices if we omitted Core 0, I should just render all cores. Wait! TopologyService.Detect removes Core 0 from PerformanceCoreMasks!
                 // So Core 0's threads won't be rendered. Let's fix that by re-adding Core 0 or handling it gracefully:
                 foreach (ulong mask in masks)
                 {
@@ -121,7 +127,7 @@ namespace kaliteConfig.ViewModels
                     {
                         if ((mask & (1UL << t)) != 0)
                         {
-                            bool on = info.AffinityMask is ulong m && (m & (1UL << t)) != 0;
+                            bool on = (effectiveMask & (1UL << t)) != 0;
                             var row = new ProcessorThreadItem { Index = t, IsChecked = on };
                             row.PropertyChanged += (_, e) =>
                             {
@@ -154,7 +160,7 @@ namespace kaliteConfig.ViewModels
                 {
                     if ((missingMask & (1UL << t)) != 0)
                     {
-                        bool on = info.AffinityMask is ulong m && (m & (1UL << t)) != 0;
+                        bool on = (effectiveMask & (1UL << t)) != 0;
                         var row = new ProcessorThreadItem { Index = t, IsChecked = on };
                         row.PropertyChanged += (_, e) =>
                         {
@@ -174,6 +180,8 @@ namespace kaliteConfig.ViewModels
             MapCores(topology.PerformanceCoreMasks, topology.IsHybrid ? "P-Core" : "Phys");
             MapCores(topology.EfficiencyCoreMasks, "E-Core");
             RefreshThreadCount(item);
+            if (info.AffinityMask is null)
+                item.SelectedThreadCountText += " (system default)";
             return Task.CompletedTask;
         }
 
@@ -345,7 +353,10 @@ namespace kaliteConfig.ViewModels
             // Affinity Mask
             ulong newMask = BuildMaskFromGroups(item);
             ulong oldMask = info.AffinityMask ?? 0;
-            if (newMask != oldMask)
+            // No explicit override + everything still checked = "system
+            // default", not a change — don't write a redundant full mask.
+            bool isDefaultUnchanged = info.AffinityMask is null && newMask == RenderedMask(item);
+            if (!isDefaultUnchanged && newMask != oldMask)
             {
                 if (_affinityService.SetAffinityMask(item.DeviceInstanceId, newMask))
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "AffinityMask", oldMask, newMask, DateTime.Now));
@@ -357,6 +368,10 @@ namespace kaliteConfig.ViewModels
             item.DevicePriorityShort = refreshed.DevicePriority is null ? "—" : AffinityService.DevicePriorityName(refreshed.DevicePriority);
             item.AffinityText = AffinityService.AffinityMaskText(refreshed.AffinityMask);
             item.IrqText = refreshed.MsiSupported == true ? "MSI" : refreshed.MsiSupported == false ? "Line" : "—";
+
+            // Resync the dialog checkboxes from readback so a partial/failed
+            // write can never leave them lying about the applied affinity.
+            ResyncGroupsFromMask(item, refreshed.AffinityMask);
         }
 
         private static ulong BuildMaskFromGroups(AffinityDeviceItem item)
@@ -367,6 +382,32 @@ namespace kaliteConfig.ViewModels
                     if (thread.IsChecked)
                         mask |= 1UL << thread.Index;
             return mask;
+        }
+
+        /// <summary>Bitmask of every thread currently rendered in the dialog grid.</summary>
+        private static ulong RenderedMask(AffinityDeviceItem item)
+        {
+            ulong mask = 0;
+            foreach (var group in item.CoreGroups)
+                foreach (var thread in group.Threads)
+                    mask |= 1UL << thread.Index;
+            return mask;
+        }
+
+        /// <summary>
+        /// Re-checks the dialog grid from a freshly read mask (null = system
+        /// default = everything on) and updates the selected-count text.
+        /// </summary>
+        private static void ResyncGroupsFromMask(AffinityDeviceItem item, ulong? mask)
+        {
+            if (item.CoreGroups.Count == 0) return;
+            ulong effective = mask ?? RenderedMask(item);
+            foreach (var group in item.CoreGroups)
+                foreach (var thread in group.Threads)
+                    thread.IsChecked = (effective & (1UL << thread.Index)) != 0;
+            RefreshThreadCount(item);
+            if (mask is null)
+                item.SelectedThreadCountText += " (system default)";
         }
 
         // ── Optimize command ────────────────────────────────────────────────

@@ -100,7 +100,6 @@
                         Margin="16,8,12,8" />
                     <ListView
                         Grid.Row="1"
-                        x:Name="CategoryList"
                         SelectionMode="Single"
                         Padding="4,0"
                         ScrollViewer.VerticalScrollBarVisibility="Auto"
