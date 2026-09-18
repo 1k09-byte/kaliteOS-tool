@@ -59,3 +59,16 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 ; checkbox on interactive installs. The app requires admin anyway, so no
 ; runasoriginaluser demotion.
 Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    // Forcefully kill the running app because our custom minimize-to-tray logic
+    // intercepts and blocks the Restart Manager's standard WM_CLOSE requests.
+    Exec('taskkill.exe', '/F /IM kaliteConfig.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+end;
