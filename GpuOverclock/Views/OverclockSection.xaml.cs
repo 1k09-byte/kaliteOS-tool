@@ -40,6 +40,9 @@ namespace kaliteConfig.GpuOverclock.Views
 
         // ---------------- x:Bind visibility helpers ----------------
 
+        public static Visibility NotSupportedVis(bool isSupported)
+            => isSupported ? Visibility.Collapsed : Visibility.Visible;
+
         public static Visibility BoolToVis(bool value)
             => value ? Visibility.Visible : Visibility.Collapsed;
 
