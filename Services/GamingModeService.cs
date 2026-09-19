@@ -3,9 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using kaliteConfig.Models;
 using kaliteConfig.Native;
+using kaliteConfig.ProcessOptimizer.Services;
+using kaliteConfig.ProcessOptimizer.Models;
 
 namespace kaliteConfig.Services;
 
@@ -120,12 +123,34 @@ public sealed class GamingModeService
     /// when the original state could not be read — such processes get their
     /// priority lowered but are never eco-toggled. Restoration targets these.
     /// </summary>
-    private readonly ConcurrentDictionary<int, (uint Priority, bool? Eco)> _restoreMap = new();
+    private readonly Dictionary<string, (uint Priority, bool? Eco)> _restoreMap = new();
 
     public bool IsActive { get; private set; }
 
     /// <summary>Number of processes we have changed and can restore.</summary>
     public int RestorableCount => _restoreMap.Count;
+
+    /// <summary>
+    /// Safely computes a unique composite key for a process to prevent PID reuse collisions.
+    /// </summary>
+    private static string GetProcessKey(int pid)
+    {
+        long ticks = 0;
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            ticks = p.StartTime.Ticks;
+        }
+        catch { }
+        return $"{pid}_{ticks}";
+    }
+
+    private static string GetProcessKey(Process p)
+    {
+        long ticks = 0;
+        try { ticks = p.StartTime.Ticks; } catch { }
+        return $"{p.Id}_{ticks}";
+    }
 
     /// <summary>
     /// Detection fired: raise the target Normal → Above Normal. Returns true
@@ -144,10 +169,11 @@ public sealed class GamingModeService
                 return false; // already elevated, below normal, or unreadable
             }
 
+            string key = GetProcessKey(pid);
             // Record the pre-change value so a later restore puts things back.
-            if (!_restoreMap.ContainsKey(pid))
+            if (!_restoreMap.ContainsKey(key))
             {
-                _restoreMap[pid] = (current, null);
+                _restoreMap[key] = (current, null);
             }
 
             return TrySetPriorityClass(pid, NativeMethods.Priority.AboveNormal);
@@ -170,12 +196,32 @@ public sealed class GamingModeService
         {
             try
             {
+                // Push game logic exactly as before for the target PID.
+                uint targetOriginal = ReadPriorityClass(targetPid);
+                string targetBefore = ProcessTuningService.PriorityName(targetOriginal);
+
+                // NOTE: the target is NOT touched here. ForegroundBoosterService
+                // raises it to High (Eco OFF, boost on, mem/IO maxed) inside
+                // StartSession, AFTER the orchestrator snapshots its original
+                // state. Mutating it here would poison that baseline, and
+                // Deactivate could then only restore the boosted values —
+                // leaving the game stuck at High after Game Mode turns off.
+                bool ok = true;
+
+                // One-shot background demotion: every ordinary Normal process
+                // drops to BelowNormal, gets its priority boost DISABLED
+                // (no scheduler micro-spikes from OS quantum extensions),
+                // and gets EcoQoS ON. Strict by design — High/Realtime/
+                // AboveNormal (deliberate), Idle/BelowNormal (already low),
+                // critical, protected, self, and the game are never touched.
+                // Everything recorded here (true originals, pid+startTime
+                // keyed) is restored by Deactivate.
                 int lowered = 0;
                 int ecoCount = 0;
                 int failed = 0;
-                string targetBefore = "?";
-                string targetAfter = "?";
+                int selfPid = Process.GetCurrentProcess().Id;
 
+                GamingExemptionService.EnsureStarterFile();
                 foreach (Process proc in Process.GetProcesses())
                 {
                     int pid;
@@ -190,111 +236,86 @@ public sealed class GamingModeService
                         continue; // died mid-enumeration
                     }
 
-                    if (pid <= 4 || ProcessTuningService.IsSelf(pid))
-                    {
-                        continue;
-                    }
+                    if (pid <= 4 || pid == targetPid || pid == selfPid) continue;
+                    if (protectedPids.Contains(pid)) continue;
+                    if (ProcessTuningService.IsCritical(name, pid)) continue;
+                    if (ProcessTuningService.IsSelf(pid)) continue;
+                    if (GamingExemptionService.IsExempt(proc.ProcessName)) continue;
+
+                    // Contention gate: idle processes don't compete with the
+                    // game (High priority preempts them instantly). Touching
+                    // hundreds of idle processes is pure downside — each write
+                    // churns the scheduler and the restore map for zero gain.
+                    // Only demote processes actually burning CPU right now.
+                    double cpuPct = GetCpuPercentSnapshot(pid);
+                    if (cpuPct < 0.5) continue; // <0.5% CPU = not a contender
 
                     uint original = ReadPriorityClass(pid);
                     if (original == 0)
                     {
-                        continue; // no access — can't restore later, don't touch
-                    }
-
-                    // First time we see this process: remember its natural state
-                    // (priority + Efficiency mode). If a priority-only change
-                    // (CPU-bound auto-raise) recorded it earlier without eco,
-                    // capture eco now so this pass can toggle and restore it.
-                    if (!_restoreMap.TryGetValue(pid, out var known))
-                    {
-                        _restoreMap[pid] = (original, ReadEcoState(pid));
-                    }
-                    else if (known.Eco is null)
-                    {
-                        _restoreMap[pid] = (known.Priority, ReadEcoState(pid));
-                    }
-
-                    if (pid == targetPid || protectedPids.Contains(pid))
-                    {
-                        continue; // all game processes stay untouched (handled below)
-                    }
-
-                    if (ProcessTuningService.IsCritical(name, pid))
-                    {
-                        // Critical system processes (like DWM) get bumped to Above Normal to prevent starving
-                        if (original is NativeMethods.Priority.Normal or NativeMethods.Priority.BelowNormal)
-                        {
-                            TrySetPriorityClass(pid, NativeMethods.Priority.AboveNormal);
-                        }
+                        failed++; // no access — can't restore later, don't touch
                         continue;
                     }
+                    if (original != NativeMethods.Priority.Normal) continue; // respect all non-Normal
 
-                    // Lower ordinary background load into Below Normal +
-                    // Efficiency mode. Already-low processes (Idle/BelowNormal)
-                    // and manually-set High/Realtime ones are respected for
-                    // priority; eco is only toggled where it was readable so
-                    // restore can always put it back.
-                    if (original is NativeMethods.Priority.Normal or NativeMethods.Priority.AboveNormal)
+                    bool? ecoOriginal = ReadEcoState(pid);
+
+                    string key = GetProcessKey(pid);
+                    if (!_restoreMap.ContainsKey(key))
                     {
-                        bool priorityOk = TrySetPriorityClass(pid, NativeMethods.Priority.BelowNormal);
-                        bool? ecoOriginal = _restoreMap[pid].Eco;
-                        bool ecoOk = !ecoOriginal.HasValue || TrySetEco(pid, true);
-
-                        if (priorityOk)
-                        {
-                            lowered++;
-                            if (ecoOriginal.HasValue && ecoOk)
-                            {
-                                ecoCount++;
-                            }
-                        }
-                        else
-                        {
-                            failed++;
-                        }
-                    }
-                }
-
-                // Target: Normal/Below Normal/Idle → High; anything already
-                // above that is respected as a deliberate choice. Realtime is
-                // never selected automatically.
-                uint targetOriginal = ReadPriorityClass(targetPid);
-                targetBefore = ProcessTuningService.PriorityName(targetOriginal);
-
-                bool ok = true;
-                if (targetOriginal is NativeMethods.Priority.Normal or NativeMethods.Priority.BelowNormal or NativeMethods.Priority.Idle)
-                {
-                    if (!_restoreMap.ContainsKey(targetPid))
-                    {
-                        _restoreMap[targetPid] = (targetOriginal, null);
+                        _restoreMap[key] = (original, ecoOriginal);
                     }
 
-                    ok = TrySetPriorityClass(targetPid, NativeMethods.Priority.High);
-                }
-
-                // Target: Efficiency mode OFF so the game runs at full
-                // performance. The original state was captured above when
-                // readable; force OFF even when unreadable (one-way change,
-                // but a game with Eco on is never what the user wants).
-                bool? targetEco = ReadEcoState(targetPid);
-                if (targetEco == true)
-                {
-                    if (_restoreMap.TryGetValue(targetPid, out var known))
+                    bool demoted = TrySetPriorityClass(pid, NativeMethods.Priority.BelowNormal);
+                    if (demoted)
                     {
-                        if (known.Eco is null)
+                        lowered++;
+                        // Disable the OS priority boost so background threads
+                        // can't grab quantum extensions mid-frame.
+                        using (var handle = NativeMethods.Handles.OpenProcess(
+                            NativeMethods.ProcessAccess.SetInformation, false, (uint)pid))
                         {
-                            _restoreMap[targetPid] = (known.Priority, targetEco);
+                            if (!handle.IsInvalid)
+                                NativeMethods.Priority.SetProcessPriorityBoost(handle, true); // true = disable boost
+                        }
+                        if (ecoOriginal == false && TrySetEco(pid, true))
+                        {
+                            ecoCount++;
                         }
                     }
                     else
                     {
-                        _restoreMap[targetPid] = (targetOriginal, targetEco);
+                        failed++;
                     }
-
-                    TrySetEco(targetPid, false);
                 }
 
-                targetAfter = ProcessTuningService.PriorityName(ReadPriorityClass(targetPid));
+                string gameName = "?";
+                try { gameName = Process.GetProcessById(targetPid).ProcessName; } catch { }
+
+                var exclusions = new List<string>();
+                if (protectedPids != null)
+                {
+                    foreach (int p in protectedPids)
+                    {
+                        try { exclusions.Add(Process.GetProcessById(p).ProcessName); } catch { }
+                    }
+                }
+
+                OptimizationSessionOrchestrator.Instance.StartSession(targetPid, gameName, new OptimizationProfile { Aggressiveness = AggressivenessLevel.Light, Exclusions = exclusions });
+
+                // NOTE: no mass background sweep here. The 13:43 capture proved
+                // that parking every Normal-priority process (svchosts, driver
+                // hosts, MemCompression…) onto a 2-set background pool on the
+                // interrupt core causes ~190 ms system stalls (0.1% low 5.3 FPS).
+                // Only ACTIVE contenders get demoted: the per-process demotion
+                // loop above (BelowNormal + no boost + EcoQoS) and the
+                // orchestrator's reactive path handle them one by one. Idle
+                // background processes cost the game nothing — High priority
+                // preempts them instantly — so leave them alone.
+
+                // Read AFTER StartSession: the booster has applied High by now,
+                // so this reports the real before → after transition.
+                string targetAfter = ProcessTuningService.PriorityName(ReadPriorityClass(targetPid));
                 IsActive = true;
 
                 return new GamingModeResult
@@ -316,15 +337,76 @@ public sealed class GamingModeService
     }
 
     /// <summary>
-    /// Restores every priority class captured since activation (including the
-    /// auto-raised target). Safe to call repeatedly; no-ops when the map is
-    /// empty. Only pids that still exist fail silently.
+    /// Restores everything Game Mode changed, in two layers: the orchestrator
+    /// session end restores full baselines (game process + threads, throttled
+    /// background incl. boost/mem/IO/affinity/CPU Sets), then the local map
+    /// restores CPU-bound auto-raises (priority-only changes with no baseline).
+    /// Safe to call repeatedly; no-ops when nothing is held.
     /// </summary>
+    /// <summary>
+    /// Resets every accessible non-critical process's priority class to Normal.
+    /// Intended as a panic "undo everything" — covers processes changed by this
+    /// app, other tools, or manual tweaks. Skips critical system processes,
+    /// itself, and protected processes. Returns (reset, skipped) counts.
+    /// </summary>
+    public (int Reset, int Skipped) ResetAllPrioritiesToNormal()
+    {
+        int reset = 0, skipped = 0;
+        int self = Environment.ProcessId;
+        foreach (var proc in Process.GetProcesses())
+        {
+            try
+            {
+                int pid = proc.Id;
+                string name;
+                try { name = proc.ProcessName + ".exe"; }
+                catch { skipped++; continue; }
+
+                if (pid <= 4 || pid == self
+                    || ProcessTuningService.IsCritical(name, pid)
+                    || ProcessOptimizer.Services.ProtectedProcessGuard.IsProcessProtected(proc.ProcessName))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                if (TrySetPriorityClass(pid, NativeMethods.Priority.Normal)) reset++;
+                else skipped++; // includes protected/unopenable processes
+            }
+            catch { skipped++; }
+            finally { try { proc.Dispose(); } catch { } }
+        }
+        _restoreMap.Clear();
+        return (reset, skipped);
+    }
+
     public void Deactivate()
     {
-        foreach ((int pid, (uint priority, bool? eco)) in _restoreMap)
+        OptimizationSessionOrchestrator.Instance.EndSession();
+
+        foreach (var kvp in _restoreMap)
         {
+            string key = kvp.Key;
+            uint priority = kvp.Value.Priority;
+            bool? eco = kvp.Value.Eco;
+
+            string[] parts = key.Split('_');
+            if (parts.Length != 2 || !int.TryParse(parts[0], out int pid)) continue;
+
+            // Verify PID still points to the same instance!
+            if (GetProcessKey(pid) != key)
+            {
+                continue; // Stale PID (process exited and PID reused, or dead)
+            }
+
             TrySetPriorityClass(pid, priority);
+            // Re-enable the OS priority boost (disabled during the session).
+            using (var handle = NativeMethods.Handles.OpenProcess(
+                NativeMethods.ProcessAccess.SetInformation, false, (uint)pid))
+            {
+                if (!handle.IsInvalid)
+                    NativeMethods.Priority.SetProcessPriorityBoost(handle, false); // false = boost enabled
+            }
             if (eco.HasValue)
             {
                 TrySetEco(pid, eco.Value);
@@ -333,6 +415,28 @@ public sealed class GamingModeService
 
         _restoreMap.Clear();
         IsActive = false;
+    }
+
+    /// <summary>
+    /// Instantaneous CPU% estimate for one process, sampled over a short
+    /// interval. Cached snapshot pair (two passes ~400 ms apart at activate
+    /// time is fine — activation is not latency-critical).
+    /// </summary>
+    private static double GetCpuPercentSnapshot(int pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            TimeSpan t1 = p.TotalProcessorTime;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            Thread.Sleep(200);
+            using var p2 = Process.GetProcessById(pid);
+            TimeSpan t2 = p2.TotalProcessorTime;
+            sw.Stop();
+            if (sw.ElapsedMilliseconds <= 0) return 0;
+            return (t2 - t1).TotalMilliseconds / sw.ElapsedMilliseconds * 100.0;
+        }
+        catch { return 0; }
     }
 
     private static uint ReadPriorityClass(int pid)

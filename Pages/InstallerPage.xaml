@@ -22,6 +22,7 @@
 
     <Page.Resources>
         <converters:AssetPathToImageSourceConverter x:Key="AssetPathConverter" />
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style
             x:Key="SettingsSectionHeaderTextBlockStyle"
             BasedOn="{StaticResource BodyStrongTextBlockStyle}"
@@ -97,31 +98,17 @@
                 </Grid>
             </Button>
         </DataTemplate>
-    </Page.Resources>
 
-    <Grid x:Name="RootGrid" UseLayoutRounding="True">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <Pivot Grid.RowSpan="2">
-            <PivotItem Header="Install">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-        <!-- The XAML Dialog -->
+        <!-- Details dialog lives in resources (never in the visual tree): it is
+             only materialized by ShowAsync, so nothing here can disturb the
+             Install tab layout behind it. -->
         <ContentDialog x:Name="BrowserDetailsDialog"
-                       Grid.RowSpan="2"
                        Style="{StaticResource DefaultContentDialogStyle}"
                        Title="{x:Null}"
                        PrimaryButtonText=""
                        CloseButtonText="{x:Bind local:InstallerPage.GetCloseButtonText(ViewModel.SelectedBrowser.Status), Mode=OneWay}">
-            <!-- 
-                 We hide Title natively and put the title inside the content panel for better icon alignment 
+            <!--
+                 We hide Title natively and put the title inside the content panel for better icon alignment
             -->
             <StackPanel Spacing="16">
                 <!-- Title Panel -->
@@ -129,16 +116,16 @@
                      <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay, Converter={StaticResource AssetPathConverter}}"/>
                      <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
                 </StackPanel>
-                
+
                 <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.SelectedBrowser.Description, Mode=OneWay}"/>
 
                 <!-- Extensions List -->
                 <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedBrowser.Extensions, Mode=OneWay}">
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="models:ExtensionItem">
-                            <CheckBox 
-                                IsChecked="{x:Bind IsSelected, Mode=TwoWay}" 
-                                IsEnabled="{x:Bind IsAvailable, Mode=OneWay}" 
+                            <CheckBox
+                                IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                IsEnabled="{x:Bind IsAvailable, Mode=OneWay}"
                                 Margin="0,8,0,0">
                                 <StackPanel>
                                     <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
@@ -176,10 +163,29 @@
                 </StackPanel>
             </StackPanel>
         </ContentDialog>
+    </Page.Resources>
 
+    <Grid x:Name="RootGrid" UseLayoutRounding="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
+            <TextBlock Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
+        </StackPanel>
+
+        <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="36,12,36,8"
+                     HorizontalAlignment="Left"
+                     SelectionChanged="MainSelectorBar_SelectionChanged">
+            <SelectorBarItem x:Name="TabInstall" Text="Install" IsSelected="True" />
+            <SelectorBarItem x:Name="TabPackages" Text="Packages" />
+        </SelectorBar>
+
+        <Grid x:Name="InstallPanel" Grid.Row="2">
         <ScrollViewer
-            Grid.Row="1"
-            Padding="36,0,36,0"
+            Padding="36,0,36,24"
             VerticalScrollBarVisibility="Auto"
             VerticalScrollMode="Auto">
             <StackPanel
@@ -187,6 +193,14 @@
                 Margin="0,8,0,32"
                 HorizontalAlignment="Left"
                 Spacing="32">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Show installed" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.ShowInstalled, Mode=TwoWay}" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Reveal installed apps (with uninstall option)." />
+                </StackPanel>
+                <InfoBar Message="Everything here is already installed — nothing left to install."
+                         Severity="Informational" IsOpen="True" IsClosable="False"
+                         Visibility="{x:Bind ViewModel.NothingToInstall, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 <!-- Web Browsers Section -->
                 <StackPanel Spacing="16">
                     <TextBlock Text="Web Browsers" Style="{ThemeResource SubtitleTextBlockStyle}" />
@@ -261,11 +275,7 @@
 
             </StackPanel>
         </ScrollViewer>
-                </Grid>
-            </PivotItem>
-            <PivotItem Header="Packages">
-                <pm:PackageManagerPage />
-            </PivotItem>
-        </Pivot>
+        </Grid>
+        <pm:PackageManagerPage x:Name="PackagesPanel" Grid.Row="2" Visibility="Collapsed" />
     </Grid>
 </Page>

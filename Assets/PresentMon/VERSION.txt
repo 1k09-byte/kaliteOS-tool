@@ -1,0 +1,18 @@
+PresentMon console build bundled with kaliteConfig Benchmark.
+Upstream: https://github.com/GameTechDev/PresentMon (MIT, see LICENSE.txt)
+Pinned version: 2.5.1 (console application, x64)
+SHA-256 (PresentMon.exe): 9BEC3083069F58F911E6A512F4806DB51A27BD096103087BC1D05EF54C80A191
+Verified flags (from `PresentMon.exe --help` on this exact build):
+  target: --process_name, --process_id
+  output: --output_file, --no_console_stats (--v1_metrics/--v2_metrics NOT used)
+  record: --delay, --timed, --terminate_on_proc_exit, --terminate_after_timed
+  exec: --session_name, --stop_existing_session, --terminate_existing_session
+Verified default CSV schema (no --v1/--v2 flag; header lookup, never index):
+  Application,ProcessID,SwapChainAddress,PresentRuntime,SyncInterval,PresentFlags,
+  AllowsTearing,PresentMode,TimeInMs,MsBetweenSimulationStart,MsBetweenPresents,
+  MsBetweenDisplayChange,MsInPresentAPI,MsRenderPresentLatency,MsUntilDisplayed,
+  CPUStartTimeInMs,MsBetweenAppStart,MsCPUBusy,MsCPUWait,MsGPULatency,MsGPUTime,
+  MsGPUBusy,MsGPUWait,MsAnimationError,AnimationTime,MsFlipDelay,
+  MsAllInputToPhotonLatency,MsClickToPhotonLatency
+Frametime column: MsBetweenPresents (fallback: FrameTime from --v2_metrics schema).
+Session name used by the app: kaliteBench.

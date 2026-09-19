@@ -13,11 +13,12 @@ namespace kaliteConfig.Services;
 /// per-process and per-thread default/selected CPU Sets. All native calls run on
 /// worker threads; parsing is offset-based so layout changes degrade, not corrupt.
 /// </summary>
+[System.Diagnostics.DebuggerNonUserCode]
 public sealed class CpuSetService
 {
     public async Task<List<CpuSetEntry>> GetTopologyAsync()
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             if (!NativeMethods.CpuSets.GetSystemCpuSetInformation(null, 0, out uint needed, IntPtr.Zero, 0))
             {
@@ -77,7 +78,7 @@ public sealed class CpuSetService
 
     public async Task<List<ulong>> GetProcessCpuSetsAsync(int pid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
@@ -108,7 +109,7 @@ public sealed class CpuSetService
 
     public async Task SetProcessCpuSetsAsync(int pid, IReadOnlyList<ulong> ids)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
@@ -122,7 +123,7 @@ public sealed class CpuSetService
 
     public async Task<List<ulong>> GetThreadCpuSetsAsync(uint tid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryLimitedInformation, false, tid);
@@ -153,7 +154,7 @@ public sealed class CpuSetService
 
     public async Task SetThreadCpuSetsAsync(uint tid, IReadOnlyList<ulong> ids)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             // Same lesson as thread affinity: the setter validates against
             // current state, so the handle needs QUERY_INFORMATION too.
@@ -181,6 +182,7 @@ public sealed class CpuSetService
         return ranks;
     }
 
+    [System.Diagnostics.DebuggerNonUserCode]
     internal static void ThrowIfInvalid(SafeHandle handle, long id)
     {
         if (handle.IsInvalid)
@@ -205,4 +207,26 @@ public sealed class CpuSetService
 
         return inner;
     }
+
+    [System.Diagnostics.DebuggerNonUserCode]
+    public static Task RunNativeAsync(Action action)
+    {
+        return Task.Run(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { return Task.FromException(ex); }
+            return Task.CompletedTask;
+        });
+    }
+
+    [System.Diagnostics.DebuggerNonUserCode]
+    public static Task<T> RunNativeAsync<T>(Func<T> func)
+    {
+        return Task.Run(() =>
+        {
+            try { return Task.FromResult(func()); }
+            catch (Exception ex) { return Task.FromException<T>(ex); }
+        });
+    }
 }
+

@@ -28,11 +28,14 @@ namespace kaliteConfig.ViewModels
         public ObservableCollection<BrowserInstallItem> VisibleGameLaunchers { get; } = new();
         public ObservableCollection<BrowserInstallItem> VisibleSocialApps { get; } = new();
 
-        // Installed items are always hidden on the Apps page: it stays a
-        // pure install page. (The reveal toggle was removed; these filters
-        // still run after install/uninstall to keep cards in sync.)
+        // Installed items are hidden on the Apps page by default: it stays a
+        // pure install page. Flip ShowInstalled to reveal them (with uninstall).
         [ObservableProperty]
         public partial bool ShowInstalled { get; set; } = false;
+
+        /// <summary>True when every section is empty — drives the empty-state message.</summary>
+        [ObservableProperty]
+        public partial bool NothingToInstall { get; set; } = false;
 
         partial void OnShowInstalledChanged(bool value)
         {
@@ -72,6 +75,9 @@ namespace kaliteConfig.ViewModels
                 util.IsVisible = ShowInstalled || (util.Status != BrowserInstallStatus.AlreadyInstalled && util.Status != BrowserInstallStatus.Installed);
                 if (util.IsVisible) VisibleUtilities.Add(util);
             }
+
+            NothingToInstall = VisibleBrowsers.Count == 0 && VisibleGameLaunchers.Count == 0
+                && VisibleSocialApps.Count == 0 && VisibleUtilities.Count == 0;
         }
 
         [ObservableProperty]

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    BoostVerify: runtime probe that verifies the Gaming-mode boost path
+    actually applies (CPU Sets partition, thread priority/ideal-processor,
+    background demotion). Spawns a sacrificial child process, runs the REAL
+    ForegroundBoosterService + BackgroundThrottleService against it, then
+    reads back what the OS reports. Main app build never sees it.
+    Run from tools/BoostVerify with dotnet run (admin recommended).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Services\ReservedCpuSetsService.cs" Link="Services\ReservedCpuSetsService.cs" />
+    <Compile Include="..\..\ProcessOptimizer\Services\ForegroundBoosterService.cs" Link="Services\ForegroundBoosterService.cs" />
+    <Compile Include="..\..\ProcessOptimizer\Services\BackgroundThrottleService.cs" Link="Services\BackgroundThrottleService.cs" />
+    <Compile Include="..\..\ProcessOptimizer\Services\CpuSetPartitionService.cs" Link="Services\CpuSetPartitionService.cs" />
+    <Compile Include="..\..\Services\TopologyService.cs" Link="Services\TopologyService.cs" />
+    <Compile Include="..\..\Models\CoreTopology.cs" Link="Models\CoreTopology.cs" />
+    <Compile Include="..\..\ProcessOptimizer\Models\OptimizationModels.cs" Link="Models\OptimizationModels.cs" />    <Compile Include="..\..\Native\SafeHandles.cs" Link="Native\SafeHandles.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Affinity.cs" Link="Native\NativeMethods.Affinity.cs" />
+    <Compile Include="..\..\Native\NativeMethods.CfgMgr32.cs" Link="Native\NativeMethods.CfgMgr32.cs" />
+    <Compile Include="..\..\Native\NativeMethods.CpuSets.cs" Link="Native\NativeMethods.CpuSets.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Handles.cs" Link="Native\NativeMethods.Handles.cs" />
+    <Compile Include="..\..\Native\NativeMethods.JobObjects.cs" Link="Native\NativeMethods.JobObjects.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Ntdll.cs" Link="Native\NativeMethods.Ntdll.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Power.cs" Link="Native\NativeMethods.Power.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Priority.cs" Link="Native\NativeMethods.Priority.cs" />
+    <Compile Include="..\..\Native\Kernel32.cs" Link="Native\Kernel32.cs" />  </ItemGroup>
+
+</Project>

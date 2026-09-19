@@ -105,6 +105,10 @@
                     </StackPanel>
                 </Border>
 
+                <toolkit:SettingsExpander Header="Reserve CPU Sets" Description="Isolate system cores from the OS Task Scheduler" Margin="0,0,0,12" IsExpanded="True">
+                    <Frame x:Name="ReservedCpuSetsFrame" MinHeight="400" UseLayoutRounding="True" />
+                </toolkit:SettingsExpander>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>

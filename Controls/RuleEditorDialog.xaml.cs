@@ -78,6 +78,16 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         set => Set(ref _efficiencyName, value);
     }
 
+    public string AutomaticGamingModeDescription =>
+        Services.TopologyService.Get().EfficiencyCoreMasks.Count > 0
+            ? "Boost this app + trap background tasks onto E-cores (Efficiency Mode)"
+            : "Boost this app + drop background task clock speeds (Efficiency Mode)";
+
+    public string AutomaticGamingModeTooltip =>
+        Services.TopologyService.Get().EfficiencyCoreMasks.Count > 0
+            ? "When this process launches, boost its priority and trap all background processes onto E-cores via EcoQoS. Restores when the app exits."
+            : "When this process launches, boost its priority and throttle all background process CPU clocks via EcoQoS. Restores when the app exits.";
+
     private bool _gamingAutoChecked;
     /// <summary>Rule triggers automatic app-wide Gaming mode on process launch.</summary>
     public bool GamingAutoChecked

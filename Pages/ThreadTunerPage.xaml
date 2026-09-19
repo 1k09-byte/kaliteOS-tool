@@ -1,5 +1,6 @@
 <Page
     x:Class="kaliteConfig.Pages.ThreadTunerPage"
+    x:Name="RootPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:kaliteConfig.Pages"
@@ -17,52 +18,6 @@
     </Page.Transitions>
 
     <Page.Resources>
-        <!-- Process Row Template -->
-        <DataTemplate x:Key="ProcessRowTemplate" x:DataType="models:TunerProcessRow">
-            <Grid Padding="4,8" ColumnSpacing="12" Background="Transparent" ToolTipService.ToolTip="{x:Bind Name}">
-                <Grid.ContextFlyout>
-                    <MenuFlyout Opening="ProcessMenu_Opening">
-                        <MenuFlyoutItem Text="Terminate" Click="Action_Terminate" />
-                        <MenuFlyoutItem Text="Suspend" Click="Action_Suspend" />
-                        <MenuFlyoutItem Text="Resume" Click="Action_Resume" />
-                        <MenuFlyoutSeparator />
-                        <MenuFlyoutSubItem Text="Priority >">
-                            <MenuFlyoutItem Text="High" Click="Action_Priority" Tag="High" />
-                            <MenuFlyoutItem Text="Above normal" Click="Action_Priority" Tag="AboveNormal" />
-                            <MenuFlyoutItem Text="Normal" Click="Action_Priority" Tag="Normal" />
-                            <MenuFlyoutItem Text="Below normal" Click="Action_Priority" Tag="BelowNormal" />
-                            <MenuFlyoutItem Text="Idle" Click="Action_Priority" Tag="Idle" />
-                        </MenuFlyoutSubItem>
-                        <MenuFlyoutItem Text="CPU affinity..." Click="Action_Affinity" />
-                        <MenuFlyoutItem Text="Show current settings" Click="Action_ShowSettings" />
-                        <MenuFlyoutSubItem Text="Priority boost >">
-                            <MenuFlyoutItem Text="Enabled" Click="Action_Boost" Tag="Enabled" />
-                            <MenuFlyoutItem Text="Disabled" Click="Action_Boost" Tag="Disabled" />
-                        </MenuFlyoutSubItem>
-                        <MenuFlyoutSeparator />
-                        <MenuFlyoutItem Text="Threads..." Click="Action_Threads" />
-                        <MenuFlyoutItem Text="Create rule..." Click="Action_CreateRule" />
-                        <MenuFlyoutItem Text="Show details" Click="Action_Details" />
-                    </MenuFlyout>
-                </Grid.ContextFlyout>
-                
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Grid Width="20" Height="20">
-                        <PathIcon Data="M2,2v20h20V2H2z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Width="16" Height="16" Visibility="{x:Bind FallbackVisibility, Mode=OneWay}" />
-                        <Image Source="{x:Bind AppIcon, Mode=OneWay}" Width="20" Height="20" />
-                    </Grid>
-                    <TextBlock Style="{StaticResource BodyTextBlockStyle}" FontWeight="SemiBold" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                </StackPanel>
-                
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Text="{x:Bind CpuPercent, Mode=OneWay}" />
-            </Grid>
-        </DataTemplate>
-        
         <!-- Rule Row Template -->
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
             <Border Margin="12,4" Padding="14,10" CornerRadius="8"
@@ -115,156 +70,236 @@
                 </Grid>
             </Border>
         </DataTemplate>
+
+        <!-- Process Row Template -->
+        <DataTemplate x:Key="ProcessRowTemplate" x:DataType="models:TunerProcessRow">
+            <Grid Padding="4,8" ColumnSpacing="12" Background="Transparent" ToolTipService.ToolTip="{x:Bind Name}">
+                <Grid.ContextFlyout>
+                    <MenuFlyout Opening="ProcessMenu_Opening">
+                        <MenuFlyoutItem Text="Terminate" Click="Action_Terminate" />
+                        <MenuFlyoutItem Text="Suspend" Click="Action_Suspend" />
+                        <MenuFlyoutItem Text="Resume" Click="Action_Resume" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem Text="Priority >">
+                            <MenuFlyoutItem Text="High" Click="Action_Priority" Tag="High" />
+                            <MenuFlyoutItem Text="Above normal" Click="Action_Priority" Tag="AboveNormal" />
+                            <MenuFlyoutItem Text="Normal" Click="Action_Priority" Tag="Normal" />
+                            <MenuFlyoutItem Text="Below normal" Click="Action_Priority" Tag="BelowNormal" />
+                            <MenuFlyoutItem Text="Idle" Click="Action_Priority" Tag="Idle" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="CPU affinity..." Click="Action_Affinity" />
+                        <MenuFlyoutItem Text="Show current settings" Click="Action_ShowSettings" />
+                        <MenuFlyoutSubItem Text="Priority boost >">
+                            <MenuFlyoutItem Text="Enabled" Click="Action_Boost" Tag="Enabled" />
+                            <MenuFlyoutItem Text="Disabled" Click="Action_Boost" Tag="Disabled" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Threads..." Click="Action_Threads" />
+                        <MenuFlyoutItem Text="Create rule..." Click="Action_CreateRule" />
+                        <MenuFlyoutItem Text="Show details" Click="Action_Details" />
+                    </MenuFlyout>
+                </Grid.ContextFlyout>
+                
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Grid Width="20" Height="20">
+                        <PathIcon Data="M2,2v20h20V2H2z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Width="16" Height="16" Visibility="{x:Bind FallbackVisibility, Mode=OneWay}" />
+                        <Image Source="{x:Bind AppIcon, Mode=OneWay}" Width="20" Height="20" />
+                    </Grid>
+                    <TextBlock Style="{StaticResource BodyTextBlockStyle}" FontWeight="SemiBold" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                </StackPanel>
+                
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Text="{x:Bind CpuPercent, Mode=OneWay}" />
+            </Grid>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- Action Bar -->
-            <RowDefinition Height="Auto" /> <!-- TopNav -->
-            <RowDefinition Height="Auto" /> <!-- Headers -->
-            <RowDefinition Height="*" />    <!-- Process Grid -->
-            <RowDefinition Height="Auto" /> <!-- Footer -->
+            <RowDefinition Height="Auto" /> <!-- SelectorBar -->
+            <RowDefinition Height="*" />    <!-- Main Content Panel -->
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
-            <TextBlock Text="Thread Tuning" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Process Control" Style="{StaticResource TitleTextBlockStyle}" />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="36,12,36,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            
             <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
                 <SelectorBarItem x:Name="TabProcesses" Text="Processes" />
                 <SelectorBarItem x:Name="TabRules" Text="Rules" />
-                <SelectorBarItem x:Name="TabThreadTune" Text="Thread Tune" />
-                <SelectorBarItem x:Name="TabReservedCpuSets" Text="Core Reservation" />
             </SelectorBar>
-            
-            <AutoSuggestBox Grid.Column="1" Width="240" PlaceholderText="Search processes or rules..." QueryIcon="Find" VerticalAlignment="Center" Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-            <!-- Gaming mode: boost selected process + lower background load, with restore.
-                 Processes tab only: the Rules / Core Reservation tabs have no process selection. -->
-            <StackPanel x:Name="GamingModePanel" Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,16,0">
-                <TextBlock x:Name="PageGamingStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"/>
-                <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="150" Padding="12,4"
-                        ToolTipService.ToolTip="Raises the selected process to Above Normal and lowers other background processes to Below Normal. Select a process row first."/>
-                <Button x:Name="PageRestoreButton" Content="Restore" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,4"
-                        ToolTipService.ToolTip="Revert every priority kaliteConfig changed (Gaming mode lowering and CPU-bound auto-raise)."/>
-            </StackPanel>
-            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
-                <TextBlock Text="Start with Windows" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <ToggleSwitch x:Name="StartupToggle" VerticalAlignment="Center" Toggled="StartupToggle_Toggled" />
-            </StackPanel>
         </Grid>
 
-        <!-- Column Headers -->
-        <Border x:Name="ProcessesHeader" Grid.Row="2" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,1,0,1" Padding="12,12">
-            <Grid ColumnSpacing="12">
+        <!-- Processes Panel -->
+        <Grid x:Name="ProcessesPanel" Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            
+            <Grid Grid.Row="0" Margin="36,0,36,16">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2.5*" />
-                    <ColumnDefinition Width="80" />
-                    <ColumnDefinition Width="80" />
-                    <ColumnDefinition Width="80" />
-                    <ColumnDefinition Width="80" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="1.5*" />
-                    <ColumnDefinition Width="1.5*" />
-                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="1" Text="CPU" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="2" Text="PID" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="3" Text="Memory" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="4" Text="Threads" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="5" Text="Priority" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="6" Text="State" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="7" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock Grid.Column="8" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                
+                <StackPanel x:Name="GamingModePanel" Grid.Column="0" Orientation="Vertical" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <StackPanel x:Name="SuspendRow" Orientation="Horizontal" Spacing="8">
+                    <StackPanel x:Name="OptimizerStatusPanel" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Background="{ThemeResource LayerFillColorAltBrush}" Padding="8,4" CornerRadius="4" Visibility="{Binding Optimizer.IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="🎯 Session Optimizer Active:" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource SystemFillColorSuccessBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Optimizer.ActiveGameName}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="|" Foreground="{ThemeResource TextFillColorDisabledBrush}" FontSize="12" Margin="4,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Managed:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Optimizer.ProcessesManaged}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="Throttled:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Optimizer.ProcessesThrottled}" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="PageGamingStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="PageSuspendStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="300" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="150" Padding="12,4"
+                                ToolTipService.ToolTip="Raises the selected process to Above Normal and lowers other background processes to Below Normal. Select a process row first."/>
+                        <Button x:Name="PageRestoreButton" Content="Restore" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,4"
+                                 ToolTipService.ToolTip="Revert every priority kaliteConfig changed (Gaming mode lowering and CPU-bound auto-raise)."/>
+                        <Button x:Name="PageSuspendNowButton" Content="Suspend background" Click="Page_SuspendNow" Padding="12,4"
+                                 ToolTipService.ToolTip="Freeze all background noise for the selected (or foreground) game. Everything resumes — nothing is terminated."/>
+                        <Button x:Name="PageResumeAllButton" Content="Resume all" Click="Page_ResumeAll" Padding="12,4"
+                                 ToolTipService.ToolTip="Resume everything suspend mode froze."/>
+                        <CheckBox x:Name="SuspendAutoCheck" Content="Auto" Checked="SuspendAuto_Toggled" Unchecked="SuspendAuto_Toggled" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Watch the foreground window: suspend background when a listed game is focused, resume when you switch back."/>
+                        <Button Content="Add game" Click="Page_AddGame" Padding="12,4"
+                                 ToolTipService.ToolTip="Add the selected process to the suspend-mode game list."/>
+                        <Button Content="Games…" Click="Page_ManageGames" Padding="12,4"
+                                ToolTipService.ToolTip="Show all processes and manage the suspend-mode game list."/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
+                    <TextBlock Text="Start with Windows" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ToggleSwitch x:Name="StartupToggle" VerticalAlignment="Center" Toggled="StartupToggle_Toggled" />
+                </StackPanel>
             </Grid>
-        </Border>
 
-        <!-- Process DataGrid Replacement via ListView -->
-        <ListView x:Name="ProcessesGrid" Grid.Row="3" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="models:TunerProcessRow">
-                    <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
-                    <Grid Padding="4,8" ColumnSpacing="12" Background="Transparent" ToolTipService.ToolTip="{x:Bind Name}" DoubleTapped="Row_DoubleTapped">
-                        <Grid.ContextFlyout>
-                            <MenuFlyout Opening="ProcessMenu_Opening">
-                                <MenuFlyoutItem Text="Terminate" Click="Action_Terminate" />
-                                <MenuFlyoutItem Text="Suspend" Click="Action_Suspend" />
-                                <MenuFlyoutItem Text="Resume" Click="Action_Resume" />
-                                <MenuFlyoutSeparator />
-                                <MenuFlyoutSubItem Text="Priority   >">
-                                    <MenuFlyoutItem Text="Real time" Click="Action_Priority" Tag="Realtime" />
-                                    <MenuFlyoutItem Text="High" Click="Action_Priority" Tag="High" />
-                                    <MenuFlyoutItem Text="Above normal" Click="Action_Priority" Tag="AboveNormal" />
-                                    <MenuFlyoutItem Text="Normal" Click="Action_Priority" Tag="Normal" />
-                                    <MenuFlyoutItem Text="Below normal" Click="Action_Priority" Tag="BelowNormal" />
-                                    <MenuFlyoutItem Text="Idle" Click="Action_Priority" Tag="Idle" />
-                                </MenuFlyoutSubItem>
-                                <MenuFlyoutItem Text="CPU affinity..." Click="Action_Affinity" />
-                                        <MenuFlyoutSubItem Text="Priority boost   >">
-                                    <MenuFlyoutItem Text="Enabled" Click="Action_Boost" Tag="Enabled" />
-                                    <MenuFlyoutItem Text="Disabled" Click="Action_Boost" Tag="Disabled" />
-                                </MenuFlyoutSubItem>
-                                <MenuFlyoutSubItem Text="Efficiency mode   >">
-                                    <MenuFlyoutItem Text="Enabled" Click="Action_Eco" Tag="Enabled" />
-                                    <MenuFlyoutItem Text="Disabled" Click="Action_Eco" Tag="Disabled" />
-                                </MenuFlyoutSubItem>
-                                <MenuFlyoutSeparator />
-                                <MenuFlyoutItem Text="Threads..." Click="Action_Threads" />
-                                <MenuFlyoutItem Text="Create rule..." Click="Action_CreateRule" />
-                                <MenuFlyoutItem Text="Show details" Click="Action_Details" />
-                            </MenuFlyout>
-                        </Grid.ContextFlyout>
-                        
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2.5*" />
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="1.5*" />
-                            <ColumnDefinition Width="1.5*" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
+            <!-- Column Headers -->
+            <Border x:Name="ProcessesHeader" Grid.Row="1" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,1,0,1" Padding="12,12">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2.5*" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="80" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="CPU" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="2" Text="PID" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="3" Text="Memory" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="4" Text="Threads" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="5" Text="Priority" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="6" Text="State" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="7" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="8" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
 
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="24,0,0,0">
-                            <Grid Width="16" Height="16">
-                                <PathIcon Data="M2,2v20h20V2H2z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Width="16" Height="16" Visibility="{x:Bind FallbackVisibility, Mode=OneWay}" />
-                                <Image Source="{x:Bind AppIcon, Mode=OneWay}" Width="16" Height="16" />
-                            </Grid>
-                            <FontIcon Glyph="&#xE72E;" FontSize="11" Foreground="{ThemeResource SystemFillColorCriticalBrush}" VerticalAlignment="Center"
-                                      Visibility="{x:Bind IsProtected, Mode=OneWay}"
-                                      ToolTipService.ToolTip="Protected process — Windows does not allow priority/affinity changes." />
-                            <TextBlock Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                       Foreground="{x:Bind local:ThreadTunerPage.RowNameBrush(IsProtected), Mode=OneWay}" />
-                        </StackPanel>
+            <ListView x:Name="ProcessesGrid" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:TunerProcessRow">
+                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
+                        <Grid Padding="4,8" ColumnSpacing="12" Background="Transparent" ToolTipService.ToolTip="{x:Bind Name}" DoubleTapped="Row_DoubleTapped">
+                            <Grid.ContextFlyout>
+                                <MenuFlyout Opening="ProcessMenu_Opening">
+                                    <MenuFlyoutItem Text="Terminate" Click="Action_Terminate" />
+                                    <MenuFlyoutItem Text="Suspend" Click="Action_Suspend" />
+                                    <MenuFlyoutItem Text="Resume" Click="Action_Resume" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutSubItem Text="Priority   >">
+                                        <MenuFlyoutItem Text="Real time" Click="Action_Priority" Tag="Realtime" />
+                                        <MenuFlyoutItem Text="High" Click="Action_Priority" Tag="High" />
+                                        <MenuFlyoutItem Text="Above normal" Click="Action_Priority" Tag="AboveNormal" />
+                                        <MenuFlyoutItem Text="Normal" Click="Action_Priority" Tag="Normal" />
+                                        <MenuFlyoutItem Text="Below normal" Click="Action_Priority" Tag="BelowNormal" />
+                                        <MenuFlyoutItem Text="Idle" Click="Action_Priority" Tag="Idle" />
+                                    </MenuFlyoutSubItem>
+                                    <MenuFlyoutItem Text="CPU affinity..." Click="Action_Affinity" />
+                                            <MenuFlyoutSubItem Text="Priority boost   >">
+                                        <MenuFlyoutItem Text="Enabled" Click="Action_Boost" Tag="Enabled" />
+                                        <MenuFlyoutItem Text="Disabled" Click="Action_Boost" Tag="Disabled" />
+                                    </MenuFlyoutSubItem>
+                                    <MenuFlyoutSubItem Text="Efficiency mode   >">
+                                        <MenuFlyoutItem Text="Enabled" Click="Action_Eco" Tag="Enabled" />
+                                        <MenuFlyoutItem Text="Disabled" Click="Action_Eco" Tag="Disabled" />
+                                    </MenuFlyoutSubItem>
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem Text="Threads..." Click="Action_Threads" />
+                                    <MenuFlyoutItem Text="Create rule..." Click="Action_CreateRule" />
+                                    <MenuFlyoutItem Text="Show details" Click="Action_Details" />
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
+                            
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2.5*" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CpuPercent, Mode=OneWay}" />
-                        <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Pid}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Memory, Mode=OneWay}" />
-                        <TextBlock Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Threads, Mode=OneWay}" />
-                        <TextBlock Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind PriorityText, Mode=OneWay}" />
-                        <TextBlock Grid.Column="6" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}" />
-                        <TextBlock Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CyclesDelta, Mode=OneWay}" />
-                    </Grid>
-                    </Border>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="24,0,0,0">
+                                <Grid Width="16" Height="16">
+                                    <PathIcon Data="M2,2v20h20V2H2z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Width="16" Height="16" Visibility="{x:Bind FallbackVisibility, Mode=OneWay}" />
+                                    <Image Source="{x:Bind AppIcon, Mode=OneWay}" Width="16" Height="16" />
+                                </Grid>
+                                <FontIcon Glyph="&#xE72E;" FontSize="11" Foreground="{ThemeResource SystemFillColorCriticalBrush}" VerticalAlignment="Center"
+                                          Visibility="{x:Bind IsProtected, Mode=OneWay}"
+                                          ToolTipService.ToolTip="Protected process — Windows does not allow priority/affinity changes." />
+                                <TextBlock Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           Foreground="{x:Bind local:ThreadTunerPage.RowNameBrush(IsProtected), Mode=OneWay}" />
+                            </StackPanel>
 
-        <!-- Rules Panel -->
-        <Grid x:Name="RulesPanel" Grid.Row="3" Visibility="Collapsed">
+                            <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CpuPercent, Mode=OneWay}" />
+                            <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Pid}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Memory, Mode=OneWay}" />
+                            <TextBlock Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Threads, Mode=OneWay}" />
+                            <TextBlock Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind PriorityText, Mode=OneWay}" />
+                            <TextBlock Grid.Column="6" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}" />
+                            <TextBlock Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CyclesDelta, Mode=OneWay}" />
+                        </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Grid x:Name="ProcessesFooter" Grid.Row="3" Margin="24,12,24,12">
+                <StackPanel Orientation="Horizontal" Spacing="24">
+                    <TextBlock Text="Updated 2 s" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- RulesPanel -->
+        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -312,7 +347,7 @@
             </Border>
 
             <!-- Rules list -->
-            <ListView x:Name="RulesList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedProfiles, Mode=OneWay}"
+            <ListView x:Name="RulesList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedProcessProfiles, Mode=OneWay}"
                       SelectedItem="{x:Bind ViewModel.SelectedProfile, Mode=TwoWay}"
                       ItemTemplate="{StaticResource RuleRowTemplate}"
                       SelectionMode="Single" ShowsScrollingPlaceholders="False" />
@@ -326,107 +361,5 @@
                 <TextBlock Text="Double-click to edit" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </Grid>
-
-        <!-- Reserved CPU Sets Panel -->
-        <Frame x:Name="ReservedCpuSetsFrame" Grid.Row="3" Visibility="Collapsed" Margin="24,12,24,12" />
-
-        <!-- Thread Tune Panel -->
-        <Grid x:Name="ThreadTunePanel" Grid.Row="3" Visibility="Collapsed">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <!-- Info bar -->
-            <Grid Grid.Row="0" Margin="12,4,12,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Spacing="4">
-                    <TextBlock Text="Thread Tune" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <TextBlock Text="Untick the checkbox to disable priority boost for a thread permanently. This prevents Windows from dynamically raising that thread's priority, reducing scheduler overhead and freeing CPU cycles."
-                               Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" Margin="12,0,0,0">
-                    <ToggleSwitch Header="Auto-disable unnamed" IsOn="{x:Bind ViewModel.AutoDisableUnnamedBoosts, Mode=TwoWay}" VerticalAlignment="Center" />
-                    <ToggleSwitch Header="Hide unnamed threads" IsOn="{x:Bind ViewModel.HideUnnamedThreads, Mode=TwoWay}" VerticalAlignment="Center" />
-                </StackPanel>
-            </Grid>
-
-            <!-- Column headers -->
-            <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="44" />
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="2.5*" />
-                        <ColumnDefinition Width="2*" />
-                        <ColumnDefinition Width="100" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Boost" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="1" Text="TID" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="2" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="3" Text="Description" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="4" Text="PID" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
-                </Grid>
-            </Border>
-
-            <!-- Thread list -->
-            <ListView x:Name="ThreadTuneList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedThreadBoostRows, Mode=OneWay}"
-                      SelectionMode="None" ShowsScrollingPlaceholders="False">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="models:ThreadBoostRow">
-                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
-                            <Grid Padding="4,6" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="44" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="2.5*" />
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="100" />
-                                </Grid.ColumnDefinitions>
-
-                                <CheckBox Grid.Column="0" IsChecked="{x:Bind BoostEnabled, Mode=TwoWay}" IsEnabled="{x:Bind local:ThreadTunerPage.NotProtected(IsProtected), Mode=OneWay}"
-                                          MinWidth="0" Padding="0" VerticalAlignment="Center"
-                                          Click="ThreadBoost_Clicked" />
-
-                                <TextBlock Grid.Column="1" Text="{x:Bind Tid}" VerticalAlignment="Center" FontSize="12"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                                <TextBlock Grid.Column="2" Text="{x:Bind ProcessName, Mode=OneWay}" VerticalAlignment="Center"
-                                           FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
-
-                                <TextBlock Grid.Column="3" Text="{x:Bind Description, Mode=OneWay}" VerticalAlignment="Center"
-                                           FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
-
-                                <TextBlock Grid.Column="4" Text="{x:Bind Pid}" VerticalAlignment="Center" FontSize="12"
-                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-
-            <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsThreadTuneLoading, Mode=OneWay}" Spacing="12">
-                <ProgressRing IsActive="{x:Bind ViewModel.IsThreadTuneLoading, Mode=OneWay}" Width="48" Height="48" HorizontalAlignment="Center" />
-                <TextBlock Text="{x:Bind ViewModel.ThreadTuneLoadingText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" />
-            </StackPanel>
-
-            <!-- Footer -->
-            <Grid Grid.Row="3" Margin="12,8,12,12">
-                <TextBlock x:Name="ThreadTuneCountText" Text="0 threads" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-            </Grid>
-        </Grid>
-
-        <Grid x:Name="ProcessesFooter" Grid.Row="4" Margin="24,12,24,12">
-            <StackPanel Orientation="Horizontal" Spacing="24">
-                <TextBlock Text="Updated 2 s" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-            </StackPanel>
-        </Grid>
     </Grid>
 </Page>
-

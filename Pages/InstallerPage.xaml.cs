@@ -22,6 +22,13 @@ namespace kaliteConfig.Pages
             // immediately at full opacity with their resolved states.
         }
 
+        private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+        {
+            bool packages = sender.SelectedItem == TabPackages;
+            PackagesPanel.Visibility = packages ? Visibility.Visible : Visibility.Collapsed;
+            InstallPanel.Visibility = packages ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         private async void BrowserCard_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is BrowserInstallItem browser)
@@ -33,8 +40,9 @@ namespace kaliteConfig.Pages
         private async Task ShowBrowserDetailsDialogAsync(BrowserInstallItem browser)
         {
             ViewModel.SelectedBrowser = browser;
-            
-            // XAML dialog handles the UI binding natively. We just show it.
+
+            // Dialog lives in Page.Resources: XamlRoot must be attached per show.
+            BrowserDetailsDialog.XamlRoot = this.XamlRoot;
             await BrowserDetailsDialog.ShowAsync();
         }
 

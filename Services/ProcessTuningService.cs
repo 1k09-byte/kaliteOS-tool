@@ -15,12 +15,25 @@ namespace kaliteConfig.Services;
 /// (priority, boost, affinity, efficiency mode, suspend/resume/terminate).
 /// Native calls always run off the UI thread; collections are updated by the caller.
 /// </summary>
+[System.Diagnostics.DebuggerNonUserCode]
 public sealed class ProcessTuningService
 {
     private static readonly HashSet<string> CriticalNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe",
         "smss.exe", "svchost.exe", "dwm.exe", "winlogon.exe", "fontdrvhost.exe",
+        // Kernel/system infrastructure — demoting these causes multi-second
+        // system stalls (the 13:43 capture's 0.1% low of 5.3 FPS was almost
+        // certainly Memory Compression being starved on the interrupt core).
+        // Note: entries match "ProcessName + .exe"; system processes like
+        // Memory Compression and Registry get their pseudo .exe here.
+        "memory compression.exe", "registry.exe", "wudfhost.exe", "sihost.exe",
+        "taskhostw.exe", "explorer.exe", "audiodg.exe", "spoolsv.exe",
+        "conhost.exe", "dllhost.exe", "runtimebroker.exe", "searchindexer.exe",
+        "searchapp.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe",
+        "textinputhost.exe", "ctfmon.exe", "securityhealthservice.exe",
+        "msmpeng.exe", "nissrv.exe", "smartscreen.exe", "sechealthui.exe",
+        "system.exe", "idle.exe", "memcompression.exe",
     };
 
     private readonly NativeSnapshotService _snapshot = new();
@@ -75,7 +88,7 @@ public sealed class ProcessTuningService
 
     public async Task<List<TunerProcessRow>> ListProcessesAsync()
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             var rows = new List<TunerProcessRow>();
             Dictionary<int, string>? wmiNames = null;
@@ -164,7 +177,7 @@ public sealed class ProcessTuningService
             return;
         }
 
-        var deltas = await Task.Run(() =>
+        var deltas = await CpuSetService.RunNativeAsync(() =>
         {
             var now = DateTime.UtcNow;
             double intervalMs = Math.Max(1, (now - _lastSampleUtc).TotalMilliseconds);
@@ -302,6 +315,26 @@ public sealed class ProcessTuningService
                 row.AffinitySummary = AffinitySummary(row.AffinityMask, (ulong)sys.ToInt64());
             }
 
+            // CPU Sets partition (Gaming mode) is invisible to the affinity
+            // mask — surface it so the context menu tells the truth.
+            try
+            {
+                uint[]? sets = ProcessOptimizer.Services.CpuSetPartitionService.LastGameSets;
+                uint[]? bg = ProcessOptimizer.Services.CpuSetPartitionService.LastBackgroundSets;
+                if ((sets is { Length: > 0 } || bg is { Length: > 0 }) &&
+                    ProcessOptimizer.Services.CpuSetPartitionService.QueryTopologyPublic() is { Count: > 0 } topo)
+                {
+                    uint[] procSets = ReadProcessCpuSetIds(row.Pid);
+                    if (procSets.Length > 0 && sets is { Length: > 0 } && procSets.All(sets.Contains))
+                        row.AffinitySummary = $"Game partition ({sets.Length} P-cores)";
+                    else if (procSets.Length > 0 && bg is { Length: > 0 } && procSets.All(bg.Contains))
+                        row.AffinitySummary = $"Background partition ({bg.Length} sets)";
+                    else if (procSets.Length > 0)
+                        row.AffinitySummary = $"{procSets.Length} CPU sets";
+                }
+            }
+            catch { }
+
             try
             {
                 using var proc = Process.GetProcessById(row.Pid);
@@ -365,6 +398,25 @@ public sealed class ProcessTuningService
         _ => $"0x{cls:X}",
     };
 
+    private static uint[] ReadProcessCpuSetIds(int pid)
+    {
+        try
+        {
+            using var h = NativeMethods.Handles.OpenProcess(
+                NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
+            if (h.IsInvalid) return Array.Empty<uint>();
+            if (!NativeMethods.CpuSets.GetProcessDefaultCpuSets(h, null, 0, out uint required) &&
+                System.Runtime.InteropServices.Marshal.GetLastWin32Error() != 122)
+                return Array.Empty<uint>();
+            if (required == 0) return Array.Empty<uint>();
+            uint[] ids = new uint[required];
+            if (!NativeMethods.CpuSets.GetProcessDefaultCpuSets(h, ids, required, out _))
+                return Array.Empty<uint>();
+            return ids;
+        }
+        catch { return Array.Empty<uint>(); }
+    }
+
     public static string AffinitySummary(ulong mask, ulong systemMask)
     {
         if (mask == 0)
@@ -384,7 +436,7 @@ public sealed class ProcessTuningService
 
     public async Task<(string Path, string CommandLine, string Times)> GetDetailsAsync(int pid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
@@ -416,7 +468,7 @@ public sealed class ProcessTuningService
 
     public async Task SetPriorityAsync(int pid, uint priorityClass)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
@@ -430,7 +482,7 @@ public sealed class ProcessTuningService
 
     public async Task<bool> GetBoostAsync(int pid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
@@ -446,7 +498,7 @@ public sealed class ProcessTuningService
 
     public async Task SetBoostAsync(int pid, bool enabled)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
@@ -460,7 +512,7 @@ public sealed class ProcessTuningService
 
     public async Task<ulong> GetAffinityAsync(int pid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
@@ -475,7 +527,7 @@ public sealed class ProcessTuningService
 
     public async Task SetAffinityAsync(int pid, ulong mask)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
@@ -489,7 +541,7 @@ public sealed class ProcessTuningService
 
     public async Task SetEfficiencyAsync(int pid, bool enabled)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
@@ -511,7 +563,7 @@ public sealed class ProcessTuningService
 
     public async Task SetGlobalEfficiencyModeAsync(bool enable, IReadOnlySet<string> skipProcessNames)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             var procs = Process.GetProcesses();
             foreach (var proc in procs)
@@ -572,7 +624,7 @@ public sealed class ProcessTuningService
     /// <summary>Reads back Efficiency Mode (EcoQoS) via GetProcessInformation.</summary>
     public async Task<bool> GetEfficiencyAsync(int pid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
@@ -594,7 +646,7 @@ public sealed class ProcessTuningService
 
     public async Task SetPriorityBoostAsync(int pid, bool disablePriorityBoost)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
@@ -608,7 +660,7 @@ public sealed class ProcessTuningService
 
     public async Task SuspendProcessAsync(int pid)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             foreach (var tid in LiveThreadIds(pid))
             {
@@ -624,7 +676,7 @@ public sealed class ProcessTuningService
 
     public async Task ResumeProcessAsync(int pid)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             foreach (var tid in LiveThreadIds(pid))
             {
@@ -650,7 +702,7 @@ public sealed class ProcessTuningService
 
     public async Task TerminateProcessAsync(int pid, uint exitCode = 1)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var process = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.Terminate, false, (uint)pid);
@@ -706,7 +758,7 @@ public sealed class ProcessTuningService
 
     public async Task SuspendThreadAsync(int tid)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             IntPtr hThread = OpenThread(0x0002, false, (uint)tid);
             if (hThread != IntPtr.Zero)
@@ -719,7 +771,7 @@ public sealed class ProcessTuningService
 
     public async Task ResumeThreadAsync(int tid)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             IntPtr hThread = OpenThread(0x0002, false, (uint)tid);
             if (hThread != IntPtr.Zero)
@@ -732,7 +784,7 @@ public sealed class ProcessTuningService
 
     public async Task SetThreadPriorityAsync(int tid, kaliteConfig.Models.TunerThreadPriority priority)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             IntPtr hThread = OpenThread(0x0020, false, (uint)tid); // THREAD_SET_INFORMATION
             if (hThread != IntPtr.Zero)
@@ -750,3 +802,4 @@ public sealed class ProcessTuningService
         _ => "Error",
     };
 }
+

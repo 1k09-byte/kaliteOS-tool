@@ -57,6 +57,15 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 $exe = Join-Path $publishDir "kaliteConfig.exe"
 if (-not (Test-Path -LiteralPath $exe)) { throw "Publish output missing: $exe" }
 
+# Benchmark capture must ship with the installer: PresentMon 2.5.1 is
+# pinned and hash-checked by the app at runtime, so a publish without it
+# would produce an installer whose Benchmark tab can never capture.
+$presentMon = Join-Path $publishDir "PresentMon\PresentMon.exe"
+if (-not (Test-Path -LiteralPath $presentMon)) {
+    throw "Publish output missing bundled PresentMon: $presentMon. Benchmark capture would be broken - check the DeployPresentMonToolToPublish target in kaliteConfig.csproj."
+}
+Write-Host "--> PresentMon bundled OK ($(Split-Path -Leaf $presentMon))"
+
 $isccCmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 $iscc = if ($isccCmd) { $isccCmd.Source } else { $null }
 foreach ($candidate in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
@@ -71,5 +80,7 @@ Write-Host "--> ISCC $issFile ..."
 & $iscc "/DPublishDir=$publishDir" "/DMyAppVersion=$version" $issFile
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed." }
 
+# Sanity-check the produced installer actually embeds PresentMon.
 $setup = Join-Path $projectDir "dist\kaliteConfig-Setup-$version.exe"
-Write-Host "OK: $setup"
+if (-not (Test-Path -LiteralPath $setup)) { throw "Installer missing after ISCC: $setup" }
+Write-Host "OK: $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"

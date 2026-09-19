@@ -38,6 +38,7 @@ namespace kaliteConfig
         /// and the two UIs can never fight over priorities.
         /// </summary>
         public GamingModeService GamingMode { get; } = new GamingModeService();
+        public ForegroundSuspendService ForegroundSuspend { get; }
         public ProfileWatcherService ProfileWatcher { get; }
 
         public App()
@@ -70,6 +71,7 @@ namespace kaliteConfig
             };
             
             ProfileWatcher = new ProfileWatcherService(ProcessTuning, CpuSets, ThreadTuning);
+            ForegroundSuspend = new ForegroundSuspendService(ProcessTuning);
             // Fire and forget the profile watcher async load
             _ = InitializeWatcherAsync();
         }

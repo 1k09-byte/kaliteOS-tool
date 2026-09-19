@@ -18,6 +18,9 @@ namespace kaliteConfig.Pages
         {
             this.InitializeComponent();
             this.Loaded += (_, _) => { LoadWin32PS(); LoadKernelToggles(); LoadSvcSplit(); Vm.RefreshDetection(); };
+            
+            // Host the Reserved CPU Sets panel here.
+            this.ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
         }
 
         /// <summary>

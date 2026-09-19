@@ -113,6 +113,28 @@
     <Copy SourceFiles="@(ScewinToolFiles)" DestinationFiles="@(ScewinToolFiles -> '$(PublishDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 
+  <!--  Bundled PresentMon console build (Assets\PresentMon\PresentMon.exe,
+        pinned 2.5.1, see VERSION.txt). Same treatment as the SCEWIN tool:
+        must land next to the exe and skip PRI indexing for .exe files. -->
+  <ItemGroup>
+    <Content Update="Assets\PresentMon\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <Target Name="DeployPresentMonTool" BeforeTargets="Build">
+    <ItemGroup>
+      <PresentMonToolFiles Include="Assets\PresentMon\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PresentMonToolFiles)" DestinationFiles="@(PresentMonToolFiles -> '$(OutDir)PresentMon\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="DeployPresentMonToolToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <PresentMonToolFiles Include="Assets\PresentMon\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PresentMonToolFiles)" DestinationFiles="@(PresentMonToolFiles -> '$(PublishDir)PresentMon\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+  </Target>
+
   <!--  Unpackaged publish otherwise ships without the app's own .pri
         (only framework PRIs are publish assets), and the app then dies
         silently at startup (0xC000027B). Top it up after publish. -->
@@ -133,7 +155,7 @@
         ("Version 0.3.0" from Major.Minor.Build) and the installer
         filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.3.0.8</Version>
+    <Version>0.3.0.9</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

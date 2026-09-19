@@ -19,8 +19,10 @@ public sealed class PowerService
     {
         try
         {
-        // powercfg -attributes SUB_ALL SETTING_ALL -ATTRIB_HIDE ensures nothing is hidden
-        // by traversing all subgroups and settings and clearing the Attributes DWORD.
+        // Clears ONLY the hidden bit (bit 0) of Attributes. Other bits carry
+        // OEM/platform meaning on laptops (Modern Standby overlays) — the old
+        // code overwrote the whole DWORD with 0 and broke Control Panel
+        // ("power plan information isn't available", empty Advanced list).
         using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
         using var powerKey = baseKey.OpenSubKey(PowerSettingsPath, true);
         if (powerKey == null) return;
@@ -29,27 +31,28 @@ public sealed class PowerService
         {
             using var subgroupKey = powerKey.OpenSubKey(subgroupId, true);
             if (subgroupKey == null) continue;
-            
-            // Unhide subgroup itself
-            if (subgroupKey.GetValue("Attributes") != null)
-                subgroupKey.SetValue("Attributes", 0, RegistryValueKind.DWord);
+
+            ClearHiddenBit(subgroupKey);
 
             foreach (var settingId in subgroupKey.GetSubKeyNames())
             {
                 using var settingKey = subgroupKey.OpenSubKey(settingId, true);
                 if (settingKey == null) continue;
-                
-                // Unhide setting
-                try
-                {
-                    if (settingKey.GetValue("Attributes") != null)
-                        settingKey.SetValue("Attributes", 0, RegistryValueKind.DWord);
-                }
+                try { ClearHiddenBit(settingKey); }
                 catch { } // per-key ACL failures must not abort the sweep
             }
         }
         }
         catch { } // not elevated / key read-only: enumeration still works, settings just stay hidden
+    }
+
+    private static void ClearHiddenBit(RegistryKey key)
+    {
+        object? v = key.GetValue("Attributes");
+        int current = v switch { int i => i, long l => (int)l, _ => -1 };
+        if (current < 0) return;
+        if ((current & 0x1) == 0) return; // already visible — leave other bits alone
+        key.SetValue("Attributes", current & ~0x1, RegistryValueKind.DWord);
     }
 
     public ObservableCollection<PowerScheme> GetAllSchemes(IProgress<string>? progress = null)
@@ -264,8 +267,28 @@ public sealed class PowerService
             throw new InvalidOperationException($"PowerSetActiveScheme failed (Win32 error {res}). Try running the app as administrator.");
     }
     
+    public static readonly Guid BalancedGuid = new("381b4222-f694-41f0-9685-ff5bb260df2e");
+    public static readonly Guid HighPerformanceGuid = new("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+    public static readonly Guid PowerSaverGuid = new("a1841308-3541-4fab-bc81-f71556f20b4a");
+
+    public static bool IsBuiltInScheme(Guid id) =>
+        id == BalancedGuid || id == HighPerformanceGuid || id == PowerSaverGuid;
+
+    /// <summary>Restores Windows default schemes (recovery for broken CPL:
+    /// "power plan information isn't available"). Requires elevation.</summary>
+    public static void RestoreDefaultSchemes()
+    {
+        using var p = Process.Start(new ProcessStartInfo("powercfg", "/restoredefaultschemes")
+        {
+            CreateNoWindow = true, UseShellExecute = false
+        });
+        p?.WaitForExit(30000);
+    }
+
     public void DeleteScheme(Guid schemeGuid)
     {
+        if (IsBuiltInScheme(schemeGuid))
+            throw new InvalidOperationException("Built-in Windows plans (Balanced / High performance / Power saver) cannot be deleted — duplicate one instead. Deleting them breaks Control Panel on laptops.");
         PowrProf.PowerDeleteScheme(IntPtr.Zero, ref schemeGuid);
     }
 

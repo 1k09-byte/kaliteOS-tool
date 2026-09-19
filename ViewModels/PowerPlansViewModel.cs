@@ -142,10 +142,12 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         if (IsLoading) return;
         IsLoading = true;
         ErrorMessage = null;
-        LoadingStatus = "Revealing hidden power settings…";
+        LoadingStatus = "Loading power schemes…";
         try
         {
-            await Task.Run(() => { try { _service.UnhideAllSettings(); } catch { } });
+            // No auto-unhide: mass HKLM writes on every page load broke
+            // laptop Control Panel (Modern Standby overlays). Unhide is
+            // opt-in via the button (UnhideAllSettingsAsync).
             LoadingStatus = "Enumerating power schemes…";
             var status = new Progress<string>(s => ReportStatus(s));
             var schemes = await Task.Run(() => _service.GetAllSchemes(status));
@@ -295,16 +297,43 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     private void DeleteScheme(PowerScheme? scheme)
     {
         if (scheme == null || scheme.IsActive) return; // Cannot delete active scheme
-        
+
         try
         {
             _service.DeleteScheme(scheme.Id);
             Schemes.Remove(scheme);
-            
+
             if (SelectedScheme == scheme)
                 SelectedScheme = Schemes.FirstOrDefault();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    /// <summary>Recovery for broken Control Panel
+    /// ("power plan information isn't available"): restores Windows defaults.</summary>
+    [RelayCommand]
+    public async Task RestoreDefaultSchemesAsync()
+    {
+        if (IsLoading) return;
+        IsLoading = true;
+        ErrorMessage = null;
+        LoadingStatus = "Restoring Windows default power plans…";
+        try
+        {
+            await Task.Run(() => PowerService.RestoreDefaultSchemes());
+            await LoadSchemesAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Restore failed: {ex.Message} (try running as administrator)";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     [RelayCommand]

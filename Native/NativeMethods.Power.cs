@@ -87,6 +87,14 @@ internal static partial class NativeMethods
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool GetProcessInformation(
+            SafeProcessHandle process,
+            ProcessInformationClass infoClass,
+            ref ProcessMemoryPriorityInfo info,
+            uint size);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool SetThreadInformation(
             SafeThreadHandle thread,
             ThreadInformationClass infoClass,

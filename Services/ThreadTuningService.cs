@@ -17,11 +17,12 @@ namespace kaliteConfig.Services;
 /// Deliberately no NT_STATUS info-class tricks: thread I/O priority has no
 /// documented Win32 setter, so it is not offered.
 /// </summary>
+[System.Diagnostics.DebuggerNonUserCode]
 public sealed class ThreadTuningService
 {
     public async Task SetPriorityAsync(uint tid, int priority)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SetInformation, false, tid);
@@ -35,7 +36,7 @@ public sealed class ThreadTuningService
 
     public async Task<bool> GetBoostAsync(uint tid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
@@ -51,7 +52,7 @@ public sealed class ThreadTuningService
 
     public async Task SetBoostAsync(uint tid, bool enabled)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             try
             {
@@ -74,7 +75,7 @@ public sealed class ThreadTuningService
     /// </summary>
     public async Task SetEfficiencyAsync(uint tid, bool enabled)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SetInformation, false, tid);
@@ -96,7 +97,7 @@ public sealed class ThreadTuningService
 
     public async Task<bool> GetEfficiencyAsync(uint tid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             // NOTE: despite the docs, GetThreadInformation demands full
             // THREAD_QUERY_INFORMATION on this build — LIMITED fails with
@@ -121,7 +122,7 @@ public sealed class ThreadTuningService
 
     public async Task<(ushort Group, ulong Mask)> GetAffinityStateAsync(uint tid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation,
@@ -156,7 +157,7 @@ public sealed class ThreadTuningService
     {
         if (mask == 0) throw new ArgumentException("The affinity mask must contain at least one processor.", nameof(mask));
 
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation,
@@ -198,7 +199,7 @@ public sealed class ThreadTuningService
     /// <summary>Reads the live ideal processor (documented GetThreadIdealProcessorEx).</summary>
     public async Task<(ushort Group, byte Number)> GetIdealProcessorAsync(uint tid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
@@ -214,7 +215,7 @@ public sealed class ThreadTuningService
 
     public async Task SetIdealProcessorAsync(uint tid, ushort group, byte index)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SetInformation, false, tid);
@@ -236,7 +237,7 @@ public sealed class ThreadTuningService
 
     public async Task SuspendThreadAsync(uint tid)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SuspendResume, false, tid);
@@ -250,7 +251,7 @@ public sealed class ThreadTuningService
 
     public async Task ResumeThreadAsync(uint tid)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SuspendResume, false, tid);
@@ -264,7 +265,7 @@ public sealed class ThreadTuningService
 
     public async Task TerminateThreadAsync(uint tid, uint exitCode = 1)
     {
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.Terminate, false, tid);
@@ -280,7 +281,7 @@ public sealed class ThreadTuningService
     /// MEMORY_PRIORITY_INFORMATION (documented Win32 API).</summary>
     public async Task<uint> GetMemoryPriorityAsync(uint tid)
     {
-        return await Task.Run(() =>
+        return await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
@@ -299,7 +300,7 @@ public sealed class ThreadTuningService
     public async Task SetMemoryPriorityAsync(uint tid, uint level)
     {
         level = Math.Clamp(level, 1, 5);
-        await Task.Run(() =>
+        await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SetInformation, false, tid);
@@ -314,3 +315,4 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 }
+

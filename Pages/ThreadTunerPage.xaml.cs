@@ -1,23 +1,24 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using kaliteConfig.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using kaliteConfig.Services;
 using kaliteConfig.ViewModels;
+using kaliteConfig.Controls;
+using kaliteConfig.ProcessOptimizer.ViewModels;
 using System.Linq;
-using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System;
 
 namespace kaliteConfig.Pages
 {
     public sealed partial class ThreadTunerPage : Page
     {
         public ThreadTunerViewModel ViewModel { get; }
-
         private readonly kaliteConfig.Services.StartupService _startup = new();
         private bool _syncingStartupToggle;
-        private List<kaliteConfig.Native.CpuSetEntry> _topologyCache = new();
         private TunerProcessRow? _contextProcessRow;
 
         public ThreadTunerPage()
@@ -27,11 +28,8 @@ namespace kaliteConfig.Pages
             this.DataContext = ViewModel;
             
             this.Loaded += ThreadTunerPage_Loaded;
-            this.Unloaded += ThreadTunerPage_Unloaded;
         }
 
-        // Protected rows render red with a lock glyph (see template): Windows
-        // rejects priority/affinity writes on them, so they must read as locked.
         public static Microsoft.UI.Xaml.Media.Brush RowNameBrush(bool isProtected)
         {
             var resources = Application.Current.Resources;
@@ -40,75 +38,11 @@ namespace kaliteConfig.Pages
                 : resources["TextFillColorPrimaryBrush"]);
         }
 
-        private void MainSelectorBar_SelectionChanged(Microsoft.UI.Xaml.Controls.SelectorBar sender, Microsoft.UI.Xaml.Controls.SelectorBarSelectionChangedEventArgs args)
+        private void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Gaming mode works off a process-row selection, so it only makes
-            // sense on the Processes tab.
-            GamingModePanel.Visibility = sender.SelectedItem == TabProcesses
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-
-            // Thread Tune is expensive — only scan when active.
-            ViewModel.IsThreadTuneTabActive = sender.SelectedItem == TabThreadTune;
-
-            if (sender.SelectedItem == TabRules)
-            {
-                ProcessesGrid.Visibility = Visibility.Collapsed;
-                ProcessesHeader.Visibility = Visibility.Collapsed;
-                ProcessesFooter.Visibility = Visibility.Collapsed;
-                ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
-                ThreadTunePanel.Visibility = Visibility.Collapsed;
-                RulesPanel.Visibility = Visibility.Visible;
-                ViewModel.SyncProfiles();
-                RefreshRulesMeta();
-            }
-            else if (sender.SelectedItem == TabThreadTune)
-            {
-                ProcessesGrid.Visibility = Visibility.Collapsed;
-                ProcessesHeader.Visibility = Visibility.Collapsed;
-                ProcessesFooter.Visibility = Visibility.Collapsed;
-                RulesPanel.Visibility = Visibility.Collapsed;
-                ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
-                ThreadTunePanel.Visibility = Visibility.Visible;
-                // Kick off the initial load immediately.
-                _ = ViewModel.LoadThreadBoostRowsAsync();
-            }
-            else if (sender.SelectedItem == TabReservedCpuSets)
-            {
-                ProcessesGrid.Visibility = Visibility.Collapsed;
-                ProcessesHeader.Visibility = Visibility.Collapsed;
-                ProcessesFooter.Visibility = Visibility.Collapsed;
-                RulesPanel.Visibility = Visibility.Collapsed;
-                ThreadTunePanel.Visibility = Visibility.Collapsed;
-                ReservedCpuSetsFrame.Visibility = Visibility.Visible;
-                
-                if (ReservedCpuSetsFrame.Content == null)
-                {
-                    ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
-                }
-            }
-            else
-            {
-                ProcessesGrid.Visibility = Visibility.Visible;
-                ProcessesHeader.Visibility = Visibility.Visible;
-                ProcessesFooter.Visibility = Visibility.Visible;
-                RulesPanel.Visibility = Visibility.Collapsed;
-                ReservedCpuSetsFrame.Visibility = Visibility.Collapsed;
-                ThreadTunePanel.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        
-
-        private async void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            // Fully migrating out Side-By-Side Topologies
             ViewModel.LoadProcessesCommand.Execute(null);
-            ViewModel.SyncProfiles();
-            RefreshRulesMeta();
-            App.Current.ProfileWatcher.RulesChanged += (_, _) => RefreshRulesMeta();
-            // Gaming mode can be toggled automatically by the watcher (rule
-            // launch/exit); keep the page controls in sync when that happens.
+            HookSuspendUi();
+            
             App.Current.ProfileWatcher.RulesChanged += (_, _) =>
             {
                 RefreshPageGamingModeUi();
@@ -122,18 +56,9 @@ namespace kaliteConfig.Pages
         private async Task SyncStartupToggleAsync()
         {
             _syncingStartupToggle = true;
-            try
-            {
-                StartupToggle.IsOn = await _startup.IsEnabledAsync();
-            }
-            catch
-            {
-                StartupToggle.IsOn = false;
-            }
-            finally
-            {
-                _syncingStartupToggle = false;
-            }
+            try { StartupToggle.IsOn = await _startup.IsEnabledAsync(); }
+            catch { StartupToggle.IsOn = false; }
+            finally { _syncingStartupToggle = false; }
         }
 
         private async void StartupToggle_Toggled(object sender, RoutedEventArgs e)
@@ -143,31 +68,13 @@ namespace kaliteConfig.Pages
             try
             {
                 bool ok = await _startup.SetEnabledAsync(StartupToggle.IsOn);
-                if (!ok)
-                {
-                    StartupToggle.IsOn = !StartupToggle.IsOn;
-                }
+                if (!ok) StartupToggle.IsOn = !StartupToggle.IsOn;
             }
-            catch
-            {
-                StartupToggle.IsOn = !StartupToggle.IsOn;
-            }
-            finally
-            {
-                _syncingStartupToggle = false;
-            }
-        }
-
-        private void ThreadTunerPage_Unloaded(object sender, RoutedEventArgs e)
-        {
-            // Pause ViewModel timer on unload
+            catch { StartupToggle.IsOn = !StartupToggle.IsOn; }
+            finally { _syncingStartupToggle = false; }
         }
 
         private TunerProcessRow? GetRow(object sender) => (sender as FrameworkElement)?.DataContext as TunerProcessRow;
-
-        // ---- Gaming mode (main page) -------------------------------
-        // Shares the app-wide GamingModeService with the Threads window:
-        // one restore map, so the two UIs can never fight over priorities.
 
         private TunerProcessRow? SelectedProcess =>
             (ProcessesGrid.SelectedItem as TunerProcessRow)
@@ -178,23 +85,16 @@ namespace kaliteConfig.Pages
         private void ProcessesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ProcessesGrid.SelectedItem is TunerProcessRow row)
-            {
                 _lastSelectedPid = row.Pid;
-            }
-
             RefreshPageGamingModeUi();
         }
 
-        /// <summary>Syncs the page Gaming mode controls with the shared service state.</summary>
         private void RefreshPageGamingModeUi()
         {
             var svc = App.Current.GamingMode;
             bool hasTarget = SelectedProcess is not null;
 
             PageGamingModeButton.Content = svc.IsActive ? "Turn off Gaming mode" : "Enable Gaming mode";
-            // Stays clickable even without a selection: clicking then explains
-            // what to do, instead of a greyed-out button that silently ignores
-            // clicks (the "nothing happened" failure mode).
             PageGamingModeButton.IsEnabled = true;
             PageRestoreButton.IsEnabled = svc.RestorableCount > 0;
 
@@ -239,21 +139,189 @@ namespace kaliteConfig.Pages
             }
         }
 
-        private void Page_RestorePriorities(object sender, RoutedEventArgs e)
+        private async void Page_RestorePriorities(object sender, RoutedEventArgs e)
         {
             App.Current.GamingMode.Deactivate();
             PageGamingStatusText.Text = "Priorities restored";
             RefreshPageGamingModeUi();
+
+            // Also normalize everything else the app/other tools changed.
+            var dialog = new ContentDialog
+            {
+                Title = "Normalize all priorities?",
+                Content = new TextBlock
+                {
+                    Text = "Set every accessible process's priority back to Normal?\n\nThis is a full reset — anything (including this app or other tools) that raised or lowered a priority gets set to Normal. Critical and protected system processes are skipped.",
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                PrimaryButtonText = "Reset all to Normal",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                var (reset, skipped) = App.Current.GamingMode.ResetAllPrioritiesToNormal();
+                PageGamingStatusText.Text = $"Reset {reset} process(es) to Normal ({skipped} skipped).";
+                RefreshPageGamingModeUi();
+            }
         }
+
+        // ─── Suspend mode (image-3 style: freeze background, resume on switch-back) ──
+        private bool _suspendHooked;
+
+        private void HookSuspendUi()
+        {
+            if (_suspendHooked) return;
+            _suspendHooked = true;
+            try { App.Current.ForegroundSuspend.StatusChanged += SuspendStatus_Changed; } catch { }
+            RefreshSuspendUi();
+        }
+
+        private void SuspendStatus_Changed()
+        {
+            DispatcherQueue.TryEnqueue(RefreshSuspendUi);
+        }
+
+        private void RefreshSuspendUi()
+        {
+            try
+            {
+                var svc = App.Current.ForegroundSuspend;
+                PageSuspendStatusText.Text =
+                    $"[{svc.SuspendedCount} suspended] {svc.StatusText}";
+                SuspendAutoCheck.IsChecked = svc.Auto;
+                PageResumeAllButton.IsEnabled = svc.SuspendedCount > 0;
+            }
+            catch { }
+        }
+
+        private async void Page_SuspendNow(object sender, RoutedEventArgs e)
+        {
+            PageSuspendNowButton.IsEnabled = false;
+            try
+            {
+                string? hint = SelectedProcess?.Name;
+                int n = await App.Current.ForegroundSuspend.SuspendBackgroundNowAsync(hint);
+                if (n == 0 && hint == null)
+                    PageSuspendStatusText.Text = "Focus the game (or select its row), then Suspend background.";
+            }
+            catch (Exception ex)
+            {
+                PageSuspendStatusText.Text = $"Suspend failed: {ex.Message}";
+            }
+            finally
+            {
+                PageSuspendNowButton.IsEnabled = true;
+                RefreshSuspendUi();
+            }
+        }
+
+        private async void Page_ResumeAll(object sender, RoutedEventArgs e)
+        {
+            PageResumeAllButton.IsEnabled = false;
+            try
+            {
+                await App.Current.ForegroundSuspend.ResumeAllAsync();
+            }
+            finally
+            {
+                RefreshSuspendUi();
+            }
+        }
+
+        private void SuspendAuto_Toggled(object sender, RoutedEventArgs e)
+        {
+            try { App.Current.ForegroundSuspend.Auto = SuspendAutoCheck.IsChecked == true; } catch { }
+            RefreshSuspendUi();
+        }
+
+        private async void Page_ManageGames(object sender, RoutedEventArgs e)
+        {
+            var svc = App.Current.ForegroundSuspend;
+
+            var listTitle = new TextBlock
+            {
+                Text = "Game list", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+                Margin = new Thickness(0, 0, 0, 4),
+            };
+            var gamesBox = new ListView
+            {
+                Height = 160, SelectionMode = ListViewSelectionMode.Single,
+                ItemsSource = svc.GameExes,
+            };
+            var removeBtn = new Button { Content = "Remove selected", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
+            removeBtn.Click += (s, _) =>
+            {
+                if (gamesBox.SelectedItem is string game)
+                {
+                    svc.RemoveGame(game);
+                    gamesBox.ItemsSource = svc.GameExes;
+                }
+            };
+
+            var allTitle = new TextBlock
+            {
+                Text = "All running processes", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+                Margin = new Thickness(0, 12, 0, 4),
+            };
+            var procBox = new ListView
+            {
+                Height = 220, SelectionMode = ListViewSelectionMode.Single,
+            };
+            procBox.ItemsSource = System.Diagnostics.Process.GetProcesses()
+                .Select(p => { try { return p.ProcessName + ".exe"; } catch { return null; } })
+                .Where(n => n != null).Distinct().OrderBy(n => n).ToList();
+            var addBtn = new Button
+            {
+                Content = "Add selected", Style = (Style)Application.Current.Resources["AccentButtonStyle"],
+                HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0),
+            };
+            addBtn.Click += (s, _) =>
+            {
+                if (procBox.SelectedItem is string name)
+                {
+                    svc.AddGame(name);
+                    gamesBox.ItemsSource = svc.GameExes;
+                }
+            };
+
+            var panel = new StackPanel { Spacing = 0 };
+            panel.Children.Add(listTitle);
+            panel.Children.Add(gamesBox);
+            panel.Children.Add(removeBtn);
+            panel.Children.Add(allTitle);
+            panel.Children.Add(procBox);
+            panel.Children.Add(addBtn);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Suspend-mode games",
+                Content = new ScrollViewer { Content = panel, MaxHeight = 560, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+                PrimaryButtonText = "Done",
+                XamlRoot = this.XamlRoot,
+            };
+            await dialog.ShowAsync();
+            RefreshSuspendUi();
+        }
+
+        private void Page_AddGame(object sender, RoutedEventArgs e)
+        {
+            if (SelectedProcess is { } row)
+            {
+                App.Current.ForegroundSuspend.AddGame(row.Name);
+                RefreshSuspendUi();
+            }
+            else PageSuspendStatusText.Text = "Select a process row to add its game.";
+        }
+
+        // (game removal now lives in the manage-games dialog)
 
         private async void ExecuteTuning(object sender, Func<TunerProcessRow, Task> action)
         {
             if (GetRow(sender) is { } row)
             {
-                try
-                {
-                    await action(row);
-                }
+                try { await action(row); }
                 catch (Exception ex)
                 {
                     _ = new ContentDialog
@@ -271,20 +339,16 @@ namespace kaliteConfig.Pages
         {
             if (sender is MenuFlyout menu && menu.Target is FrameworkElement target && target.DataContext is TunerProcessRow row)
             {
-                // MenuFlyoutItem does not reliably inherit the row DataContext
-                // on every WinUI version. Keep the target captured so actions
-                // still work when invoked from the context menu.
                 _contextProcessRow = row;
                 _ = UpdateProcessMenuStateAsync(menu, row);
             }
         }
 
-        private TunerProcessRow? GetContextProcessRow(object sender) =>
-            GetRow(sender) ?? _contextProcessRow;
+        private TunerProcessRow? GetContextProcessRow(object sender) => GetRow(sender) ?? _contextProcessRow;
 
         private async Task UpdateProcessMenuStateAsync(MenuFlyout menu, TunerProcessRow row)
         {
-            // Disable mutating actions if process is protected (e.g. system or anti-cheat)
+            // Disable mutating actions if process is protected
             foreach (var item in menu.Items)
             {
                 string text = (item as MenuFlyoutItem)?.Text ?? (item as MenuFlyoutSubItem)?.Text ?? "";
@@ -296,9 +360,6 @@ namespace kaliteConfig.Pages
                 }
             }
 
-            // Update the labels before the user chooses an action.
-            // populated from the same native reads, but refresh the expensive
-            // flags here so the menu always describes the live process.
             var priority = menu.Items.OfType<MenuFlyoutSubItem>()
                 .FirstOrDefault(x => x.Text.StartsWith("Priority", StringComparison.OrdinalIgnoreCase));
             if (priority != null)
@@ -360,7 +421,6 @@ namespace kaliteConfig.Pages
         private async void Action_ShowSettings(object sender, RoutedEventArgs e)
         {
             if (GetContextProcessRow(sender) is not { } row) return;
-
             try
             {
                 ulong affinity = await App.Current.ProcessTuning.GetAffinityAsync(row.Pid);
@@ -448,12 +508,7 @@ namespace kaliteConfig.Pages
             for (int i = 0; i < cpus; i++)
             {
                 bool isSet = (currentMask & (1UL << i)) != 0;
-                var cb = new CheckBox 
-                { 
-                    Content = $"CPU {i}", 
-                    IsChecked = isSet, 
-                    Tag = i 
-                };
+                var cb = new CheckBox { Content = $"CPU {i}", IsChecked = isSet, Tag = i };
                 checkboxes.Add(cb);
                 panel.Children.Add(cb);
             }
@@ -473,13 +528,9 @@ namespace kaliteConfig.Pages
                 ulong newMask = 0;
                 foreach (var cb in checkboxes)
                 {
-                    if (cb.IsChecked == true && cb.Tag is int bit)
-                    {
-                        newMask |= (1UL << bit);
-                    }
+                    if (cb.IsChecked == true && cb.Tag is int bit) newMask |= (1UL << bit);
                 }
-                if (newMask != 0) 
-                    await App.Current.ProcessTuning.SetAffinityAsync(row.Pid, newMask);
+                if (newMask != 0) await App.Current.ProcessTuning.SetAffinityAsync(row.Pid, newMask);
             }
         }
 
@@ -487,16 +538,11 @@ namespace kaliteConfig.Pages
         {
             if (sender is MenuFlyoutItem item && item.Tag is string tag)
             {
-                bool disable = tag == "Disabled";
-                ExecuteTuning(sender, row => App.Current.ProcessTuning.SetPriorityBoostAsync(row.Pid, disable));
+                ExecuteTuning(sender, row => App.Current.ProcessTuning.SetPriorityBoostAsync(row.Pid, tag == "Disabled"));
             }
         }
 
-
-        private void Action_Threads(object sender, RoutedEventArgs? e)
-        {
-            ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
-        }
+        private void Action_Threads(object sender, RoutedEventArgs? e) => ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
 
         private async Task ShowThreadsDialogAsync(Models.TunerProcessRow row)
         {
@@ -504,9 +550,18 @@ namespace kaliteConfig.Pages
             await dialog.ShowForProcessAsync(row.Pid, row.Name, this.XamlRoot);
         }
         
-        private void Row_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+        private void Row_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e) => Action_Threads(sender, null);
+
+        private async Task OpenRuleEditorAsync(TunerProfile target, bool isNew)
         {
-            Action_Threads(sender, null);
+            var dlg = new RuleEditorDialog { XamlRoot = this.XamlRoot };
+            dlg.LoadFrom(target, isNew);
+            if (await dlg.ShowAsync() == ContentDialogResult.Primary || dlg.ShortcutAccepted)
+            {
+                target.CopyFrom(dlg.Draft);
+                await App.Current.ProfileWatcher.AddOrUpdate(target);
+                await App.Current.ProfileWatcher.ApplyProfileNowAsync(target);
+            }
         }
 
         private void Action_CreateRule(object sender, RoutedEventArgs e)
@@ -515,10 +570,7 @@ namespace kaliteConfig.Pages
             {
                 var draft = new TunerProfile
                 {
-                    Name = row.Name,
-                    Pattern = row.Name,
-                    AutoApply = true,
-                    Enabled = true,
+                    Name = row.Name, Pattern = row.Name, AutoApply = true, Enabled = true
                 };
                 _ = OpenRuleEditorAsync(draft, isNew: true);
             }
@@ -539,20 +591,34 @@ namespace kaliteConfig.Pages
                 panel.Children.Add(new TextBlock { Text = $"Working Set (RAM): {(proc.WorkingSet64 / 1024 / 1024.0):F1} MB", Style = (Microsoft.UI.Xaml.Style)Microsoft.UI.Xaml.Application.Current.Resources["BodyTextBlockStyle"] });
                 try { panel.Children.Add(new TextBlock { Text = $"Start Time: {proc.StartTime}", Style = (Microsoft.UI.Xaml.Style)Microsoft.UI.Xaml.Application.Current.Resources["BodyTextBlockStyle"] }); } catch { }
 
-                var dialog = new ContentDialog
+                await new ContentDialog
                 {
                     Title = $"Details: {row.Name} ({row.Pid})",
                     Content = panel,
                     CloseButtonText = "Close",
                     XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
+                }.ShowAsync();
             });
+        }
+        private void MainSelectorBar_SelectionChanged(Microsoft.UI.Xaml.Controls.SelectorBar sender, Microsoft.UI.Xaml.Controls.SelectorBarSelectionChangedEventArgs args)
+        {
+            if (sender.SelectedItem == TabRules)
+            {
+                ProcessesPanel.Visibility = Visibility.Collapsed;
+                RulesPanel.Visibility = Visibility.Visible;
+                ViewModel.SyncProfiles();
+                RefreshRulesMeta();
+            }
+            else
+            {
+                RulesPanel.Visibility = Visibility.Collapsed;
+                ProcessesPanel.Visibility = Visibility.Visible;
+            }
         }
 
         private void RefreshRulesMeta()
         {
-            int n = ViewModel.Profiles.Count;
+            int n = ViewModel.DisplayedProcessProfiles.Count;
             RulesCountText.Text = n == 1 ? "1 rule" : $"{n} rules";
         }
 
@@ -561,25 +627,6 @@ namespace kaliteConfig.Pages
 
         private TunerProfile? SelectedRuleOrRow(object sender) =>
             ViewModel.SelectedProfile ?? GetRuleRow(sender);
-
-        private async Task OpenRuleEditorAsync(TunerProfile target, bool isNew)
-        {
-            var dlg = new RuleEditorDialog { XamlRoot = this.XamlRoot };
-            dlg.LoadFrom(target, isNew);
-            if (await dlg.ShowAsync() == ContentDialogResult.Primary || dlg.ShortcutAccepted)
-            {
-                target.CopyFrom(dlg.Draft);
-                bool saved = await App.Current.ProfileWatcher.AddOrUpdate(target);
-                ViewModel.SyncProfiles();
-                if (!saved)
-                {
-                    await ShowRulesErrorAsync("Could not save the rule file. The rule is active for this session only.");
-                }
-                await App.Current.ProfileWatcher.ApplyProfileNowAsync(target);
-                ViewModel.SyncProfiles();
-                RefreshRulesMeta();
-            }
-        }
 
         private async void RuleAdd_Click(object sender, RoutedEventArgs e) =>
             await OpenRuleEditorAsync(new TunerProfile(), isNew: true);
@@ -657,46 +704,5 @@ namespace kaliteConfig.Pages
                 _ = OpenRuleEditorAsync(p, isNew: false);
             }
         }
-
-        // ---- Thread Tune helpers ─────────────────────────────────────
-
-        /// <summary>Binding helper: returns true when the thread is NOT protected (CheckBox enabled).</summary>
-        public static bool NotProtected(bool isProtected) => !isProtected;
-
-        /// <summary>
-        /// Fires when the user clicks a thread priority-boost checkbox.
-        /// Immediately persists the new state via the Win32 API.
-        /// </summary>
-        private async void ThreadBoost_Clicked(object sender, RoutedEventArgs e)
-        {
-            if (sender is CheckBox cb && cb.DataContext is ThreadBoostRow row && !row.IsBusy)
-            {
-                row.IsBusy = true;
-                try
-                {
-                    await App.Current.ThreadTuning.SetBoostAsync((uint)row.Tid, row.BoostEnabled);
-                }
-                catch (Exception ex)
-                {
-                    // Revert the checkbox on failure
-                    row.BoostEnabled = !row.BoostEnabled;
-                    _ = new ContentDialog
-                    {
-                        Title = "Priority Boost",
-                        Content = new TextBlock { Text = $"Could not change boost for TID {row.Tid} ({row.ProcessName}):\n{ex.Message}", TextWrapping = TextWrapping.Wrap },
-                        CloseButtonText = "Close",
-                        XamlRoot = this.XamlRoot,
-                    }.ShowAsync();
-                }
-                finally
-                {
-                    row.IsBusy = false;
-                }
-            }
-
-            // Update footer count
-            ThreadTuneCountText.Text = $"{ViewModel.DisplayedThreadBoostRows.Count} threads";
-        }
     }
 }
-

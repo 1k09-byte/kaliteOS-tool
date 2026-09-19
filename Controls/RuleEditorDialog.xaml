@@ -129,8 +129,20 @@
                         </Grid.ColumnDefinitions>
                         <CheckBox Grid.Column="0" Content="Automatic Gaming mode" VerticalAlignment="Center"
                                   IsChecked="{x:Bind GamingAutoChecked, Mode=TwoWay}"
-                                  ToolTipService.ToolTip="When this process launches, boost it to Above Normal and shove all background processes down into Efficiency Mode (EcoQoS). Restores everything when the game exits." />
-                        <TextBlock Grid.Column="1" Text="Boost this process + squash background load into Efficiency Mode" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                  ToolTipService.ToolTip="{x:Bind AutomaticGamingModeTooltip, Mode=OneWay}" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind AutomaticGamingModeDescription, Mode=OneWay}" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </Border>
+                <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Grid.Column="0" Content="Protect process threads" VerticalAlignment="Center"
+                                  IsChecked="{x:Bind Draft.ProtectThreads, Mode=TwoWay}"
+                                  ToolTipService.ToolTip="Prevents Global Optimize from stripping priority boosts off this process's threads." />
+                        <TextBlock Grid.Column="1" Text="Exclude this process from global priority boost stripping" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                     </Grid>
                 </Border>
                 <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">

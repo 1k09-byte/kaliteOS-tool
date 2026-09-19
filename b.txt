@@ -1,0 +1,21 @@
+C:\Users\Administrator\source\repos\kaliteconfig\ViewModels\ThreadTunerViewModel.cs(27,12): error CS0246: The type or namespace name 'ProcessOptimizerViewModel' could not be found (are you missing a using directive or an assembly reference?) [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\Controls\NvidiaComponentPickerDialog.xaml(28,18): XamlCompiler error WMC0909: Cannot resolve DataType local:NvidiaComponentVm [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+Controls\NvidiaComponentPickerDialog.xaml(35,26): XamlCompiler error WMC1111: DataTemplates containing x:Bind need a DataType to be specified using 'x:DataType' [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\Controls\RuleEditorDialog.xaml(244,26): XamlCompiler error WMC0909: Cannot resolve DataType models:TunerThreadRule [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\Controls\RuleEditorDialog.xaml(213,34): XamlCompiler error WMC0909: Cannot resolve DataType services:LiveThreadInfo [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+Controls\RuleEditorDialog.xaml(285,42): XamlCompiler error WMC1111: DataTemplates containing x:Bind need a DataType to be specified using 'x:DataType' [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\Controls\ThreadListDialog.xaml(34,22): XamlCompiler error WMC0909: Cannot resolve DataType controls:ThreadRow [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+Controls\ThreadListDialog.xaml(41,30): XamlCompiler error WMC1111: DataTemplates containing x:Bind need a DataType to be specified using 'x:DataType' [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\GpuOverclock\Views\OverclockSection.xaml(633,34): XamlCompiler error WMC0909: Cannot resolve DataType models:AppliedChangeLogEntry [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\GpuOverclock\Views\OverclockSection.xaml(544,34): XamlCompiler error WMC0909: Cannot resolve DataType vm:GameBindingRow [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\GpuOverclock\Views\OverclockSection.xaml(477,34): XamlCompiler error WMC0909: Cannot resolve DataType models:OverclockProfile [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\GpuOverclock\Views\OverclockSection.xaml(368,34): XamlCompiler error WMC0909: Cannot resolve DataType vm:FanCurvePointRow [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\GpuOverclock\Views\OverclockSection.xaml(102,26): XamlCompiler error WMC0909: Cannot resolve DataType vm:TelemetryTileRow [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+GpuOverclock\Views\OverclockSection.xaml(636,42): XamlCompiler error WMC1111: DataTemplates containing x:Bind need a DataType to be specified using 'x:DataType' [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+C:\Users\Administrator\.nuget\packages\microsoft.windowsappsdk.winui\2.3.6\buildTransitive\Microsoft.UI.Xaml.Markup.Compiler.interop.targets(864,9): Xaml Internal Error error WMC9999: Object reference not set to an instance of an object. [C:\Users\Administrator\source\repos\kaliteconfig\kaliteConfig.csproj]
+
+Build FAILED.
+    7 Warning(s)
+    15 Error(s)
+
+Time Elapsed 00:00:06.11

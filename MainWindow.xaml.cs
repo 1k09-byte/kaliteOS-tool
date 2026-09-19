@@ -28,6 +28,8 @@ namespace kaliteConfig
         public void AllowExitAndClose()
         {
             _allowExit = true;
+            // Never leave frozen apps behind: resume anything suspend mode holds.
+            try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
             try { _tray?.Dispose(); } catch { }
             _tray = null;
             this.Close();
@@ -84,6 +86,7 @@ namespace kaliteConfig
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     _allowExit = true;
+                    try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
                     try { _tray?.Dispose(); } catch { }
                     _tray = null;
                     this.Close();
@@ -253,6 +256,26 @@ namespace kaliteConfig
             {
                 ToolTipService.SetToolTip(item, new ToolTip { Visibility = Visibility.Collapsed });
             }
+            // Compact rail must never show a scrollbar: hide the internal
+            // scrollers' bars (wheel still works as a fallback on tiny windows).
+            HideNavScrollbars(NavView);
+        }
+
+        private static void HideNavScrollbars(DependencyObject root)
+        {
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is ScrollViewer sv)
+                {
+                    sv.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+                    sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                    sv.VerticalScrollMode = ScrollMode.Auto;
+                    sv.HorizontalScrollMode = ScrollMode.Disabled;
+                }
+                HideNavScrollbars(child);
+            }
         }
 
         /// <summary>
@@ -308,11 +331,17 @@ namespace kaliteConfig
                     case "DriversPage":
                          ContentFrame.Navigate(typeof(GpuDriversPage));
                          break;
-                    case "GamingPage":
+                     case "GamingPage":
                          ContentFrame.Navigate(typeof(AffinityPage));
                          break;
-                    case "ThreadTunerPage":
+                     case "PriorityBoostsPage":
+                         ContentFrame.Navigate(typeof(PriorityBoostsPage));
+                         break;
+                     case "ThreadTunerPage":
                          ContentFrame.Navigate(typeof(ThreadTunerPage));
+                         break;
+                    case "BenchmarkPage":
+                         ContentFrame.Navigate(typeof(BenchmarkPage));
                          break;
                     case "WindowsSettingsPage":
                          ContentFrame.Navigate(typeof(WindowsSettingsHubPage));

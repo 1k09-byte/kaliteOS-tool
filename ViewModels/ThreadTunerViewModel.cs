@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using System.IO;
 using System.Text.Json;
+using kaliteConfig.ProcessOptimizer.ViewModels;
 
 namespace kaliteConfig.ViewModels;
 
@@ -23,6 +24,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private readonly ProfileWatcherService _profiles;
     private readonly DispatcherQueue _dispatcher = null!;
     private readonly DispatcherQueueTimer _timer = null!;
+
+    public ProcessOptimizerViewModel Optimizer { get; }
     private bool _refreshing;
     private bool _initialThreadsLoaded;
 
@@ -32,7 +35,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private class ThreadTunerSettings
     {
         public bool HideUnnamedThreads { get; set; }
-        public bool AutoDisableUnnamedBoosts { get; set; }
     }
 
     public ObservableCollection<TunerProcessRow> Processes { get; } = new();
@@ -41,6 +43,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public ObservableCollection<TunerProcessRow> DisplayedProcesses { get; } = new();
     public ObservableCollection<TunerProfile> Profiles { get; } = new();
     public ObservableCollection<TunerProfile> DisplayedProfiles { get; } = new();
+    public ObservableCollection<TunerProfile> DisplayedProcessProfiles { get; } = new();
+    public ObservableCollection<TunerProfile> DisplayedThreadProfiles { get; } = new();
 
     /// <summary>Full flat list of thread-boost rows (Thread Tune tab).</summary>
     public ObservableCollection<ThreadBoostRow> ThreadBoostRows { get; } = new();
@@ -65,52 +69,46 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         RefreshDisplayedThreadBoostRows();
     }
 
-    [ObservableProperty]
-    public partial bool AutoDisableUnnamedBoosts { get; set; }
-
-    partial void OnAutoDisableUnnamedBoostsChanged(bool value)
+    public Task AutoDisableUnnamedBoostsAsync()
     {
-        if (_settingsLoaded) _ = SaveSettingsAsync();
-        if (value)
+        return Task.Run(() => 
         {
-            _ = Task.Run(() => 
+            var rowsToDisable = ThreadBoostRows.Where(r => !r.IsProtected && r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var r in rowsToDisable)
             {
-                var rowsToDisable = ThreadBoostRows.Where(r => !r.IsProtected && r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
-                foreach (var r in rowsToDisable)
+                try
                 {
-                    try
+                    using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)r.Tid);
+                    if (!th.IsInvalid)
                     {
-                        using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)r.Tid);
-                        if (!th.IsInvalid)
-                        {
-                            NativeMethods.Priority.SetThreadPriorityBoost(th, true);
-                            _dispatcher.TryEnqueue(() => r.BoostEnabled = false);
-                        }
+                        NativeMethods.Priority.SetThreadPriorityBoost(th, true);
+                        _dispatcher.TryEnqueue(() => r.BoostEnabled = false);
                     }
-                    catch { }
                 }
-            });
-        }
-        else
+                catch { }
+            }
+        });
+    }
+
+    public Task RestoreUnnamedBoostsAsync()
+    {
+        return Task.Run(() => 
         {
-            _ = Task.Run(() => 
+            var rowsToRestore = ThreadBoostRows.Where(r => !r.IsProtected && !r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var r in rowsToRestore)
             {
-                var rowsToRestore = ThreadBoostRows.Where(r => !r.IsProtected && !r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
-                foreach (var r in rowsToRestore)
+                try
                 {
-                    try
+                    using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)r.Tid);
+                    if (!th.IsInvalid)
                     {
-                        using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)r.Tid);
-                        if (!th.IsInvalid)
-                        {
-                            NativeMethods.Priority.SetThreadPriorityBoost(th, false); // false = enable boost
-                            _dispatcher.TryEnqueue(() => r.BoostEnabled = true);
-                        }
+                        NativeMethods.Priority.SetThreadPriorityBoost(th, false);
+                        _dispatcher.TryEnqueue(() => r.BoostEnabled = true);
                     }
-                    catch { }
                 }
-            });
-        }
+                catch { }
+            }
+        });
     }
 
     private readonly HashSet<int> _seenUnnamedTids = new HashSet<int>();
@@ -133,6 +131,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         _profiles = App.Current.ProfileWatcher;
 
         _dispatcher = DispatcherQueue.GetForCurrentThread();
+        Optimizer = new ProcessOptimizerViewModel(_dispatcher);
         if (_dispatcher != null)
         {
             _timer = _dispatcher.CreateTimer();
@@ -142,6 +141,14 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 // Never let a slow tick overlap the next one: two refreshes at
                 // once double the UI churn and make the list feel frozen.
                 if (_refreshing)
+                {
+                    return;
+                }
+
+                // Benchmark capture in progress: the tuner's own polling
+                // (WMI process scan + CPU sampling every 2 s) skews frametime
+                // stats. Stand down until the capture finishes.
+                if (BenchmarkViewModel.CaptureInProgress)
                 {
                     return;
                 }
@@ -189,7 +196,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 if (settings != null)
                 {
                     HideUnnamedThreads = settings.HideUnnamedThreads;
-                    AutoDisableUnnamedBoosts = settings.AutoDisableUnnamedBoosts;
                 }
             }
         }
@@ -203,8 +209,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         {
             var settings = new ThreadTunerSettings
             {
-                HideUnnamedThreads = HideUnnamedThreads,
-                AutoDisableUnnamedBoosts = AutoDisableUnnamedBoosts
+                HideUnnamedThreads = HideUnnamedThreads
             };
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
             await File.WriteAllTextAsync(_settingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
@@ -296,6 +301,9 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     {
         string filter = (RulesFilter ?? string.Empty).Trim();
         DisplayedProfiles.Clear();
+        DisplayedProcessProfiles.Clear();
+        DisplayedThreadProfiles.Clear();
+        
         foreach (var p in Profiles)
         {
             if (filter.Length == 0
@@ -303,6 +311,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 || p.Pattern.Contains(filter, StringComparison.OrdinalIgnoreCase))
             {
                 DisplayedProfiles.Add(p);
+                if (p.ProcessActionCount > 0 || (p.ProcessActionCount == 0 && p.ThreadRules.Count == 0))
+                    DisplayedProcessProfiles.Add(p);
+                
+                if (p.ThreadRules.Count > 0)
+                    DisplayedThreadProfiles.Add(p);
             }
         }
         if (SelectedProfile != null && !DisplayedProfiles.Contains(SelectedProfile))
@@ -396,6 +409,24 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     // ─── Thread Tune tab ───────────────────────────────────────────
 
+    private bool IsProcessProtected(string exeName)
+    {
+        foreach (var p in _profiles.ActiveProfiles)
+        {
+            if (p.Enabled && p.ProtectThreads)
+            {
+                string barePattern = (p.Pattern ?? "").Replace("*", "").ToLowerInvariant();
+                string exeLower = exeName.ToLowerInvariant();
+                if (!string.IsNullOrEmpty(barePattern) && exeLower.Contains(barePattern))
+                    return true;
+                
+                if (string.Equals(p.Name, exeName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>
     /// Scans every thread of every process and reads its priority-boost state.
     /// Differential update: existing rows are patched in-place so the ListView
@@ -430,6 +461,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                         continue;
                     }
 
+                    bool procProtected = IsProcessProtected(procName);
+
                     ProcessThreadCollection threads;
                     try { threads = proc.Threads; } catch { proc.Dispose(); continue; }
 
@@ -448,7 +481,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                             if (!threadHandle.IsInvalid && NativeMethods.Priority.GetThreadPriorityBoost(threadHandle, out bool disabled))
                             {
                                 boost = !disabled;
-                                isProtected = false;
+                                isProtected = procProtected;
                             }
                         }
                         catch { }
@@ -458,27 +491,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                             desc = NativeSnapshotService.TryGetThreadDescription((uint)tid) ?? "(unnamed)";
                         }
                         catch { }
-
-                        if (AutoDisableUnnamedBoosts && string.Equals(desc, "(unnamed)", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!_seenUnnamedTids.Contains(tid))
-                            {
-                                _seenUnnamedTids.Add(tid);
-                                if (boost && !isProtected)
-                                {
-                                    try
-                                    {
-                                        using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)tid);
-                                        if (!th.IsInvalid)
-                                        {
-                                            NativeMethods.Priority.SetThreadPriorityBoost(th, true); // true = disable boost
-                                            boost = false;
-                                        }
-                                    }
-                                    catch { }
-                                }
-                            }
-                        }
 
                         rows.Add(new ThreadBoostRow
                         {
@@ -547,7 +559,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public void RefreshDisplayedThreadBoostRows()
     {
         string filter = (RulesFilter ?? string.Empty).Trim();
-        DisplayedThreadBoostRows.Clear();
+
+        var visible = new List<ThreadBoostRow>();
         foreach (var r in ThreadBoostRows)
         {
             if (HideUnnamedThreads && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase))
@@ -558,8 +571,46 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 || r.Tid.ToString().Contains(filter, StringComparison.Ordinal)
                 || r.Description.Contains(filter, StringComparison.OrdinalIgnoreCase))
             {
-                DisplayedThreadBoostRows.Add(r);
+                visible.Add(r);
             }
+        }
+
+        // Identical set+order (the common poll case): leave the collection
+        // alone — Clear/Add resets the ListView scroll position and the
+        // user's mouse wheel position every tick.
+        if (DisplayedThreadBoostRows.Count == visible.Count)
+        {
+            bool same = true;
+            for (int i = 0; i < visible.Count; i++)
+            {
+                if (!ReferenceEquals(DisplayedThreadBoostRows[i], visible[i])) { same = false; break; }
+            }
+            if (same) return;
+        }
+
+        // Minimal in-place edit: remove only rows that left the view and
+        // insert only rows that joined it, at their correct positions. A
+        // Clear()+Add() rebuild fires a full items-reset that snaps the
+        // ListView back to the top every time any thread appears or dies.
+        var desired = new HashSet<ThreadBoostRow>(visible);
+        for (int i = DisplayedThreadBoostRows.Count - 1; i >= 0; i--)
+        {
+            if (!desired.Contains(DisplayedThreadBoostRows[i]))
+                DisplayedThreadBoostRows.RemoveAt(i);
+        }
+
+        var position = new Dictionary<ThreadBoostRow, int>();
+        for (int i = 0; i < visible.Count; i++) position[visible[i]] = i;
+
+        foreach (var r in visible)
+        {
+            if (DisplayedThreadBoostRows.Contains(r)) continue;
+            int insertAt = DisplayedThreadBoostRows.Count;
+            for (int i = 0; i < DisplayedThreadBoostRows.Count; i++)
+            {
+                if (position[DisplayedThreadBoostRows[i]] > position[r]) { insertAt = i; break; }
+            }
+            DisplayedThreadBoostRows.Insert(insertAt, r);
         }
     }
 }

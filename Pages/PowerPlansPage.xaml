@@ -79,7 +79,9 @@
                     <Button Content="Refresh" Command="{Binding LoadSchemesCommand}" HorizontalAlignment="Stretch" />
                     <Button Content="Import Plan (.pow)" Command="{Binding ImportSchemeCommand}" HorizontalAlignment="Stretch" />
                     <Button Content="Unhide all settings" Command="{Binding UnhideAllSettingsCommand}" HorizontalAlignment="Stretch"
-                            ToolTipService.ToolTip="Runs powercfg -attributes SUB_ALL SETTING_ALL -ATTRIB_HIDE so every advanced power setting shows up in this page (needs admin). Re-lists the schemes afterwards." />
+                            ToolTipService.ToolTip="Clears only the hidden flag on power settings (needs admin). Laptop-safe: OEM overlay bits are preserved. Re-lists the schemes afterwards." />
+                    <Button Content="Repair Control Panel plans" Command="{Binding RestoreDefaultSchemesCommand}" HorizontalAlignment="Stretch"
+                            ToolTipService.ToolTip="Fixes 'power plan information isn't available' (powercfg /restoredefaultschemes). Use if Advanced settings shows empty. Needs admin." />
                     <InfoBar Message="{Binding ErrorMessage}" Severity="Warning" IsOpen="True" Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" IsClosable="False" />
                 </StackPanel>
 

@@ -254,6 +254,8 @@ public sealed partial class TunerProfile : ObservableObject
     /// When the last matching process exits, Gaming mode restores everything.
     /// </summary>
     [ObservableProperty] public partial bool GamingModeAuto { get; set; }
+    /// <summary>Prevents Global Optimize from stripping priority boosts off this process's threads.</summary>
+    [ObservableProperty] public partial bool ProtectThreads { get; set; }
     /// <summary>Master switch for the Enable / disable button. Matching requires Enabled.</summary>
     [ObservableProperty] public partial bool Enabled { get; set; } = true;
     [ObservableProperty] public partial ObservableCollection<TunerThreadRule> ThreadRules { get; set; } = new();
@@ -271,6 +273,7 @@ public sealed partial class TunerProfile : ObservableObject
         {
         var parts = new List<string>();
         if (GamingModeAuto) parts.Add("Gaming mode");
+        if (ProtectThreads) parts.Add("Protected");
         if (PriorityClass.HasValue) parts.Add("Priority");
         if (BoostEnabled.HasValue) parts.Add("Boost");
         if (EfficiencyMode.HasValue) parts.Add("Efficiency");
@@ -318,6 +321,7 @@ public sealed partial class TunerProfile : ObservableObject
     [JsonIgnore]
     public int ProcessActionCount =>
         (GamingModeAuto ? 1 : 0) +
+        (ProtectThreads ? 1 : 0) +
         (PriorityClass.HasValue ? 1 : 0) +
         (BoostEnabled.HasValue ? 1 : 0) +
         (EfficiencyMode.HasValue ? 1 : 0) +
@@ -335,6 +339,7 @@ public sealed partial class TunerProfile : ObservableObject
             if (AffinityMask.HasValue) parts.Add($"Affinity: 0x{AffinityMask:X}");
             if (CpuSetIds != null && CpuSetIds.Count > 0) parts.Add($"Sets: {CpuSetIds.Count} assigned");
             if (EfficiencyMode.HasValue) parts.Add(EfficiencyMode.Value ? "Eco ON" : "Eco OFF");
+            if (ProtectThreads) parts.Add("Protected: true");
 
             return parts.Count > 0 ? string.Join(" | ", parts) : "No changes defined";
         }
@@ -368,6 +373,7 @@ public sealed partial class TunerProfile : ObservableObject
             EfficiencyMode = EfficiencyMode,
             AutoApply = AutoApply,
             GamingModeAuto = GamingModeAuto,
+            ProtectThreads = ProtectThreads,
             Enabled = Enabled,
             LastResult = LastResult,
             PresetAffinity = PresetAffinity,
@@ -390,6 +396,7 @@ public sealed partial class TunerProfile : ObservableObject
         EfficiencyMode = source.EfficiencyMode;
         AutoApply = source.AutoApply;
         GamingModeAuto = source.GamingModeAuto;
+        ProtectThreads = source.ProtectThreads;
         Enabled = source.Enabled;
         LastResult = source.LastResult;
         PresetAffinity = source.PresetAffinity;

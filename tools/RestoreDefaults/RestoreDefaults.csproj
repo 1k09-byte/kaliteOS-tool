@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One-shot remediation sweep: returns every accessible process to stock
+    scheduling state (priority Normal, Eco OFF, boost enabled, full affinity,
+    full default CPU Sets). Compiles the REAL NativeMethods. Skips Realtime,
+    PID 0/4, and anything it cannot open. Run elevated for full coverage.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Native\SafeHandles.cs" LinkBase="Native" />
+    <Compile Include="..\..\Native\NativeMethods.Handles.cs" LinkBase="Native" />
+    <Compile Include="..\..\Native\NativeMethods.Priority.cs" LinkBase="Native" />
+    <Compile Include="..\..\Native\NativeMethods.Power.cs" LinkBase="Native" />
+    <Compile Include="..\..\Native\NativeMethods.Ntdll.cs" LinkBase="Native" />
+    <Compile Include="..\..\Native\NativeMethods.CpuSets.cs" LinkBase="Native" />
+  </ItemGroup>
+
+</Project>
