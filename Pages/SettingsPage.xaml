@@ -109,6 +109,7 @@
                     </ComboBox>
                 </toolkit:SettingsCard>
 
+
                 <toolkit:SettingsCard
                     Description="Change the appearance of the backdrop material behind your app"
                     Header="Material">

@@ -13,9 +13,7 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     </Page.Resources>
 
-    <Page.DataContext>
-        <vm:BenchmarkViewModel x:Name="ViewModel" />
-    </Page.DataContext>
+
 
     <Grid UseLayoutRounding="True">
         <Grid.RowDefinitions>
@@ -70,24 +68,26 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-                <Button Content="Refresh" Command="{x:Bind ViewModel.LoadTargetsCommand}" />
-                <Button Content="Use foreground" Command="{x:Bind ViewModel.UseForegroundCommand}"
+            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8" VerticalAlignment="Center">
+                <Button Content="Refresh" Command="{x:Bind ViewModel.LoadTargetsCommand}" VerticalAlignment="Center" />
+                <Button Content="Use foreground" Command="{x:Bind ViewModel.UseForegroundCommand}" VerticalAlignment="Center"
                         ToolTipService.ToolTip="Target the focused game window." />
                 <ComboBox ItemsSource="{x:Bind ViewModel.DurationOptions}" SelectedItem="{x:Bind ViewModel.Duration, Mode=TwoWay}"
-                          ToolTipService.ToolTip="Capture duration (Manual = stop button)." />
+                          VerticalAlignment="Center" ToolTipService.ToolTip="Capture duration (Manual = stop button)." />
                 <NumberBox Value="{x:Bind ViewModel.CountdownSec, Mode=TwoWay}" Minimum="0" Maximum="30"
-                           Header="Countdown (s)" SpinButtonPlacementMode="Compact" Width="130" />
-                <Button Content="Start capture" Command="{x:Bind ViewModel.StartCaptureCommand}"
+                           VerticalAlignment="Center" SpinButtonPlacementMode="Compact" Width="130"
+                           PlaceholderText="Countdown (s)" ToolTipService.ToolTip="Countdown in seconds before capture starts." />
+                <Button Content="Start capture" Command="{x:Bind ViewModel.StartCaptureCommand}" VerticalAlignment="Center"
                         Style="{StaticResource AccentButtonStyle}" />
-                <Button Content="Stop" Command="{x:Bind ViewModel.StopCaptureCommand}" />
+                <Button Content="Stop" Command="{x:Bind ViewModel.StopCaptureCommand}" VerticalAlignment="Center" />
                 <Border Width="1" Height="20" Background="{ThemeResource DividerStrokeColorDefaultBrush}" VerticalAlignment="Center" Margin="4,0" />
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                             ToolTipService.ToolTip="Auto A/B: with the game selected, press the hotkey (or Run now) to capture N runs with Gaming mode off and on, automatically. Runs are labeled 'A/B r# off/on' for the Compare tab.">
                     <CheckBox Content="Auto A/B" IsChecked="{x:Bind ViewModel.AutoAbEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
                     <NumberBox Value="{x:Bind ViewModel.AutoAbRuns, Mode=TwoWay}" Minimum="1" Maximum="10"
-                               SpinButtonPlacementMode="Compact" Width="84" Header="Pairs" FontSize="11" />
-                    <Button Content="Run now" Command="{x:Bind ViewModel.RunAutoAbCommand}" />
+                               SpinButtonPlacementMode="Compact" Width="84" VerticalAlignment="Center"
+                               PlaceholderText="Pairs" ToolTipService.ToolTip="Number of off/on run pairs." />
+                    <Button Content="Run now" Command="{x:Bind ViewModel.RunAutoAbCommand}" VerticalAlignment="Center" />
                     <TextBlock Text="{x:Bind ViewModel.AutoAbStatus, Mode=OneWay}" FontSize="11"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="200" TextTrimming="CharacterEllipsis" />
                 </StackPanel>

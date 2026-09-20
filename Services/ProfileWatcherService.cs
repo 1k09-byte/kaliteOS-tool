@@ -741,6 +741,14 @@ public sealed class ProfileWatcherService : IDisposable
 
             }
 
+            bool benchmarkRule = matched.Any(p => p.AutoBenchmarkOnLaunch);
+            if (benchmarkRule)
+            {
+                _ = App.Current.Benchmark.AutoStartCaptureAsync(pid, name, $"{name} auto-benchmark");
+                Log($"auto-benchmark: triggered capture for [{name}] pid={pid}");
+            }
+
+
             if (matched.Count == 0)
             {
                 // Even with no rule match, persisted per-thread boost

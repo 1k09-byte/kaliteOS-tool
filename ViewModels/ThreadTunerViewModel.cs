@@ -34,7 +34,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     private class ThreadTunerSettings
     {
-        public bool HideUnnamedThreads { get; set; }
     }
 
     public ObservableCollection<TunerProcessRow> Processes { get; } = new();
@@ -60,14 +59,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     [ObservableProperty]
     public partial string ThreadTuneLoadingText { get; set; } = "Scanning system threads...";
 
-    [ObservableProperty]
-    public partial bool HideUnnamedThreads { get; set; }
-
-    partial void OnHideUnnamedThreadsChanged(bool value)
-    {
-        if (_settingsLoaded) _ = SaveSettingsAsync();
-        RefreshDisplayedThreadBoostRows();
-    }
+    /// <summary>Unnamed threads are always hidden; no toggle exists in the UI.</summary>
+    public bool HideUnnamedThreads => true;
 
     public Task AutoDisableUnnamedBoostsAsync()
     {
@@ -191,12 +184,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         {
             if (File.Exists(_settingsPath))
             {
-                var text = await File.ReadAllTextAsync(_settingsPath);
-                var settings = JsonSerializer.Deserialize<ThreadTunerSettings>(text);
-                if (settings != null)
-                {
-                    HideUnnamedThreads = settings.HideUnnamedThreads;
-                }
+            var text = await File.ReadAllTextAsync(_settingsPath);
+            var settings = JsonSerializer.Deserialize<ThreadTunerSettings>(text);
+            if (settings != null)
+            {
+            }
             }
         }
         catch { }
@@ -207,10 +199,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     {
         try
         {
-            var settings = new ThreadTunerSettings
-            {
-                HideUnnamedThreads = HideUnnamedThreads
-            };
+            var settings = new ThreadTunerSettings();
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
             await File.WriteAllTextAsync(_settingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }

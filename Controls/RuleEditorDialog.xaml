@@ -139,6 +139,18 @@
                             <ColumnDefinition Width="220" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
+                        <CheckBox Grid.Column="0" Content="Automatic Benchmarking" VerticalAlignment="Center"
+                                  IsChecked="{x:Bind Draft.AutoBenchmarkOnLaunch, Mode=TwoWay}"
+                                  ToolTipService.ToolTip="Automatically triggers a Benchmark Capture immediately when this process launches." />
+                        <TextBlock Grid.Column="1" Text="Start background capture when process launches, bypassing hotkeys" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </Border>
+                <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
                         <CheckBox Grid.Column="0" Content="Protect process threads" VerticalAlignment="Center"
                                   IsChecked="{x:Bind Draft.ProtectThreads, Mode=TwoWay}"
                                   ToolTipService.ToolTip="Prevents Global Optimize from stripping priority boosts off this process's threads." />

@@ -174,8 +174,6 @@
                                 ToolTipService.ToolTip="Raises the selected process to Above Normal and lowers other background processes to Below Normal. Select a process row first."/>
                         <Button x:Name="PageRestoreButton" Content="Restore" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,4"
                                  ToolTipService.ToolTip="Revert every priority kaliteConfig changed (Gaming mode lowering and CPU-bound auto-raise)."/>
-                        <Button x:Name="PageSuspendNowButton" Content="Suspend background" Click="Page_SuspendNow" Padding="12,4"
-                                 ToolTipService.ToolTip="Freeze all background noise for the selected (or foreground) game. Everything resumes — nothing is terminated."/>
                         <Button x:Name="PageResumeAllButton" Content="Resume all" Click="Page_ResumeAll" Padding="12,4"
                                  ToolTipService.ToolTip="Resume everything suspend mode froze."/>
                         <CheckBox x:Name="SuspendAutoCheck" Content="Auto" Checked="SuspendAuto_Toggled" Unchecked="SuspendAuto_Toggled" VerticalAlignment="Center"
@@ -184,6 +182,8 @@
                                  ToolTipService.ToolTip="Add the selected process to the suspend-mode game list."/>
                         <Button Content="Games…" Click="Page_ManageGames" Padding="12,4"
                                 ToolTipService.ToolTip="Show all processes and manage the suspend-mode game list."/>
+                        <TextBox x:Name="ProcessesSearchBox" MaxWidth="240" MinWidth="180" PlaceholderText="Search processes" VerticalAlignment="Center"
+                                 Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">

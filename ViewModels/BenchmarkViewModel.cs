@@ -499,6 +499,12 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     /// <summary>Raised when Auto A/B finishes so the page can switch to the Compare tab.</summary>
     public event Action? AutoAbNavigateRequested;
 
+    public async Task<Guid?> AutoStartCaptureAsync(int pid, string exeName, string? commentOverride = null)
+    {
+        if (IsCapturing) return null;
+        return await StartCaptureInternalAsync(pid, exeName, commentOverride);
+    }
+
     [RelayCommand]
     private async Task<Guid?> StartCaptureAsync(string? commentOverride = null)
     {
@@ -511,6 +517,11 @@ public sealed partial class BenchmarkViewModel : ObservableObject
             StatusText = "Select a process row first, or focus the game and press Use foreground.";
             return null;
         }
+        return await StartCaptureInternalAsync(pid, exe, commentOverride);
+    }
+
+    private async Task<Guid?> StartCaptureInternalAsync(int pid, string exe, string? commentOverride = null)
+    {
         string? savedComment = CommentDraft;
         if (commentOverride != null) CommentDraft = commentOverride;
         IsCapturing = true;

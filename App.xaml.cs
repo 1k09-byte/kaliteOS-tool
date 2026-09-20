@@ -40,6 +40,8 @@ namespace kaliteConfig
         public GamingModeService GamingMode { get; } = new GamingModeService();
         public ForegroundSuspendService ForegroundSuspend { get; }
         public ProfileWatcherService ProfileWatcher { get; }
+        public ViewModels.BenchmarkViewModel Benchmark { get; }
+        public SnipService Sniper { get; }
 
         public App()
         {
@@ -72,6 +74,8 @@ namespace kaliteConfig
             
             ProfileWatcher = new ProfileWatcherService(ProcessTuning, CpuSets, ThreadTuning);
             ForegroundSuspend = new ForegroundSuspendService(ProcessTuning);
+            Benchmark = new ViewModels.BenchmarkViewModel();
+            Sniper = new SnipService();
             // Fire and forget the profile watcher async load
             _ = InitializeWatcherAsync();
         }

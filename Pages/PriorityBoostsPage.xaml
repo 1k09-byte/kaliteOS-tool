@@ -104,8 +104,8 @@
                     <TextBlock Text="Untick the checkbox to disable priority boost for a thread permanently."
                                Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" Margin="12,0,0,0">
-                </StackPanel>
+                <TextBox x:Name="ThreadsSearchBox" Grid.Column="1" MaxWidth="240" HorizontalAlignment="Right" PlaceholderText="Search threads" VerticalAlignment="Center"
+                         Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </Grid>
 
             <!-- Column headers -->

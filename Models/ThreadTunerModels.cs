@@ -254,6 +254,8 @@ public sealed partial class TunerProfile : ObservableObject
     /// When the last matching process exits, Gaming mode restores everything.
     /// </summary>
     [ObservableProperty] public partial bool GamingModeAuto { get; set; }
+    /// <summary>When true, automatically starts a Benchmark Capture when the process launches.</summary>
+    [ObservableProperty] public partial bool AutoBenchmarkOnLaunch { get; set; }
     /// <summary>Prevents Global Optimize from stripping priority boosts off this process's threads.</summary>
     [ObservableProperty] public partial bool ProtectThreads { get; set; }
     /// <summary>Master switch for the Enable / disable button. Matching requires Enabled.</summary>
@@ -273,6 +275,7 @@ public sealed partial class TunerProfile : ObservableObject
         {
         var parts = new List<string>();
         if (GamingModeAuto) parts.Add("Gaming mode");
+        if (AutoBenchmarkOnLaunch) parts.Add("Auto-Benchmark");
         if (ProtectThreads) parts.Add("Protected");
         if (PriorityClass.HasValue) parts.Add("Priority");
         if (BoostEnabled.HasValue) parts.Add("Boost");

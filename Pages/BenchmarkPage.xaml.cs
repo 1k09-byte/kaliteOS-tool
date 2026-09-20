@@ -16,6 +16,8 @@ namespace kaliteConfig.Pages
 {
     public sealed partial class BenchmarkPage : Page
     {
+        public BenchmarkViewModel ViewModel => App.Current.Benchmark;
+
         private List<(double Min, double Max)> _buckets = new();
         private int _bucketFrames;
         private double _selectedStutterMs = double.NaN;

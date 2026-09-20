@@ -24,7 +24,6 @@ namespace kaliteConfig
         private bool _allowExit;
         private bool _trayShown;
 
-        /// <summary>Real application exit that bypasses minimize-to-tray.</summary>
         public void AllowExitAndClose()
         {
             _allowExit = true;
@@ -197,6 +196,7 @@ namespace kaliteConfig
                 ApplyRootBackground();
             }
             catch { }
+
         }
 
         private void ApplyRootBackground()
@@ -337,8 +337,11 @@ namespace kaliteConfig
                      case "PriorityBoostsPage":
                          ContentFrame.Navigate(typeof(PriorityBoostsPage));
                          break;
-                     case "ThreadTunerPage":
+                      case "ThreadTunerPage":
                          ContentFrame.Navigate(typeof(ThreadTunerPage));
+                         break;
+                    case "SnipPage":
+                         ContentFrame.Navigate(typeof(SnipPage));
                          break;
                     case "BenchmarkPage":
                          ContentFrame.Navigate(typeof(BenchmarkPage));

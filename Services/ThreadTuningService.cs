@@ -228,10 +228,8 @@ public sealed class ThreadTuningService
                 Reserved = 0 
             };
 
-            if (!NativeMethods.Affinity.SetThreadIdealProcessorEx(thread, ref proc, IntPtr.Zero))
-            {
-                throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Setting thread ideal processor failed."));
-            }
+            NativeMethods.Affinity.SetThreadIdealProcessorEx(thread, ref proc, IntPtr.Zero);
+            // Ignore failures silently (avoid UI toaster popups for protected threads)
         }).ConfigureAwait(false);
     }
 

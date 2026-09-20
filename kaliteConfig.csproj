@@ -63,6 +63,7 @@
   <ItemGroup>
     <PackageReference Include="DevWinUI" Version="10.4.1" />
     <PackageReference Include="LLT.NvAPIWrapper.Net" Version="1.1.28-pre.42" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />

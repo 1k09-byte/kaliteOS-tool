@@ -59,6 +59,7 @@ namespace kaliteConfig.Pages
             // never checks — its updates are distributed manually.
             _ = Vm.CheckForUpdateCommand.ExecuteAsync(null);
 #endif
+
         }
 
         private void UpdateNow_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -91,5 +92,7 @@ namespace kaliteConfig.Pages
         {
             await AboutDialog.ShowAsync();
         }
+
+
     }
 }

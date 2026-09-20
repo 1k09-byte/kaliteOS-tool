@@ -196,27 +196,6 @@ namespace kaliteConfig.Pages
             catch { }
         }
 
-        private async void Page_SuspendNow(object sender, RoutedEventArgs e)
-        {
-            PageSuspendNowButton.IsEnabled = false;
-            try
-            {
-                string? hint = SelectedProcess?.Name;
-                int n = await App.Current.ForegroundSuspend.SuspendBackgroundNowAsync(hint);
-                if (n == 0 && hint == null)
-                    PageSuspendStatusText.Text = "Focus the game (or select its row), then Suspend background.";
-            }
-            catch (Exception ex)
-            {
-                PageSuspendStatusText.Text = $"Suspend failed: {ex.Message}";
-            }
-            finally
-            {
-                PageSuspendNowButton.IsEnabled = true;
-                RefreshSuspendUi();
-            }
-        }
-
         private async void Page_ResumeAll(object sender, RoutedEventArgs e)
         {
             PageResumeAllButton.IsEnabled = false;

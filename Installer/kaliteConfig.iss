@@ -11,6 +11,14 @@
   #define PublishDir "..\\publish\\win-x64"
 #endif
 
+; Benchmark capture must ship with the tool: PresentMon 2.5.1 is pinned and
+; hash-checked by the app at runtime, so refuse to COMPILE an installer from
+; a publish folder that is missing it. Compile-time check (ISPP), not a
+; runtime one - a finished Setup.exe must never depend on the build machine.
+#if !FileExists(PublishDir + "\\PresentMon\\PresentMon.exe")
+  #error Publish folder is missing PresentMon\\PresentMon.exe - Benchmark capture would be broken. Re-run Installer\\Build.ps1 (it publishes first).
+#endif
+
 #define MyAppName "kaliteConfig"
 #define MyAppExe "kaliteConfig.exe"
 
@@ -61,16 +69,6 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
 
 [Code]
-function InitializeSetup: Boolean;
-begin
-  // Benchmark capture must ship with the tool: PresentMon 2.5.1 is pinned
-  // and hash-checked by the app at runtime, so refuse to compile an
-  // installer from a publish folder that is missing it.
-  if not FileExists(ExpandConstant('{#PublishDir}\PresentMon\PresentMon.exe')) then
-    RaiseException('Publish folder is missing PresentMon\PresentMon.exe - Benchmark capture would be broken. Re-run Installer\Build.ps1 (it publishes first).');
-  Result := True;
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
