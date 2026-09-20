@@ -14,6 +14,8 @@ public abstract class SnipObject
     public abstract void Draw(CanvasDrawingSession ds, CanvasBitmap? background = null);
     public abstract bool HitTest(Point pt);
     public abstract void UpdateBounds(Point start, Point current);
+    public abstract void MoveBy(double dx, double dy);
+    public abstract Rect GetBounds();
 }
 
 public class SnipArrow : SnipObject
@@ -57,6 +59,16 @@ public class SnipArrow : SnipObject
         Start = start;
         End = current;
     }
+
+    public override void MoveBy(double dx, double dy)
+    {
+        Start = new Point(Start.X + dx, Start.Y + dy);
+        End = new Point(End.X + dx, End.Y + dy);
+    }
+
+    public override Rect GetBounds() => new Rect(
+        Math.Min(Start.X, End.X), Math.Min(Start.Y, End.Y),
+        Math.Abs(End.X - Start.X), Math.Abs(End.Y - Start.Y));
 }
 
 public class SnipRectangle : SnipObject
@@ -86,6 +98,11 @@ public class SnipRectangle : SnipObject
             Math.Abs(start.Y - current.Y)
         );
     }
+
+    public override void MoveBy(double dx, double dy) =>
+        Bounds = new Rect(Bounds.X + dx, Bounds.Y + dy, Bounds.Width, Bounds.Height);
+
+    public override Rect GetBounds() => Bounds;
 }
 
 public class SnipRedactionBox : SnipObject
@@ -138,6 +155,11 @@ public class SnipRedactionBox : SnipObject
             Math.Abs(start.Y - current.Y)
         );
     }
+
+    public override void MoveBy(double dx, double dy) =>
+        Bounds = new Rect(Bounds.X + dx, Bounds.Y + dy, Bounds.Width, Bounds.Height);
+
+    public override Rect GetBounds() => Bounds;
 }
 
 public class SnipLine : SnipObject
@@ -151,6 +173,16 @@ public class SnipLine : SnipObject
     public override bool HitTest(Point pt) => new SnipArrow { Start = Start, End = End, StrokeThickness = StrokeThickness }.HitTest(pt);
 
     public override void UpdateBounds(Point start, Point current) { Start = start; End = current; }
+
+    public override void MoveBy(double dx, double dy)
+    {
+        Start = new Point(Start.X + dx, Start.Y + dy);
+        End = new Point(End.X + dx, End.Y + dy);
+    }
+
+    public override Rect GetBounds() => new Rect(
+        Math.Min(Start.X, End.X), Math.Min(Start.Y, End.Y),
+        Math.Abs(End.X - Start.X), Math.Abs(End.Y - Start.Y));
 }
 
 public class SnipEllipse : SnipObject
@@ -181,6 +213,11 @@ public class SnipEllipse : SnipObject
             Math.Min(start.X, current.X), Math.Min(start.Y, current.Y),
             Math.Abs(start.X - current.X), Math.Abs(start.Y - current.Y));
     }
+
+    public override void MoveBy(double dx, double dy) =>
+        Bounds = new Rect(Bounds.X + dx, Bounds.Y + dy, Bounds.Width, Bounds.Height);
+
+    public override Rect GetBounds() => Bounds;
 }
 
 /// <summary>Translucent wide ink stroke used by the highlighter tool.</summary>
@@ -231,6 +268,11 @@ public class SnipSpotlight : SnipObject
             Math.Min(start.X, current.X), Math.Min(start.Y, current.Y),
             Math.Abs(start.X - current.X), Math.Abs(start.Y - current.Y));
     }
+
+    public override void MoveBy(double dx, double dy) =>
+        Bounds = new Rect(Bounds.X + dx, Bounds.Y + dy, Bounds.Width, Bounds.Height);
+
+    public override Rect GetBounds() => Bounds;
 }
 
 /// <summary>Free-floating text annotation.</summary>
@@ -252,6 +294,11 @@ public class SnipText : SnipObject
         pt.Y >= Position.Y && pt.Y <= Position.Y + FontSize * 1.4;
 
     public override void UpdateBounds(Point start, Point current) => Position = start;
+
+    public override void MoveBy(double dx, double dy) => Position = new Point(Position.X + dx, Position.Y + dy);
+
+    public override Rect GetBounds() => new Rect(Position.X, Position.Y,
+        Math.Max(8, TextValue.Length * FontSize * 0.6), FontSize * 1.4);
 }
 
 /// <summary>Numbered step badge: filled circle with the next sequence number.</summary>
@@ -277,6 +324,14 @@ public class SnipNumber : SnipObject
         Math.Sqrt(Math.Pow(pt.X - Center.X, 2) + Math.Pow(pt.Y - Center.Y, 2)) <= Radius * 1.5;
 
     public override void UpdateBounds(Point start, Point current) => Center = start;
+
+    public override void MoveBy(double dx, double dy) => Center = new Point(Center.X + dx, Center.Y + dy);
+
+    public override Rect GetBounds()
+    {
+        double r = Radius * 1.5;
+        return new Rect(Center.X - r, Center.Y - r, r * 2, r * 2);
+    }
 }
 
 public class SnipInk : SnipObject
@@ -310,5 +365,23 @@ public class SnipInk : SnipObject
     public override void UpdateBounds(Point start, Point current)
     {
         Points.Add(current);
+    }
+
+    public override void MoveBy(double dx, double dy)
+    {
+        for (int i = 0; i < Points.Count; i++)
+            Points[i] = new Point(Points[i].X + dx, Points[i].Y + dy);
+    }
+
+    public override Rect GetBounds()
+    {
+        if (Points.Count == 0) return new Rect(0, 0, 0, 0);
+        double x0 = Points[0].X, y0 = Points[0].Y, x1 = x0, y1 = y0;
+        foreach (var p in Points)
+        {
+            if (p.X < x0) x0 = p.X; if (p.X > x1) x1 = p.X;
+            if (p.Y < y0) y0 = p.Y; if (p.Y > y1) y1 = p.Y;
+        }
+        return new Rect(x0, y0, Math.Max(1, x1 - x0), Math.Max(1, y1 - y0));
     }
 }

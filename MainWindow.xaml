@@ -189,7 +189,7 @@
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7A5;" />
+                        <FontIcon Glyph="&#xE7A8;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Bench" Tag="BenchmarkPage" Margin="0" Padding="0">

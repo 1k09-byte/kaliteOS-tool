@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using kaliteConfig.Models;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -16,6 +17,10 @@ public static class SnipGalleryService
 {
     private const string ThumbsDirName = "_thumbs";
     private const string TrashDirName = "_trash";
+
+    /// <summary>How long a file must sit untouched before the background poll considers it
+    /// finished (see <see cref="GetSnipSignatureAsync"/>).</summary>
+    public static readonly TimeSpan QuietSettleWindow = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Snips live in Pictures\kaliteConfig Snips (user-visible). AppData is kept
@@ -100,6 +105,50 @@ public static class SnipGalleryService
             await File.WriteAllTextAsync(MetaPathFor(snipPath), json);
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Cheap fingerprint of the snips folder: every snip plus its length and write time, and the
+    /// same for metadata sidecars. No metadata parsing and no image work.
+    ///
+    /// A background poll compares this first, so an unchanged folder costs one directory
+    /// enumeration and nothing else -- which is what lets the poll run often enough to feel
+    /// instant without ever disturbing the page.
+    /// </summary>
+    public static async Task<string> GetSnipSignatureAsync()
+    {
+        return await Task.Run(() =>
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                var dir = GetSnipsDirectory();
+                var thumbs = GetThumbsDirectory();
+                var trash = GetTrashDirectory();
+                var settled = DateTime.UtcNow - QuietSettleWindow;
+                foreach (var file in Directory.EnumerateFiles(dir).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (file.StartsWith(thumbs, StringComparison.OrdinalIgnoreCase) ||
+                        file.StartsWith(trash, StringComparison.OrdinalIgnoreCase)) continue;
+                    var name = Path.GetFileName(file);
+                    var isMeta = name.EndsWith(".meta.json", StringComparison.OrdinalIgnoreCase);
+                    if (!isMeta && !SnipGalleryQuery.SupportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
+                        continue;
+                    try
+                    {
+                        var info = new FileInfo(file);
+                        // A file written moments ago may still be mid-encode: leaving it out of the
+                        // fingerprint means we pick it up on the next poll instead of building a
+                        // card for a half-written image that would fail to decode and stay failed.
+                        if (info.LastWriteTimeUtc > settled) continue;
+                        sb.Append(name).Append('|').Append(info.Length).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append('\n');
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return sb.ToString();
+        });
     }
 
     public static async Task<List<SnipEntry>> GetAllSnipEntriesAsync()
@@ -210,83 +259,152 @@ public static class SnipGalleryService
         });
     }
 
-    /// <summary>Ensures a cached thumbnail file exists. Thread-safe: creates no XAML objects.</summary>
-    public static async Task<(string? Path, int Width, int Height)> GetThumbnailPathAsync(string filePath, int decodeWidth = 320)
+    /// <summary>Outcome of a thumbnail load: the image, the ORIGINAL image size (for the card
+    /// caption), the decoded tier/pixel size (for 1:1 decisions), whether the frame looks blank,
+    /// and on failure the real reason — never a silent blank card.</summary>
+    public sealed record SnipThumbnailLoad(
+        BitmapImage? Image, int Width, int Height, string? Error, string? CachePath,
+        int Tier = 0, int PixelWidth = 0, int PixelHeight = 0, bool LooksBlank = false, bool Missing = false)
+    {
+        public bool Ok => Image != null;
+    }
+
+    /// <summary>
+    /// THE thumbnail entry point for every preview surface. Routes through
+    /// <see cref="SnipThumbnailService"/> (tiers + disk/memory cache + cancellation) so the
+    /// gallery grid, recent snips, details panel and viewer always agree.
+    /// </summary>
+    public static async Task<SnipThumbnailLoad> LoadThumbnailResultAsync(
+        string filePath, int requiredPixels = SnipThumbnailService.DefaultTier, System.Threading.CancellationToken ct = default)
+    {
+        // BitmapImage has UI-thread affinity, but Task awaits hop threads (WinUI 3 has no
+        // SynchronizationContext for them). Capture the UI queue up front and marshal the
+        // decode back explicitly: creating it on a pool thread throws RPC_E_WRONG_THREAD
+        // and yields gray tiles. Null when headless (tests run inline).
+        var ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        try
+        {
+            var tier = SnipThumbnailService.PickTier(requiredPixels);
+            var thumb = await SnipThumbnailService.GetAsync(filePath, tier, includePixels: false, ct).ConfigureAwait(false);
+            if (!thumb.IsOk)
+            {
+                return new SnipThumbnailLoad(null, 0, 0, thumb.ShortError, null,
+                    Tier: tier, Missing: thumb.State == SnipThumbnailState.MissingFile);
+            }
+
+            // BitmapImage is a XAML object: this part must run on the UI thread (see above).
+            var file = await StorageFile.GetFileFromPathAsync(thumb.CachePath!).AsTask(ct).ConfigureAwait(false);
+            var bmp = ui is null
+                ? await DecodeBitmapAsync(file, ct).ConfigureAwait(false)
+                : await RunOnUiAsync(ui, ct, () => DecodeBitmapAsync(file, ct)).ConfigureAwait(false);
+
+            var (w, h) = await GetOriginalDimensionsAsync(filePath).ConfigureAwait(false);
+            return new SnipThumbnailLoad(bmp, w, h, null, thumb.CachePath,
+                thumb.Tier, thumb.Width, thumb.Height, thumb.LooksBlank);
+        }
+        catch (OperationCanceledException)
+        {
+            return new SnipThumbnailLoad(null, 0, 0, null, null);
+        }
+        catch (Exception ex)
+        {
+            var reason = SnipThumbnailService.GetLastError(filePath) ?? ex.Message;
+            var missing = !File.Exists(filePath);
+            return new SnipThumbnailLoad(null, 0, 0, missing ? "File missing" : reason, null, Missing: missing);
+        }
+    }
+
+    private const int DecodeTimeoutSeconds = 8;
+
+    private static System.Threading.Tasks.Task<T> RunOnUiAsync<T>(
+        Microsoft.UI.Dispatching.DispatcherQueue ui, System.Threading.CancellationToken ct,
+        Func<System.Threading.Tasks.Task<T>> work)
+    {
+        var tcs = new System.Threading.Tasks.TaskCompletionSource<T>(
+            System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+        if (ct.IsCancellationRequested) { tcs.TrySetCanceled(ct); return tcs.Task; }
+        if (!ui.TryEnqueue(async () =>
+        {
+            try { tcs.TrySetResult(await work().ConfigureAwait(true)); }
+            catch (OperationCanceledException) { tcs.TrySetCanceled(); }
+            catch (Exception ex) { tcs.TrySetException(ex); }
+        }))
+        {
+            tcs.TrySetException(new InvalidOperationException("UI queue is shutting down."));
+        }
+        return tcs.Task;
+    }
+
+    /// <summary>
+    /// Decodes a cached tier file into a <see cref="BitmapImage"/> and does not return until the
+    /// pixels are actually resident.
+    ///
+    /// This is the fix for "the preview only shows up after I take a screenshot":
+    /// <c>SetSourceAsync</c> returns as soon as the stream has been read, while the decode itself
+    /// completes later on a worker thread. The stream was disposed at that point, so the card
+    /// received a pixel-less BitmapImage: the Image element had no natural size, collapsed to
+    /// 0x0, and stayed invisible until something outside the app forced a fresh layout pass
+    /// (taking a screenshot re-activating the window). Awaiting ImageOpened with the stream still
+    /// open means every caller gets a renderable image — or a real error, never a silent blank.
+    /// </summary>
+    private static async Task<BitmapImage> DecodeBitmapAsync(StorageFile file, CancellationToken ct)
+    {
+        using var stream = await file.OpenReadAsync();
+        var bmp = new BitmapImage();
+        var opened = new TaskCompletionSource<bool>();
+        bmp.ImageOpened += (_, _) => opened.TrySetResult(true);
+        bmp.ImageFailed += (_, args) => opened.TrySetException(new InvalidDataException(
+            string.IsNullOrWhiteSpace(args.ErrorMessage) ? "The preview could not be decoded." : args.ErrorMessage));
+
+        await bmp.SetSourceAsync(stream);
+
+        // A warm OS image cache can decode synchronously: only wait when the pixels are not there yet.
+        if (bmp.PixelWidth == 0 || bmp.PixelHeight == 0)
+        {
+            try
+            {
+                await opened.Task.WaitAsync(TimeSpan.FromSeconds(DecodeTimeoutSeconds), ct).ConfigureAwait(true);
+            }
+            catch (TimeoutException)
+            {
+                throw new InvalidDataException($"The preview did not finish decoding within {DecodeTimeoutSeconds} s.");
+            }
+        }
+
+        return bmp;
+    }
+
+    /// <summary>Original pixel size from the meta sidecar, falling back to a header-only decode.</summary>
+    public static async Task<(int Width, int Height)> GetOriginalDimensionsAsync(string filePath)
     {
         try
         {
-            var thumbPath = ThumbPathFor(filePath);
-            if (!File.Exists(thumbPath))
-            {
-                var file = await StorageFile.GetFileFromPathAsync(filePath);
-                using var src = await file.OpenReadAsync();
-                var original = await BitmapDecoder.CreateAsync(src);
-                int w = (int)original.PixelWidth;
-                int h = (int)original.PixelHeight;
-
-                var transform = new BitmapTransform();
-                double scale = Math.Min(1.0, (double)decodeWidth / Math.Max(original.PixelWidth, original.PixelHeight));
-                transform.ScaledWidth = (uint)Math.Max(1, (int)(original.PixelWidth * scale));
-                transform.ScaledHeight = (uint)Math.Max(1, (int)(original.PixelHeight * scale));
-                transform.InterpolationMode = BitmapInterpolationMode.Fant;
-
-                using var scaled = await original.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied, transform, ExifOrientationMode.RespectExifOrientation, ColorManagementMode.DoNotColorManage);
-
-                using var outStream = File.Create(thumbPath);
-                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, outStream.AsRandomAccessStream());
-                encoder.SetSoftwareBitmap(scaled);
-                await encoder.FlushAsync();
-
-                if (File.Exists(filePath + ".meta.json"))
-                {
-                    var meta = await LoadMetaAsync(filePath);
-                    if (meta != null)
-                    {
-                        meta.Width = w;
-                        meta.Height = h;
-                        await SaveMetaAsync(filePath, meta);
-                    }
-                }
-                return (thumbPath, w, h);
-            }
-            else
-            {
-                var thumbFile = await StorageFile.GetFileFromPathAsync(thumbPath);
-                using var thumbStream = await thumbFile.OpenReadAsync();
-                var decoder = await BitmapDecoder.CreateAsync(thumbStream);
-                return (thumbPath, (int)decoder.PixelWidth, (int)decoder.PixelHeight);
-            }
+            var meta = await LoadMetaAsync(filePath);
+            if (meta != null && meta.Width > 0 && meta.Height > 0)
+                return (meta.Width, meta.Height);
         }
-        catch
-        {
-            return (null, 0, 0);
-        }
+        catch { }
+        return await GetImageDimensionsAsync(filePath);
+    }
+
+    /// <summary>Ensures a cached thumbnail exists and returns its path (no XAML objects created).</summary>
+    public static async Task<(string? Path, int Width, int Height)> GetThumbnailPathAsync(string filePath, int decodeWidth = 320)
+    {
+        var (w, h) = await GetOriginalDimensionsAsync(filePath);
+        var thumb = await SnipThumbnailService.GetAsync(filePath, SnipThumbnailService.PickTier(decodeWidth));
+        return (thumb.IsOk ? thumb.CachePath : null, w, h);
     }
 
     public static async Task<(BitmapImage? Image, int Width, int Height)> LoadThumbnailWithSizeAsync(string filePath, int decodeWidth = 320)
     {
-        try
-        {
-            // Must run on the UI thread: BitmapImage is a XAML object.
-            var (thumbPath, w, h) = await GetThumbnailPathAsync(filePath, decodeWidth);
-            var loadPath = thumbPath ?? filePath;
-            var file2 = await StorageFile.GetFileFromPathAsync(loadPath);
-            using var stream2 = await file2.OpenReadAsync();
-            var bmp = new BitmapImage();
-            bmp.DecodePixelWidth = decodeWidth;
-            await bmp.SetSourceAsync(stream2);
-            return (bmp, w, h);
-        }
-        catch
-        {
-            return (null, 0, 0);
-        }
+        var r = await LoadThumbnailResultAsync(filePath, decodeWidth);
+        return (r.Image, r.Width, r.Height);
     }
 
     public static async Task<BitmapImage?> LoadThumbnailAsync(string filePath, int decodeWidth = 250)
     {
-        var (img, _, _) = await LoadThumbnailWithSizeAsync(filePath, decodeWidth);
-        return img;
+        var r = await LoadThumbnailResultAsync(filePath, decodeWidth);
+        return r.Image;
     }
 
     public static async Task<(int Width, int Height)> GetImageDimensionsAsync(string filePath)
@@ -331,6 +449,7 @@ public static class SnipGalleryService
                 {
                     try { System.IO.File.Delete(thumb); } catch { }
                 }
+                SnipThumbnailService.DeleteCachedThumbnails(file);
             }
             catch { }
         }
@@ -481,6 +600,7 @@ public static class SnipGalleryService
                     }
                     var thumb = ThumbPathFor(f);
                     if (File.Exists(thumb)) { try { System.IO.File.Delete(thumb); } catch { } }
+                    SnipThumbnailService.DeleteCachedThumbnails(f);
                     moved++;
                 }
                 catch { }
@@ -500,19 +620,22 @@ public static class SnipGalleryService
     public static async Task<SnipSaveResult> SaveSnipAsync(byte[] bgra, int width, int height)
     {
         var dir = GetSnipsDirectory();
-        var baseName = $"Snip_{DateTime.Now:yyyyMMdd_HHmmss_fff}";
-        var dest = Path.Combine(dir, baseName + ".png");
+        var baseName = SnipRegionLogic.BuildSnipFileName(DateTime.Now, ".png");
+        var dest = Path.Combine(dir, baseName);
         var n = 1;
         while (File.Exists(dest)) dest = Path.Combine(dir, $"{baseName}_{n++}.png");
 
         bool uniform = IsUniformImage(bgra);
-        using (var fs = File.Create(dest))
-        {
-            var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, fs.AsRandomAccessStream());
-            encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied, (uint)width, (uint)height, 96, 96, bgra);
-            await encoder.FlushAsync();
-        }
+
+        // Write to a temp file, rename into place: a reader can never see a half-written snip.
+        await SnipThumbnailService.WritePngAtomicAsync(dest, bgra, width, height);
         await SaveMetaAsync(dest, new SnipMeta { Type = "Region", CreatedUtc = DateTime.UtcNow, Width = width, Height = height });
+
+        // Thumbnails come from the in-memory rendered pixels: no re-decode, and they exist
+        // before this snip can appear in the gallery/recent list.
+        try { await SnipThumbnailService.GenerateFromPixelsAsync(dest, bgra, width, height); }
+        catch { /* the lazy path will backfill it */ }
+
         return new SnipSaveResult(dest, uniform, width, height);
     }
 
@@ -525,14 +648,14 @@ public static class SnipGalleryService
             {
                 var ext = Path.GetExtension(src).ToLowerInvariant();
                 if (!SnipGalleryQuery.SupportedExtensions.Contains(ext)) continue;
-                var baseName = $"Snip_{DateTime.Now:yyyyMMdd_HHmmss_fff}";
-                var dest = Path.Combine(GetSnipsDirectory(), baseName + ext);
+                var baseName = SnipRegionLogic.BuildSnipFileName(DateTime.Now, ext);
+                var dest = Path.Combine(GetSnipsDirectory(), baseName);
                 var n = 1;
                 while (File.Exists(dest))
                 {
                     dest = Path.Combine(GetSnipsDirectory(), $"{baseName}_{n++}{ext}");
                 }
-                System.IO.File.Copy(src, dest);
+                System.IO.File.Copy(src, dest, false);
                 var meta = new SnipMeta { Type = "Imported", CreatedUtc = DateTime.UtcNow };
                 try
                 {
@@ -543,6 +666,10 @@ public static class SnipGalleryService
                 }
                 catch { }
                 await SaveMetaAsync(dest, meta);
+
+                // Import trigger: thumbnails right after the copy completes.
+                try { await SnipThumbnailService.EnsureThumbnailsAsync(dest); }
+                catch { /* lazy backfill covers it */ }
                 imported.Add(dest);
             }
             catch { }

@@ -140,7 +140,7 @@
         (only framework PRIs are publish assets), and the app then dies
         silently at startup (0xC000027B). Top it up after publish. -->
   <Target Name="EnsureAppPriInPublishDir" AfterTargets="Publish">
-    <Copy SourceFiles="$(ProjectPriFullPath)" DestinationFolder="$(PublishDir)" Condition="Exists('$(ProjectPriFullPath)') and !Exists('$(PublishDir)$(ProjectPriFileName)')" />
+    <Copy SourceFiles="$(ProjectPriFullPath)" DestinationFolder="$(PublishDir)" Condition="Exists('$(ProjectPriFullPath)')" SkipUnchangedFiles="false" />
   </Target>
 
   <!--  The running app locks its own exe, which fails the build with
@@ -156,7 +156,7 @@
         ("Version 0.3.0" from Major.Minor.Build) and the installer
         filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.3.0.9</Version>
+    <Version>0.3.0.10</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

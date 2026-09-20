@@ -38,6 +38,12 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
+; The app minimizes to tray and swallows WM_CLOSE, so Restart Manager
+; cannot shut it down during PrepareToInstall — that aborts the upgrade
+; with "Some applications could not be shut down" and rolls files back.
+; We kill the process ourselves in PrepareToInstall instead.
+CloseApplications=no
+RestartApplications=no
 UninstallDisplayName={#MyAppName}
 SetupIconFile=..\\Assets\\kaliteConfig.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
@@ -69,14 +75,22 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
 
 [Code]
-procedure CurStepChanged(CurStep: TSetupStep);
+procedure KillRunningAppInstances;
 var
   ResultCode: Integer;
 begin
+  Exec('taskkill.exe', '/F /IM kaliteConfig.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /IM kaliteConfig-Consumer.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  KillRunningAppInstances;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
   if CurStep = ssInstall then
-  begin
-    // Forcefully kill the running app because our custom minimize-to-tray logic
-    // intercepts and blocks the Restart Manager's standard WM_CLOSE requests.
-    Exec('taskkill.exe', '/F /IM kaliteConfig.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
+    KillRunningAppInstances;
 end;

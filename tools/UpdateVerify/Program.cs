@@ -99,6 +99,13 @@ namespace UpdateVerify
                 Check(picked is null, "empty tag selects nothing");
             }
 
+            Check(UpdateCheckService.BuildSilentInstallerArguments(@"C:\Program Files\kaliteConfig")
+                    .Contains("/DIR=\"C:\\Program Files\\kaliteConfig\"", StringComparison.Ordinal),
+                "silent args pin registered install directory");
+            Check(UpdateCheckService.BuildSilentInstallerArguments(null)
+                    .Contains("/CLOSEAPPLICATIONS=0", StringComparison.Ordinal),
+                "silent args disable CloseApplications");
+
             Console.WriteLine();
             Console.WriteLine(_failures == 0 ? "=== ALL CHECKS PASSED ===" : $"=== {_failures} CHECK(S) FAILED ===");
             return _failures == 0 ? 0 : 1;

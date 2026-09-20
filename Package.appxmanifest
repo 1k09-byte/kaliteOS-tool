@@ -61,5 +61,7 @@
          Restricted capabilities (allowElevation, systemAIModels, ...) require Store approval
          and CANNOT be claimed on a locally-built MSIX or Store activation fails. -->
     <rescap:Capability Name="runFullTrust" />
+    <!-- graphicsCaptureProgrammatic allows programmatic screen capture without picker UI -->
+    <rescap:Capability Name="graphicsCaptureProgrammatic" />
   </Capabilities>
 </Package>

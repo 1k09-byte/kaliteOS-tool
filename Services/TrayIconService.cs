@@ -20,6 +20,16 @@ public sealed class TrayIconService : IDisposable
 {
     public Action? OnOpen;
     public Action? OnExit;
+    public event Action<SnipMode>? OnTakeScreenshot;
+
+    public enum SnipMode
+    {
+        Region,
+        Window,
+        Fullscreen,
+        Freeform,
+        Delayed
+    }
 
     private const uint WM_LBUTTONDBLCLK = 0x0203;
     private const uint WM_LBUTTONUP = 0x0202;
@@ -35,8 +45,23 @@ public sealed class TrayIconService : IDisposable
     private const uint LR_LOADFROMFILE = 0x10;
     private const uint MF_STRING = 0x0000;
     private const uint MF_SEPARATOR = 0x0800;
+    private const uint MF_POPUP = 0x00000010;
+    private const uint MF_DISABLED = 0x00000002;
+    private const uint MF_GRAYED = 0x00000001;
     private const uint TPM_RETURNCMD = 0x0100;
     private const uint TPM_RIGHTBUTTON = 0x0002;
+    private const uint TPM_NONOTIFY = 0x0080;
+
+    // Menu item IDs
+    private const uint ID_OPEN = 100;
+    private const uint ID_TAKE_SNIP = 101;
+    private const uint ID_SNIP_REGION = 102;
+    private const uint ID_SNIP_WINDOW = 103;
+    private const uint ID_SNIP_FULLSCREEN = 104;
+    private const uint ID_SNIP_FREEFORM = 105;
+    private const uint ID_SNIP_DELAYED = 106;
+    private const uint ID_SEPARATOR1 = 107;
+    private const uint ID_EXIT = 108;
 
     /// <summary>Per-process registered tray callback message, resolved once.</summary>
     private static uint? _callbackMsg;
@@ -128,8 +153,11 @@ public sealed class TrayIconService : IDisposable
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern bool AppendMenuW(IntPtr menu, uint flags, nuint id, string? text);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool InsertMenuW(IntPtr menu, uint position, uint flags, nuint id, string? text);
+
     [DllImport("user32.dll")]
-    private static extern uint TrackPopupMenu(IntPtr menu, uint flags, int x, int y, IntPtr hwnd);
+    private static extern uint TrackPopupMenu(IntPtr menu, uint flags, int x, int y, int reserved, IntPtr hwnd);
 
     [DllImport("user32.dll")]
     private static extern bool DestroyMenu(IntPtr hWnd);
@@ -302,9 +330,24 @@ public sealed class TrayIconService : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
-            AppendMenuW(menu, MF_STRING, 1, "Show");
-            AppendMenuW(menu, MF_SEPARATOR, 0, null);
-            AppendMenuW(menu, MF_STRING, 2, "Exit");
+            // Open kaliteConfig
+            AppendMenuW(menu, MF_STRING, ID_OPEN, "Open kaliteConfig");
+
+            // Take Screenshot with submenu
+            IntPtr snipMenu = CreatePopupMenu();
+            AppendMenuW(snipMenu, MF_STRING, ID_SNIP_REGION, "Region");
+            AppendMenuW(snipMenu, MF_STRING, ID_SNIP_WINDOW, "Window");
+            AppendMenuW(snipMenu, MF_STRING, ID_SNIP_FULLSCREEN, "Fullscreen");
+            AppendMenuW(snipMenu, MF_STRING, ID_SNIP_FREEFORM, "Freeform");
+            AppendMenuW(snipMenu, MF_STRING, ID_SNIP_DELAYED, "Delayed (3s)");
+            AppendMenuW(menu, MF_POPUP, (nuint)snipMenu, "Take Screenshot");
+
+            // Separator
+            AppendMenuW(menu, MF_SEPARATOR, ID_SEPARATOR1, null);
+
+            // Exit
+            AppendMenuW(menu, MF_STRING, ID_EXIT, "Exit");
+
             if (!GetCursorPos(out POINT pt)) { Tlog("GetCursorPos failed"); return; }
             // TrackPopupMenu's window must be foreground when the menu opens,
             // or the first click outside (or the button-up from the right
@@ -325,13 +368,12 @@ public sealed class TrayIconService : IDisposable
             try
             {
                 SetForegroundWindow(_hwnd);
-                uint picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, _hwnd);
+                uint picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, pt.X, pt.Y, 0, _hwnd);
                 // KB135788: hand the foreground back so the taskbar doesn't stay
                 // stuck and the next tray click works first time.
                 PostMessageW(_hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
                 Tlog($"picked={picked} attached={attached}");
-                if (picked == 1) OnOpen?.Invoke();
-                else if (picked == 2) OnExit?.Invoke();
+                HandleMenuSelection(picked);
                 // If TrackPopupMenu was cancelled (picked==0) the foreground jump
                 // leaves a focus hole; another foreground pass on our own window
                 // clears it without stealing focus from anything else.
@@ -343,6 +385,34 @@ public sealed class TrayIconService : IDisposable
             }
         }
         finally { DestroyMenu(menu); }
+    }
+
+    private void HandleMenuSelection(uint picked)
+    {
+        switch (picked)
+        {
+            case ID_OPEN:
+                OnOpen?.Invoke();
+                break;
+            case ID_SNIP_REGION:
+                OnTakeScreenshot?.Invoke(SnipMode.Region);
+                break;
+            case ID_SNIP_WINDOW:
+                OnTakeScreenshot?.Invoke(SnipMode.Window);
+                break;
+            case ID_SNIP_FULLSCREEN:
+                OnTakeScreenshot?.Invoke(SnipMode.Fullscreen);
+                break;
+            case ID_SNIP_FREEFORM:
+                OnTakeScreenshot?.Invoke(SnipMode.Freeform);
+                break;
+            case ID_SNIP_DELAYED:
+                OnTakeScreenshot?.Invoke(SnipMode.Delayed);
+                break;
+            case ID_EXIT:
+                OnExit?.Invoke();
+                break;
+        }
     }
 
     /// <summary>Restores and foregrounds a hidden top-level window.</summary>

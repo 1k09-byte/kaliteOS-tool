@@ -26,12 +26,20 @@ namespace kaliteConfig
 
         public void AllowExitAndClose()
         {
+            PrepareForUpdateShutdown();
+            this.Close();
+        }
+
+        /// <summary>
+        /// Stops tray intercepts and releases hooks before a silent in-place
+        /// upgrade (Inno Setup must replace the running exe).
+        /// </summary>
+        public void PrepareForUpdateShutdown()
+        {
             _allowExit = true;
-            // Never leave frozen apps behind: resume anything suspend mode holds.
             try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
             try { _tray?.Dispose(); } catch { }
             _tray = null;
-            this.Close();
         }
 
         public MainWindow()
@@ -89,6 +97,37 @@ namespace kaliteConfig
                     try { _tray?.Dispose(); } catch { }
                     _tray = null;
                     this.Close();
+                });
+            };
+            _tray.OnTakeScreenshot += (mode) =>
+            {
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    var app = (App)Application.Current;
+                    if (app.Sniper is null) return;
+
+                    switch (mode)
+                    {
+                        case kaliteConfig.Services.TrayIconService.SnipMode.Region:
+                            app.Sniper.TriggerCapture();
+                            break;
+                        case kaliteConfig.Services.TrayIconService.SnipMode.Window:
+                            app.Sniper.TriggerCapture();
+                            break;
+                        case kaliteConfig.Services.TrayIconService.SnipMode.Fullscreen:
+                            var (fsOk, fsMsg) = await app.Sniper.CaptureFullscreenAsync();
+                            // Optionally show notification
+                            break;
+                        case kaliteConfig.Services.TrayIconService.SnipMode.Freeform:
+                            app.Sniper.TriggerCapture();
+                            break;
+                        case kaliteConfig.Services.TrayIconService.SnipMode.Delayed:
+                            var s = kaliteConfig.Services.SnipSettingsService.Load();
+                            var delay = Math.Max(1, s.DelayedCaptureSeconds);
+                            await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(delay));
+                            app.Sniper.TriggerCapture();
+                            break;
+                    }
                 });
             };
             try
@@ -605,15 +644,23 @@ namespace kaliteConfig
 #if DEBUG
             VersionText.Text = "Welcome to dev tool";
 #else
-            try
+            var asmVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            if (!kaliteConfig.Services.StartupService.IsPackaged)
             {
-                var package = Windows.ApplicationModel.Package.Current;
-                var version = package.Id.Version;
-                VersionText.Text = $"kaliteConfig v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+                VersionText.Text = $"kaliteConfig v{asmVer?.ToString() ?? "release"}";
             }
-            catch
+            else
             {
-                VersionText.Text = $"kaliteConfig v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "release"}";
+                try
+                {
+                    var package = Windows.ApplicationModel.Package.Current;
+                    var version = package.Id.Version;
+                    VersionText.Text = $"kaliteConfig v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+                }
+                catch
+                {
+                    VersionText.Text = $"kaliteConfig v{asmVer?.ToString() ?? "release"}";
+                }
             }
 #endif
 

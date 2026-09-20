@@ -17,6 +17,47 @@ public sealed class SnipHotkeyService : IDisposable
     public const uint VkSnapshot = 0x2C;
     public const uint VkS = 0x53; // 'S' key
 
+    /// <summary>Index of the "Custom…" slot: presets[0..3] are fixed, this one is user-captured.</summary>
+    public const int CustomIndex = 4;
+
+    /// <summary>True for keys that can be the main key of a hotkey (not a bare modifier).</summary>
+    public static bool IsCapturableKey(uint vk) => vk switch
+    {
+        0x00 => false,
+        0x10 or 0x11 or 0x12 => false, // Shift, Control, Alt
+        0x5B or 0x5C => false,         // Left/Right Windows (opens Start; not capturable here)
+        0x14 => false,                 // CapsLock
+        0x90 or 0x91 or 0x92 => false, // NumLock/ScrollLock
+        _ => true,
+    };
+
+    /// <summary>"Ctrl+Shift+S" style label for any modifiers + virtual key.</summary>
+    public static string FormatLabel(uint modifiers, uint vk)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        if ((modifiers & ModControl) != 0) parts.Add("Ctrl");
+        if ((modifiers & ModShift) != 0) parts.Add("Shift");
+        if ((modifiers & ModAlt) != 0) parts.Add("Alt");
+        if ((modifiers & ModWin) != 0) parts.Add("Win");
+        parts.Add(KeyName(vk));
+        return string.Join("+", parts);
+    }
+
+    private static string KeyName(uint vk) => vk switch
+    {
+        VkSnapshot => "PrtScn",
+        >= 0x41 and <= 0x5A => ((char)vk).ToString(),   // A-Z
+        >= 0x30 and <= 0x39 => ((char)vk).ToString(),   // 0-9
+        >= 0x70 and <= 0x87 => "F" + (vk - 0x70 + 1),   // F1-F24
+        0x2D => "Insert",
+        0x2E => "Delete",
+        0x24 => "Home",
+        0x23 => "End",
+        0x21 => "PageUp",
+        0x22 => "PageDown",
+        _ => $"VK {vk:X2}",
+    };
+
     public sealed class HotkeyPreset
     {
         public HotkeyPreset(string label, uint modifiers, uint vk)
@@ -132,6 +173,8 @@ public sealed class SnipHotkeyService : IDisposable
     /// <summary>Registers the preset. Returns (false, message) when the key is taken.</summary>
     public (bool Ok, string Message) Register(HotkeyPreset preset)
     {
+        if (!IsCapturableKey(preset.Vk))
+            return (false, $"{preset.Label} needs a main key, not a bare modifier.");
         try
         {
             Unregister();

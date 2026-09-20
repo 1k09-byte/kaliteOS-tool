@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Win32;
 using kaliteConfig.Models;
 using kaliteConfig.Services;
@@ -15,32 +16,31 @@ public class SnipThumbnailItem : ObservableObject
     public string Filename { get; set; } = "";
     public string FilePath { get; set; } = "";
 
-    private Microsoft.UI.Xaml.Media.Imaging.BitmapImage? _thumbnail;
-    public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Thumbnail
-    {
-        get => _thumbnail;
-        set => SetProperty(ref _thumbnail, value);
-    }
+    /// <summary>Shared card state (skeleton / fade-in / failed / missing / blank badge).</summary>
+    public SnipCardState Card { get; }
 
-    private string _loadErrorText = "";
-    public string LoadErrorText
+    public SnipThumbnailItem()
     {
-        get => _loadErrorText;
-        private set
+        Card = new SnipCardState(FilePath, Loader);
+        Card.PropertyChanged += (_, e) =>
         {
-            if (SetProperty(ref _loadErrorText, value))
+            if (e.PropertyName is nameof(SnipCardState.Image) or nameof(SnipCardState.ResolutionText))
             {
-                OnPropertyChanged(nameof(LoadErrorVisibility));
+                OnPropertyChanged(nameof(Thumbnail));
+                OnPropertyChanged(nameof(ResolutionText));
             }
-        }
+        };
     }
 
-    public Microsoft.UI.Xaml.Visibility LoadErrorVisibility =>
-        string.IsNullOrEmpty(_loadErrorText) ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+    private Task<SnipGalleryService.SnipThumbnailLoad> Loader(int tier, System.Threading.CancellationToken ct) =>
+        SnipGalleryService.LoadThumbnailResultAsync(FilePath, tier, ct);
+
+    /// <summary>Kept for compatibility: the same image the card state holds.</summary>
+    public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Thumbnail => Card.Image;
+
+    public string ResolutionText => Card.ResolutionText;
 
     public string RelativeTimeText => SnipRelativeTime.Format(FilePath);
-
-    private bool _thumbnailLoading;
 
     internal static void ThumbLog(string message)
     {
@@ -54,24 +54,20 @@ public class SnipThumbnailItem : ObservableObject
         catch { }
     }
 
-    public async void EnsureThumbnailAsync(int decodeWidth)
+    public async void EnsureThumbnailAsync(double decodeWidth, double rasterizationScale = 1.0)
     {
-        if (Thumbnail != null || _thumbnailLoading) return;
-        _thumbnailLoading = true;
         try
         {
-            var img = await SnipGalleryService.LoadThumbnailAsync(FilePath, decodeWidth);
-            ThumbLog($"recent '{System.IO.Path.GetFileName(FilePath)}' -> {(img == null ? "NULL" : "ok")}");
-            if (img != null) Thumbnail = img;
-            else LoadErrorText = "Couldn't load thumbnail.";
+            await Card.EnsureAsync(decodeWidth, rasterizationScale);
+            SnipThumbnailItem.ThumbLog($"recent '{System.IO.Path.GetFileName(FilePath)}' -> {(Card.Image is null ? Card.ShortErrorText : "ok")}");
         }
         catch (Exception ex)
         {
-            ThumbLog($"recent '{System.IO.Path.GetFileName(FilePath)}' EX: {ex.GetType().Name}: {ex.Message}");
-            LoadErrorText = $"Couldn't load: {ex.Message}";
+            SnipThumbnailItem.ThumbLog($"recent '{System.IO.Path.GetFileName(FilePath)}' EX: {ex.GetType().Name}: {ex.Message}");
         }
-        finally { _thumbnailLoading = false; }
     }
+
+    public void CancelThumbnail() => Card.Cancel();
 }
 
 public partial class GalleryItem : ObservableObject
@@ -101,14 +97,27 @@ public partial class GalleryItem : ObservableObject
         _owner = owner;
         Entry = entry;
         _thumbSize = owner?.GalleryThumbSize ?? 220;
+
+        Card = new SnipCardState(entry.FilePath, Loader);
+        Card.FillMode = owner?.ThumbnailFillMode ?? false;
+        Card.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(SnipCardState.Image) or nameof(SnipCardState.ResolutionText))
+            {
+                OnPropertyChanged(nameof(Thumbnail));
+                OnPropertyChanged(nameof(ResolutionText));
+            }
+        };
     }
 
-    private Microsoft.UI.Xaml.Media.Imaging.BitmapImage? _thumbnail;
-    public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Thumbnail
-    {
-        get => _thumbnail;
-        set => SetProperty(ref _thumbnail, value);
-    }
+    private Task<SnipGalleryService.SnipThumbnailLoad> Loader(int tier, System.Threading.CancellationToken ct) =>
+        SnipGalleryService.LoadThumbnailResultAsync(Entry.FilePath, tier, ct);
+
+    /// <summary>Shared card state: Recent Snips and the Gallery render the exact same states.</summary>
+    public SnipCardState Card { get; }
+
+    /// <summary>Same image the card state holds (details panel binding).</summary>
+    public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Thumbnail => Card.Image;
 
     private bool _isSelected;
     public bool IsSelected
@@ -118,7 +127,7 @@ public partial class GalleryItem : ObservableObject
         {
             if (SetProperty(ref _isSelected, value))
             {
-                OnPropertyChanged(nameof(SelectedBorder));
+                OnPropertyChanged(nameof(TileBorder));
             }
         }
     }
@@ -147,6 +156,7 @@ public partial class GalleryItem : ObservableObject
             {
                 Entry.IsFavorite = value;
                 OnPropertyChanged(nameof(FavoriteGlyph));
+                OnPropertyChanged(nameof(StarBrush));
                 _ = _owner.SetFavoriteAsync(this, value);
                 _owner.OnFavoriteChanged();
             }
@@ -160,36 +170,56 @@ public partial class GalleryItem : ObservableObject
     public double StarOpacity => IsFavorite ? 1.0 : 0.6;
     public Microsoft.UI.Xaml.Media.Brush StarBrush =>
         new Microsoft.UI.Xaml.Media.SolidColorBrush(IsFavorite ? Microsoft.UI.Colors.Gold : Microsoft.UI.Colors.White);
-    public Microsoft.UI.Xaml.Thickness SelectedBorder =>
-        IsSelected ? new Microsoft.UI.Xaml.Thickness(2) : new Microsoft.UI.Xaml.Thickness(0);
+    /// <summary>The tile's single frame: accent when selected, transparent otherwise.
+    /// There is exactly one border, so selection can never look doubled.</summary>
+    public Microsoft.UI.Xaml.Media.Brush TileBorder
+    {
+        get
+        {
+            if (!IsSelected)
+                return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            try
+            {
+                var res = Microsoft.UI.Xaml.Application.Current.Resources;
+                string key = "AccentFillColorDefaultBrush";
+                if (res.TryGetValue(key, out var b) && b is Microsoft.UI.Xaml.Media.Brush brush) return brush;
+            }
+            catch { }
+            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
+        }
+    }
 
     private bool _thumbnailLoading;
     public bool IsThumbnailLoading => _thumbnailLoading;
 
     public DateTime SortKeyCreatedUtc => Entry.CreatedUtc;
 
-    public async void EnsureThumbnailAsync(int decodeWidth)
+    /// <summary>The whole card pipeline, in tiers, DPI-aware (see <see cref="SnipCardState"/>).</summary>
+    public async void EnsureThumbnailAsync(double cardDipSize, double rasterizationScale = 1.0)
     {
-        if (Thumbnail != null || _thumbnailLoading) return;
         _thumbnailLoading = true;
         try
         {
-            var (img, w, h) = await SnipGalleryService.LoadThumbnailWithSizeAsync(Entry.FilePath, decodeWidth);
-            SnipThumbnailItem.ThumbLog($"gallery '{System.IO.Path.GetFileName(Entry.FilePath)}' exists={System.IO.File.Exists(Entry.FilePath)} -> {(img == null ? "NULL" : $"ok {w}x{h}")}");
-            if (img != null)
+            await Card.EnsureAsync(cardDipSize, rasterizationScale);
+            if (Card.Image is not null && Entry.Width == 0 && Card.ResolutionText != "")
             {
-                if (Entry.Width == 0 && w > 0)
+                var parts = Card.ResolutionText.Split('\u00d7');
+                if (parts.Length == 2
+                    && int.TryParse(parts[0].Trim(), out var w)
+                    && int.TryParse(parts[1].Trim(), out var h))
                 {
                     Entry.Width = w;
                     Entry.Height = h;
                     OnPropertyChanged(nameof(ResolutionText));
                 }
-                Thumbnail = img;
             }
+            SnipThumbnailItem.ThumbLog($"gallery '{System.IO.Path.GetFileName(Entry.FilePath)}' exists={System.IO.File.Exists(Entry.FilePath)} -> {(Card.Image is null ? Card.ShortErrorText : "ok")}");
         }
         catch (Exception ex) { SnipThumbnailItem.ThumbLog($"gallery '{System.IO.Path.GetFileName(Entry.FilePath)}' EX: {ex.GetType().Name}: {ex.Message}"); }
         finally { _thumbnailLoading = false; }
     }
+
+    public void CancelThumbnail() => Card.Cancel();
 
     private bool _isCommandRunning;
     public bool IsCommandRunning
@@ -261,6 +291,20 @@ public partial class GalleryItem : ObservableObject
         _owner.OpenContainingFolder(this);
     }
 
+    /// <summary>Full viewer window: zoom/pan on the same Win2D preview the details panel uses.</summary>
+    [RelayCommand]
+    private void OpenInViewer()
+    {
+        try
+        {
+            ((App)Microsoft.UI.Xaml.Application.Current).Sniper.OpenInViewer(Entry.FilePath);
+        }
+        catch (Exception ex)
+        {
+            _owner.NotifyMessage("Viewer failed", ex.Message);
+        }
+    }
+
     [RelayCommand]
     private void ToggleFavorite()
     {
@@ -280,29 +324,115 @@ public sealed partial class SnipViewModel : ObservableObject
     {
     }
 
+    /// <summary>Explicit refresh (the Refresh button): re-reads everything, still merging in place.</summary>
     public System.Threading.Tasks.Task RefreshGalleryAsync() => RefreshCoreAsync(true);
 
-    private async System.Threading.Tasks.Task RefreshCoreAsync(bool refreshFilters)
+    private string _snipFolderSignature = "";
+    private bool _refreshRunning;
+    private System.Threading.Tasks.Task? _refreshInFlight;
+
+    /// <summary>
+    /// The periodic background poll. Returns true when the folder had actually changed (and the
+    /// lists were merged), which is what drives the poll's adaptive interval.
+    ///
+    /// It first compares a cheap folder fingerprint (names, sizes, write times) and returns
+    /// without touching anything when the folder is unchanged, so polling often costs almost
+    /// nothing and never produces a visible refresh: no status text, no busy indicator, no
+    /// cleared lists. When something did change, the work is merged into the existing items, so
+    /// cards keep their decoded thumbnails, the scroll position stays where it is and the
+    /// selection (and the details preview) survives.
+    /// </summary>
+    public async System.Threading.Tasks.Task<bool> RefreshQuietAsync()
     {
-        RecentSnips.Clear();
-        SnipGalleryService.CleanupOrphanedMeta();
-        _allEntries = await SnipGalleryService.GetAllSnipEntriesAsync();
-
-        await RefreshStorageTextAsync();
-        OnPropertyChanged(nameof(AvailableAppOptions));
-
-        await RebuildGalleryAsync();
-
-        var recentsTask = _allEntries
-            .OrderByDescending(e => e.CreatedUtc)
-            .Take(8)
-            .Select(e => new SnipThumbnailItem { Filename = e.Name, FilePath = e.FilePath })
-            .ToList();
-
-        foreach (var recent in recentsTask)
+        // A poll that lands on top of an explicit refresh just waits for it: the merge it does is
+        // the one we were about to ask for, so there is nothing to start and nothing to drop.
+        if (_refreshRunning)
         {
-            RecentSnips.Add(recent);
+            if (_refreshInFlight is { } running)
+            {
+                try { await running.ConfigureAwait(true); } catch { }
+            }
+            return false;
         }
+
+        var signature = await SnipGalleryService.GetSnipSignatureAsync().ConfigureAwait(true);
+        if (string.Equals(signature, _snipFolderSignature, StringComparison.Ordinal))
+        {
+            SnipThumbnailItem.ThumbLog("quiet: folder unchanged");
+            return false;
+        }
+
+        SnipThumbnailItem.ThumbLog($"quiet: folder changed, {_allEntries.Count} entries cached, {GallerySnips.Count} in gallery");
+        await RefreshCoreAsync(false).ConfigureAwait(true);
+        SnipThumbnailItem.ThumbLog($"quiet: merged to {GallerySnips.Count} gallery / {RecentSnips.Count} recent");
+        return true;
+    }
+
+    private System.Threading.Tasks.Task RefreshCoreAsync(bool refreshFilters)
+    {
+        // One refresh at a time, and a second caller joins the one already running instead of
+        // getting a silent no-op -- the Refresh button has to mean something even mid-poll.
+        // The published task is created before any of the work runs, so a refresh that finishes
+        // synchronously cannot clear the field and then have a completed task assigned into it.
+        if (_refreshInFlight is { IsCompleted: false } inFlight) return inFlight;
+
+        var completion = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+        _refreshInFlight = completion.Task;
+        _ = RunRefreshAsync(refreshFilters, completion);
+        return completion.Task;
+    }
+
+    private async System.Threading.Tasks.Task RunRefreshAsync(bool refreshFilters, System.Threading.Tasks.TaskCompletionSource completion)
+    {
+        _refreshRunning = true;
+        try
+        {
+            SnipGalleryService.CleanupOrphanedMeta();
+            _allEntries = await SnipGalleryService.GetAllSnipEntriesAsync().ConfigureAwait(true);
+            _snipFolderSignature = await SnipGalleryService.GetSnipSignatureAsync().ConfigureAwait(true);
+
+            await RefreshStorageTextAsync().ConfigureAwait(true);
+            OnPropertyChanged(nameof(AvailableAppOptions));
+
+            await RebuildGalleryAsync().ConfigureAwait(true);
+            MergeRecentSnips();
+        }
+        finally
+        {
+            _refreshRunning = false;
+            if (ReferenceEquals(_refreshInFlight, completion.Task)) _refreshInFlight = null;
+            completion.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// Recent Snips is merged the same way as the gallery: an item that is still present is kept
+    /// (keeping its decoded thumbnail and its card animations), so a quiet refresh cannot make the
+    /// hub flicker either.
+    /// </summary>
+    private void MergeRecentSnips()
+    {
+        var byPath = new Dictionary<string, SnipThumbnailItem>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in RecentSnips)
+        {
+            if (!string.IsNullOrEmpty(item.FilePath)) byPath[item.FilePath] = item;
+        }
+
+        var desired = new List<SnipThumbnailItem>();
+        foreach (var entry in _allEntries.OrderByDescending(e => e.CreatedUtc).Take(8))
+        {
+            if (byPath.TryGetValue(entry.FilePath, out var existing))
+            {
+                desired.Add(existing);
+            }
+            else
+            {
+                desired.Add(new SnipThumbnailItem { Filename = entry.Name, FilePath = entry.FilePath });
+            }
+        }
+
+        SilentListMerge.Sync(RecentSnips, desired, static i => i.FilePath);
+        OnPropertyChanged(nameof(StatusBarSnipCountText));
     }
 
     private async System.Threading.Tasks.Task RebuildGalleryAsync()
@@ -323,31 +453,34 @@ public sealed partial class SnipViewModel : ObservableObject
 
         foreach (var entry in filtered)
         {
-            if (cacheByPath.TryGetValue(entry.FilePath, out var cached))
+            if (cacheByPath.TryGetValue(entry.FilePath, out var cached) && cached.Entry.SizeBytes == entry.SizeBytes)
             {
                 cached.Entry.Tags = entry.Tags;
                 cached.Entry.IsFavorite = entry.IsFavorite;
+                cached.Entry.SizeBytes = entry.SizeBytes;
+                cached.Entry.Width = entry.Width;
+                cached.Entry.Height = entry.Height;
                 newItems.Add(cached);
             }
             else
             {
+                // Either new, or the file itself changed size since we cached it -- a fresh item
+                // re-decodes instead of showing a stale thumbnail for good.
                 newItems.Add(new GalleryItem(this, entry));
             }
         }
         _itemCache = newItems;
 
-        GallerySnips.Clear();
-        foreach (var item in newItems)
-        {
-            GallerySnips.Add(item);
-        }
+        // Merge rather than Clear()+Add(): the containers for snips that are still here must not
+        // be recycled, or a refresh would flash skeletons back on, jump the scroll position and
+        // drop the selection (taking the details preview with it).
+        SilentListMerge.Sync(GallerySnips, newItems, static i => i.Entry.FilePath);
 
-        foreach (var item in GallerySnips)
-        {
-            item.IsSelected = false;
-        }
+        // Only a selection whose snip is actually gone (deleted, or filtered out) clears the
+        // details panel; a selection that is still on screen stays exactly as it is.
+        if (SelectedGalleryItem is not null && !GallerySnips.Contains(SelectedGalleryItem))
+            SelectedGalleryItem = null;
 
-        SelectedGalleryItem = null;
         OnPropertyChanged(nameof(StatusBarSnipCountText));
         OnPropertyChanged(nameof(StorageText));
 
@@ -589,7 +722,35 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    public string StatusBarRegistrationText => "Hotkey: Active";
+    /// <summary>Real hotkey state — this used to be a hard-coded "Hotkey: Active" even when
+    /// registration had failed (which is why a dead PrtScn was invisible to the user).</summary>
+    public string StatusBarRegistrationText =>
+        ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyStatusText ?? "Hotkey: not registered";
+
+    public Microsoft.UI.Xaml.Media.Brush StatusBarHotkeyBrush =>
+        ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyRegistered == true
+            ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.LightGreen)
+            : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange);
+
+    public string StatusBarHotkeyTooltip
+    {
+        get
+        {
+            var sniper = ((App)Microsoft.UI.Xaml.Application.Current).Sniper;
+            if (sniper is null) return "Capture service unavailable.";
+            return sniper.HotkeyRegistered
+                ? $"{sniper.HotkeyLabel} opens the capture overlay."
+                : $"No capture hotkey could be registered. {sniper.HotkeyError}";
+        }
+    }
+
+    /// <summary>Re-reads the capture service state (after a rebind or a failed registration).</summary>
+    public void RefreshHotkeyStatus()
+    {
+        OnPropertyChanged(nameof(StatusBarRegistrationText));
+        OnPropertyChanged(nameof(StatusBarHotkeyBrush));
+        OnPropertyChanged(nameof(StatusBarHotkeyTooltip));
+    }
 
     /// <summary>"Blocked" meant: registry value PrintScreenKeyForSnippingEnabled=0,
     /// i.e. Windows Snipping Tool no longer owns PrtScn — kaliteConfig does. Good state.</summary>
@@ -663,20 +824,64 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    public List<string> HotkeyPresets => SnipHotkeyService.Presets.Select(p => p.Label).ToList();
+    public List<string> HotkeyPresets => SnipHotkeyService.Presets.Select(p => p.Label)
+        .Concat(new[] { "Custom…" }).ToList();
+
+    public string CustomHotkeyText
+    {
+        get
+        {
+            var s = SnipSettingsService.Load();
+            return SnipHotkeyService.FormatLabel(s.CustomHotkeyModifiers, s.CustomHotkeyVk);
+        }
+    }
+
+    /// <summary>Applies a captured combination: registers first, persists only on success,
+    /// warns on conflict and leaves the previous hotkey (and UI selection) untouched.</summary>
+    public void ApplyCustomHotkey(uint modifiers, uint vk)
+    {
+        var app = (App)Microsoft.UI.Xaml.Application.Current;
+        var (ok, message) = app.Sniper.TryCustomHotkey(modifiers, vk);
+        if (!ok)
+        {
+            NotifyMessage("Hotkey taken", message + " The previous hotkey is still active.");
+            OnPropertyChanged(nameof(SelectedHotkeyIndex)); // revert the preset picker
+            return;
+        }
+        var s = SnipSettingsService.Load();
+        s.HotkeyIndex = SnipHotkeyService.CustomIndex;
+        s.CustomHotkeyModifiers = modifiers;
+        s.CustomHotkeyVk = vk;
+        SnipSettingsService.Save(s);
+        OnPropertyChanged(nameof(SelectedHotkeyIndex));
+        OnPropertyChanged(nameof(CustomHotkeyText));
+        RefreshHotkeyStatus();
+        NotifyMessage("Custom hotkey active", message);
+    }
 
     public int SelectedHotkeyIndex
     {
         get => SnipSettingsService.Load().HotkeyIndex;
         set
         {
+            if (value < 0 || value > SnipHotkeyService.CustomIndex) value = 0;
             var s = SnipSettingsService.Load();
             s.HotkeyIndex = value;
             SnipSettingsService.Save(s);
             OnPropertyChanged(nameof(SelectedHotkeyIndex));
 
             var app = (App)Microsoft.UI.Xaml.Application.Current;
-            app.Sniper.RebindHotkey(value);
+            var (ok, message) = app.Sniper.RebindHotkey(value);
+            RefreshHotkeyStatus();
+            if (!ok)
+            {
+                NotifyMessage("Hotkey unavailable", message);
+            }
+            else if (!string.IsNullOrEmpty(app.Sniper.HotkeyError))
+            {
+                // Registered, but on a fallback key: say so instead of pretending it is the chosen one.
+                NotifyMessage("Hotkey changed to a free key", message);
+            }
         }
     }
 
@@ -689,16 +894,29 @@ public sealed partial class SnipViewModel : ObservableObject
             key?.SetValue("PrintScreenKeyForSnippingEnabled", 0, RegistryValueKind.DWord);
             OnPropertyChanged(nameof(StatusBarHijackText));
 
+            // Machine policy as well (needs admin; best effort when elevated).
+            string machineNote;
+            try
+            {
+                using var pol = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\TabletPC", true);
+                pol?.SetValue("DisableSnippingTool", 1, RegistryValueKind.DWord);
+                machineNote = "Machine policy set.";
+            }
+            catch (Exception ex)
+            {
+                machineNote = "Machine policy skipped (needs admin): " + ex.Message;
+            }
+
             // Re-register our own hotkey now that Windows has let go of PrtScn.
             var s = SnipSettingsService.Load();
             var app = (App)Microsoft.UI.Xaml.Application.Current;
             var (ok, msg) = app.Sniper.RebindHotkey(s.HotkeyIndex);
             if (!ok)
             {
-                NotifyMessage("Windows Snipping disabled, hotkey busy", msg + " Sign out/in, then pick a hotkey below.");
+                NotifyMessage("Windows Snipping disabled, hotkey busy", msg + " Sign out/in, then pick a hotkey below. " + machineNote);
                 return;
             }
-            NotifyMessage("Print Screen reclaimed", "Windows Snipping Tool unbound. Sign out/in (or restart) once, then PrtScn opens kalite Snip.");
+            NotifyMessage("Print Screen reclaimed", $"Windows Snipping Tool unbound. {machineNote} Sign out/in (or restart) once, then PrtScn opens kalite Snip.");
         }
         catch (Exception ex)
         {
@@ -946,6 +1164,76 @@ public sealed partial class SnipViewModel : ObservableObject
             foreach (var item in _itemCache) item.ThumbSize = value;
             OnPropertyChanged(nameof(GalleryThumbSize));
         }
+    }
+
+    /// <summary>Optional "Fill" card mode: cover the card (crops) instead of fitting it (never crops).</summary>
+    public bool ThumbnailFillMode
+    {
+        get => SnipSettingsService.Load().ThumbnailFillMode;
+        set
+        {
+            var s = SnipSettingsService.Load();
+            if (s.ThumbnailFillMode == value) return;
+            s.ThumbnailFillMode = value;
+            SnipSettingsService.Save(s);
+            foreach (var item in _itemCache) item.Card.FillMode = value;
+            OnPropertyChanged(nameof(ThumbnailFillMode));
+        }
+    }
+
+    /// <summary>Retries a card whose thumbnail failed (bypasses the cached tiers).</summary>
+    public async Task RetryCardAsync(GalleryItem item, double cardDipSize, double rasterizationScale)
+    {
+        await item.Card.RetryAsync(cardDipSize, rasterizationScale);
+        if (item.Card.Image is null && item.Card.IsMissing)
+            NotifyMessage("File missing", $"{item.Name} was deleted or moved outside the app.");
+    }
+
+    public async Task RetryCardAsync(SnipThumbnailItem item, double cardDipSize, double rasterizationScale)
+    {
+        await item.Card.RetryAsync(cardDipSize, rasterizationScale);
+        if (item.Card.Image is null && item.Card.IsMissing)
+            NotifyMessage("File missing", $"{item.Filename} was deleted or moved outside the app.");
+    }
+
+    /// <summary>"Remove from gallery" for a card whose file is gone: drops the list entry (and any
+    /// orphaned sidecar), leaving the user's disk alone.</summary>
+    public async Task RemoveFromGalleryAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return;
+        // Never delete the image here: only the gallery entry.
+        try
+        {
+            var meta = filePath + ".meta.json";
+            if (!System.IO.File.Exists(filePath) && System.IO.File.Exists(meta))
+                System.IO.File.Delete(meta);
+        }
+        catch { }
+
+        SnipThumbnailService.DeleteCachedThumbnails(filePath);
+
+        _allEntries = _allEntries.Where(e => !string.Equals(e.FilePath, filePath, StringComparison.OrdinalIgnoreCase)).ToList();
+        _itemCache = _itemCache.Where(i => !string.Equals(i.Entry.FilePath, filePath, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var gallery = GallerySnips.FirstOrDefault(i => string.Equals(i.Entry.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+        if (gallery != null) GallerySnips.Remove(gallery);
+        var recent = RecentSnips.FirstOrDefault(i => string.Equals(i.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+        if (recent != null) RecentSnips.Remove(recent);
+
+        if (SelectedGalleryItem is { } sel && string.Equals(sel.Entry.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            SelectedGalleryItem = null;
+
+        OnPropertyChanged(nameof(StatusBarSnipCountText));
+        await RefreshStorageTextAsync();
+        NotifyMessage("Removed from gallery", $"{System.IO.Path.GetFileName(filePath)} was already gone; the gallery entry was removed.");
+    }
+
+    /// <summary>Re-requests every card at the current DPI (window moved to another monitor, or the
+    /// display scale changed): the smallest tier that covers the new physical size is loaded.</summary>
+    public void RefreshCardDpi(double rasterizationScale)
+    {
+        foreach (var item in GallerySnips) _ = item.Card.EnsureAsync(item.ThumbSize, rasterizationScale);
+        foreach (var item in RecentSnips) _ = item.Card.EnsureAsync(240, rasterizationScale);
     }
 
     public int AutoDeleteDays

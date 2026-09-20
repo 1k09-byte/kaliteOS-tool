@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 
 namespace kaliteConfig.Services;
 
@@ -35,6 +36,9 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     // names so older releases remain updatable-to.
     private const string AssetNamePrefix = "kaliteConfig-Setup-";
     private const string LegacyAssetNamePrefix = "kaliteConfig-Consumer-Setup-";
+    private const string InnoUninstallRegKey =
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{422E40DD-B1A5-4157-907F-690182582441}_is1";
+    private const string KaliteOsInstallPathRegKey = @"SOFTWARE\KaliteOS";
 
     private static readonly HttpClient _http = CreateClient();
 
@@ -78,6 +82,56 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     /// install folder, dev copy, side-by-side flavor) — and the UI can say so
     /// instead of looping silently.
     /// </summary>
+    internal static void ClearPendingUpdate()
+    {
+        try { if (File.Exists(PendingMarkerPath)) File.Delete(PendingMarkerPath); }
+        catch { }
+    }
+
+    /// <summary>
+    /// Directory where this product is registered (Inno uninstall key or
+    /// KaliteOS InstallPath). Used to target silent upgrades at the real
+    /// install folder instead of accidentally side-by-side with a dev build.
+    /// </summary>
+    internal static string? GetRegisteredInstallDirectory()
+    {
+        try
+        {
+            using var kalite = Registry.LocalMachine.OpenSubKey(KaliteOsInstallPathRegKey, writable: false);
+            if (kalite?.GetValue("InstallPath") is string fromKalite && !string.IsNullOrWhiteSpace(fromKalite))
+            {
+                var trimmed = fromKalite.Trim().TrimEnd('\\', '/');
+                if (Directory.Exists(trimmed)) return trimmed;
+            }
+        }
+        catch { }
+
+        try
+        {
+            using var uninstall = Registry.LocalMachine.OpenSubKey(InnoUninstallRegKey, writable: false);
+            if (uninstall?.GetValue("InstallLocation") is string loc && !string.IsNullOrWhiteSpace(loc))
+            {
+                var trimmed = loc.Trim().TrimEnd('\\', '/');
+                if (Directory.Exists(trimmed)) return trimmed;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>Inno Setup silent flags for the in-app updater hand-off.</summary>
+    internal static string BuildSilentInstallerArguments(string? installDirectory)
+    {
+        var args = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS=0";
+        if (!string.IsNullOrWhiteSpace(installDirectory))
+        {
+            var dir = installDirectory.Trim().TrimEnd('\\');
+            args += $" /DIR=\"{dir}\"";
+        }
+        return args;
+    }
+
     internal static void WritePendingUpdate(string version)
     {
         try

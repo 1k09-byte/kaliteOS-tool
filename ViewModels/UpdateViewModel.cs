@@ -71,6 +71,15 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
         if (IsBusy) return;
         try
         {
+            var pendingVersion = UpdateCheckService.ReadPendingUpdateVersion();
+            var running = UpdateCheckService.CurrentVersion;
+            if (!string.IsNullOrEmpty(pendingVersion)
+                && !string.IsNullOrEmpty(running)
+                && !UpdateCheckService.IsNewer(pendingVersion, running))
+            {
+                UpdateCheckService.ClearPendingUpdate();
+            }
+
             var release = await _service.CheckAsync();
             if (release is null) return;
 
@@ -116,34 +125,31 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             UpdateCheckService.LogDiag($"update: downloaded {info.Name} ({info.Length} bytes) for version {_pending.Version}");
 
             StatusText = "Launching installer…";
-            // Inno Setup silent flags (/CLOSEAPPLICATIONS is the real one —
-            // /FORCECLOSEAPPLICATIONS does not exist and was silently ignored,
-            // leaving a locked exe to fail the file replacement):
-            // /VERYSILENT no wizard, /SUPPRESSMSGBOXES no popups, /NORESTART,
-            // /CLOSEAPPLICATIONS lets Inno close a still-running instance.
-            // The app runs elevated (requireAdministrator manifest), so the
-            // child inherits elevation.
-            // Remember this version BEFORE launching: if the app restarts and
-            // still offers it, the install didn't take (see CheckForUpdateAsync).
+            // Silent Inno upgrade: disable CloseApplications (tray swallows
+            // WM_CLOSE), target the registered install dir (/DIR), exit hard so
+            // files are not locked. Setup also taskkill's in PrepareToInstall.
             UpdateCheckService.WritePendingUpdate(_pending.Version);
+            var installDir = UpdateCheckService.GetRegisteredInstallDirectory();
+            var installArgs = UpdateCheckService.BuildSilentInstallerArguments(installDir);
             var psi = new ProcessStartInfo
             {
                 FileName = installerPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
+                Arguments = installArgs,
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
-            UpdateCheckService.LogDiag($"update: launching {info.Name} for version {_pending.Version}");
+            UpdateCheckService.LogDiag(
+                $"update: launching {info.Name} for version {_pending.Version} args={installArgs}");
+            try
+            {
+                if (App.MainWindow is MainWindow mainWindow)
+                    mainWindow.PrepareForUpdateShutdown();
+            }
+            catch { }
+
             Process.Start(psi);
 
-            // Exit so the installer can overwrite the locked exe. The setup
-            // runs detached with /FORCECLOSEAPPLICATIONS, but a clean exit
-            // here avoids RestartManager aborting the silent install (the
-            // close-to-tray handler swallows window closes — observed in the
-            // Inno log as "Some applications could not be shut down" →
-            // rollback). Exit hard, now.
-            await Task.Delay(300);
             Environment.Exit(0);
         }
         catch (OperationCanceledException)

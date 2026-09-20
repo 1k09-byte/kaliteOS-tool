@@ -135,8 +135,25 @@ internal sealed class Program
         Check(SnipGalleryQuery.FormatSize(1536L * 1024) == "1.50 MB", "FormatSize MB");
 
         Console.WriteLine();
+        Console.WriteLine("--- glyph coverage (segmdl2.ttf cmap) ---");
+        GlyphTests.Run(Check);
+
+        Console.WriteLine();
+        Console.WriteLine("--- custom hotkeys ---");
+        HotkeyTests.Run(Check);
+
+        Console.WriteLine();
+        Console.WriteLine("--- capture region logic ---");
+        RegionLogicTests.Run(Check);
+
+        Console.WriteLine();
         Console.WriteLine("--- gallery disk round-trip (real service) ---");
         await GalleryIoTests.RunAsync(Check);
+
+        Console.WriteLine();
+        Console.WriteLine("--- phase 3: large preview (viewport policy + progressive load) ---");
+        await PreviewPipelineTests.RunAsync(Check);
+        await FolderWatchTests.RunAsync(Check);
 
         Console.WriteLine();
         Console.WriteLine($"SnipVerify: {_pass} passed, {_fail} failed");

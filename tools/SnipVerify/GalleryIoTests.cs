@@ -42,6 +42,18 @@ internal static class GalleryIoTests
             var (thumbPath, w, h) = await SnipGalleryService.GetThumbnailPathAsync(imported!, 320);
             check(thumbPath != null && File.Exists(thumbPath), "IO thumbnail cache file generated");
             check(w == 64 && h == 48, $"IO thumbnail dims read back ({w}x{h})");
+
+            // 5. Metadata round-trips (restart survival: favorites/tags/OCR/dims).
+            var meta = new kaliteConfig.Models.SnipMeta
+            {
+                Type = "Region", CreatedUtc = new DateTime(2026, 9, 20, 12, 0, 0, DateTimeKind.Utc),
+                Width = 64, Height = 48, IsFavorite = true, SourceApp = "test.exe",
+                OcrText = "hello", Tags = new System.Collections.Generic.List<string> { "a", "b" },
+            };
+            await SnipGalleryService.SaveMetaAsync(imported!, meta);
+            var back = await SnipGalleryService.LoadMetaAsync(imported!);
+            check(back != null && back.IsFavorite && back.Width == 64 && back.OcrText == "hello"
+                && back.Tags.Count == 2 && back.SourceApp == "test.exe", "IO meta round-trips all fields");
         }
         catch (Exception ex)
         {

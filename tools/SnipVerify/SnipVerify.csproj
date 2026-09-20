@@ -19,8 +19,16 @@
 
   <ItemGroup>
     <Compile Include="..\..\Models\SnipGalleryModels.cs" LinkBase="Models" />
+    <Compile Include="..\..\Models\SnipPreviewViewport.cs" LinkBase="Models" />
     <Compile Include="..\..\Services\SnipGalleryQuery.cs" LinkBase="Services" />
     <Compile Include="..\..\Services\SnipGalleryService.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipThumbnailService.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipPreviewService.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipRefreshCadence.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipFolderWatcher.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipRegionLogic.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipWindowSnap.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipHotkeyService.cs" LinkBase="Services" />
   </ItemGroup>
 
 </Project>
