@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace kaliteConfig.Native;
 
@@ -32,6 +33,59 @@ internal struct FileTime
 
 internal static partial class NativeMethods
 {
+    // SetupDi device-property read — the same mechanism the reference tool
+    // uses for DEVPKEY_PciDevice_InterruptMessageMaximum.
+    internal static partial class SetupApi
+    {
+        internal const uint DIGCF_PRESENT = 0x00000002;
+        internal static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct SP_DEVINFO_DATA
+        {
+            internal uint cbSize;
+            internal Guid ClassGuid;
+            internal uint DevInst;
+            internal IntPtr Reserved;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct DEVPROPKEY
+        {
+            internal Guid fmtid;
+            internal uint pid;
+        }
+
+        // pciprop.h: DEFINE_PCI_DEVICE_DEVPKEY(DEVPKEY_PciDevice_InterruptMessageMaximum, 15).
+        // GUID verified against the live property store via SetupDiGetDevicePropertyKeys.
+        internal static readonly DEVPROPKEY DEVPKEY_PciDevice_InterruptMessageMaximum = new()
+        {
+            fmtid = new Guid("3AB22E31-8264-4B4E-9AF5-A8D2D8E33E62"),
+            pid = 15
+        };
+
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern IntPtr SetupDiGetClassDevs(ref Guid classGuid, string? enumerator, IntPtr hwndParent, uint flags);
+
+        [DllImport("setupapi.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetupDiEnumDeviceInfo(IntPtr deviceInfoSet, uint memberIndex, ref SP_DEVINFO_DATA deviceInfoData);
+
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetupDiGetDeviceInstanceId(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, StringBuilder deviceInstanceId, uint deviceInstanceIdSize, out uint requiredSize);
+
+        // NOTE: explicit W entry point — this API is Unicode-only; without it
+        // the runtime probes for a nonexistent ...PropertyA and every call throws.
+        [DllImport("setupapi.dll", EntryPoint = "SetupDiGetDevicePropertyW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetupDiGetDeviceProperty(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, ref DEVPROPKEY propertyKey, out uint propertyType, [Out] byte[]? propertyBuffer, uint propertyBufferSize, out uint requiredSize, uint flags);
+
+        [DllImport("setupapi.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetupDiDestroyDeviceInfoList(IntPtr deviceInfoSet);
+    }
+
     internal static partial class Affinity
     {
         [LibraryImport("kernel32.dll", SetLastError = true)]

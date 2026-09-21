@@ -114,6 +114,9 @@ namespace kaliteConfig.Pages
 
         private void DialogCancel_Click(object sender, RoutedEventArgs e)
         {
+            // The dialog edits the row item in place — throw those staged
+            // edits away so Cancel truly cancels.
+            ViewModel.DiscardDialogChanges();
             DeviceDetailsDialog.Hide();
         }
 
@@ -164,7 +167,8 @@ namespace kaliteConfig.Pages
             if (value is null) return "—";
             return propertyName switch
             {
-                "MsiEnabled" => (bool)value ? "Enabled" : "Disabled",
+                "MsiEnabled" => (bool)value ? "On" : "Off",
+                "MessageNumberLimit" => value is int i ? (i == 0 ? "Auto" : i.ToString()) : "—",
                 "DevicePolicy" => Services.AffinityService.DevicePolicyShort((int?)value),
                 "DevicePriority" => Services.AffinityService.DevicePriorityName((int?)value),
                 "AffinityMask" => Services.AffinityService.AffinityMaskText((ulong?)value),
@@ -196,9 +200,9 @@ namespace kaliteConfig.Pages
             return path is null ? null : new BitmapImage(new Uri(path));
         }
 
-        public static Visibility EmptyToVisibility(int count)
+        public static Visibility NonEmptyToVisibility(int count)
         {
-            return count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            return count == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
 
         public static bool Not(bool val) => !val;

@@ -9,7 +9,6 @@ namespace kaliteConfig.Pages
     public sealed partial class WindowsSettingsHubPage : Page
     {
         private readonly Services.WindowsSettingsService _kernel = new();
-        private readonly ViewModels.WindhawkProvisioningViewModel Vm = new();
         private bool _loadingWin32PS;
         private bool _loadingKernelToggles;
         private bool _loadingSvcSplit;
@@ -17,36 +16,10 @@ namespace kaliteConfig.Pages
         public WindowsSettingsHubPage()
         {
             this.InitializeComponent();
-            this.Loaded += (_, _) => { LoadWin32PS(); LoadKernelToggles(); LoadSvcSplit(); Vm.RefreshDetection(); };
+            this.Loaded += (_, _) => { LoadWin32PS(); LoadKernelToggles(); LoadSvcSplit(); };
             
             // Host the Reserved CPU Sets panel here.
             this.ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
-        }
-
-        /// <summary>
-        /// Real Windhawk provisioning: confirm → upgrade/install the pinned
-        /// 2.0 alpha when needed → import the bundled KaliteOS settings via
-        /// windhawk-cli → update mods. Progress surfaces in the page's InfoBar
-        /// through the shared ViewModel.
-        /// </summary>
-        private async void WindhawkInstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (!Vm.CanRun) return;
-
-            var confirm = new ContentDialog
-            {
-                Title = "Install Windhawk & import settings",
-                Content = Vm.IsInstalled
-                    ? "Windhawk will be upgraded to the 2.0 alpha (silent install) and the bundled KaliteOS settings imported. Windhawk restarts during import. Continue?"
-                    : "Windhawk 2.0 (alpha 5) will be installed silently and the bundled KaliteOS settings imported. Continue?",
-                PrimaryButtonText = "Continue",
-                CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot,
-            };
-            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
-
-            await Vm.RunProvisioningAsync();
         }
 
         private void LoadWin32PS()

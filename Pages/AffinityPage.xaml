@@ -62,13 +62,13 @@
                         Margin="0,0,16,0"
                         VerticalAlignment="Center"
                         Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind MsiLimit, Mode=OneWay}" />
+                        Text="{x:Bind MsiLimitText, Mode=OneWay}" />
                     <TextBlock
                         Grid.Column="3"
                         VerticalAlignment="Center"
                         Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                         Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind MaxMsiLimit, Mode=OneWay}" />
+                        Text="{x:Bind MaxMsiLimitText, Mode=OneWay}" />
                     <TextBlock
                         Grid.Column="4"
                         VerticalAlignment="Center"
@@ -104,15 +104,13 @@
                        Style="{StaticResource DefaultContentDialogStyle}"
                        Title="{x:Null}"
                        PrimaryButtonText=""
-                       CloseButtonText=""
-                       MinWidth="1100"
-                       MaxWidth="1500">
+                       CloseButtonText="">
             <ContentDialog.Resources>
-                <x:Double x:Key="ContentDialogMinWidth">1100</x:Double>
-                <x:Double x:Key="ContentDialogMaxWidth">1500</x:Double>
+                <x:Double x:Key="ContentDialogMaxWidth">1350</x:Double>
+                <x:Double x:Key="ContentDialogMaxHeight">900</x:Double>
             </ContentDialog.Resources>
             <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Hidden" VerticalScrollMode="Auto">
-            <StackPanel Spacing="16" MinWidth="1040">
+            <StackPanel Spacing="16">
                 <Border
                     Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                     BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
@@ -172,13 +170,10 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                                 <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="MSI Limit" />
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Caps how many message-signaled interrupts the device may raise; lower values reduce DPC latency spikes." />
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Caps how many message-signaled interrupts the device may raise; lower values reduce DPC latency spikes. 0 means automatic." />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                <NumberBox Value="{x:Bind ViewModel.SelectedDevice.MsiLimit, Mode=TwoWay}" Minimum="1" Maximum="{x:Bind ViewModel.SelectedDevice.MaxMsiLimit, Mode=OneWay}" Width="100" />
-                                <!-- Max MSI Limit -->
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Max:" VerticalAlignment="Center" />
-                                <TextBlock Text="{x:Bind ViewModel.SelectedDevice.MaxMsiLimit, Mode=OneWay}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
+                                <NumberBox Value="{x:Bind ViewModel.SelectedDevice.MsiLimit, Mode=TwoWay}" Minimum="0" Maximum="{x:Bind ViewModel.SelectedDevice.EffectiveMaxMsiLimit, Mode=OneWay}" Width="140" SpinButtonPlacementMode="Inline" IsEnabled="{x:Bind ViewModel.SelectedDevice.MsiEnabled, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -228,61 +223,44 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Processor Mask card -->
+                <!-- Processor Mask card (always expanded) -->
                 <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" CornerRadius="8" Padding="20">
                     <StackPanel Spacing="12">
-                        <Button
-                            Padding="0"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Command="{x:Bind ViewModel.ToggleProcessorMaskCommand}">
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon
-                                    Grid.Column="0"
-                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                    FontSize="16"
-                                    VerticalAlignment="Center"
-                                    Glyph="&#xE9D9;" />
-                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Processor Mask" VerticalAlignment="Center" />
-                                        <Border
-                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Padding="6,2"
-                                            VerticalAlignment="Center">
-                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.SelectedDevice.SelectedThreadCountText, Mode=OneWay, FallbackValue=''}" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Assign hardware interrupts to specific logical processors" />
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Grid.Column="0"
+                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                FontSize="16"
+                                VerticalAlignment="Center"
+                                Glyph="&#xE9D9;" />
+                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Processor Mask" VerticalAlignment="Center" />
+                                    <Border
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="6,2"
+                                        VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.SelectedDevice.SelectedThreadCountText, Mode=OneWay, FallbackValue=''}" />
+                                    </Border>
                                 </StackPanel>
-                                <FontIcon
-                                    Grid.Column="2"
-                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                    FontSize="12"
-                                    VerticalAlignment="Center"
-                                    Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.SelectedDevice.IsProcessorMaskExpanded), Mode=OneWay, FallbackValue='&#xE70D;'}" />
-                            </Grid>
-                        </Button>
-                        <StackPanel
-                            Spacing="8"
-                            Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.SelectedDevice.IsProcessorMaskExpanded), Mode=OneWay, FallbackValue=Visible}">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Assign hardware interrupts to specific logical processors" />
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Spacing="8">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                                 <Button Content="Select all" Command="{x:Bind ViewModel.SelectAllThreadsCommand}" />
                                 <Button Content="Clear" Command="{x:Bind ViewModel.ClearThreadsCommand}" />
                             </StackPanel>
                             <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedDevice.CoreGroups, Mode=OneWay}" HorizontalAlignment="Stretch">
                                 <ItemsRepeater.Layout>
-                                    <UniformGridLayout MaximumRowsOrColumns="8" MinItemWidth="128" MinColumnSpacing="8" MinRowSpacing="8" Orientation="Horizontal" ItemsJustification="Start" />
+                                    <UniformGridLayout MaximumRowsOrColumns="8" MinItemWidth="140" MinColumnSpacing="8" MinRowSpacing="8" Orientation="Horizontal" ItemsJustification="Start" />
                                 </ItemsRepeater.Layout>
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate x:DataType="models:ProcessorCoreGroup">
@@ -378,7 +356,7 @@
                                 <TextBlock Text="Redo" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{x:Bind ViewModel.ViewChangesCommand}" Click="ViewChanges_Click">
+                        <Button Click="ViewChanges_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE890;" />
                                 <TextBlock Text="{x:Bind ViewModel.ChangeCountText, Mode=OneWay}" />
@@ -388,6 +366,12 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE777;" />
                                 <TextBlock Text="Restore" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{x:Bind ViewModel.RestartPendingCommand}" IsEnabled="{x:Bind ViewModel.RequiresRestart, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE72C;" />
+                                <TextBlock Text="Restart devices" />
                             </StackPanel>
                         </Button>
                         <Button Style="{ThemeResource AccentButtonStyle}" Command="{x:Bind ViewModel.OptimizeCommand}" IsEnabled="{x:Bind local:AffinityPage.Not(ViewModel.IsOptimizing), Mode=OneWay}">
@@ -444,7 +428,8 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Graphics">
+                                CommandParameter="Graphics"
+                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon
                                         FontFamily="{ThemeResource SymbolThemeFontFamily}"
@@ -463,12 +448,6 @@
                                     <StackLayout Spacing="0" />
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
-                            <TextBlock
-                                Margin="12,4,0,4"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="No graphics cards found."
-                                Visibility="{x:Bind local:AffinityPage.EmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}" />
 
                             <!-- Network group -->
                             <Button
@@ -478,7 +457,8 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Network">
+                                CommandParameter="Network"
+                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon
                                         FontFamily="{ThemeResource SymbolThemeFontFamily}"
@@ -497,12 +477,6 @@
                                     <StackLayout Spacing="0" />
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
-                            <TextBlock
-                                Margin="12,4,0,4"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="No network adapters found."
-                                Visibility="{x:Bind local:AffinityPage.EmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}" />
 
                             <!-- USB group -->
                             <Button
@@ -512,7 +486,8 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Usb">
+                                CommandParameter="Usb"
+                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon
                                         FontFamily="{ThemeResource SymbolThemeFontFamily}"
@@ -531,12 +506,6 @@
                                     <StackLayout Spacing="0" />
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
-                            <TextBlock
-                                Margin="12,4,0,4"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="No USB controllers found."
-                                Visibility="{x:Bind local:AffinityPage.EmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}" />
 
                             <!-- Audio group -->
                             <Button
@@ -546,7 +515,8 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Audio">
+                                CommandParameter="Audio"
+                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon
                                         FontFamily="{ThemeResource SymbolThemeFontFamily}"
@@ -565,12 +535,6 @@
                                     <StackLayout Spacing="0" />
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
-                            <TextBlock
-                                Margin="12,4,0,4"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="No audio controllers found."
-                                Visibility="{x:Bind local:AffinityPage.EmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}" />
                         </StackPanel>
                     </ScrollViewer>
                 </Border>

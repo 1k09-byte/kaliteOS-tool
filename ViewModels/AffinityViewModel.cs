@@ -106,12 +106,13 @@ namespace kaliteConfig.ViewModels
             SelectedDevice = item;
             var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.MsiEnabled = info.MsiSupported ?? false;
-            item.MsiLimit = info.MsiLimit is > 0 ? info.MsiLimit.Value : (info.MaxMsiLimit is > 0 ? info.MaxMsiLimit.Value : 1);
-            item.MsiLimitText = info.MsiLimit?.ToString() ?? (info.MaxMsiLimit?.ToString() ?? "—");
+            // MSI Limit shows only the explicit value (Auto when absent) — the
+            // hardware max lives in MaxMsiLimit and is only the edit cap.
+            item.MsiLimit = info.MsiLimit ?? 0;
+            item.MsiLimitText = info.MsiLimit?.ToString() ?? "Auto";
+            item.MaxMsiLimit = info.MaxMsiLimit ?? 0;
             item.DevicePolicyShort = AffinityService.DevicePolicyShort(info.DevicePolicy);
-            item.DevicePriorityShort = info.DevicePriority is null
-                ? "—"
-                : AffinityService.DevicePriorityName(info.DevicePriority);
+            item.DevicePriorityShort = AffinityService.DevicePriorityName(info.DevicePriority);
             item.SelectedPriority = AffinityService.DevicePriorityName(info.DevicePriority);
             item.SelectedPolicy = info.DevicePolicy is null
                 ? "IrqPolicyMachineDefault"
@@ -129,14 +130,14 @@ namespace kaliteConfig.ViewModels
 
             int coreIndex = 0;
 
-            void MapCores(IEnumerable<ulong> masks, string label)
+            void MapCores(IEnumerable<ulong> masks)
             {
                 // Note: masks includes core 0 if we're rendering the UI (Wait, TopologyService Detection removes reserved core 0!
                 // To avoid breaking the UI indices if we omitted Core 0, I should just render all cores. Wait! TopologyService.Detect removes Core 0 from PerformanceCoreMasks!
                 // So Core 0's threads won't be rendered. Let's fix that by re-adding Core 0 or handling it gracefully:
                 foreach (ulong mask in masks)
                 {
-                    var group = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex} ({label})" };
+                    var group = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex}" };
                     for (int t = 0; t < logical; t++)
                     {
                         if ((mask & (1UL << t)) != 0)
@@ -169,7 +170,7 @@ namespace kaliteConfig.ViewModels
 
             if (missingMask != 0)
             {
-                var group0 = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex} (OS)" };
+                var group0 = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex}" };
                 for (int t = 0; t < logical; t++)
                 {
                     if ((missingMask & (1UL << t)) != 0)
@@ -191,12 +192,47 @@ namespace kaliteConfig.ViewModels
                 }
             }
 
-            MapCores(topology.PerformanceCoreMasks, topology.IsHybrid ? "P-Core" : "Phys");
-            MapCores(topology.EfficiencyCoreMasks, "E-Core");
+            MapCores(topology.PerformanceCoreMasks);
+            MapCores(topology.EfficiencyCoreMasks);
             RefreshThreadCount(item);
             if (info.AffinityMask is null)
                 item.SelectedThreadCountText += " (system default)";
+            SnapshotDialogState(item);
             return Task.CompletedTask;
+        }
+
+        // The dialog binds two-way straight into the row item, so Cancel must
+        // restore the values captured when the dialog opened — otherwise the
+        // table keeps showing edits that were never written.
+        private AffinityDeviceItem? _dialogItem;
+        private bool _dialogMsi;
+        private double _dialogLimit;
+        private string _dialogPolicy = "IrqPolicyMachineDefault";
+        private string _dialogPriority = "Undefined";
+        private ulong _dialogMask;
+
+        private void SnapshotDialogState(AffinityDeviceItem item)
+        {
+            _dialogItem = item;
+            _dialogMsi = item.MsiEnabled;
+            _dialogLimit = item.MsiLimit;
+            _dialogPolicy = item.SelectedPolicy;
+            _dialogPriority = item.SelectedPriority;
+            _dialogMask = BuildMaskFromGroups(item);
+        }
+
+        public void DiscardDialogChanges()
+        {
+            if (SelectedDevice is null || !ReferenceEquals(SelectedDevice, _dialogItem)) return;
+            var item = SelectedDevice;
+            item.MsiEnabled = _dialogMsi;
+            item.MsiLimit = _dialogLimit;
+            item.SelectedPolicy = _dialogPolicy;
+            item.SelectedPriority = _dialogPriority;
+            foreach (var group in item.CoreGroups)
+                foreach (var thread in group.Threads)
+                    thread.IsChecked = (_dialogMask & (1UL << thread.Index)) != 0;
+            RefreshThreadCount(item);
         }
 
         private static void RefreshThreadCount(AffinityDeviceItem item)
@@ -209,13 +245,6 @@ namespace kaliteConfig.ViewModels
                     if (thread.IsChecked) on++;
                 }
             item.SelectedThreadCountText = $"{on} of {total} selected";
-        }
-
-        [RelayCommand]
-        private void ToggleProcessorMask()
-        {
-            if (SelectedDevice is not null)
-                SelectedDevice.IsProcessorMaskExpanded = !SelectedDevice.IsProcessorMaskExpanded;
         }
 
         [RelayCommand]
@@ -254,15 +283,16 @@ namespace kaliteConfig.ViewModels
         public System.Collections.Generic.List<string> PriorityOptions { get; } =
             new() { "Undefined", "Low", "Normal", "High" };
 
+        // Dropdown shows the raw policy names, exactly like the reference tool.
         public System.Collections.Generic.List<PolicyOption> PolicyOptions { get; } =
             new()
             {
-                new PolicyOption("Machine Default", "IrqPolicyMachineDefault"),
-                new PolicyOption("All Close Processors", "IrqPolicyAllCloseProcessors"),
-                new PolicyOption("One Close Processor", "IrqPolicyOneCloseProcessor"),
-                new PolicyOption("All Matching Processors", "IrqPolicyAllMatchingProcessors"),
-                new PolicyOption("Specified Processors", "IrqPolicySpecifiedProcessors"),
-                new PolicyOption("Spread Messages", "IrqPolicySpreadMessagesAcrossAllProcessors")
+                new PolicyOption("IrqPolicyMachineDefault", "IrqPolicyMachineDefault"),
+                new PolicyOption("IrqPolicyAllCloseProcessors", "IrqPolicyAllCloseProcessors"),
+                new PolicyOption("IrqPolicyOneCloseProcessor", "IrqPolicyOneCloseProcessor"),
+                new PolicyOption("IrqPolicyAllProcessorsInMachine", "IrqPolicyAllProcessorsInMachine"),
+                new PolicyOption("IrqPolicySpecifiedProcessors", "IrqPolicySpecifiedProcessors"),
+                new PolicyOption("IrqPolicySpreadMessagesAcrossAllProcessors", "IrqPolicySpreadMessagesAcrossAllProcessors")
             };
 
         // ── Device enumeration ──────────────────────────────────────────────
@@ -294,12 +324,11 @@ namespace kaliteConfig.ViewModels
                 {
                     var info = _affinityService.GetInterruptInfo(device.DeviceInstanceId);
                     device.MsiEnabled = info.MsiSupported ?? false;
-                    device.MsiLimit = info.MsiLimit is > 0 ? info.MsiLimit.Value : (info.MaxMsiLimit is > 0 ? info.MaxMsiLimit.Value : 1);
-                    device.MsiLimitText = info.MsiLimit?.ToString() ?? (info.MaxMsiLimit?.ToString() ?? "—");
+                    device.MsiLimit = info.MsiLimit ?? 0;
+                    device.MsiLimitText = info.MsiLimit?.ToString() ?? "Auto";
+                    device.MaxMsiLimit = info.MaxMsiLimit ?? 0;
                     device.DevicePolicyShort = AffinityService.DevicePolicyShort(info.DevicePolicy);
-                    device.DevicePriorityShort = info.DevicePriority is null
-                        ? "Undefined"
-                        : AffinityService.DevicePriorityName(info.DevicePriority);
+                    device.DevicePriorityShort = AffinityService.DevicePriorityName(info.DevicePriority);
                     device.AffinityText = AffinityService.AffinityMaskText(info.AffinityMask);
                     device.IrqText = info.MsiSupported == true ? "MSI" : info.MsiSupported == false ? "Line" : "—";
 
@@ -360,12 +389,15 @@ namespace kaliteConfig.ViewModels
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "MsiEnabled", oldMsi, item.MsiEnabled, DateTime.Now));
             }
 
-            // MSI Limit
-            int oldLimit = (int)(info.MsiLimit ?? 1);
+            // MSI Limit — 0 (Auto) deletes the value, like the reference tool.
+            int oldLimit = (int)(info.MsiLimit ?? 0);
             int newLimit = (int)item.MsiLimit;
             if (newLimit != oldLimit)
             {
-                if (_affinityService.SetMsiLimit(item.DeviceInstanceId, newLimit))
+                bool ok = newLimit == 0
+                    ? _affinityService.ClearMsiValue(item.DeviceInstanceId, "MessageNumberLimit")
+                    : _affinityService.SetMsiLimit(item.DeviceInstanceId, newLimit);
+                if (ok)
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "MessageNumberLimit", oldLimit, newLimit, DateTime.Now));
             }
 
@@ -374,19 +406,32 @@ namespace kaliteConfig.ViewModels
             // Device Policy
             int newPolicy = PolicyNameToInt(item.SelectedPolicy);
             int? oldPolicy = info.DevicePolicy;
+            bool policyTouched = false;
             if (newPolicy != (oldPolicy ?? 0))
             {
                 if (_affinityService.SetDevicePolicy(item.DeviceInstanceId, newPolicy))
+                {
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "DevicePolicy", oldPolicy, newPolicy, DateTime.Now));
+                    policyTouched = true;
+                }
             }
 
-            // Device Priority
+            // A non-Specified policy must not keep a stale override behind —
+            // the reference tool deletes it in that case.
+            if (policyTouched && newPolicy != 4)
+                _affinityService.ClearAffinityPolicy(item.DeviceInstanceId, "AssignmentSetOverride");
+
+            // Device Priority — Undefined (0) deletes the value, like the reference.
             int newPriority = PriorityNameToInt(item.SelectedPriority);
-            int? oldPriority = info.DevicePriority;
-            if (newPriority != (oldPriority ?? -1))
+            int oldPriority = info.DevicePriority ?? 0;
+            if (newPriority != oldPriority)
             {
-                if (_affinityService.SetDevicePriority(item.DeviceInstanceId, newPriority))
-                    PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "DevicePriority", oldPriority, newPriority, DateTime.Now));
+                bool ok = newPriority == 0
+                    ? _affinityService.ClearAffinityPolicy(item.DeviceInstanceId, "DevicePriority")
+                    : _affinityService.SetDevicePriority(item.DeviceInstanceId, newPriority);
+                if (ok)
+                    PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "DevicePriority",
+                        oldPriority == 0 ? null : (object)oldPriority, newPriority == 0 ? null : (object)newPriority, DateTime.Now));
             }
 
             // Affinity Mask
@@ -395,11 +440,19 @@ namespace kaliteConfig.ViewModels
             // No explicit override + everything still checked = "system
             // default", not a change — don't write a redundant full mask.
             bool isDefaultUnchanged = info.AffinityMask is null && newMask == RenderedMask(item);
+            bool maskTouched = false;
             if (!isDefaultUnchanged && newMask != oldMask)
             {
                 if (_affinityService.SetAffinityMask(item.DeviceInstanceId, newMask))
+                {
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "AffinityMask", oldMask, newMask, DateTime.Now));
+                    maskTouched = true;
+                }
             }
+
+            // NIC RSS follows the effective mask, like the reference tool.
+            if ((maskTouched || policyTouched) && item.Category == "Network")
+                _affinityService.SetRSS(item.DeviceInstanceId, newPolicy == 4 ? newMask : 0);
 
             // Update the table columns live
             var refreshed = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
@@ -494,22 +547,6 @@ namespace kaliteConfig.ViewModels
             }
         }
         
-        public void UpdateMsiLimitInline(AffinityDeviceItem item, double newValue)
-        {
-            var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
-            int oldLimit = (int)(info.MsiLimit ?? 1);
-            int newLimit = (int)newValue;
-            if (newLimit != oldLimit)
-            {
-                item.MsiLimit = newLimit;
-                if (_affinityService.SetMsiLimit(item.DeviceInstanceId, newLimit))
-                {
-                    PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "MessageNumberLimit", oldLimit, newLimit, DateTime.Now));
-                    item.MsiLimitText = newLimit.ToString();
-                }
-            }
-        }
-        
         private static bool IsElevated()
         {
             using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
@@ -569,7 +606,9 @@ namespace kaliteConfig.ViewModels
                     }
                 }
 
-                // ─ Step 1: Enable MSI for EVERY device that reports support ─
+                // ─ Step 1: Enable MSI for EVERY device that reports support.
+                // Like the reference, enabling MSI also pins the limit to the
+                // device maximum (Auto became meaningless once MSI is forced on).
                 foreach (var dev in allDevices)
                 {
                     if (!dev.IsChecked) continue;
@@ -581,6 +620,14 @@ namespace kaliteConfig.ViewModels
                         {
                             PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "MsiEnabled", false, true, DateTime.Now));
                             modifiedIds.Add(dev.DeviceInstanceId);
+                            int wantLimit = (int)(info.MaxMsiLimit is > 0 ? info.MaxMsiLimit.Value : 1);
+                            int oldLimit = (int)(info.MsiLimit ?? 0);
+                            if (wantLimit != oldLimit && _affinityService.SetMsiLimit(dev.DeviceInstanceId, wantLimit))
+                            {
+                                PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "MessageNumberLimit", oldLimit, wantLimit, DateTime.Now));
+                                dev.MsiLimit = wantLimit;
+                                dev.MsiLimitText = wantLimit.ToString();
+                            }
                         }
                     }
                 }
@@ -680,31 +727,30 @@ namespace kaliteConfig.ViewModels
                             modifiedIds.Add(dev.DeviceInstanceId);
                         }
 
-                        // Set priority
-                        int oldPrio = info.DevicePriority ?? -1;
+                        // Set priority — Undefined (0) deletes the value, like
+                        // the reference tool.
+                        int oldPrio = info.DevicePriority ?? 0;
                         if (oldPrio != priority)
                         {
-                            if (priority == -1)
+                            bool ok = priority == 0
+                                ? _affinityService.ClearAffinityPolicy(dev.DeviceInstanceId, "DevicePriority")
+                                : _affinityService.SetDevicePriority(dev.DeviceInstanceId, priority);
+                            if (ok)
                             {
-                                // Clear Priority explicitly back to Undefined
-                                if (_affinityService.SetDevicePriority(dev.DeviceInstanceId, -1)) // Under the hood SetDevicePriority deleting registry key for -1 is how AffinityService handles it, no it doesn't so we explicitly call clear!
-                                {
-                                }
-                                _affinityService.ClearAffinityPolicy(dev.DeviceInstanceId, "DevicePriority");
-                                PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "DevicePriority", oldPrio == -1 ? null : (object)oldPrio, null, DateTime.Now));
-                                modifiedIds.Add(dev.DeviceInstanceId);
-                            }
-                            else if (_affinityService.SetDevicePriority(dev.DeviceInstanceId, priority))
-                            {
-                                PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "DevicePriority", oldPrio == -1 ? null : (object)oldPrio, priority, DateTime.Now));
+                                PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "DevicePriority",
+                                    oldPrio == 0 ? null : (object)oldPrio, priority == 0 ? null : (object)priority, DateTime.Now));
                                 modifiedIds.Add(dev.DeviceInstanceId);
                             }
                         }
+
+                        // NIC RSS follows the effective mask, like the reference.
+                        if (dev.Category == "Network")
+                            _affinityService.SetRSS(dev.DeviceInstanceId, mask);
                     }
                 }
-                ApplyTier(graphicsTier, gpuMask, -1);        // GPU alone on its core(s)
-                ApplyTier(networkTier, nicMask, -1);         // NICs on a different core
-                ApplyTier(normalTier, peripheralMask, -1);   // USB/audio on a third
+                ApplyTier(graphicsTier, gpuMask, 0);        // GPU alone on its core(s)
+                ApplyTier(networkTier, nicMask, 0);         // NICs on a different core
+                ApplyTier(normalTier, peripheralMask, 0);   // USB/audio on a third
 
                 if (modifiedIds.Count > 0)
                 {
@@ -799,12 +845,6 @@ namespace kaliteConfig.ViewModels
 
         public ObservableCollection<AffinityChange> TrackedChanges { get; } = new();
 
-        [RelayCommand]
-        private void ViewChanges()
-        {
-            // Removed: TrackedChanges is now synced directly inside RefreshChangeState
-        }
-
         // ── Helpers ─────────────────────────────────────────────────────────
 
         private void RevertChange(AffinityChange change)
@@ -814,6 +854,15 @@ namespace kaliteConfig.ViewModels
                 case "MsiEnabled":
                     _affinityService.SetMsiEnabled(change.DeviceId, change.OldValue is true);
                     break;
+                case "MessageNumberLimit":
+                    if (change.OldValue is int oldLim)
+                    {
+                        if (oldLim == 0)
+                            _affinityService.ClearMsiValue(change.DeviceId, "MessageNumberLimit");
+                        else
+                            _affinityService.SetMsiLimit(change.DeviceId, oldLim);
+                    }
+                    break;
                 case "DevicePolicy":
                     if (change.OldValue is int dp)
                         _affinityService.SetDevicePolicy(change.DeviceId, dp);
@@ -821,7 +870,7 @@ namespace kaliteConfig.ViewModels
                         _affinityService.ClearAffinityPolicy(change.DeviceId, "DevicePolicy");
                     break;
                 case "DevicePriority":
-                    if (change.OldValue is int dpr)
+                    if (change.OldValue is int dpr && dpr != 0)
                         _affinityService.SetDevicePriority(change.DeviceId, dpr);
                     else
                         _affinityService.ClearAffinityPolicy(change.DeviceId, "DevicePriority");
@@ -840,13 +889,24 @@ namespace kaliteConfig.ViewModels
                 case "MsiEnabled":
                     _affinityService.SetMsiEnabled(change.DeviceId, change.NewValue is true);
                     break;
+                case "MessageNumberLimit":
+                    if (change.NewValue is int newLim)
+                    {
+                        if (newLim == 0)
+                            _affinityService.ClearMsiValue(change.DeviceId, "MessageNumberLimit");
+                        else
+                            _affinityService.SetMsiLimit(change.DeviceId, newLim);
+                    }
+                    break;
                 case "DevicePolicy":
                     if (change.NewValue is int dp)
                         _affinityService.SetDevicePolicy(change.DeviceId, dp);
                     break;
                 case "DevicePriority":
-                    if (change.NewValue is int dpr)
+                    if (change.NewValue is int dpr && dpr != 0)
                         _affinityService.SetDevicePriority(change.DeviceId, dpr);
+                    else
+                        _affinityService.ClearAffinityPolicy(change.DeviceId, "DevicePriority");
                     break;
                 case "AffinityMask":
                     ulong newMask = change.NewValue is ulong m ? m : 0;
@@ -870,18 +930,19 @@ namespace kaliteConfig.ViewModels
             "IrqPolicyMachineDefault" => 0,
             "IrqPolicyAllCloseProcessors" => 1,
             "IrqPolicyOneCloseProcessor" => 2,
-            "IrqPolicyAllMatchingProcessors" => 3,
+            "IrqPolicyAllProcessorsInMachine" => 3,
             "IrqPolicySpecifiedProcessors" => 4,
             "IrqPolicySpreadMessagesAcrossAllProcessors" => 5,
             _ => 0
         };
 
+        // Reference numbering: 0 = Undefined, 1 = Low, 2 = Normal, 3 = High.
         private static int PriorityNameToInt(string name) => name switch
         {
-            "Low" => 0,
-            "Normal" => 1,
-            "High" => 2,
-            _ => -1 // "Undefined" maps to no write
+            "Low" => 1,
+            "Normal" => 2,
+            "High" => 3,
+            _ => 0 // "Undefined" deletes the value (OS default)
         };
     }
 }
