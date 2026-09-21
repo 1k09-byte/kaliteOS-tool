@@ -101,6 +101,14 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
+  <!-- The WinUI XAML compiler needs the intermediate assembly from pass 1
+       to resolve project-local x:Bind data types during pass 2. -->
+  <Target Name="SetXamlLocalAssembly" BeforeTargets="MarkupCompilePass2">
+    <PropertyGroup>
+      <XamlLocalAssembly Condition="'$(XamlLocalAssembly)' == '' and Exists('$(IntermediateOutputPath)intermediatexaml\$(TargetName)$(TargetExt)')">$(IntermediateOutputPath)intermediatexaml\$(TargetName)$(TargetExt)</XamlLocalAssembly>
+    </PropertyGroup>
+  </Target>
+
   <Target Name="DeployScewinTool" BeforeTargets="Build">
     <ItemGroup>
       <ScewinToolFiles Include="Assets\scewin\**\*" />
