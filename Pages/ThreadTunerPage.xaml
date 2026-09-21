@@ -197,6 +197,7 @@
                         <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="64" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Grid.Column="1" Text="CPU" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -207,6 +208,8 @@
                     <TextBlock Grid.Column="6" Text="State" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Grid.Column="7" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Grid.Column="8" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="9" Text="Boost" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it — the choice is saved and re-applied to this process every time it starts." />
                 </Grid>
             </Border>
 
@@ -255,6 +258,7 @@
                                 <ColumnDefinition Width="1.5*" />
                                 <ColumnDefinition Width="1.5*" />
                                 <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="64" />
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="24,0,0,0">
@@ -277,6 +281,19 @@
                             <TextBlock Grid.Column="6" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}" />
                             <TextBlock Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CyclesDelta, Mode=OneWay}" />
+
+                            <!-- Per-process Priority boost. Unticking applies to the
+                                 live process immediately and is remembered for good. -->
+                            <CheckBox Grid.Column="9"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      MinWidth="0"
+                                      IsThreeState="False"
+                                      Click="RowBoost_Click"
+                                      Tag="{x:Bind}"
+                                      IsEnabled="{x:Bind local:ThreadTunerPage.Not(IsProtected), Mode=OneWay}"
+                                      IsChecked="{x:Bind BoostAllowed, Mode=OneWay}"
+                                      ToolTipService.ToolTip="Priority boost (ticked = Windows default). Untick to disable it permanently for this process." />
                         </Grid>
                         </Border>
                     </DataTemplate>

@@ -91,6 +91,18 @@ namespace kaliteConfig.ViewModels
         /// </summary>
         public Task LoadDeviceDetailsAsync(AffinityDeviceItem item)
         {
+            // A GPU restart / driver install re-enumerates the adapter, so the row
+            // can outlive the device it points at. Failing loudly beats showing a
+            // dialog full of empty values that writes interrupt settings nowhere.
+            if (!_affinityService.DeviceExists(item.DeviceInstanceId))
+            {
+                StatusText = $"{item.Name} is no longer present — the device was restarted or re-enumerated. Rescanning…";
+                _ = RefreshDevicesCommand.ExecuteAsync(null);
+                throw new InvalidOperationException(
+                    $"{item.Name} is no longer present. It was restarted or re-enumerated (this happens after a GPU restart or driver install). " +
+                    "The device list has been rescanned — pick the device again.");
+            }
+
             SelectedDevice = item;
             var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.MsiEnabled = info.MsiSupported ?? false;
@@ -264,6 +276,16 @@ namespace kaliteConfig.ViewModels
             try
             {
                 var devices = await _affinityService.EnumerateDevicesAsync();
+
+                // Keep the selected device across a rescan when it is still
+                // present — a GPU restart must not silently drop the dialog's
+                // device (or leave it pointing at a list the user can no longer
+                // see). The row objects are new after every scan, so match by
+                // instance id.
+                string? selectedId = SelectedDevice?.DeviceInstanceId;
+                bool wasPresent = selectedId is not null
+                    && devices.Any(d => string.Equals(d.DeviceInstanceId, selectedId, StringComparison.OrdinalIgnoreCase));
+
                 GraphicsDevices.Clear();
                 NetworkDevices.Clear();
                 UsbDevices.Clear();
@@ -290,10 +312,21 @@ namespace kaliteConfig.ViewModels
                     }
                 }
 
+                if (selectedId is not null)
+                {
+                    SelectedDevice = GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices)
+                        .FirstOrDefault(d => string.Equals(d.DeviceInstanceId, selectedId, StringComparison.OrdinalIgnoreCase));
+                    if (SelectedDevice is null && wasPresent)
+                    {
+                        SelectedDevice = null;
+                    }
+                }
+
                 int total = devices.Count;
                 StatusText = total == 0
                     ? "No tunable devices found."
-                    : $"{total} device{(total == 1 ? "" : "s")} found.";
+                    : $"{total} device{(total == 1 ? "" : "s")} found."
+                      + (wasPresent && SelectedDevice is null ? " The previously selected device is gone." : "");
             }
             catch (Exception ex)
             {
@@ -304,6 +337,10 @@ namespace kaliteConfig.ViewModels
                 IsRefreshing = false;
             }
         }
+
+        /// <summary>True while the device behind a row is still enumerated.</summary>
+        public bool IsDevicePresent(AffinityDeviceItem? item)
+            => item is not null && _affinityService.DeviceExists(item.DeviceInstanceId);
 
         // ── Per-device Apply (dialog) ───────────────────────────────────────
 

@@ -31,6 +31,13 @@ namespace kaliteConfig.Controls
             {
                 if (_isSelected == value) return;
                 _isSelected = value;
+
+                // Write through to the parsed component: the install pipeline
+                // reads Model.IsSelected to build the exclusion set, so a
+                // checkbox that only updated this wrapper was invisible to it
+                // and every component installed regardless of the selection.
+                _c.IsSelected = value;
+
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
                 SelectionChanged?.Invoke();
             }
@@ -132,7 +139,10 @@ namespace kaliteConfig.Controls
                 args.Cancel = true;
                 _installStarted = true;
 
-                Result = (_vms.Where(v => v.IsSelected).Select(v => v.Model).ToList(),
+                // EVERY component is handed over with its final selection —
+                // passing only the ticked ones left the caller with nothing to
+                // exclude, which is why unchecked extras still installed.
+                Result = (_vms.Select(v => v.Model).ToList(),
                           CleanInstallCheck.IsChecked == true);
 
                 BeginInstallPhase();

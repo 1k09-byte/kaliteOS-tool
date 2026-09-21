@@ -343,6 +343,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     if (existing.AffinitySummary != p.AffinitySummary) existing.AffinitySummary = p.AffinitySummary;
                     if (existing.AffinityMask != p.AffinityMask) existing.AffinityMask = p.AffinityMask;
                     if (existing.EfficiencyMode != p.EfficiencyMode) existing.EfficiencyMode = p.EfficiencyMode;
+                    if (existing.PriorityBoostText != p.PriorityBoostText) existing.PriorityBoostText = p.PriorityBoostText;
+                    if (existing.BoostAllowed != p.BoostAllowed) existing.BoostAllowed = p.BoostAllowed;
                     if (existing.State != p.State) existing.State = p.State;
                     if (existing.Error != p.Error) existing.Error = p.Error;
                 }

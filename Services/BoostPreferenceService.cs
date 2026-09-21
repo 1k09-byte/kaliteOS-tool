@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -159,8 +160,51 @@ public sealed class BoostPreferenceService
         }
         if (mine.Count == 0) return 0;
 
-        int applied = 0;
         var threads = await ThreadQueryService.ListThreadsAsync(pid);
+        return await ApplyToThreadsAsync(mine, threads);
+    }
+
+    /// <summary>
+    /// Re-applies every stored suppression to the running processes that own
+    /// them. Called from the keeper sweep: a thread Windows re-enabled, or one
+    /// created after the process-start event, goes back to boost-disabled
+    /// instead of silently drifting away from what the user set.
+    /// </summary>
+    public async Task<int> ApplyToRunningProcessesAsync()
+    {
+        List<string> names;
+        lock (_lock)
+        {
+            names = _prefs.Select(p => p.Process)
+                          .Where(n => !string.IsNullOrWhiteSpace(n))
+                          .Distinct(StringComparer.OrdinalIgnoreCase)
+                          .ToList();
+        }
+        if (names.Count == 0) return 0;
+
+        int applied = 0;
+        foreach (var proc in Process.GetProcesses())
+        {
+            try
+            {
+                if (!names.Contains(proc.ProcessName, StringComparer.OrdinalIgnoreCase)) continue;
+                applied += await ApplyToProcessAsync(proc.Id, proc.ProcessName);
+            }
+            catch
+            {
+                // A process that exits mid-sweep is not an error.
+            }
+            finally
+            {
+                proc.Dispose();
+            }
+        }
+        return applied;
+    }
+
+    private async Task<int> ApplyToThreadsAsync(List<BoostPref> mine, List<LiveThreadInfo> threads)
+    {
+        int applied = 0;
         foreach (var t in threads)
         {
             bool hit = mine.Any(p =>

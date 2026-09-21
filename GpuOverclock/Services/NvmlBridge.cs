@@ -33,6 +33,19 @@ namespace kaliteConfig.GpuOverclock.Services
         private static IntPtr _device;
         private static bool _deviceReady;
 
+        /// <summary>
+        /// Forgets the cached NVML device handle so the next read re-opens
+        /// it. Call after any GPU device restart (pnputil/disable-enable):
+        /// the cached handle may dangle afterwards, and a native call
+        /// through it can fault where no managed catch can help (see
+        /// HardwareQuiesceGate).
+        /// </summary>
+        public static void Reset()
+        {
+            _device = IntPtr.Zero;
+            _deviceReady = false;
+        }
+
         private static bool TryLoad()
         {
             if (_attempted) return _lib != IntPtr.Zero;

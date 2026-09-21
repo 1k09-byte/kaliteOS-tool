@@ -210,6 +210,20 @@ public sealed class ProfileWatcherService : IDisposable
                     Log($"defaults: refreshed built-in '{def.Name}' to highest-priority content");
                     changed = true;
                 }
+                else if (RulePatternGuard.RepairPattern(existing.Pattern, existing.Name, def.Pattern) is { } repaired)
+                {
+                    // The saved copy carries its own display name as the process
+                    // pattern ("Input/Sensor Threads" instead of "dwm.exe"), so
+                    // FindPids could never match a process and the rule sat at
+                    // "Waiting for process" forever — the reason the built-in
+                    // DWM Master Input / Kernel Sensor rule never applied.
+                    // Only the pattern is repaired; every other user tweak on
+                    // the rule (thread affinities, boost flags…) is preserved.
+                    Log($"defaults: repaired pattern for built-in '{existing.Name}' " +
+                        $"([{existing.Pattern}] → [{repaired}])");
+                    existing.Pattern = repaired;
+                    changed = true;
+                }
             }
         }
         if (changed)
@@ -218,6 +232,15 @@ public sealed class ProfileWatcherService : IDisposable
             RaiseChanged();
         }
     }
+
+    /// <summary>
+    /// True when a rule's "process pattern" is its own display name, so it can
+    /// never match anything. Built-ins are repaired at load
+    /// (<see cref="RulePatternGuard.RepairPattern"/>); user rules are only
+    /// reported in the UI, never silently rewritten.
+    /// </summary>
+    internal static bool PatternIsDisplayName(TunerProfile p) =>
+        RulePatternGuard.IsRuleNameUsedAsPattern(p.Pattern, p.Name);
 
     private static bool IsOldShippedContent(TunerProfile p)
     {
@@ -548,17 +571,35 @@ public sealed class ProfileWatcherService : IDisposable
         };
     }
 
-    /// <summary>Applies a profile to every currently-running matching process, updates LastResult.</summary>
-    public async Task<RuleApplyResult> ApplyProfileNowAsync(TunerProfile profile)
+    /// <summary>
+    /// Applies a profile to every currently-running matching process, updates
+    /// LastResult.
+    ///
+    /// <paramref name="quiet"/> is the keeper/startup-sweep mode: the result line
+    /// is written without the timestamp so an unchanged pass leaves the text
+    /// identical, and the profile is only saved + broadcast when the line (or a
+    /// thread target count) actually changed. Without this the 20 s sweep
+    /// repainted the rules list and rewrote the rules file forever.
+    /// </summary>
+    public async Task<RuleApplyResult> ApplyProfileNowAsync(TunerProfile profile, bool quiet = false)
     {
         var pids = FindPids(profile.Pattern);
-        Log($"apply-now: pattern=[{profile.Pattern}] pids=[{string.Join(",", pids)}]");
+        Log($"apply-now: pattern=[{profile.Pattern}] pids=[{string.Join(",", pids)}]{(quiet ? " (keeper)" : "")}");
         if (pids.Count == 0)
         {
-            profile.LastResult = "Waiting for process";
+            // A pattern that equals the rule name can never match: say so
+            // instead of leaving the rule looking like it is merely waiting.
+            string waiting = PatternIsDisplayName(profile)
+                ? "Pattern is the rule name — nothing can match it"
+                : "Waiting for process";
+            bool waitingChanged = profile.LastResult != waiting;
+            profile.LastResult = waiting;
             profile.RefreshSummaries();
-            await SaveProfilesAsync();
-            RaiseChanged();
+            if (waitingChanged)
+            {
+                await SaveProfilesAsync();
+                RaiseChanged();
+            }
             return new RuleApplyResult { ProcessFound = false };
         }
 
@@ -576,7 +617,27 @@ public sealed class ProfileWatcherService : IDisposable
             }
         }
 
-        CommitResult(profile, attempted, succeeded, targets);
+        string previousResult = profile.LastResult;
+        var previousTargets = profile.ThreadRules?.Select(r => r.TargetCount).ToList();
+        CommitResult(profile, attempted, succeeded, targets, quiet);
+
+        bool resultChanged = profile.LastResult != previousResult
+            || (previousTargets is not null && profile.ThreadRules is not null
+                && !previousTargets.SequenceEqual(profile.ThreadRules.Select(r => r.TargetCount)));
+
+        if (!resultChanged)
+        {
+            // Nothing visible changed: stay silent so a background sweep cannot
+            // repaint the UI or rewrite the rules file.
+            return new RuleApplyResult
+            {
+                ProcessFound = true,
+                Attempted = attempted,
+                Succeeded = succeeded,
+                ThreadTargets = targets,
+            };
+        }
+
         bool tracked;
         lock (_lock)
         {
@@ -616,11 +677,13 @@ public sealed class ProfileWatcherService : IDisposable
         return descOk && startOk && (!string.IsNullOrWhiteSpace(rule.Description) || !string.IsNullOrWhiteSpace(rule.StartAddress));
     }
 
-    public static void CommitResult(TunerProfile profile, int attempted, int succeeded, List<int> targets)
+    public static void CommitResult(TunerProfile profile, int attempted, int succeeded, List<int> targets, bool quiet = false)
     {
         profile.LastResult = attempted == 0
             ? "No actions defined"
-            : $"{succeeded}/{attempted} actions applied · {DateTime.Now:HH:mm:ss}";
+            : quiet
+                ? $"{succeeded}/{attempted} actions applied"
+                : $"{succeeded}/{attempted} actions applied · {DateTime.Now:HH:mm:ss}";
         if (profile.ThreadRules != null)
         {
             for (int i = 0; i < profile.ThreadRules.Count && i < targets.Count; i++)
@@ -751,14 +814,16 @@ public sealed class ProfileWatcherService : IDisposable
 
             if (matched.Count == 0)
             {
-                // Even with no rule match, persisted per-thread boost
-                // suppressions must still re-arm on every launch of the
-                // owning process (they are independent of rules).
+                // Even with no rule match, persisted boost preferences must
+                // still re-arm on every launch of the owning process (they are
+                // independent of rules) — per thread and per process.
                 _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
+                _ = ProcessBoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
                 return;
             }
 
             _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
+            _ = ProcessBoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
 
             foreach (var profile in matched)
             {
@@ -814,12 +879,69 @@ public sealed class ProfileWatcherService : IDisposable
         {
             try
             {
-                await ApplyProfileNowAsync(profile);
+                await ApplyProfileNowAsync(profile, quiet: true);
             }
             catch (Exception ex)
             {
                 Log($"startup-sweep: [{profile.Name}] failed: {ex.Message}");
             }
+        }
+    }
+
+    private System.Threading.Timer? _keeperTimer;
+    private int _keeperRunning;
+
+    /// <summary>
+    /// Cadence of the keep-applied sweep. Short enough that a setting Windows
+    /// or the application itself moved back is restored before it can be
+    /// missed, long enough to stay invisible in CPU time.
+    /// </summary>
+    public static readonly TimeSpan DefaultKeeperInterval = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// Starts the keep-applied sweep. Every <paramref name="interval"/> the
+    /// enabled auto-apply rules are re-applied to the processes that are
+    /// running, and the persisted priority-boost preferences (per thread and per
+    /// process) are re-armed. A one-shot apply at process start always looked
+    /// like "the settings keep resetting themselves" — a process restart, a
+    /// thread created later, or Windows re-enabling boost undid it. This sweep
+    /// is what makes Process Control settings permanent.
+    /// </summary>
+    public void StartKeeper(TimeSpan? interval = null)
+    {
+        var period = interval ?? DefaultKeeperInterval;
+        if (period <= TimeSpan.Zero) return;
+
+        _keeperTimer ??= new System.Threading.Timer(_ => _ = KeepAppliedAsync(), null, period, period);
+        _keeperTimer.Change(period, period);
+        Log($"keeper: sweeping every {period.TotalSeconds:0} s");
+    }
+
+    public void StopKeeper()
+    {
+        _keeperTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// One keeper pass: rules first, then the boost preferences. Re-entrancy
+    /// guarded so a slow pass can never stack on top of the previous one.
+    /// </summary>
+    public async Task KeepAppliedAsync()
+    {
+        if (System.Threading.Interlocked.Exchange(ref _keeperRunning, 1) == 1) return;
+        try
+        {
+            await ApplyAllRulesToRunningProcessesAsync();
+            await BoostPreferenceService.Instance.ApplyToRunningProcessesAsync();
+            await ProcessBoostPreferenceService.Instance.ApplyToRunningProcessesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log("keeper FAILED: " + ex.GetType().Name + ": " + ex.Message);
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _keeperRunning, 0);
         }
     }
 
@@ -1037,6 +1159,9 @@ public sealed class ProfileWatcherService : IDisposable
 
     public void Dispose()
     {
+        StopKeeper();
+        _keeperTimer?.Dispose();
+        _keeperTimer = null;
         StopWatcher();
         StopGamingModeExitWatcher();
         _gamingLivenessTimer?.Dispose();

@@ -38,6 +38,9 @@ namespace kaliteConfig.Pages
                 : resources["TextFillColorPrimaryBrush"]);
         }
 
+        /// <summary>x:Bind helper for the per-process boost tick box.</summary>
+        public static bool Not(bool value) => !value;
+
         private void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
         {
             ViewModel.LoadProcessesCommand.Execute(null);
@@ -420,7 +423,64 @@ namespace kaliteConfig.Pages
         {
             if (sender is MenuFlyoutItem item && item.Tag is string tag)
             {
-                ExecuteTuning(sender, row => App.Current.ProcessTuning.SetPriorityBoostAsync(row.Pid, tag == "Disabled"));
+                bool enabled = tag != "Disabled";
+                // Same path as the tick box column: apply to the live process and
+                // remember the choice, so the menu action is permanent too.
+                ExecuteTuning(sender, row => SetProcessBoostAsync(row, enabled));
+            }
+        }
+
+        /// <summary>
+        /// Per-process Priority boost: writes the live process and records the
+        /// choice, which the watcher re-applies on every launch and the keeper
+        /// sweep re-applies while the process runs. Without the stored
+        /// preference this was a one-shot Windows forgot on the next restart.
+        /// </summary>
+        private async Task SetProcessBoostAsync(TunerProcessRow row, bool enabled)
+        {
+            int applied = await Services.ProcessBoostPreferenceService.Instance.SetAsync(row.Name, enabled);
+            row.BoostAllowed = enabled;
+            row.PriorityBoostText = enabled ? "Enabled" : "Disabled";
+
+            if (applied == 0)
+            {
+                // Recorded, but nothing was running to write it to (or Windows
+                // refused every instance) — say so instead of pretending.
+                _ = new ContentDialog
+                {
+                    Title = "Boost preference saved",
+                    Content = new TextBlock
+                    {
+                        Text = $"No running instance of {row.Name} accepted the change. " +
+                               "The preference is saved and will be applied the next time it starts.",
+                        TextWrapping = TextWrapping.Wrap,
+                    },
+                    CloseButtonText = "Close",
+                    XamlRoot = this.XamlRoot,
+                }.ShowAsync();
+            }
+        }
+
+        private async void RowBoost_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not CheckBox box || box.Tag is not TunerProcessRow row) return;
+            bool enabled = box.IsChecked == true;
+
+            try
+            {
+                await SetProcessBoostAsync(row, enabled);
+            }
+            catch (Exception ex)
+            {
+                // Put the tick back where it was: the write did not happen.
+                row.BoostAllowed = !enabled;
+                await new ContentDialog
+                {
+                    Title = "Priority boost",
+                    Content = new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap },
+                    CloseButtonText = "Close",
+                    XamlRoot = this.XamlRoot,
+                }.ShowAsync();
             }
         }
 

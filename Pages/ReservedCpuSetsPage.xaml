@@ -39,12 +39,10 @@
                      IsClosable="False" />
         </StackPanel>
 
+        <!-- The Check All / Uncheck All / Invert bulk commands were removed:
+             cores are ticked one by one here. "Apply at Startup" stays (older
+             Windows builds drop the kernel reservation on every reboot). -->
         <CommandBar Grid.Row="1" DefaultLabelPosition="Right" Margin="-12,0,-12,12" Background="Transparent">
-            <CommandBar.PrimaryCommands>
-                <AppBarButton Icon="SelectAll" Label="Check All" Command="{x:Bind ViewModel.SelectAllCommand}" />
-                <AppBarButton Icon="ClearSelection" Label="Uncheck All" Command="{x:Bind ViewModel.SelectNoneCommand}" />
-                <AppBarButton Icon="Switch" Label="Invert" Command="{x:Bind ViewModel.InvertSelectionCommand}" />
-            </CommandBar.PrimaryCommands>
             <CommandBar.SecondaryCommands>
                 <AppBarToggleButton Label="Apply at Startup" 
                                     IsChecked="{x:Bind ViewModel.ApplyAtStartup, Mode=TwoWay}"

@@ -44,6 +44,14 @@ public partial class TunerProcessRow : ObservableObject
     [ObservableProperty] public partial string AffinitySummary { get; set; } = "?";
     [ObservableProperty] public partial ulong AffinityMask { get; set; }
     [ObservableProperty] public partial string PriorityBoostText { get; set; } = "Unknown";
+
+    /// <summary>
+    /// Live process-wide Priority boost — true = enabled (Windows default),
+    /// false = disabled, null = not readable (protected/elevated). The Processes
+    /// list renders this as the tick box column; unticking it disables boost on
+    /// the live process and records a permanent preference.
+    /// </summary>
+    [ObservableProperty] public partial bool? BoostAllowed { get; set; }
     [ObservableProperty] public partial string Memory { get; set; } = "0 MB";
     [ObservableProperty] public partial int Threads { get; set; }
     [ObservableProperty] public partial string State { get; set; } = "Running";

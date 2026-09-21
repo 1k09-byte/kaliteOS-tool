@@ -309,6 +309,14 @@ public sealed class ProcessTuningService
             row.PriorityValue = cls;
             row.PriorityText = PriorityName(cls);
 
+            // Process-wide Priority boost. The handle is already open, so this
+            // costs nothing extra — and it is what the tick box column shows.
+            if (NativeMethods.Priority.GetProcessPriorityBoost(process, out bool boostDisabled))
+            {
+                row.PriorityBoostText = boostDisabled ? "Disabled" : "Enabled";
+                row.BoostAllowed = !boostDisabled; // API flag is inverted
+            }
+
             if (NativeMethods.Affinity.GetProcessAffinityMask(process, out IntPtr mask, out IntPtr sys))
             {
                 row.AffinityMask = (ulong)mask.ToInt64();

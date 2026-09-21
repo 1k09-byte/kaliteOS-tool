@@ -82,8 +82,18 @@ namespace kaliteConfig
 
         private async Task InitializeWatcherAsync()
         {
+            // Per-process Priority-boost preferences are written through the real
+            // tuning service; the store itself stays free of the UI application
+            // object so it can be tested headlessly.
+            Services.ProcessBoostPreferenceService.Applier =
+                (pid, boostEnabled) => ProcessTuning.SetBoostAsync(pid, boostEnabled);
+
             await ProfileWatcher.LoadProfilesAsync();
             ProfileWatcher.StartWatcher();
+            // Keep every Process Control setting applied: rules and boost
+            // preferences are re-armed on a fixed cadence, not just once when a
+            // process starts.
+            ProfileWatcher.StartKeeper();
             // Arm Gaming mode for gaming-mode rules whose process is already
             // running (app started mid-game) and watch for exits.
             ProfileWatcher.StartGamingModeWatcher();

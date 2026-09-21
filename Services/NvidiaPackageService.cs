@@ -21,6 +21,12 @@ namespace kaliteConfig.Services
         public string Description { get; init; } = "";
         public bool IsSelected { get; set; }
         public bool IsLocked { get; init; }                 // display driver: non-removable
+        /// <summary>
+        /// The installer owns this sub-package (userSelectable="false"). It is
+        /// listed so nothing installs invisibly, but it is never excluded: the
+        /// installer needs it to resolve the components that ARE installed.
+        /// </summary>
+        public bool IsInstallerManaged { get; init; }
         public string? Requires { get; init; }              // hard dependency (component Id)
         public long ApproxSizeBytes { get; init; }
 
@@ -366,23 +372,22 @@ namespace kaliteConfig.Services
                     bool hidden = ((string?)el.Attribute("hidden")) is not null;
                     bool isCritical = disposition.Equals("critical", StringComparison.OrdinalIgnoreCase);
 
+                    // A component the map doesn't know is left TICKED: dropping
+                    // something we can't name risks breaking hardware features
+                    // (a new platform component, laptop Dynamic Boost…), while a
+                    // stray optional one is visible and one tick away from off.
                     var known = KnownComponents.TryGetValue(id, out var meta)
-                        ? meta : (Label: id, Desc: "", DefaultOn: false);
+                        ? meta
+                        : (Label: id, Desc: "New in this package — not in the known list, so it is left selected.", DefaultOn: true);
 
                     // Sizes: the package lays out each sub-package's payload in a
                     // matching folder (Display.Driver/…). NvContainer* entries
                     // share one folder — try exact, then prefix match.
-                    long size = 0;
-                    string dir = Path.Combine(extractDir, id);
-                    if (!Directory.Exists(dir))
-                    {
-                        string prefix = id.Split('.')[0];
-                        string candidate = Path.Combine(extractDir, prefix);
-                        if (Directory.Exists(candidate)) dir = candidate;
-                    }
-                    if (Directory.Exists(dir))
-                        size = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
-                                         .Sum(f => new FileInfo(f).Length);
+                    string dir = ResolveComponentDir(extractDir, id);
+                    long size = Directory.Exists(dir)
+                        ? Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+                                   .Sum(f => new FileInfo(f).Length)
+                        : 0;
 
                     components.Add(new NvidiaComponent
                     {
@@ -395,6 +400,7 @@ namespace kaliteConfig.Services
                         // internals (userSelectable=false) also can't be toggled,
                         // but still show so nothing installs invisibly.
                         IsLocked = isCritical,
+                        IsInstallerManaged = !userSelectable,
                         IsSelected = isCritical || (userSelectable && known.DefaultOn),
                         ApproxSizeBytes = size,
                     });
@@ -409,11 +415,40 @@ namespace kaliteConfig.Services
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Rewrites setup.cfg so deselected sub-packages are excluded. VERIFIED
-        /// against a real 616.92 package: installable units are &lt;sub-package
-        /// name="…"&gt; elements; setting disposition="hidden" (the attribute the
-        /// schema itself uses, e.g. VirtualAudio.Driver hidden="true") removes
-        /// them from the install set without deleting the structure.
+        /// The folder an extracted sub-package lives in. The package lays each
+        /// component's payload in a folder named after it (Display.Driver/…);
+        /// dotted sub-packages such as NvContainer.LocalSystem share their
+        /// parent folder (NvContainer/…), hence the prefix fallback.
+        /// </summary>
+        internal static string ResolveComponentDir(string extractDir, string id)
+        {
+            string exact = Path.Combine(extractDir, id);
+            if (Directory.Exists(exact)) return exact;
+
+            string prefix = id.Split('.')[0];
+            return prefix.Length == 0 ? exact : Path.Combine(extractDir, prefix);
+        }
+
+        /// <summary>
+        /// Rewrites setup.cfg so deselected sub-packages are excluded.
+        ///
+        /// <para>
+        /// <paramref name="components"/> MUST carry every parsed component with
+        /// its final IsSelected state. Handing over only the ticked ones made
+        /// <c>deselected</c> always empty, so nothing was ever excluded and the
+        /// "useless stuff" installed anyway — the bug this method now guards
+        /// against by reporting exactly what it excluded.
+        /// </para>
+        ///
+        /// <para>
+        /// Two things happen for each deselected component: the sub-package is
+        /// marked <c>disposition="hidden"</c> (the schema's own way of taking a
+        /// component out of the install set — VirtualAudio.Driver ships hidden),
+        /// and any child entry that names payload inside that component's own
+        /// folder is removed so the installer has nothing left to copy. The
+        /// element itself is never removed: the installer resolves the remaining
+        /// components through the document.
+        /// </para>
         /// </summary>
         public Task<string> ApplySelectionAsync(string extractDir, IReadOnlyList<NvidiaComponent> components, Action<string> log)
             => Task.Run(() =>
@@ -421,27 +456,143 @@ namespace kaliteConfig.Services
                 string cfgPath = Path.Combine(extractDir, "setup.cfg");
                 var doc = XDocument.Load(cfgPath);
 
+                // Installer-managed internals are never excluded, even though
+                // they are rendered unticked: removing them from the package
+                // leaves the installer unable to resolve what it does install.
+                int installerManaged = components.Count(c => c.IsInstallerManaged);
                 var deselected = components
-                    .Where(c => !c.IsSelected && !c.IsLocked)
+                    .Where(c => !c.IsSelected && !c.IsLocked && !c.IsInstallerManaged)
                     .Select(c => c.Id)
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                int hidden = 0;
+                var excluded = new List<string>();
+                var kept = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                int strippedEntries = 0;
+
                 foreach (var el in doc.Descendants()
-                         .Where(e => e.Name.LocalName.Equals("sub-package", StringComparison.OrdinalIgnoreCase)))
+                         .Where(e => e.Name.LocalName.Equals("sub-package", StringComparison.OrdinalIgnoreCase))
+                         .ToList())
                 {
                     string id = (string?)el.Attribute("name") ?? "";
-                    if (deselected.Contains(id))
+                    if (id.Length == 0) continue;
+
+                    if (!deselected.Contains(id))
                     {
-                        el.SetAttributeValue("disposition", "hidden");
-                        hidden++;
+                        kept.Add(id);
+                        continue;
                     }
+
+                    el.SetAttributeValue("disposition", "hidden");
+                    strippedEntries += StripPayloadReferences(extractDir, el, id);
+                    excluded.Add(id);
                 }
 
                 doc.Save(cfgPath);
-                log($"setup.cfg updated: {hidden} component(s) excluded.");
+
+                log(excluded.Count == 0
+                    ? "setup.cfg: nothing to exclude (every component was selected)."
+                    : $"setup.cfg updated: {excluded.Count} component(s) excluded ({strippedEntries} payload entr{(strippedEntries == 1 ? "y" : "ies")} removed): {string.Join(", ", excluded)}");
+                if (installerManaged > 0)
+                    log($"{installerManaged} installer-managed component(s) left as NVIDIA ships them.");
+
+                // Belt and braces: remove the payload of excluded components from
+                // the extracted package so the installer cannot copy it even if
+                // the configuration path is ignored. A folder shared with a
+                // component that is being installed is left alone.
+                int removedDirs = StripExcludedPayload(extractDir, excluded, kept, log);
+                if (removedDirs > 0)
+                    log($"Removed {removedDirs} excluded component folder(s) from the package.");
+
                 return cfgPath;
             });
+
+        /// <summary>
+        /// Drops the child entries of a deselected sub-package that point at that
+        /// component's own extracted folder. Schema-tolerant: it only removes a
+        /// child whose attribute value provably names payload inside the
+        /// component's folder, so an unrelated entry is never touched.
+        /// </summary>
+        private static int StripPayloadReferences(string extractDir, XElement subPackage, string componentId)
+        {
+            int removed = 0;
+            foreach (var child in subPackage.Elements().ToList())
+            {
+                bool referencesOwnPayload = child.Attributes()
+                    .Any(a => ReferencesComponentPayload(extractDir, componentId, a.Value));
+                if (!referencesOwnPayload) continue;
+                child.Remove();
+                removed++;
+            }
+            return removed;
+        }
+
+        private static bool ReferencesComponentPayload(string extractDir, string componentId, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return false;
+
+            string relative = value.Trim().Replace('/', '\\').TrimStart('\\');
+            int separator = relative.IndexOf('\\');
+            string folder = separator < 0 ? relative : relative[..separator];
+            if (folder.Length == 0) return false;
+
+            // The folder must belong to this component: exact name, or the
+            // dotted prefix pair (NvContainer vs NvContainer.LocalSystem).
+            bool belongs = folder.Equals(componentId, StringComparison.OrdinalIgnoreCase)
+                || folder.StartsWith(componentId + ".", StringComparison.OrdinalIgnoreCase)
+                || componentId.StartsWith(folder + ".", StringComparison.OrdinalIgnoreCase)
+                || componentId.Split('.')[0].Equals(folder, StringComparison.OrdinalIgnoreCase);
+            if (!belongs) return false;
+
+            try
+            {
+                return Directory.Exists(Path.Combine(extractDir, folder))
+                    || File.Exists(Path.Combine(extractDir, folder));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Deletes the extracted folder of each excluded component. Never the
+        /// extraction root itself, never a nested path that escapes it, and never
+        /// a folder a kept component still resolves to.
+        /// </summary>
+        private static int StripExcludedPayload(
+            string extractDir, IReadOnlyList<string> excluded, IReadOnlyCollection<string> kept, Action<string> log)
+        {
+            if (excluded.Count == 0) return 0;
+
+            string root = Path.GetFullPath(extractDir);
+            var keptFolders = new HashSet<string>(
+                kept.Select(id => Path.GetFullPath(ResolveComponentDir(root, id))), StringComparer.OrdinalIgnoreCase);
+
+            int removed = 0;
+            foreach (string id in excluded)
+            {
+                string full = Path.GetFullPath(ResolveComponentDir(root, id));
+                if (string.Equals(full.TrimEnd('\\'), root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) continue;
+                if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+                if (keptFolders.Contains(full)) continue;
+                if (!Directory.Exists(full)) continue;
+
+                try
+                {
+                    Directory.Delete(full, recursive: true);
+                    removed++;
+                    log($"Removed excluded component folder: {Path.GetFileName(full)}");
+                }
+                catch (Exception ex)
+                {
+                    // A locked file must not fail the install; the config-level
+                    // exclusion above already keeps it out of the install set.
+                    log($"Could not remove {Path.GetFileName(full)}: {ex.Message}");
+                }
+            }
+            return removed;
+        }
 
         /// <summary>
         /// Runs the extracted setup.exe elevated with NVIDIA's documented silent

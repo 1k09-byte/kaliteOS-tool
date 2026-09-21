@@ -1,9 +1,0 @@
-6372e62 Release v{0.3.0.9}
-2bfab95 Release v{0.3.0.6}
-8c86c5c Layout change
-ce41432 Release v{0.3.0.2}
-1c2958a feat: auto-export BIOS settings with bundled SCEWIN tool; rename stellarisKIT to kaliteConfig
-ea67d28 Release v{0.2.0.1}
-823f1ae Update thread tuner, tray icon, installer, and Windhawk provisioning
-c3591ca Fix app theme not working correctly
-dfde7e7 Initial commit: stellarisKIT WinUI3 desktop utility (thread affinity, GPU driver management, AMD/Radeon optimization, Windhawk integration)

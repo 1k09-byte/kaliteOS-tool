@@ -495,6 +495,34 @@ namespace kaliteConfig.Services
         }
 
         /// <summary>
+        /// Full registry instance path for an enumerated device. Our
+        /// DeviceInstanceId stores "VEN_xxxx…\instance", while the Enum tree and
+        /// pnputil want it prefixed with the bus ("PCI\VEN_xxxx…\instance").
+        /// Returns null when no bus holds the device any more.
+        /// </summary>
+        internal static string? ResolveFullInstanceId(string deviceInstanceId)
+        {
+            if (string.IsNullOrWhiteSpace(deviceInstanceId)) return null;
+            foreach (var prefix in new[] { "PCI", "HDAUDIO", "USB" })
+            {
+                string testPath = $@"SYSTEM\CurrentControlSet\Enum\{prefix}\{deviceInstanceId}";
+                using var testKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(testPath);
+                if (testKey is not null) return $"{prefix}\\{deviceInstanceId}";
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// True while the device is still enumerated. Restarting a GPU (or
+        /// installing a driver) re-enumerates the adapter and can hand it a new
+        /// instance suffix, which left the Affinity page holding rows whose
+        /// interrupt keys no longer existed — reads came back empty and writes
+        /// silently landed nowhere.
+        /// </summary>
+        public bool DeviceExists(string deviceInstanceId)
+            => ResolveFullInstanceId(deviceInstanceId) is not null;
+
+        /// <summary>
         /// Restarts a device via pnputil so the updated interrupt settings take effect.
         /// </summary>
         public static async Task RestartDeviceAsync(string deviceInstanceId)
@@ -505,17 +533,7 @@ namespace kaliteConfig.Services
                 // "VEN_xxxx...\instance"; the full path under Enum\PCI would be
                 // "PCI\VEN_xxxx...\instance".
                 // Detect the bus prefix from the registry root we enumerated under.
-                string fullId = deviceInstanceId;
-                foreach (var prefix in new[] { "PCI", "HDAUDIO", "USB" })
-                {
-                    string testPath = $@"SYSTEM\CurrentControlSet\Enum\{prefix}\{deviceInstanceId}";
-                    using var testKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(testPath);
-                    if (testKey is not null)
-                    {
-                        fullId = $"{prefix}\\{deviceInstanceId}";
-                        break;
-                    }
-                }
+                string fullId = ResolveFullInstanceId(deviceInstanceId) ?? deviceInstanceId;
 
                 var psi = new ProcessStartInfo
                 {

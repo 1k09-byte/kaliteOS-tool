@@ -40,12 +40,9 @@ namespace kaliteConfig.ViewModels
             LoadCores();
         }
 
-        private bool _isBulkUpdating;
-
-        private void OnCoreSelectionChanged()
-        {
-            if (!_isBulkUpdating) Save();
-        }
+        // Ticking a core writes the kernel reservation straight away — there is
+        // no Apply button and no bulk Check All / Uncheck All / Invert toolbar.
+        private void OnCoreSelectionChanged() => Save();
 
         private void LoadCores()
         {
@@ -74,42 +71,6 @@ namespace kaliteConfig.ViewModels
                     ShowError($"Failed to set startup key: {ex.Message}");
                 }
             }
-        }
-
-        [RelayCommand]
-        private void SelectAll()
-        {
-            _isBulkUpdating = true;
-            foreach (var core in Cores)
-            {
-                core.IsReserved = true;
-            }
-            _isBulkUpdating = false;
-            Save();
-        }
-
-        [RelayCommand]
-        private void SelectNone()
-        {
-            _isBulkUpdating = true;
-            foreach (var core in Cores)
-            {
-                core.IsReserved = false;
-            }
-            _isBulkUpdating = false;
-            Save();
-        }
-
-        [RelayCommand]
-        private void InvertSelection()
-        {
-            _isBulkUpdating = true;
-            foreach (var core in Cores)
-            {
-                core.IsReserved = !core.IsReserved;
-            }
-            _isBulkUpdating = false;
-            Save();
         }
 
         [RelayCommand]

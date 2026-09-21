@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
+using System.Threading.Tasks;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
 
@@ -20,12 +21,11 @@ namespace kaliteConfig.Pages
 
         private async void AffinityPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // First visit scans so the sections show live hardware.
-            if (ViewModel.GraphicsDevices.Count == 0 &&
-                ViewModel.NetworkDevices.Count == 0 &&
-                ViewModel.UsbDevices.Count == 0 &&
-                ViewModel.AudioDevices.Count == 0 &&
-                !ViewModel.IsRefreshing)
+            // Rescan on EVERY visit, not just the first one. The page is cached
+            // (NavigationCacheMode=Enabled), so a GPU that was restarted, or a
+            // driver just installed, used to leave the table showing adapters
+            // that no longer exist in that shape.
+            if (!ViewModel.IsRefreshing)
             {
                 await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
             }
@@ -33,19 +33,34 @@ namespace kaliteConfig.Pages
 
         private async void DeviceRow_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is AffinityDeviceItem device)
+            if (sender is not Button btn || btn.Tag is not AffinityDeviceItem device) return;
+
+            try
             {
-                try
-                {
-                    await ViewModel.LoadDeviceDetailsAsync(device);
-                }
-                catch
-                {
-                    ViewModel.SelectedDevice = device;
-                }
-                DeviceDetailsDialog.XamlRoot = XamlRoot;
-                await DeviceDetailsDialog.ShowAsync();
+                await ViewModel.LoadDeviceDetailsAsync(device);
             }
+            catch (Exception ex)
+            {
+                // A stale row (device restarted / re-enumerated) must not open an
+                // empty dialog: report it, rescan, and let the user pick again.
+                await ShowMessageAsync("Device not available", ex.Message);
+                return;
+            }
+
+            DeviceDetailsDialog.XamlRoot = XamlRoot;
+            await DeviceDetailsDialog.ShowAsync();
+        }
+
+        private async Task ShowMessageAsync(string title, string message)
+        {
+            await new ContentDialog
+            {
+                Title = title,
+                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+                CloseButtonText = "Close",
+                XamlRoot = XamlRoot,
+                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style
+            }.ShowAsync();
         }
 
         private async void DialogApply_Click(object sender, RoutedEventArgs e)
@@ -53,6 +68,18 @@ namespace kaliteConfig.Pages
             if (ViewModel.SelectedDevice is null)
             {
                 DeviceDetailsDialog.Hide();
+                return;
+            }
+
+            // Never write interrupt settings into a device that is no longer
+            // there (the classic post-GPU-restart case).
+            if (!ViewModel.IsDevicePresent(ViewModel.SelectedDevice))
+            {
+                string goneName = ViewModel.SelectedDevice.Name;
+                DeviceDetailsDialog.Hide();
+                await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
+                await ShowMessageAsync("Device not present",
+                    $"{goneName} is no longer present, so nothing was written. The device list has been rescanned — this is expected after a GPU restart or driver install.");
                 return;
             }
 
@@ -77,6 +104,10 @@ namespace kaliteConfig.Pages
                 if (result == ContentDialogResult.Primary)
                 {
                     await kaliteConfig.Services.AffinityService.RestartDeviceAsync(ViewModel.SelectedDevice.DeviceInstanceId);
+
+                    // A restart re-enumerates the adapter: rescan so the table and
+                    // the selection reflect the device that came back.
+                    await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
                 }
             }
         }
