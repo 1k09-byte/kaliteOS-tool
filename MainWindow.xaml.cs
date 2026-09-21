@@ -379,8 +379,11 @@ namespace kaliteConfig
                       case "ThreadTunerPage":
                          ContentFrame.Navigate(typeof(ThreadTunerPage));
                          break;
-                    case "SnipPage":
+                     case "SnipPage":
                          ContentFrame.Navigate(typeof(SnipPage));
+                         break;
+                     case "NetworkPage":
+                         ContentFrame.Navigate(typeof(NetworkPage));
                          break;
                     case "BenchmarkPage":
                          ContentFrame.Navigate(typeof(BenchmarkPage));

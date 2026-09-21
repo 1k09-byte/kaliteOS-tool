@@ -20,6 +20,8 @@ public class SnipSettings
     public bool ThumbnailFillMode { get; set; } = false;
     public int AutoDeleteDays { get; set; } = 0;
     public int DelayedCaptureSeconds { get; set; } = 3;
+    /// <summary>Slide-in capture/save/import/copy confirmations (3 s, bottom-right).</summary>
+    public bool CaptureToasts { get; set; } = true;
 }
 
 public static class SnipSettingsService

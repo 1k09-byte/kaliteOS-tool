@@ -74,6 +74,8 @@ public partial class GalleryItem : ObservableObject
 {
     private readonly SnipViewModel _owner;
     public SnipEntry Entry { get; }
+    
+    public virtual string UniqueId => Entry.FilePath;
 
     public string Name => Entry.Name;
     public string FilePath => Entry.FilePath;
@@ -312,6 +314,7 @@ public partial class GalleryItem : ObservableObject
     }
 }
 
+
 public sealed partial class SnipViewModel : ObservableObject
 {
     public System.Collections.ObjectModel.ObservableCollection<SnipThumbnailItem> RecentSnips { get; } = new();
@@ -320,8 +323,19 @@ public sealed partial class SnipViewModel : ObservableObject
     private List<GalleryItem> _itemCache = new();
     private List<SnipEntry> _allEntries = new();
 
+    public System.Collections.ObjectModel.ObservableCollection<Models.SnipPipeline> Pipelines { get; } = new();
+
     public SnipViewModel()
     {
+        var discordPipe = new Models.SnipPipeline
+        {
+            Name = "Instant Share (Discord)",
+            BoundProcess = "discord.exe",
+            HotkeyLabel = "Ctrl + Shift + S"
+        };
+        discordPipe.Actions.Add(new Models.CopyAction());
+        discordPipe.Actions.Add(new Models.SaveAction());
+        Pipelines.Add(discordPipe);
     }
 
     /// <summary>Explicit refresh (the Refresh button): re-reads everything, still merging in place.</summary>
@@ -410,6 +424,9 @@ public sealed partial class SnipViewModel : ObservableObject
     /// (keeping its decoded thumbnail and its card animations), so a quiet refresh cannot make the
     /// hub flicker either.
     /// </summary>
+    /// <summary>How many snips the Recent strip ever shows.</summary>
+    public const int MaxRecentSnips = 5;
+
     private void MergeRecentSnips()
     {
         var byPath = new Dictionary<string, SnipThumbnailItem>(StringComparer.OrdinalIgnoreCase);
@@ -419,7 +436,7 @@ public sealed partial class SnipViewModel : ObservableObject
         }
 
         var desired = new List<SnipThumbnailItem>();
-        foreach (var entry in _allEntries.OrderByDescending(e => e.CreatedUtc).Take(8))
+        foreach (var entry in _allEntries.OrderByDescending(e => e.CreatedUtc).Take(MaxRecentSnips))
         {
             if (byPath.TryGetValue(entry.FilePath, out var existing))
             {
@@ -448,7 +465,7 @@ public sealed partial class SnipViewModel : ObservableObject
 
         var filtered = SnipGalleryQuery.Apply(_allEntries, BuildFilterSpec(), _sortMode);
 
-        var newItems = new List<GalleryItem>();
+        var flatItems = new List<GalleryItem>();
         var cacheByPath = _itemCache.ToDictionary(i => i.Entry.FilePath, i => i, System.StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in filtered)
@@ -460,21 +477,20 @@ public sealed partial class SnipViewModel : ObservableObject
                 cached.Entry.SizeBytes = entry.SizeBytes;
                 cached.Entry.Width = entry.Width;
                 cached.Entry.Height = entry.Height;
-                newItems.Add(cached);
+                flatItems.Add(cached);
             }
             else
             {
-                // Either new, or the file itself changed size since we cached it -- a fresh item
-                // re-decodes instead of showing a stale thumbnail for good.
-                newItems.Add(new GalleryItem(this, entry));
+                flatItems.Add(new GalleryItem(this, entry));
             }
         }
-        _itemCache = newItems;
+
+        _itemCache = flatItems;
 
         // Merge rather than Clear()+Add(): the containers for snips that are still here must not
         // be recycled, or a refresh would flash skeletons back on, jump the scroll position and
         // drop the selection (taking the details preview with it).
-        SilentListMerge.Sync(GallerySnips, newItems, static i => i.Entry.FilePath);
+        SilentListMerge.Sync(GallerySnips, flatItems, static i => i.UniqueId);
 
         // Only a selection whose snip is actually gone (deleted, or filtered out) clears the
         // details panel; a selection that is still on screen stays exactly as it is.
@@ -824,6 +840,18 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
+    public bool SnipToastEnabled
+    {
+        get => SnipSettingsService.Load().CaptureToasts;
+        set
+        {
+            var s = SnipSettingsService.Load();
+            s.CaptureToasts = value;
+            SnipSettingsService.Save(s);
+            OnPropertyChanged(nameof(SnipToastEnabled));
+        }
+    }
+
     public List<string> HotkeyPresets => SnipHotkeyService.Presets.Select(p => p.Label)
         .Concat(new[] { "Custom…" }).ToList();
 
@@ -832,6 +860,7 @@ public sealed partial class SnipViewModel : ObservableObject
         get
         {
             var s = SnipSettingsService.Load();
+            if (s.CustomHotkeyModifiers == 0 && s.CustomHotkeyVk == 0) return "";
             return SnipHotkeyService.FormatLabel(s.CustomHotkeyModifiers, s.CustomHotkeyVk);
         }
     }
@@ -867,8 +896,14 @@ public sealed partial class SnipViewModel : ObservableObject
             if (value < 0 || value > SnipHotkeyService.CustomIndex) value = 0;
             var s = SnipSettingsService.Load();
             s.HotkeyIndex = value;
+            if (value != SnipHotkeyService.CustomIndex)
+            {
+                s.CustomHotkeyModifiers = 0;
+                s.CustomHotkeyVk = 0;
+            }
             SnipSettingsService.Save(s);
             OnPropertyChanged(nameof(SelectedHotkeyIndex));
+            OnPropertyChanged(nameof(CustomHotkeyText));
 
             var app = (App)Microsoft.UI.Xaml.Application.Current;
             var (ok, message) = app.Sniper.RebindHotkey(value);
@@ -1007,6 +1042,47 @@ public sealed partial class SnipViewModel : ObservableObject
     public async System.Threading.Tasks.Task DeleteSelectedAsync()
     {
         await DeleteItemsAsync(SelectedItems.ToList());
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<SnipThumbnailItem> TrashItems { get; } = new();
+
+    public async System.Threading.Tasks.Task RefreshTrashAsync()
+    {
+        var entries = await System.Threading.Tasks.Task.Run(() => SnipGalleryService.GetTrashEntries()).ConfigureAwait(true);
+        TrashItems.Clear();
+        foreach (var e in entries)
+            TrashItems.Add(new SnipThumbnailItem { Filename = e.Name, FilePath = e.TrashPath });
+    }
+
+    public async System.Threading.Tasks.Task DeleteGalleryPathsAsync(List<string> paths)
+    {
+        var set = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+        await DeleteItemsAsync(GallerySnips.Where(g => set.Contains(g.Entry.FilePath)).ToList()).ConfigureAwait(true);
+    }
+
+    public async System.Threading.Tasks.Task<List<(string FilePath, string Name, long Bytes)>> FindBlankSnipsAsync() =>
+        await SnipGalleryService.FindBlankSnipsAsync().ConfigureAwait(true);
+
+    public async System.Threading.Tasks.Task RestoreTrashAsync(List<string> trashPaths)
+    {
+        int done = await System.Threading.Tasks.Task.Run(() => SnipGalleryService.RestoreFromTrash(trashPaths)).ConfigureAwait(true);
+        NotifyMessage("Restored", $"{done} snip(s) moved back to the gallery.");
+        await RefreshTrashAsync().ConfigureAwait(true);
+        await RefreshGalleryAsync().ConfigureAwait(true);
+    }
+
+    public async System.Threading.Tasks.Task DeleteTrashForeverAsync(List<string> trashPaths)
+    {
+        int done = await System.Threading.Tasks.Task.Run(() => SnipGalleryService.DeleteForever(trashPaths)).ConfigureAwait(true);
+        NotifyMessage("Deleted forever", $"{done} snip(s) permanently removed.");
+        await RefreshTrashAsync().ConfigureAwait(true);
+    }
+
+    public async System.Threading.Tasks.Task EmptyTrashAsync()
+    {
+        await System.Threading.Tasks.Task.Run(() => SnipGalleryService.PurgeTrash()).ConfigureAwait(true);
+        NotifyMessage("Bin emptied", "Everything in the bin was permanently removed.");
+        await RefreshTrashAsync().ConfigureAwait(true);
     }
 
     public async System.Threading.Tasks.Task CopySelectedAsync()
@@ -1270,5 +1346,143 @@ public sealed partial class SnipViewModel : ObservableObject
             NotifyMessage("Auto-delete", $"{removed} old snip(s) removed.");
             await RefreshGalleryAsync();
         }
+    }
+
+    public async System.Threading.Tasks.Task GroupFilesAsync(IEnumerable<GalleryItem> items)
+    {
+        var list = items?.ToList();
+        if (list == null || list.Count < 2) return;
+
+        string baseDir = System.IO.Path.GetDirectoryName(list[0].Entry.FilePath)!;
+        string newDir = System.IO.Path.Combine(baseDir, "Screenshots 1");
+        int counter = 1;
+        while (System.IO.Directory.Exists(newDir) || System.IO.File.Exists(newDir))
+        {
+            counter++;
+            newDir = System.IO.Path.Combine(baseDir, $"Screenshots {counter}");
+        }
+        System.IO.Directory.CreateDirectory(newDir);
+
+        _undoBatch.Clear();
+
+        foreach (var item in list)
+        {
+            string newPath = System.IO.Path.Combine(newDir, System.IO.Path.GetFileName(item.Entry.FilePath));
+            System.IO.File.Move(item.Entry.FilePath, newPath);
+            
+            var meta = await SnipGalleryService.LoadMetaAsync(item.Entry.FilePath);
+            if (meta != null)
+            {
+                await SnipGalleryService.SaveMetaAsync(newPath, meta);
+                System.IO.File.Delete(System.IO.Path.ChangeExtension(item.Entry.FilePath, ".xml"));
+            }
+
+            _undoBatch.Add((item.Entry.FilePath, newPath));
+        }
+
+        OnPropertyChanged(nameof(HasUndo));
+        NotifyMessage("Grouped selected files", $"Created {System.IO.Path.GetFileName(newDir)}. Use Undo to unpack.");
+
+        await RefreshCoreAsync(false);
+        ClearSelection();
+    }
+
+    public void ClearSelection()
+    {
+        SelectedItems.Clear();
+        foreach (var item in GallerySnips) item.IsSelected = false;
+        OnSelectionChanged();
+    }
+
+    public async System.Threading.Tasks.Task MergeIntoFolderAsync(GalleryItem target, GalleryItem source)
+    {
+        if (target == source) return;
+
+        _undoBatch.Clear();
+
+        // Target is a single file. We need to create a new folder "Screenshots X" right here.
+        string baseDir = System.IO.Path.GetDirectoryName(target.Entry.FilePath)!;
+        string newDir = System.IO.Path.Combine(baseDir, "Screenshots 1");
+        int counter = 1;
+        while (System.IO.Directory.Exists(newDir) || System.IO.File.Exists(newDir))
+        {
+            counter++;
+            newDir = System.IO.Path.Combine(baseDir, $"Screenshots {counter}");
+        }
+        System.IO.Directory.CreateDirectory(newDir);
+        
+        // Move target into this new folder
+        string targetNewPath = System.IO.Path.Combine(newDir, System.IO.Path.GetFileName(target.Entry.FilePath));
+        System.IO.File.Move(target.Entry.FilePath, targetNewPath);
+        
+        var metaT = await SnipGalleryService.LoadMetaAsync(target.Entry.FilePath);
+        if (metaT != null)
+        {
+            await SnipGalleryService.SaveMetaAsync(targetNewPath, metaT);
+            System.IO.File.Delete(System.IO.Path.ChangeExtension(target.Entry.FilePath, ".xml"));
+        }
+        
+        _undoBatch.Add((target.Entry.FilePath, targetNewPath));
+
+        string targetDir = newDir;
+
+        var sourcesToMove = new[] { source };
+        foreach (var s in sourcesToMove.ToList())
+        {
+            string sNewPath = System.IO.Path.Combine(targetDir, System.IO.Path.GetFileName(s.Entry.FilePath));
+            if (s.Entry.FilePath != sNewPath)
+            {
+                System.IO.File.Move(s.Entry.FilePath, sNewPath);
+                
+                var metaS = await SnipGalleryService.LoadMetaAsync(s.Entry.FilePath);
+                if (metaS != null)
+                {
+                    await SnipGalleryService.SaveMetaAsync(sNewPath, metaS);
+                    System.IO.File.Delete(System.IO.Path.ChangeExtension(s.Entry.FilePath, ".xml"));
+                }
+                
+                _undoBatch.Add((s.Entry.FilePath, sNewPath));
+            }
+        }
+        
+        // Show Undo toast
+        OnPropertyChanged(nameof(HasUndo));
+        NotifyMessage("Merged into folder", $"Created grouping in {System.IO.Path.GetFileName(targetDir)}. Use Undo to unpack.");
+
+        await RefreshCoreAsync(false);
+    }
+
+    public async System.Threading.Tasks.Task MoveToRootAsync(IEnumerable<GalleryItem> items)
+    {
+        var list = items?.ToList();
+        if (list == null || list.Count == 0) return;
+
+        string rootDir = SnipGalleryService.GetSnipsDirectory();
+        
+        _undoBatch.Clear();
+
+        foreach (var item in list)
+        {
+            string newPath = System.IO.Path.Combine(rootDir, System.IO.Path.GetFileName(item.Entry.FilePath));
+            if (item.Entry.FilePath != newPath)
+            {
+                System.IO.File.Move(item.Entry.FilePath, newPath);
+                
+                var meta = await SnipGalleryService.LoadMetaAsync(item.Entry.FilePath);
+                if (meta != null)
+                {
+                    await SnipGalleryService.SaveMetaAsync(newPath, meta);
+                    System.IO.File.Delete(System.IO.Path.ChangeExtension(item.Entry.FilePath, ".xml"));
+                }
+                
+                _undoBatch.Add((item.Entry.FilePath, newPath));
+            }
+        }
+
+        OnPropertyChanged(nameof(HasUndo));
+        NotifyMessage("Moved to Gallery", $"Moved {list.Count} item(s) back to the main gallery. Use Undo to revert.");
+
+        await RefreshCoreAsync(false);
+        ClearSelection();
     }
 }

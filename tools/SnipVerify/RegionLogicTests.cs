@@ -93,5 +93,18 @@ internal static class RegionLogicTests
         check(SnipGalleryQuery.IsUniformImage(new byte[] { 1, 2, 3, 255, 1, 2, 3, 255 }), "region uniform flat image");
         check(!SnipGalleryQuery.IsUniformImage(new byte[] { 1, 2, 3, 255, 9, 9, 9, 255 }), "region non-uniform detected");
         check(SnipGalleryQuery.IsUniformImage(Array.Empty<byte>()), "region uniform empty guard");
+
+        // Near-blank detection (looks-empty frames: noise, faint gradients).
+        var flat = new byte[64 * 4];
+        for (int i = 0; i < flat.Length; i += 4) { flat[i] = 10; flat[i + 1] = 10; flat[i + 2] = 10; flat[i + 3] = 255; }
+        check(SnipGalleryQuery.IsNearlyBlank(flat), "region nearly-blank flat frame");
+        var noisy = (byte[])flat.Clone();
+        for (int i = 0; i < noisy.Length; i += 4) { noisy[i] = (byte)(10 + (i % 7)); noisy[i + 1] = 10; noisy[i + 2] = 10; }
+        check(!SnipGalleryQuery.IsUniformImage(noisy), "region noise defeats exact match");
+        check(SnipGalleryQuery.IsNearlyBlank(noisy), "region near-blank tolerates noise");
+        var busy = (byte[])flat.Clone();
+        for (int i = 0; i < busy.Length / 2; i += 4) { busy[i] = 200; busy[i + 1] = 50; busy[i + 2] = 50; }
+        check(!SnipGalleryQuery.IsNearlyBlank(busy), "region half-different frame is not blank");
+        check(SnipGalleryQuery.IsNearlyBlank(Array.Empty<byte>()), "region near-blank empty guard");
     }
 }

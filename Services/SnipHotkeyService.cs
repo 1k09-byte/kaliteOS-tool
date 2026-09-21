@@ -17,8 +17,8 @@ public sealed class SnipHotkeyService : IDisposable
     public const uint VkSnapshot = 0x2C;
     public const uint VkS = 0x53; // 'S' key
 
-    /// <summary>Index of the "Custom…" slot: presets[0..3] are fixed, this one is user-captured.</summary>
-    public const int CustomIndex = 4;
+    /// <summary>Index of the "Custom…" slot: presets[0..4] are fixed, this one is user-captured.</summary>
+    public const int CustomIndex = 5;
 
     /// <summary>True for keys that can be the main key of a hotkey (not a bare modifier).</summary>
     public static bool IsCapturableKey(uint vk) => vk switch
@@ -75,6 +75,7 @@ public sealed class SnipHotkeyService : IDisposable
 
     public static readonly HotkeyPreset[] Presets = new[]
     {
+        new HotkeyPreset("Win+Shift+S", ModWin | ModShift, VkS),
         new HotkeyPreset("PrtScn", ModNone, VkSnapshot),
         new HotkeyPreset("Ctrl+PrtScn", ModControl, VkSnapshot),
         new HotkeyPreset("Shift+PrtScn", ModShift, VkSnapshot),

@@ -16,27 +16,30 @@ public static class SnipIcons
 {
     public const string FontFamilyResource = "{ThemeResource SymbolThemeFontFamily}";
 
-    // Capture modes
-    public const string Region = "\uF407";      // RectangularClipping
+    // Capture modes (dual-font verified; F407/F408 RectangularClipping/FreeFormClipping
+    // are prettier but Fluent-only, so tiles use these to render on Win10 too)
+    public const string Region = "\uE7A8";      // Crop
     public const string Window = "\uE8A7";      // OpenInNewWindow
     public const string Fullscreen = "\uE740";  // FullScreen
-    public const string Freeform = "\uF408";    // FreeFormClipping
+    public const string Freeform = "\uE7C9";    // TouchPointer
     public const string Delayed = "\uE916";     // Stopwatch
     public const string RepeatLast = "\uE72C";  // Refresh
     public const string Clipboard = "\uE77F";   // Paste
 
-    // Overlay tools
-    public const string Select = "\uE7A8";      // Crop
+    // Overlay tools (dual-font verified: present in Segoe MDL2 Assets AND Fluent,
+    // so they render on Win10 and Win11; meanings checked against both glyph tables)
+    public const string Select = "\uE8B0";      // Click (pointer cursor)
     public const string Arrow = "\uE72A";       // Forward
-    public const string Line = "\uE949";        // CalculatorSubtract (horizontal line)
-    public const string Rectangle = "\uE739";   // Checkbox (square outline)
+    public const string Line = "\uE738";        // Remove (horizontal stroke)
+    public const string Rectangle = "\uE73A";   // CheckboxComposite (nested squares)
     public const string Ellipse = "\uEA3A";     // CircleRing
     public const string Pen = "\uED63";         // Pencil
     public const string Highlighter = "\uED64"; // Marker
     public const string Text = "\uE8D2";        // Font
-    public const string Number = "\uE8FD";      // BulletedList (badged annotation)
-    public const string Blur = "\uEAEB";        // PortraitBlur
-    public const string Spotlight = "\uE793";   // Light
+    public const string Number = "\uEC1B";      // Badge
+    public const string Blur = "\uE8F8";        // BlockContact (redaction)
+    public const string Spotlight = "\uE890";   // View (eye: look here)
+    public const string Sticker = "\uE899";     // Emoji
 
     // History / output
     public const string Undo = "\uE7A7";        // Undo
@@ -88,6 +91,7 @@ public static class SnipIcons
         ("Line", Line), ("Rectangle", Rectangle), ("Ellipse", Ellipse),
         ("Pen", Pen), ("Highlighter", Highlighter), ("Text", Text),
         ("Number", Number), ("Blur", Blur), ("Spotlight", Spotlight),
+        ("Sticker", Sticker),
         ("Undo", Undo), ("Redo", Redo), ("Save", Save), ("Copy", Copy),
         ("Pin", Pin), ("Ocr", Ocr), ("Close", Close), ("Color", Color),
         ("Thickness", Thickness), ("Fill", Fill), ("FontSize", FontSize),

@@ -485,6 +485,9 @@ namespace kaliteConfig.ViewModels
 
             // Sync the initial UI filter state to match the model (Show installed by default – fixed disappearance bug)
             UpdateVisibilityFilters();
+            
+            // Fix: prepopulate SelectedBrowser so ContentDialog x:Bind doesn't throw NRE on initialization.
+            SelectedBrowser = VisibleBrowsers.FirstOrDefault();
         }
 
         [RelayCommand]

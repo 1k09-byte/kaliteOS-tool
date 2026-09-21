@@ -123,6 +123,71 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public ObservableCollection<StartupEntry> StartupTasks { get; } = new();
     public ObservableCollection<StartupEntry> FilteredTasks { get; } = new();
 
+    /// <summary>The side panel's sources. One list is shown at a time; the counts are
+    /// post-filter so the panel agrees with what the list shows.</summary>
+    public ObservableCollection<StartupSectionVm> StartupSections { get; } = new()
+    {
+        new StartupSectionVm("HKCU Run",
+            "Applications Windows launches for this user. Unchecking keeps the command in kaliteConfig's backup store, so it can be switched back on."),
+        new StartupSectionVm("HKLM Run",
+            "Machine-wide startup values — they run for every account on this PC."),
+        new StartupSectionVm("Services",
+            "User-mode services only (own process, shared process, interactive). Checked = automatic start, unchecked = start mode Disabled."),
+        new StartupSectionVm("Scheduled Tasks",
+            "Non-Microsoft scheduled tasks. Unchecked = task disabled; the trash button deletes the task itself."),
+    };
+
+    [ObservableProperty]
+    public partial int StartupSectionIndex { get; set; }
+
+    public StartupSectionVm CurrentStartupSection =>
+        StartupSections[Math.Clamp(StartupSectionIndex, 0, StartupSections.Count - 1)];
+
+    /// <summary>The list for the selected source — never all four at once.</summary>
+    public ObservableCollection<StartupEntry> CurrentStartupEntries => StartupSectionIndex switch
+    {
+        0 => FilteredHkcu,
+        1 => FilteredHklm,
+        2 => FilteredServices,
+        _ => FilteredTasks,
+    };
+
+    /// <summary>Only the selected source's list is on screen.</summary>
+    public Microsoft.UI.Xaml.Visibility HkcuVis => SourceVis(0);
+    public Microsoft.UI.Xaml.Visibility HklmVis => SourceVis(1);
+    public Microsoft.UI.Xaml.Visibility ServicesVis => SourceVis(2);
+    public Microsoft.UI.Xaml.Visibility TasksVis => SourceVis(3);
+
+    private Microsoft.UI.Xaml.Visibility SourceVis(int index) => StartupSectionIndex == index
+        ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    /// <summary>The "hide Microsoft services" switch describes services only.</summary>
+    public Microsoft.UI.Xaml.Visibility MicrosoftFilterVis => SourceVis(2);
+
+    public Microsoft.UI.Xaml.Visibility EmptyVis => CurrentStartupEntries.Count == 0
+        ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    /// <summary>The Type column means something different per source; Run values have none.</summary>
+    public string TypeHeaderText => StartupSectionIndex switch
+    {
+        2 => "Start mode",
+        3 => "Trigger",
+        _ => "",
+    };
+
+    partial void OnStartupSectionIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(CurrentStartupSection));
+        OnPropertyChanged(nameof(CurrentStartupEntries));
+        OnPropertyChanged(nameof(HkcuVis));
+        OnPropertyChanged(nameof(HklmVis));
+        OnPropertyChanged(nameof(ServicesVis));
+        OnPropertyChanged(nameof(TasksVis));
+        OnPropertyChanged(nameof(MicrosoftFilterVis));
+        OnPropertyChanged(nameof(EmptyVis));
+        OnPropertyChanged(nameof(TypeHeaderText));
+    }
+
     [ObservableProperty]
     public partial string StartupSearchQuery { get; set; } = string.Empty;
     [ObservableProperty]
@@ -151,6 +216,19 @@ public sealed partial class UninstallerViewModel : ObservableObject
         int total = StartupHkcu.Count + StartupHklm.Count + StartupServices.Count + StartupTasks.Count;
         int shown = FilteredHkcu.Count + FilteredHklm.Count + FilteredServices.Count + FilteredTasks.Count;
         StartupSummaryText = $"{shown} shown • {total} startup entries";
+        var counts = new (int Shown, int Total)[]
+        {
+            (FilteredHkcu.Count, StartupHkcu.Count),
+            (FilteredHklm.Count, StartupHklm.Count),
+            (FilteredServices.Count, StartupServices.Count),
+            (FilteredTasks.Count, StartupTasks.Count),
+        };
+        for (int i = 0; i < StartupSections.Count && i < counts.Length; i++)
+        {
+            StartupSections[i].Shown = counts[i].Shown;
+            StartupSections[i].Total = counts[i].Total;
+        }
+        OnPropertyChanged(nameof(EmptyVis));
     }
 
     private void FilterStartupList(
@@ -589,4 +667,30 @@ public sealed partial class UninstallerViewModel : ObservableObject
             IsMonitoring = false;
         }
     }
+}
+
+/// <summary>
+/// One source in the Startup tab's side panel: its title, what the source means,
+/// and how many of its entries survive the current search / hide filter.
+/// </summary>
+public sealed partial class StartupSectionVm : ObservableObject
+{
+    public string Title { get; }
+    public string Hint { get; }
+
+    public StartupSectionVm(string title, string hint)
+    {
+        Title = title;
+        Hint = hint;
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CountText))]
+    public partial int Shown { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CountText))]
+    public partial int Total { get; set; }
+
+    public string CountText => Shown == Total ? Total.ToString() : $"{Shown} of {Total}";
 }

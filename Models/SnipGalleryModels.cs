@@ -84,7 +84,7 @@ public class SnipEntry
         IsFavorite = IsFavorite,
         Width = Width,
         Height = Height,
-        CreatedUtc = CreatedUtc,
+        CreatedUtc = CreatedUtc
     };
 
     public static SnipEntry FromMeta(string filePath, long sizeBytes, SnipMeta? meta, DateTime fallbackCreatedUtc)

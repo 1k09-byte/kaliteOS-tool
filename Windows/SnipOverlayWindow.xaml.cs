@@ -27,6 +27,9 @@ public sealed partial class SnipOverlayWindow : Window
     private int _imgWidth;
     private int _imgHeight;
 
+    /// <summary>Exe name focused when capture fired (set by SnipService for the Source column).</summary>
+    public string SourceApp { get; set; } = "";
+
     // Display scale factor. The captured bitmap is in physical pixels, but the
     // CanvasControl defaults to 96 DPI (logical units). We set the canvas DPI to
     // 96 * scale so 1 drawing unit == 1 physical pixel (crisp preview, and
@@ -39,7 +42,7 @@ public sealed partial class SnipOverlayWindow : Window
     private Point _startPoint;
     private Point _endPoint;
 
-    private enum ActiveTool { Select, Arrow, Line, Rectangle, Ellipse, Ink, Highlight, Text, Number, Blur, Spotlight }
+    private enum ActiveTool { Select, Arrow, Line, Rectangle, Ellipse, Ink, Highlight, Text, Number, Blur, Spotlight, Sticker }
     private ActiveTool _currentTool = ActiveTool.Select;
     private int _nextNumber = 1;
 
@@ -49,6 +52,7 @@ public sealed partial class SnipOverlayWindow : Window
     private Point _drawStartPoint;
     private Models.SnipObject? _movingAnnotation;
     private Point _moveLast;
+    private (byte[] Bgra, int W, int H)? _activeSticker;
 
     /// <summary>Topmost-first annotation hit test (last drawn = top).</summary>
     private Models.SnipObject? AnnotationAt(Point px)
@@ -113,6 +117,7 @@ public sealed partial class SnipOverlayWindow : Window
             case Models.SnipNumber v: return new Models.SnipNumber { Center = v.Center, Number = v.Number, Color = v.Color, StrokeThickness = v.StrokeThickness };
             case Models.SnipRedactionBox v: return new Models.SnipRedactionBox { Bounds = v.Bounds, PixelateMode = v.PixelateMode };
             case Models.SnipSpotlight v: return new Models.SnipSpotlight { Bounds = v.Bounds, Color = v.Color, StrokeThickness = v.StrokeThickness, ScreenWidth = v.ScreenWidth, ScreenHeight = v.ScreenHeight };
+            case Models.SnipSticker v: return new Models.SnipSticker { Bgra = v.Bgra, PixelWidth = v.PixelWidth, PixelHeight = v.PixelHeight, Bounds = v.Bounds };
             default: return null;
         }
     }
@@ -299,6 +304,102 @@ public sealed partial class SnipOverlayWindow : Window
         catch (Exception ex) { OverlayLog("cursor WARN " + ex.GetType().Name); }
     }
 
+    private void StickerFlyout_Opened(object sender, object e)
+    {
+        RefreshStickerGrid();
+    }
+
+    private void RefreshStickerGrid()
+    {
+        try
+        {
+            StickerGridView.ItemsSource = Services.SnipStickerService.GetAllStickers()
+                .Select(s => s.FilePath)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            OverlayLog("Error loading stickers: " + ex.Message);
+        }
+    }
+
+    private async void BtnImportSticker_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail;
+            picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary;
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            picker.FileTypeFilter.Add(".webp");
+
+            var file = await picker.PickSingleFileAsync();
+            if (file != null)
+            {
+                // Safe unique names via the shared service (same-second imports no longer overwrite).
+                await Services.SnipStickerService.ImportStickersAsync(new[] { file.Path });
+                RefreshStickerGrid();
+            }
+        }
+        catch (Exception ex)
+        {
+            OverlayLog("Import sticker error: " + ex.Message);
+        }
+    }
+
+    private async void StickerGridView_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is string path)
+        {
+            try
+            {
+                // Decode to raw pixels (not a device-bound bitmap): the sticker must draw
+                // on both the preview device and the export render target.
+                var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(path);
+                using var stream = await file.OpenReadAsync();
+                var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+                var data = await decoder.GetPixelDataAsync(
+                    Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
+                    Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
+                    new Windows.Graphics.Imaging.BitmapTransform(),
+                    Windows.Graphics.Imaging.ExifOrientationMode.RespectExifOrientation,
+                    Windows.Graphics.Imaging.ColorManagementMode.DoNotColorManage);
+                _activeSticker = (data.DetachPixelData(), (int)decoder.PixelWidth, (int)decoder.PixelHeight);
+                OverlayLog($"sticker selected {System.IO.Path.GetFileName(path)} {_activeSticker.Value.W}x{_activeSticker.Value.H}");
+
+                // Drop the sticker straight onto the shot (selection center, selected),
+                // so it can be dragged into place immediately — no extra click needed.
+                double scx = (_startPoint.X + _endPoint.X) / 2, scy = (_startPoint.Y + _endPoint.Y) / 2;
+                var stamp = CreateStickerAt(new Point(scx, scy));
+                if (stamp != null)
+                {
+                    ClearAnnotationSelection();
+                    stamp.IsSelected = true;
+                    _annotations.Add(stamp);
+                    _redoStack.Clear();
+                    DrawCanvas.Invalidate();
+                    OverlayLog($"sticker stamped total={_annotations.Count}");
+                }
+                // Clear selection states of other toggle buttons
+                foreach (var btn in ToolButtons)
+                {
+                    btn.IsChecked = false;
+                }
+                
+                _currentTool = ActiveTool.Sticker;
+                BtnToolSticker.Flyout.Hide();
+            }
+            catch (Exception ex)
+            {
+                OverlayLog("Error loading sticker bitmap: " + ex.Message);
+            }
+        }
+    }
+
     private void BuildSwatches()
     {
         SwatchPanel.Children.Clear();
@@ -413,7 +514,7 @@ public sealed partial class SnipOverlayWindow : Window
         {
             _state = Services.SnipCaptureState.Closed;
             OverlayLog("key Esc -> close");
-            this.Close();
+            ((App)Microsoft.UI.Xaml.Application.Current).Sniper.CloseOverlays();
             return;
         }
         if (e.Key == Windows.System.VirtualKey.Delete)
@@ -450,6 +551,12 @@ public sealed partial class SnipOverlayWindow : Window
                 Windows.System.VirtualKey.B => ActiveTool.Blur,
                 _ => null,
             };
+            if (e.Key == Windows.System.VirtualKey.K)
+            {
+                try { BtnToolSticker.Flyout.ShowAt(BtnToolSticker); } catch { }
+                e.Handled = true;
+                return;
+            }
             if (tool.HasValue)
             {
                 var btn = ToolButtons.First(b => (ActiveTool)Enum.Parse(typeof(ActiveTool), (string)b.Tag) == tool.Value);
@@ -642,8 +749,36 @@ public sealed partial class SnipOverlayWindow : Window
             case ActiveTool.Number: return new Models.SnipNumber { Center = pt, Number = _nextNumber, Color = _currentColor, StrokeThickness = _currentStrokeThickness };
             case ActiveTool.Blur: return new Models.SnipRedactionBox { Bounds = new Rect(pt.X, pt.Y, 0, 0) };
             case ActiveTool.Spotlight: return new Models.SnipSpotlight { Bounds = new Rect(pt.X, pt.Y, 0, 0), Color = _currentColor, StrokeThickness = _currentStrokeThickness, ScreenWidth = _imgWidth, ScreenHeight = _imgHeight };
+            case ActiveTool.Sticker: return CreateStickerAt(pt);
             default: return null;
         }
+    }
+
+    /// <summary>Stamps a sticker at a usable default size (longest edge 160 px) centered
+    /// on the given point and clamped into the selection, so a plain click still leaves
+    /// a visible stamp. Dragging resizes from the press point via UpdateBounds.</summary>
+    private Models.SnipSticker? CreateStickerAt(Point pt)
+    {
+        if (_activeSticker is not { } st) return null;
+        var (bx, by, dw, dh) = DefaultStickerBounds(pt, st.W, st.H);
+        return new Models.SnipSticker
+        {
+            Bgra = st.Bgra, PixelWidth = st.W, PixelHeight = st.H,
+            Bounds = new Rect(bx, by, dw, dh),
+        };
+    }
+
+    private (double X, double Y, double W, double H) DefaultStickerBounds(Point center, int natW, int natH)
+    {
+        double fit = Math.Min(1.0, 160.0 / Math.Max(1, Math.Max(natW, natH)));
+        double dw = Math.Max(8, natW * fit), dh = Math.Max(8, natH * fit);
+        double sx = Math.Min(_startPoint.X, _endPoint.X), sy = Math.Min(_startPoint.Y, _endPoint.Y);
+        double sw = Math.Abs(_endPoint.X - _startPoint.X), sh = Math.Abs(_endPoint.Y - _startPoint.Y);
+        dw = sw > 0 ? Math.Min(dw, sw) : dw;
+        dh = sh > 0 ? Math.Min(dh, sh) : dh;
+        double bx = sw > dw ? Math.Max(sx, Math.Min(center.X - dw / 2, sx + sw - dw)) : sx;
+        double by = sh > dh ? Math.Max(sy, Math.Min(center.Y - dh / 2, sy + sh - dh)) : sy;
+        return (bx, by, dw, dh);
     }
 
     private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -673,6 +808,12 @@ public sealed partial class SnipOverlayWindow : Window
 
         if (_currentTool != ActiveTool.Select && SnipToolbar.Visibility == Visibility.Visible)
         {
+            // Sticker tool with nothing chosen yet: open the picker instead of stamping air.
+            if (_currentTool == ActiveTool.Sticker && _activeSticker is null)
+            {
+                try { BtnToolSticker.Flyout.ShowAt(BtnToolSticker); } catch { }
+                return;
+            }
             pt = ClampToSelection(pt);
             _currentAnnotation = CreateAnnotation(pt);
             _drawStartPoint = pt;
@@ -1058,10 +1199,20 @@ public sealed partial class SnipOverlayWindow : Window
             OverlayLog($"release px=({_endPoint.X:0},{_endPoint.Y:0}) state={_state} mode={_dragMode}");
             UpdateHud("release");
 
+            if (_state == Services.SnipCaptureState.Selected)
+            {
+                try { ((App)Microsoft.UI.Xaml.Application.Current).Sniper.DismissOtherMonitors(this); } catch { }
+            }
+
             if (_state == Services.SnipCaptureState.Selected && BtnInstantMode.IsChecked == true && Math.Abs(_endPoint.X - _startPoint.X) > 10 && Math.Abs(_endPoint.Y - _startPoint.Y) > 10)
             {
+                // Instant mode is fire-and-forget: copy (which also files it in the
+                // gallery) and get off the screen. Turn it off for the editor toolbar.
                 OverlayLog("instant-copy firing");
-                _ = CopySelectionToClipboardAsync();
+                _ = CopySelectionToClipboardAsync().ContinueWith(t =>
+                {
+                    try { DispatcherQueue.TryEnqueue(() => this.Close()); } catch { }
+                });
             }
         }
     }
@@ -1148,8 +1299,10 @@ public sealed partial class SnipOverlayWindow : Window
 
     private async void BtnCopy_Click(object sender, RoutedEventArgs e)
     {
-        if (await CopySelectionToClipboardAsync())
-            this.Close();
+        // The overlay always goes away after a copy attempt (success or Fail gets a
+        // toast either way) so a finished snip can never stick on screen.
+        await CopySelectionToClipboardAsync();
+        this.Close();
     }
 
     private async Task<bool> CopySelectionToClipboardAsync()
@@ -1170,27 +1323,28 @@ public sealed partial class SnipOverlayWindow : Window
             dp.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(mStream));
             try
             {
-                // CF_DIB alongside the PNG so Paint/Word/Discord-class targets that
-                // prefer device-independent bitmaps paste correctly too.
-            byte[] dib = Services.SnipRegionLogic.BuildDib32(cropped, w, h);
-            // NOTE: SetData wants the raw bytes here, not a stream reference
-            // (a stream ref throws "data type mismatch" and kills the DIB).
-            dp.SetData("DeviceIndependentBitmap", dib);
+                // CF_DIB alongside the PNG: pass the stream itself (both a stream
+                // reference and raw bytes throw "data type mismatch" here).
+                // Best-effort only — the PNG covers all modern paste targets.
+                byte[] dib = Services.SnipRegionLogic.BuildDib32(cropped, w, h);
+                var dibStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                await dibStream.WriteAsync(dib.AsBuffer());
+                dibStream.Seek(0);
+                dp.SetData("DeviceIndependentBitmap", dibStream);
             }
             catch (Exception ex) { OverlayLog("DIB WARN " + ex.Message); }
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
 
             // Every copy is also kept in the gallery (same annotated pixels).
-            string galleryNote = "";
+            // No success toast: captures are silent, failures still shout.
             try
             {
-                var saved = await SnipGalleryService.SaveSnipAsync(cropped, w, h);
-                galleryNote = $" Saved to {System.IO.Path.GetFileName(saved.Path)}.";
+                var saved = await SnipGalleryService.SaveSnipAsync(cropped, w, h, SourceApp);
                 OverlayLog($"copy gallery-saved {saved.Path}");
+                Services.SnipService.NotifyGalleryChanged();
             }
             catch (Exception ex) { OverlayLog("copy gallery-save WARN " + ex.Message); }
 
-            ShowToast("Copied to clipboard", "The snip was saved to your clipboard." + galleryNote);
             OverlayLog($"copy done bytes={cropped.Length}");
             return true;
         }
@@ -1224,12 +1378,12 @@ public sealed partial class SnipOverlayWindow : Window
 
         try
         {
-            var result = await SnipGalleryService.SaveSnipAsync(cropped, w, h);
-            ShowToast("Snip saved",
-                (result.IsUniform
-                    ? "Warning: the capture is a single flat color — the app may have blocked capture (DRM/protected content)."
-                    : $"Saved to {System.IO.Path.GetFileName(result.Path)} in Pictures\\kaliteConfig Snips.")
-                + " It appears in the Gallery immediately.");
+            var result = await SnipGalleryService.SaveSnipAsync(cropped, w, h, SourceApp);
+            OverlayLog($"save ok {result.Path} uniform={result.IsUniform}");
+            Services.SnipService.NotifyGalleryChanged();
+            if (result.IsUniform)
+                ShowToast("Snip saved",
+                    "Warning: the capture is a single flat color - the app may have blocked capture (DRM/protected content).");
         }
         catch (Exception ex)
         {
@@ -1241,22 +1395,8 @@ public sealed partial class SnipOverlayWindow : Window
 
     private void ShowToast(string title, string content)
     {
-        try
-        {
-            var xml = $@"
-            <toast>
-                <visual>
-                    <binding template='ToastGeneric'>
-                        <text>{EscapeXml(title)}</text>
-                        <text>{EscapeXml(content)}</text>
-                    </binding>
-                </visual>
-            </toast>";
-            var doc = new Windows.Data.Xml.Dom.XmlDocument();
-            doc.LoadXml(xml);
-            var toast = new Windows.UI.Notifications.ToastNotification(doc);
-            Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier().Show(toast);
-        } catch { }
+        // Notifications are off by user request: log only, never pop, never clickable.
+        OverlayLog($"toast-suppressed [{title}] {content}");
     }
 
     private static string EscapeXml(string s) =>
@@ -1323,6 +1463,93 @@ public sealed partial class SnipOverlayWindow : Window
         SnipSettingsService.Save(settings);
     }
 
+    private Models.SnipObject? ResizeTarget() =>
+        _annotations.FirstOrDefault(a => a.IsSelected);
+
+    private static bool IsResizableKind(Models.SnipObject a) => a is Models.SnipRectangle
+        or Models.SnipEllipse or Models.SnipRedactionBox or Models.SnipSpotlight
+        or Models.SnipSticker or Models.SnipArrow or Models.SnipLine;
+
+    private void ResizeFlyout_Opening(object? sender, object e)
+    {
+        var target = ResizeTarget();
+        bool ok = target != null && IsResizableKind(target);
+        ResizeHint.Visibility = ok ? Visibility.Collapsed : Visibility.Visible;
+        ResizeWidthBox.IsEnabled = ok;
+        ResizeHeightBox.IsEnabled = ok;
+        ResizeLockBox.IsEnabled = ok;
+        ResizeApplyButton.IsEnabled = ok;
+        if (ok)
+        {
+            try
+            {
+                var b = target!.GetBounds();
+                ResizeWidthBox.Value = Math.Max(8, Math.Min(8192, Math.Round(b.Width)));
+                ResizeHeightBox.Value = Math.Max(8, Math.Min(8192, Math.Round(b.Height)));
+            }
+            catch { }
+        }
+    }
+
+    private void BtnResizeApply_Click(object sender, RoutedEventArgs e)
+    {
+        var target = ResizeTarget();
+        if (target == null || !IsResizableKind(target)) return;
+        try
+        {
+            double reqW = Math.Max(8, Math.Min(8192, ResizeWidthBox.Value));
+            double reqH = Math.Max(8, Math.Min(8192, ResizeHeightBox.Value));
+            var b = target.GetBounds();
+            if (b.Width <= 0 || b.Height <= 0) return;
+            if (ResizeLockBox.IsChecked == true)
+            {
+                double s = Math.Min(reqW / b.Width, reqH / b.Height);
+                reqW = Math.Max(8, b.Width * s);
+                reqH = Math.Max(8, b.Height * s);
+            }
+            double cx = b.X + b.Width / 2, cy = b.Y + b.Height / 2;
+            switch (target)
+            {
+                case Models.SnipRectangle r:
+                    r.Bounds = CenteredRect(cx, cy, reqW, reqH); break;
+                case Models.SnipEllipse el:
+                    el.Bounds = CenteredRect(cx, cy, reqW, reqH); break;
+                case Models.SnipRedactionBox bx:
+                    bx.Bounds = CenteredRect(cx, cy, reqW, reqH); break;
+                case Models.SnipSpotlight sp:
+                    sp.Bounds = CenteredRect(cx, cy, reqW, reqH); break;
+                case Models.SnipSticker st:
+                    st.Bounds = CenteredRect(cx, cy, reqW, reqH); break;
+                case Models.SnipArrow ar:
+                    ScalePoints(ar, cx, cy, reqW / b.Width, reqH / b.Height); break;
+                case Models.SnipLine ln:
+                    ScalePoints(ln, cx, cy, reqW / b.Width, reqH / b.Height); break;
+                default: return;
+            }
+            DrawCanvas.Invalidate();
+            UpdateHud("ann-resize");
+            OverlayLog($"ann-resize {target.GetType().Name} -> {reqW:0}x{reqH:0}");
+        }
+        catch (Exception ex) { OverlayLog("ann-resize ERR " + ex.Message); }
+    }
+
+    private static Rect CenteredRect(double cx, double cy, double w, double h) =>
+        new Rect(cx - w / 2, cy - h / 2, w, h);
+
+    private static void ScalePoints(Models.SnipObject line, double cx, double cy, double sx, double sy)
+    {
+        if (line is Models.SnipArrow ar)
+        {
+            ar.Start = new Point(cx + (ar.Start.X - cx) * sx, cy + (ar.Start.Y - cy) * sy);
+            ar.End = new Point(cx + (ar.End.X - cx) * sx, cy + (ar.End.Y - cy) * sy);
+        }
+        else if (line is Models.SnipLine ln)
+        {
+            ln.Start = new Point(cx + (ln.Start.X - cx) * sx, cy + (ln.Start.Y - cy) * sy);
+            ln.End = new Point(cx + (ln.End.X - cx) * sx, cy + (ln.End.Y - cy) * sy);
+        }
+    }
+
     private void BtnUndo_Click(object sender, RoutedEventArgs e)
     {
         if (_annotations.Count > 0)
@@ -1378,10 +1605,67 @@ public sealed partial class SnipOverlayWindow : Window
                     ShowToast("No text detected", "OCR could not recognize any characters.");
                 }
             }
+            else
+            {
+                ShowToast("OCR Unavailable", "No language model found. Please install a language pack.");
+            }
         }
         catch (Exception ex)
         {
             ShowToast("OCR Failed", ex.Message);
+        }
+    }
+
+    private async void BtnAutoRedact_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            byte[] cropped = GetCroppedPixels(out int w, out int h);
+            if (w == 0 || h == 0) return;
+
+            var device = Microsoft.Graphics.Canvas.CanvasDevice.GetSharedDevice();
+            using var bmp = Microsoft.Graphics.Canvas.CanvasBitmap.CreateFromBytes(device, cropped, w, h, Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, Microsoft.Graphics.Canvas.CanvasAlphaMode.Premultiplied);
+
+            using var swBitmap = await Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromSurfaceAsync(bmp);
+            var swBitmapTarget = swBitmap.BitmapPixelFormat != Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8
+                 ? Windows.Graphics.Imaging.SoftwareBitmap.Convert(swBitmap, Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8)
+                 : swBitmap;
+
+            var ocrEngine = Windows.Media.Ocr.OcrEngine.TryCreateFromUserProfileLanguages();
+            if (ocrEngine == null)
+            {
+                ShowToast("Auto-Redact Unavailable", "No language model found. Please install a language pack.");
+                return;
+            }
+
+            var bounds = await kaliteConfig.Services.SnipToolManager.CalculateRedactionBoundsAsync(swBitmapTarget);
+            if (bounds.Count == 0)
+            {
+                ShowToast("Auto-Redact", "No sensitive PII patterns were detected in the image.");
+                return;
+            }
+
+            // Remap boundaries to global SnipOverlayWindow positions
+            double offsetX = Math.Max(0, Math.Min(_startPoint.X, _endPoint.X));
+            double offsetY = Math.Max(0, Math.Min(_startPoint.Y, _endPoint.Y));
+
+            foreach (var r in bounds)
+            {
+                var redacted = new Models.SnipRedactionBox 
+                { 
+                    Bounds = new Rect(offsetX + r.X, offsetY + r.Y, r.Width, r.Height),
+                    PixelateMode = false 
+                };
+                _annotations.Add(redacted);
+            }
+
+            _redoStack.Clear();
+            DrawCanvas.Invalidate();
+            ShowToast("Auto-Redact Applied", $"{bounds.Count} instances of sensitive data blurred.");
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Auto-Redact Error", ex.Message);
         }
     }
 

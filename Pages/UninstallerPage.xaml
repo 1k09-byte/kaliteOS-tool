@@ -422,12 +422,66 @@
                 </Grid>
             </PivotItem>
             <PivotItem Header="Startup">
-                <Grid Margin="0,12,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" ColumnSpacing="12" Margin="0,0,0,8">
+                <Grid Margin="0,12,0,0" ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="248" MinWidth="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Source picker: one startup mechanism at a time instead of four
+                         long lists stacked on a single scrolling page. -->
+                    <Border Grid.Column="0" CornerRadius="8" Padding="8,12"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <Grid RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Margin="8,0,0,0" Text="Sources" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ListView Grid.Row="1" ItemsSource="{Binding StartupSections}"
+                                      SelectedIndex="{Binding StartupSectionIndex, Mode=TwoWay}"
+                                      SelectionMode="Single" Background="Transparent" BorderThickness="0"
+                                      HorizontalAlignment="Stretch">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:StartupSectionVm">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" FontSize="13"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <Border Grid.Column="1" Padding="6,1" VerticalAlignment="Center"
+                                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                    CornerRadius="{ThemeResource ControlCornerRadius}">
+                                                <TextBlock Text="{x:Bind CountText, Mode=OneWay}" FontSize="11"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <TextBlock Grid.Row="2" Margin="8,4,8,0" FontSize="11" TextWrapping="Wrap"
+                                       Text="A checkbox switches an entry on or off straight away; the trash button deletes it."
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Column="1" RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Spacing="2">
+                            <TextBlock Text="{Binding CurrentStartupSection.Title}" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{Binding CurrentStartupSection.Hint}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    <Grid Grid.Row="1" ColumnSpacing="12" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MaxWidth="420" />
                             <ColumnDefinition Width="Auto" />
@@ -436,7 +490,7 @@
                         <AutoSuggestBox Grid.Column="0" PlaceholderText="Search name or command..." QueryIcon="Find"
                                         Text="{Binding StartupSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
                         <CheckBox Grid.Column="1" Content="Hide Microsoft services" IsChecked="{Binding HideMicrosoftServices, Mode=TwoWay}"
-                                  VerticalAlignment="Center"
+                                  VerticalAlignment="Center" Visibility="{Binding MicrosoftFilterVis}"
                                   ToolTipService.ToolTip="Hide services whose binary reports a Microsoft company name" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
                             <TextBlock Text="{Binding StartupSummaryText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -444,10 +498,9 @@
                             <Button Content="Refresh" Command="{Binding LoadStartupCommand}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                         <StackPanel Spacing="20">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="HKCU Run" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                            <StackPanel Spacing="6" Visibility="{Binding HkcuVis}">
                                 <Grid Margin="28,0,52,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -496,8 +549,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="HKLM Run" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                            <StackPanel Spacing="6" Visibility="{Binding HklmVis}">
                                 <Grid Margin="28,0,52,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -546,8 +598,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Services" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                            <StackPanel Spacing="6" Visibility="{Binding ServicesVis}">
                                 <Grid Margin="28,0,52,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -597,8 +648,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Scheduled Tasks" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                            <StackPanel Spacing="6" Visibility="{Binding TasksVis}">
                                 <Grid Margin="28,0,52,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -647,11 +697,15 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
+                            <TextBlock Text="Nothing to show — this source has no entries, or the search hides them all." FontSize="12" TextWrapping="Wrap"
+                                       Visibility="{Binding EmptyVis}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Text="{Binding StartupStatusText}" FontSize="12" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Visibility="{Binding StartupStatusText, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
                         </StackPanel>
                     </ScrollViewer>
+                    </Grid>
                 </Grid>
             </PivotItem>
         </Pivot>

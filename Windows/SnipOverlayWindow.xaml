@@ -91,12 +91,66 @@
                         </ToggleButton>
                         <ToggleButton x:Name="BtnToolBlur" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Blur / Pixelate (B)" AutomationProperties.Name="Blur tool" Tag="Blur">
-                            <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8F8;"/>
+                            <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE734;"/>
                         </ToggleButton>
+                        <Button x:Name="BtnAutoRedact" Style="{StaticResource SnipActionButton}" Click="BtnAutoRedact_Click"
+                                ToolTipService.ToolTip="Auto-Redact PII (Passwords, Emails, IPs)" AutomationProperties.Name="Auto-Redact">
+                            <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE7A0;"/>
+                        </Button>
                         <ToggleButton x:Name="BtnToolSpotlight" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Spotlight (S)" AutomationProperties.Name="Spotlight tool" Tag="Spotlight">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE890;"/>
                         </ToggleButton>
+                        <Button x:Name="BtnToolSticker" Style="{StaticResource SnipActionButton}"
+                                ToolTipService.ToolTip="Sticker (K)" AutomationProperties.Name="Sticker tool">
+                            <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE899;"/>
+                            <Button.Flyout>
+                                <Flyout Opened="StickerFlyout_Opened">
+                                    <StackPanel Width="280">
+                                        <Grid Margin="0,0,0,12">
+                                            <TextBlock Text="Stickers" Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
+                                            <Button Content="Import..." HorizontalAlignment="Right" Click="BtnImportSticker_Click"/>
+                                        </Grid>
+                                        <GridView x:Name="StickerGridView" SelectionMode="Single"
+                                                  IsItemClickEnabled="True" ItemClick="StickerGridView_ItemClick"
+                                                  ScrollViewer.VerticalScrollBarVisibility="Auto" Height="200"
+                                                  CornerRadius="4" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
+                                            <GridView.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <Border Width="60" Height="60" Margin="4" CornerRadius="4" 
+                                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                                                        <Image Source="{x:Bind Mode=OneWay}" Stretch="Uniform" Margin="4"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </GridView.ItemTemplate>
+                                        </GridView>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <Border Style="{StaticResource SnipSeparator}"/>
+
+                        <!-- Resize group: exact size for the selected sticker/shape -->
+                        <Button x:Name="BtnResize" Style="{StaticResource SnipActionButton}"
+                                ToolTipService.ToolTip="Resize selected sticker/shape" AutomationProperties.Name="Resize selection">
+                            <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE799;"/>
+                            <Button.Flyout>
+                                <Flyout Opening="ResizeFlyout_Opening">
+                                    <StackPanel Width="220" Spacing="8">
+                                        <TextBlock Text="Resize selection" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                                        <TextBlock x:Name="ResizeHint" Text="Select one sticker or shape first."
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap"/>
+                                        <NumberBox x:Name="ResizeWidthBox" Header="Width (px)" Minimum="8" Maximum="8192" Value="128"
+                                                   SpinButtonPlacementMode="Compact"/>
+                                        <NumberBox x:Name="ResizeHeightBox" Header="Height (px)" Minimum="8" Maximum="8192" Value="128"
+                                                   SpinButtonPlacementMode="Compact"/>
+                                        <CheckBox x:Name="ResizeLockBox" Content="Lock aspect ratio" IsChecked="True"/>
+                                        <Button x:Name="ResizeApplyButton" Content="Apply" Click="BtnResizeApply_Click" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
 
                         <Border Style="{StaticResource SnipSeparator}"/>
 

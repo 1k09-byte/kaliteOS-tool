@@ -26,6 +26,28 @@ public sealed class SnipService : IDisposable
     private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr rect, MonitorEnumProc callback, IntPtr data);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    /// <summary>Exe name of whatever the user was looking at when capture fired
+    /// (provenance for the Source column). Never throws; empty when unknown.</summary>
+    public static string ForegroundAppName()
+    {
+        try
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return "";
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (pid == 0) return "";
+            using var proc = System.Diagnostics.Process.GetProcessById((int)pid);
+            return proc.ProcessName ?? "";
+        }
+        catch { return ""; }
+    }
+
+    [DllImport("user32.dll")]
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO mi);
 
     private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
@@ -57,6 +79,15 @@ public sealed class SnipService : IDisposable
         : "Hotkey: not registered — click to fix";
 
     public event Action? HotkeyStatusChanged;
+
+    /// <summary>Raised whenever this app writes captures anywhere (overlay save/copy,
+    /// repeat, fullscreen) so the gallery refreshes deterministically instead of
+    /// depending on the file watcher noticing.</summary>
+    public static event Action? GalleryChanged;
+    public static void NotifyGalleryChanged()
+    {
+        try { GalleryChanged?.Invoke(); } catch { }
+    }
 
     /// <summary>Last committed selection, screen pixels. Set by the overlay on every
     /// release with area; Repeat Last re-captures exactly this rect.</summary>
@@ -103,8 +134,9 @@ public sealed class SnipService : IDisposable
         {
             var pixels = await System.Threading.Tasks.Task.Run(
                 () => SnipCaptureHelper.CaptureScreenSlice(r.Value.X, r.Value.Y, r.Value.W, r.Value.H));
-            var result = await SnipGalleryService.SaveSnipAsync(pixels, r.Value.W, r.Value.H);
+            var result = await SnipGalleryService.SaveSnipAsync(pixels, r.Value.W, r.Value.H, "kaliteConfig");
             bool copied = await CopyBgraAsync(pixels, r.Value.W, r.Value.H);
+            NotifyGalleryChanged();
             return (true, $"Repeated {r.Value.W}×{r.Value.H} → {System.IO.Path.GetFileName(result.Path)}" +
                 (copied ? " + clipboard." : " (clipboard copy failed).") +
                 (result.IsUniform ? " Warning: flat color — protected content?" : ""));
@@ -184,6 +216,7 @@ public sealed class SnipService : IDisposable
 
             var result = await SnipGalleryService.SaveSnipAsync(stitchedPixels, totalW, totalH);
             bool copied = await CopyBgraAsync(stitchedPixels, totalW, totalH);
+            NotifyGalleryChanged();
             return (true, $"Fullscreen {totalW}×{totalH} ({areas.Count} monitors) → {System.IO.Path.GetFileName(result.Path)}" +
                 (copied ? " + clipboard." : " (clipboard copy failed).") +
                 (result.IsUniform ? " Warning: flat color — protected content?" : ""));
@@ -332,9 +365,8 @@ public sealed class SnipService : IDisposable
         catch { }
     }
 
-    public void TriggerCapture()
+    public void CloseOverlays()
     {
-        // Close existing overlays if any
         if (_overlay != null)
         {
             try { _overlay.Close(); } catch { }
@@ -342,12 +374,34 @@ public sealed class SnipService : IDisposable
         }
         if (_overlays != null)
         {
-            foreach (var ov in _overlays)
+            foreach (var ov in _overlays.ToArray())
             {
                 try { ov.Close(); } catch { }
             }
             _overlays = null;
         }
+    }
+
+    public void DismissOtherMonitors(kaliteConfig.Views.SnipOverlayWindow activeOverlay)
+    {
+        if (_overlays != null)
+        {
+            var others = _overlays.Where(o => o != activeOverlay).ToArray();
+            foreach (var ov in others)
+            {
+                try { ov.Close(); } catch { }
+                _overlays.Remove(ov);
+            }
+        }
+    }
+
+    public void TriggerCapture()
+    {
+        CloseOverlays();
+
+        // Who was the user looking at? Recorded now (before our overlay steals focus).
+        string foregroundApp = ForegroundAppName();
+        if (!string.IsNullOrEmpty(foregroundApp)) Log($"Foreground app at capture: {foregroundApp}");
 
         // Get monitor areas using Win32 API
         var areas = GetAreas();
@@ -399,6 +453,7 @@ public sealed class SnipService : IDisposable
                         
                         var overlay = new kaliteConfig.Views.SnipOverlayWindow();
                         overlay.LoadBitmap(pixels, w, h);
+                        overlay.SourceApp = foregroundApp;
                         overlay.PlaceOnMonitor(x, y, w, h);
                         overlay.Closed += (_, _) =>
                         {
@@ -436,6 +491,35 @@ public sealed class SnipService : IDisposable
 
     /// <summary>Raised (on the UI thread) when a capture could not start, with the real reason.</summary>
     public event Action<string>? CaptureFailed;
+
+    /// <summary>Opens an unsaved image directly in the snip overlay editor.</summary>
+    public async System.Threading.Tasks.Task OpenInEditorAsync(Windows.Graphics.Imaging.SoftwareBitmap bitmap)
+    {
+        var overlay = new kaliteConfig.Views.SnipOverlayWindow();
+        
+        using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
+        encoder.SetSoftwareBitmap(bitmap);
+        await encoder.FlushAsync();
+        
+        var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+        var provider = await decoder.GetPixelDataAsync(
+            Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
+            Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
+            new Windows.Graphics.Imaging.BitmapTransform(),
+            Windows.Graphics.Imaging.ExifOrientationMode.RespectExifOrientation,
+            Windows.Graphics.Imaging.ColorManagementMode.DoNotColorManage);
+            
+        var pixels = provider.DetachPixelData();
+        int w = (int)decoder.PixelWidth, h = (int)decoder.PixelHeight;
+
+        _dispatcherQueue?.TryEnqueue(() =>
+        {
+            overlay.LoadBitmap(pixels, w, h);
+            _overlay = overlay;
+            overlay.Activate();
+        });
+    }
 
     /// <summary>Opens an existing image file in the snip overlay editor.</summary>
     public void OpenInEditor(string filePath)

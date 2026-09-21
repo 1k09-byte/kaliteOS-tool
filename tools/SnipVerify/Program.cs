@@ -139,8 +139,16 @@ internal sealed class Program
         GlyphTests.Run(Check);
 
         Console.WriteLine();
+        Console.WriteLine("--- resize math ---");
+        ResizeTests.Run(Check);
+
+        Console.WriteLine();
         Console.WriteLine("--- custom hotkeys ---");
         HotkeyTests.Run(Check);
+
+        Console.WriteLine();
+        Console.WriteLine("--- stickers ---");
+        await StickerTests.RunAsync(Check);
 
         Console.WriteLine();
         Console.WriteLine("--- capture region logic ---");
@@ -149,6 +157,10 @@ internal sealed class Program
         Console.WriteLine();
         Console.WriteLine("--- gallery disk round-trip (real service) ---");
         await GalleryIoTests.RunAsync(Check);
+
+        Console.WriteLine();
+        Console.WriteLine("--- bin + blank finder ---");
+        await TrashTests.RunAsync(Check);
 
         Console.WriteLine();
         Console.WriteLine("--- phase 3: large preview (viewport policy + progressive load) ---");

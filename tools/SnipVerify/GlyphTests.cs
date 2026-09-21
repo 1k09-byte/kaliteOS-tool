@@ -22,6 +22,8 @@ internal static class GlyphTests
         (0xEC1B, "overlay Number badge", "Badge"),
         (0xE8F8, "overlay Blur tool", "BlockContact"),
         (0xE890, "overlay Spotlight", "View"),
+        (0xE899, "overlay Sticker", "Emoji"),
+        (0xE799, "details Resize", "AspectRatio"),
         (0xE7A7, "overlay Undo", "Undo"),
         (0xE7A6, "overlay Redo", "Redo"),
         (0xE8FE, "overlay OCR", "Scan"),

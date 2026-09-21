@@ -126,7 +126,7 @@ public static class SnipGalleryService
                 var thumbs = GetThumbsDirectory();
                 var trash = GetTrashDirectory();
                 var settled = DateTime.UtcNow - QuietSettleWindow;
-                foreach (var file in Directory.EnumerateFiles(dir).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
                 {
                     if (file.StartsWith(thumbs, StringComparison.OrdinalIgnoreCase) ||
                         file.StartsWith(trash, StringComparison.OrdinalIgnoreCase)) continue;
@@ -161,7 +161,7 @@ public static class SnipGalleryService
             var list = new List<SnipEntry>();
             try
             {
-                foreach (var file in Directory.EnumerateFiles(dir))
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
                 {
                     if (file.EndsWith(".meta.json", StringComparison.OrdinalIgnoreCase)) continue;
                     var ext = Path.GetExtension(file).ToLowerInvariant();
@@ -189,7 +189,7 @@ public static class SnipGalleryService
             int count = 0;
             try
             {
-                foreach (var file in Directory.EnumerateFiles(dir))
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
                 {
                     if (file.EndsWith(".meta.json", StringComparison.OrdinalIgnoreCase)) continue;
                     var ext = Path.GetExtension(file).ToLowerInvariant();
@@ -255,6 +255,64 @@ public static class SnipGalleryService
             catch
             {
                 return false;
+            }
+        });
+    }
+
+    /// <summary>Resizes an image (same format) into destDir, named stem_WxH.ext.
+    /// Zero for an axis means auto; returns null when nothing could be done.</summary>
+    public static async Task<string?> ResizeImageAsync(string srcPath, string destDir, int reqW, int reqH, bool aspectLock)
+    {
+        return await Task.Run(async () =>
+        {
+            try
+            {
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+                var ext = Path.GetExtension(srcPath).ToLowerInvariant();
+
+                var storageFile = await StorageFile.GetFileFromPathAsync(srcPath);
+                using var stream = await storageFile.OpenAsync(FileAccessMode.Read);
+                var decoder = await BitmapDecoder.CreateAsync(stream);
+                var (w, h) = SnipGalleryQuery.ComputeResizeDims(
+                    (int)decoder.PixelWidth, (int)decoder.PixelHeight, reqW, reqH, aspectLock);
+                if (w <= 0 || h <= 0) return null;
+
+                var dest = Path.Combine(destDir,
+                    $"{Path.GetFileNameWithoutExtension(srcPath)}_{w}x{h}{ext}");
+                var n = 1;
+                while (File.Exists(dest))
+                    dest = Path.Combine(destDir,
+                        $"{Path.GetFileNameWithoutExtension(srcPath)}_{w}x{h}_{n++}{ext}");
+
+                // Decoder stream was only used for headers so far; rewind for pixels.
+                stream.Seek(0);
+                var decoder2 = await BitmapDecoder.CreateAsync(stream);
+                var transform = new BitmapTransform
+                {
+                    ScaledWidth = (uint)w,
+                    ScaledHeight = (uint)h,
+                    InterpolationMode = BitmapInterpolationMode.Fant,
+                };
+                var frame = await decoder2.GetSoftwareBitmapAsync(
+                    BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore,
+                    transform, ExifOrientationMode.RespectExifOrientation,
+                    ColorManagementMode.DoNotColorManage);
+
+                using var outStream = File.Create(dest);
+                var encoderId = ext switch
+                {
+                    ".jpg" or ".jpeg" => BitmapEncoder.JpegEncoderId,
+                    ".bmp" => BitmapEncoder.BmpEncoderId,
+                    _ => BitmapEncoder.PngEncoderId,
+                };
+                var encoder = await BitmapEncoder.CreateAsync(encoderId, outStream.AsRandomAccessStream());
+                encoder.SetSoftwareBitmap(frame);
+                await encoder.FlushAsync();
+                return dest;
+            }
+            catch
+            {
+                return null;
             }
         });
     }
@@ -474,6 +532,111 @@ public static class SnipGalleryService
         }
     }
 
+    public sealed record TrashEntry(string TrashPath, string OriginalPath, string Name, long Bytes, DateTime DeletedUtc);
+
+    /// <summary>Everything currently in the bin (file + sidecar meta if present).</summary>
+    public static List<TrashEntry> GetTrashEntries()
+    {
+        var list = new List<TrashEntry>();
+        try
+        {
+            var trash = GetTrashDirectory();
+            var gallery = GetSnipsDirectory();
+            foreach (var file in Directory.EnumerateFiles(trash))
+            {
+                if (file.EndsWith(".meta.json", StringComparison.OrdinalIgnoreCase)) continue;
+                var ext = Path.GetExtension(file).ToLowerInvariant();
+                if (!SnipGalleryQuery.SupportedExtensions.Contains(ext)) continue;
+                long bytes = 0;
+                DateTime deleted = DateTime.UtcNow;
+                try
+                {
+                    var info = new FileInfo(file);
+                    bytes = info.Length;
+                    deleted = info.LastWriteTimeUtc;
+                }
+                catch { }
+                list.Add(new TrashEntry(file, Path.Combine(gallery, Path.GetFileName(file)),
+                    Path.GetFileName(file), bytes, deleted));
+            }
+        }
+        catch { }
+        list.Sort((a, b) => b.DeletedUtc.CompareTo(a.DeletedUtc));
+        return list;
+    }
+
+    /// <summary>Restores trashed files (and their metas) to the gallery. Returns restored count.</summary>
+    public static int RestoreFromTrash(IEnumerable<string> trashPaths)
+    {
+        int done = 0;
+        var gallery = GetSnipsDirectory();
+        foreach (var trashPath in trashPaths)
+        {
+            try
+            {
+                var full = Path.GetFullPath(trashPath);
+                var dir = Path.GetFullPath(GetTrashDirectory()) + Path.DirectorySeparatorChar;
+                if (!full.StartsWith(dir, StringComparison.OrdinalIgnoreCase) || !File.Exists(full)) continue;
+                var dest = Path.Combine(gallery, Path.GetFileName(full));
+                var n = 1;
+                while (File.Exists(dest))
+                    dest = Path.Combine(gallery, $"{Path.GetFileNameWithoutExtension(full)}_{n++}{Path.GetExtension(full)}");
+                System.IO.File.Move(full, dest);
+                var metaSrc = full + ".meta.json";
+                if (File.Exists(metaSrc))
+                {
+                    try { System.IO.File.Move(metaSrc, dest + ".meta.json", true); } catch { }
+                }
+                done++;
+            }
+            catch { }
+        }
+        return done;
+    }
+
+    /// <summary>Permanently deletes trashed files (image + meta + cached thumbs). Returns count.</summary>
+    public static int DeleteForever(IEnumerable<string> trashPaths)
+    {
+        int done = 0;
+        var dir = Path.GetFullPath(GetTrashDirectory()) + Path.DirectorySeparatorChar;
+        foreach (var trashPath in trashPaths)
+        {
+            try
+            {
+                var full = Path.GetFullPath(trashPath);
+                if (!full.StartsWith(dir, StringComparison.OrdinalIgnoreCase)) continue;
+                if (File.Exists(full)) File.Delete(full);
+                var meta = full + ".meta.json";
+                if (File.Exists(meta)) File.Delete(meta);
+                try { SnipThumbnailService.DeleteCachedThumbnails(full); } catch { }
+                done++;
+            }
+            catch { }
+        }
+        return done;
+    }
+
+    /// <summary>Finds gallery images that are a single flat color (DRM blanks, black
+    /// frames, empty captures) with their sizes, so the user can reclaim the space.</summary>
+    public static async Task<List<(string FilePath, string Name, long Bytes)>> FindBlankSnipsAsync()
+    {
+        var found = new List<(string, string, long)>();
+        var entries = await GetAllSnipEntriesAsync().ConfigureAwait(false);
+        foreach (var e in entries)
+        {
+            try
+            {
+                var r = await SnipThumbnailService.GetAsync(e.FilePath, SnipThumbnailService.SmallTier, includePixels: true).ConfigureAwait(false);
+                if (!r.IsOk || r.Bgra is null) continue;
+                if (SnipThumbnailService.IsEffectivelyBlank(r.Bgra, r.Width, r.Height) ||
+                    SnipGalleryQuery.IsNearlyBlank(r.Bgra))
+                    found.Add((e.FilePath, e.Name, e.SizeBytes));
+            }
+            catch { }
+        }
+        return found;
+    }
+
     /// <summary>Removes orphaned .meta.json sidecars whose image no longer exists.</summary>
     public static void CleanupOrphanedMeta()
     {
@@ -617,7 +780,7 @@ public static class SnipGalleryService
 
     /// <summary>Quick-saves a snip straight into the Pictures gallery folder with
     /// correct metadata (type, dimensions). Returns whether the image is uniform.</summary>
-    public static async Task<SnipSaveResult> SaveSnipAsync(byte[] bgra, int width, int height)
+    public static async Task<SnipSaveResult> SaveSnipAsync(byte[] bgra, int width, int height, string sourceApp = "")
     {
         var dir = GetSnipsDirectory();
         var baseName = SnipRegionLogic.BuildSnipFileName(DateTime.Now, ".png");
@@ -629,7 +792,7 @@ public static class SnipGalleryService
 
         // Write to a temp file, rename into place: a reader can never see a half-written snip.
         await SnipThumbnailService.WritePngAtomicAsync(dest, bgra, width, height);
-        await SaveMetaAsync(dest, new SnipMeta { Type = "Region", CreatedUtc = DateTime.UtcNow, Width = width, Height = height });
+        await SaveMetaAsync(dest, new SnipMeta { Type = "Region", CreatedUtc = DateTime.UtcNow, Width = width, Height = height, SourceApp = sourceApp ?? "" });
 
         // Thumbnails come from the in-memory rendered pixels: no re-decode, and they exist
         // before this snip can appear in the gallery/recent list.

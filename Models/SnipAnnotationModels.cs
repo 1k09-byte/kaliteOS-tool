@@ -385,3 +385,53 @@ public class SnipInk : SnipObject
         return new Rect(x0, y0, Math.Max(1, x1 - x0), Math.Max(1, y1 - y0));
     }
 }
+
+/// <summary>Stamped image annotation. Holds decoded BGRA pixels plus a per-device
+/// cached bitmap; draws (and exports) like any other retained object.</summary>
+public class SnipSticker : SnipObject
+{
+    public byte[] Bgra { get; set; } = Array.Empty<byte>();
+    public int PixelWidth { get; set; }
+    public int PixelHeight { get; set; }
+    public Rect Bounds { get; set; }
+
+    private CanvasBitmap? _cached;
+    private CanvasDevice? _cachedDevice;
+
+    public override void Draw(CanvasDrawingSession ds, CanvasBitmap? background = null)
+    {
+        if (Bgra.Length < PixelWidth * PixelHeight * 4 || PixelWidth <= 0 || PixelHeight <= 0) return;
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
+        try
+        {
+            if (_cached is null || _cachedDevice is null || !ReferenceEquals(_cachedDevice, ds.Device))
+            {
+                _cached?.Dispose();
+                _cached = CanvasBitmap.CreateFromBytes(ds.Device, Bgra, PixelWidth, PixelHeight,
+                    Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized);
+                _cachedDevice = ds.Device;
+            }
+            ds.DrawImage(_cached, Bounds,
+                new Rect(0, 0, PixelWidth, PixelHeight));
+        }
+        catch { /* a bad sticker never breaks the whole frame */ }
+    }
+
+    public override bool HitTest(Point pt) =>
+        pt.X >= Bounds.X - 4 && pt.X <= Bounds.X + Bounds.Width + 4 &&
+        pt.Y >= Bounds.Y - 4 && pt.Y <= Bounds.Y + Bounds.Height + 4;
+
+    public override void UpdateBounds(Point start, Point current)
+    {
+        Bounds = new Rect(
+            Math.Min(start.X, current.X),
+            Math.Min(start.Y, current.Y),
+            Math.Abs(start.X - current.X),
+            Math.Abs(start.Y - current.Y));
+    }
+
+    public override void MoveBy(double dx, double dy) =>
+        Bounds = new Rect(Bounds.X + dx, Bounds.Y + dy, Bounds.Width, Bounds.Height);
+
+    public override Rect GetBounds() => Bounds;
+}

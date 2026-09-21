@@ -28,6 +28,7 @@
     <Compile Include="..\..\Services\SnipFolderWatcher.cs" LinkBase="Services" />
     <Compile Include="..\..\Services\SnipRegionLogic.cs" LinkBase="Services" />
     <Compile Include="..\..\Services\SnipWindowSnap.cs" LinkBase="Services" />
+    <Compile Include="..\..\Services\SnipStickerService.cs" LinkBase="Services" />
     <Compile Include="..\..\Services\SnipHotkeyService.cs" LinkBase="Services" />
   </ItemGroup>
 

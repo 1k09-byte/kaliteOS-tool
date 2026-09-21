@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -29,6 +30,8 @@ public sealed partial class SnipPage : Page
     private void SnipPage_Loaded(object sender, RoutedEventArgs e)
     {
         ViewModel.BannerRequested += OnBannerRequested;
+        SnipService.GalleryChanged += OnGalleryChangedExternal;
+        try { ToastOut.Completed += (_, _) => { ToastCard.Visibility = Visibility.Collapsed; }; } catch { }
         _hostWindow = App.MainWindow;
         if (_hostWindow != null) _hostWindow.Activated += HostWindow_Activated;
         AttachCaptureService();
@@ -46,6 +49,7 @@ public sealed partial class SnipPage : Page
         StopQuietRefresh();
         StopFolderWatch();
         ViewModel.BannerRequested -= OnBannerRequested;
+        SnipService.GalleryChanged -= OnGalleryChangedExternal;
         if (_hostWindow != null) _hostWindow.Activated -= HostWindow_Activated;
         _hostWindow = null;
         if (App.Current.Sniper is { } sniper)
@@ -260,7 +264,8 @@ public sealed partial class SnipPage : Page
     protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        SnipGalleryService.PurgeTrash();
+        // No PurgeTrash here anymore: the bin is persistent and emptied only by
+        // explicit user action (Empty Bin / Delete Forever).
         _ = SnipThumbnailService.CleanupOrphansOnceAsync();
         await ViewModel.RunAutoDeleteAsync();
         await ViewModel.RefreshGalleryAsync();
@@ -270,12 +275,32 @@ public sealed partial class SnipPage : Page
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _bannerTimer;
 
+    /// <summary>Pushed refresh straight from our own save paths (overlay save/copy,
+    /// repeat, fullscreen): deterministic, no waiting on the file watcher.</summary>
+    private async void OnGalleryChangedExternal()
+    {
+        try
+        {
+            await ViewModel.RefreshGalleryAsync();
+            RetryFailedPreviews();
+        }
+        catch { }
+    }
+
     private void OnBannerRequested(string title, string content)
     {
+        bool isError = title.Contains("fail") || title.Contains("Fail") || title.Contains("unavailable");
+        // Transient notes slide in bottom-right for 3 s (when enabled); undo and
+        // errors keep the persistent InfoBar because they need a button / must be read.
+        if (!isError && !ViewModel.HasUndo && ViewModel.SnipToastEnabled)
+        {
+            GalleryInfoBar.IsOpen = false;
+            ShowToastCard(title, content);
+            return;
+        }
         GalleryInfoBar.Title = title;
         GalleryInfoBar.Message = content;
-        GalleryInfoBar.Severity = (title.Contains("fail") || title.Contains("Fail") || title.Contains("unavailable"))
-            ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
+        GalleryInfoBar.Severity = isError ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
         GalleryInfoBar.IsOpen = true;
         UndoInfoButton.Visibility = ViewModel.HasUndo ? Visibility.Visible : Visibility.Collapsed;
 
@@ -290,6 +315,67 @@ public sealed partial class SnipPage : Page
         }
     }
 
+    // ---- slide-in toast card (3 s, bottom-right, optional) --------------------
+
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _toastTimer;
+
+    private void ShowToastCard(string title, string content)
+    {
+        try
+        {
+            ToastTitle.Text = title;
+            ToastMessage.Text = content;
+            ToastCard.Visibility = Visibility.Visible;
+            ToastIn.Begin();
+            _toastTimer ??= DispatcherQueue.CreateTimer();
+            _toastTimer.Stop();
+            _toastTimer.Tick -= ToastTimer_Tick;
+            _toastTimer.Tick += ToastTimer_Tick;
+            _toastTimer.Interval = TimeSpan.FromSeconds(3);
+            _toastTimer.Start();
+        }
+        catch { }
+    }
+
+    private void ToastTimer_Tick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        try
+        {
+            _toastTimer?.Stop();
+            ToastOut.Begin();
+        }
+        catch { }
+    }
+
+    private void ToastCard_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        // Tapping dismisses early.
+        try { _toastTimer?.Stop(); ToastOut.Begin(); } catch { }
+    }
+
+    private void DetailsResize_Click(object sender, RoutedEventArgs e)
+    {
+        ResizeSingleItem(ViewModel.SelectedGalleryItem);
+    }
+
+    private async void ResizeSingleItem(GalleryItem? item)
+    {
+        try
+        {
+            if (item is null) return;
+            var ask = await AskResizeAsync();
+            if (ask is null) return;
+            var dest = await SnipGalleryService.ResizeImageAsync(item.Entry.FilePath, ask.Value.Folder, ask.Value.W, ask.Value.H, ask.Value.Lock);
+            ViewModel.NotifyMessage("Resized", dest != null
+                ? $"{item.Name} → {System.IO.Path.GetFileName(dest)}."
+                : $"Could not resize {item.Name}.");
+        }
+        catch (Exception ex)
+        {
+            ViewModel.NotifyMessage("Resize failed", ex.Message);
+        }
+    }
+
     private void HubNav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.IsSettingsSelected) return;
@@ -299,11 +385,178 @@ public sealed partial class SnipPage : Page
             string tag = item.Tag?.ToString() ?? "";
             ViewCapture.Visibility = (tag == "Capture") ? Visibility.Visible : Visibility.Collapsed;
             ViewGallery.Visibility = (tag == "Gallery") ? Visibility.Visible : Visibility.Collapsed;
+            ViewBin.Visibility = (tag == "Bin") ? Visibility.Visible : Visibility.Collapsed;
+            ViewStickers.Visibility = (tag == "Stickers") ? Visibility.Visible : Visibility.Collapsed;
             ViewTools.Visibility = (tag == "Tools") ? Visibility.Visible : Visibility.Collapsed;
-            ViewAutomations.Visibility = (tag == "Automations") ? Visibility.Visible : Visibility.Collapsed;
             ViewSettings.Visibility = (tag == "Settings") ? Visibility.Visible : Visibility.Collapsed;
             if (tag == "Tools" && IconTestPanel.Children.Count == 0) BuildIconTestPanel();
+            if (tag == "Stickers") RefreshStickerGallery();
+            if (tag == "Bin") _ = RefreshBinViewAsync();
         }
+    }
+
+    private async Task RefreshBinViewAsync()
+    {
+        try
+        {
+            await ViewModel.RefreshTrashAsync();
+            BinEmptyText.Visibility = ViewModel.TrashItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (Exception ex) { ViewModel.NotifyMessage("Bin failed", ex.Message); }
+    }
+
+    // ---- recycle bin ----------------------------------------------------------
+
+    private List<string> SelectedTrashPaths() =>
+        BinGridView.SelectedItems.OfType<SnipThumbnailItem>().Select(s => s.FilePath).ToList();
+
+    private async void RestoreTrash_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var paths = SelectedTrashPaths();
+            if (paths.Count == 0) { ViewModel.NotifyMessage("Nothing selected", "Select one or more binned snips first."); return; }
+            await ViewModel.RestoreTrashAsync(paths);
+            BinEmptyText.Visibility = ViewModel.TrashItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (Exception ex) { ViewModel.NotifyMessage("Restore failed", ex.Message); }
+    }
+
+    private async void DeleteTrashForever_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var paths = SelectedTrashPaths();
+            if (paths.Count == 0) { ViewModel.NotifyMessage("Nothing selected", "Select one or more binned snips first."); return; }
+            await ViewModel.DeleteTrashForeverAsync(paths);
+            BinEmptyText.Visibility = ViewModel.TrashItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (Exception ex) { ViewModel.NotifyMessage("Delete failed", ex.Message); }
+    }
+
+    private async void EmptyBin_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ViewModel.EmptyTrashAsync();
+            BinEmptyText.Visibility = ViewModel.TrashItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (Exception ex) { ViewModel.NotifyMessage("Empty failed", ex.Message); }
+    }
+
+    private async void FindBlanks_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ViewModel.NotifyMessage("Scanning", "Checking snips for flat blank frames…");
+            var blanks = await ViewModel.FindBlankSnipsAsync();
+            if (blanks.Count == 0)
+            {
+                ViewModel.NotifyMessage("No blanks", "Every snip has real pixels. Nothing to reclaim.");
+                return;
+            }
+            long total = blanks.Sum(b => b.Bytes);
+            var dialog = new ContentDialog
+            {
+                Title = $"Blank snips ({blanks.Count}, {SnipGalleryQuery.FormatSize(total)} reclaimable)",
+                PrimaryButtonText = $"Move {blanks.Count} to bin",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                Content = new ScrollViewer
+                {
+                    MaxHeight = 320,
+                    Content = new StackPanel
+                    {
+                        Spacing = 4,
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = "These look like a single flat color (DRM blanks, black frames). Deleting moves them to the bin — recoverable until emptied.",
+                                TextWrapping = TextWrapping.Wrap,
+                                Margin = new Thickness(0, 0, 0, 8),
+                            },
+                            new ItemsControl
+                            {
+                                ItemsSource = blanks.Select(b => $"{b.Name} ({SnipGalleryQuery.FormatSize(b.Bytes)})").ToList(),
+                            },
+                        },
+                    },
+                },
+            };
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+            await ViewModel.DeleteGalleryPathsAsync(blanks.Select(b => b.FilePath).ToList());
+        }
+        catch (Exception ex)
+        {
+            ViewModel.NotifyMessage("Scan failed", ex.Message);
+        }
+    }
+
+    // ---- sticker gallery ----------------------------------------------------
+
+    private void RefreshStickerGallery()
+    {
+        try
+        {
+            var items = SnipStickerService.GetAllStickers();
+            StickerGalleryView.ItemsSource = items;
+            StickersEmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (Exception ex) { ViewModel.NotifyMessage("Stickers failed", ex.Message); }
+    }
+
+    private async void ImportStickers_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.PicturesLibrary };
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            picker.FileTypeFilter.Add(".bmp");
+            picker.FileTypeFilter.Add(".webp");
+            var hwnd = HostHwnd(this);
+            if (hwnd != IntPtr.Zero) InitializeWithWindow.Initialize(picker, hwnd);
+
+            var files = await picker.PickMultipleFilesAsync();
+            if (files == null || files.Count == 0) return;
+
+            var imported = await SnipStickerService.ImportStickersAsync(files.Select(f => f.Path).ToList());
+            ViewModel.NotifyMessage("Stickers imported", $"{imported.Count} of {files.Count} image(s) added.");
+            RefreshStickerGallery();
+        }
+        catch (Exception ex)
+        {
+            ViewModel.NotifyMessage("Import failed", ex.Message);
+        }
+    }
+
+    private void DeleteStickers_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var selected = StickerGalleryView.SelectedItems.OfType<StickerEntry>().ToList();
+            if (selected.Count == 0)
+            {
+                ViewModel.NotifyMessage("Nothing selected", "Select one or more stickers first.");
+                return;
+            }
+            int done = 0;
+            foreach (var s in selected)
+                if (SnipStickerService.DeleteSticker(s.FilePath)) done++;
+            ViewModel.NotifyMessage("Stickers deleted", $"{done} sticker(s) removed.");
+            RefreshStickerGallery();
+        }
+        catch (Exception ex)
+        {
+            ViewModel.NotifyMessage("Delete failed", ex.Message);
+        }
+    }
+
+    private void StickerGallery_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
     }
 
     // Debug-only icon audit: every Snip icon rendered at 16/20/24 px so clipped
@@ -474,6 +727,61 @@ public sealed partial class SnipPage : Page
         {
             ViewModel.NotifyMessage("Convert failed", ex.Message);
         }
+    }
+
+    private void ResizeSingle_Click(object sender, RoutedEventArgs e)
+    {
+        ResizeSingleItem((sender as FrameworkElement)?.DataContext as GalleryItem);
+    }
+
+    /// <summary>Shared resize dialog + destination picker. Null when cancelled.</summary>
+    private async Task<(int W, int H, bool Lock, string Folder)?> AskResizeAsync()
+    {
+        var widthBox = new NumberBox
+        {
+            Header = "Width (px, 0 = auto)",
+            Minimum = 0, Maximum = 16384, Value = 800,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var heightBox = new NumberBox
+        {
+            Header = "Height (px, 0 = auto)",
+            Minimum = 0, Maximum = 16384, Value = 0,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var lockBox = new CheckBox { Content = "Lock aspect ratio", IsChecked = true };
+        var dialog = new ContentDialog
+        {
+            Title = "Resize snips (0 = auto)",
+            PrimaryButtonText = "Resize",
+            CloseButtonText = "Cancel",
+            XamlRoot = this.XamlRoot,
+            Content = new StackPanel
+            {
+                Spacing = 8, MinWidth = 260,
+                Children = { widthBox, heightBox, lockBox },
+            },
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary) return null;
+        int reqW = Math.Max(0, (int)widthBox.Value);
+        int reqH = Math.Max(0, (int)heightBox.Value);
+        if (reqW == 0 && reqH == 0)
+        {
+            ViewModel.NotifyMessage("Nothing resized", "Enter a width and/or height first.");
+            return null;
+        }
+
+        var folderPicker = new FolderPicker { SuggestedStartLocation = PickerLocationId.PicturesLibrary };
+        folderPicker.FileTypeFilter.Add("*");
+        var hwnd = HostHwnd(this);
+        if (hwnd != IntPtr.Zero) InitializeWithWindow.Initialize(folderPicker, hwnd);
+        var folder = await folderPicker.PickSingleFolderAsync();
+        if (folder == null) return null;
+        return (reqW, reqH, lockBox.IsChecked == true, folder.Path);
     }
 
     private async void MoveSelected_Click(object sender, RoutedEventArgs e)
@@ -754,8 +1062,10 @@ public sealed partial class SnipPage : Page
 
     private double _lastRasterizationScale = 1.0;
 
+    private System.Collections.Generic.IReadOnlyList<object>? _draggedGalleryItems;
     private void GalleryGrid_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
+        _draggedGalleryItems = e.Items.ToList();
         if (e.Items.Count == 0) return;
         var storageItems = new System.Collections.Generic.List<StorageFile>();
         foreach (var obj in e.Items)
@@ -774,6 +1084,49 @@ public sealed partial class SnipPage : Page
         {
             e.Data.SetStorageItems(storageItems);
         }
+    }
+
+    private void GalleryGrid_DragOver(object sender, DragEventArgs e)
+    {
+        if (_draggedGalleryItems != null && _draggedGalleryItems.Count > 0)
+        {
+            e.AcceptedOperation = DataPackageOperation.Move;
+        }
+    }
+
+    private async void GalleryGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (_draggedGalleryItems == null || _draggedGalleryItems.Count == 0) return;
+
+        var targetContainer = FindParent<GridViewItem>(e.OriginalSource as DependencyObject);
+        if (targetContainer?.Content is GalleryItem targetItem)
+        {
+            var sourceItem = _draggedGalleryItems[0] as GalleryItem;
+            if (sourceItem != null && sourceItem != targetItem)
+            {
+                await ViewModel.MergeIntoFolderAsync(targetItem, sourceItem);
+            }
+        }
+        else
+        {
+            // Dropped onto empty space. Move back to root directory.
+            var sources = _draggedGalleryItems.OfType<GalleryItem>().ToList();
+            if (sources.Count > 0)
+            {
+                await ViewModel.MoveToRootAsync(sources);
+            }
+        }
+        _draggedGalleryItems = null;
+    }
+
+    private static T? FindParent<T>(DependencyObject? child) where T : DependencyObject
+    {
+        while (child != null)
+        {
+            if (child is T typedChild) return typedChild;
+            child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(child);
+        }
+        return null;
     }
 
     private void Tile_PointerEntered(object sender, PointerRoutedEventArgs e)

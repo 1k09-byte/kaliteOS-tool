@@ -66,10 +66,10 @@ public sealed class WindowsSettingsService
             "SerializeTimerExpiration", 1, 0, false, true),
         new TweakDef(
             "MmcssStatus",
-            "Multimedia Class Scheduler (MMCSS)",
-            "MMCSS boosts thread priorities for multimedia tasks to prevent audio/video stutter. Disabling it (turning this OFF) can reduce scheduling noise and DPC latency, but may break some audio drivers. Takes effect after a restart.",
+            "Disable Multimedia Class Scheduler (MMCSS)",
+            "Disabling MMCSS (turning this ON) can reduce scheduling noise and DPC latency, but may break some audio drivers. Turning it OFF restores the default behavior of boosting multimedia thread priorities. Takes effect after a restart.",
             @"SYSTEM\CurrentControlSet\Services\MMCSS",
-            "Start", 2, 4, false, true),
+            "Start", 4, 2, false, true),
     };
 
     public static TweakDef? Find(string id)

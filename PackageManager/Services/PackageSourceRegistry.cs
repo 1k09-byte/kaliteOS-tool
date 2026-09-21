@@ -33,16 +33,8 @@ public sealed class PackageSourceRegistry
         LoadState();
 
         Register(new WinGetPackageSource());
-        Register(new NotImplementedPackageSource(PackageSourceIds.Scoop, "Scoop", "Portable user-space packages (CLI parsing when built)."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.Chocolatey, "Chocolatey", "Community Windows packages (library or CLI when built)."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.Npm, "npm", "Global Node.js packages."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.Pip, "pip", "Global Python packages (no registry search API)."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.Cargo, "Cargo", "Rust binaries via crates.io."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.Vcpkg, "vcpkg", "C/C++ libraries."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.DotNetTool, ".NET Tool", "Global .NET tools."));
-        Register(new NotImplementedPackageSource(PackageSourceIds.PowerShell7, "PowerShell Gallery (7.x)", "PS modules for pwsh.exe.", "pwsh.exe"));
-        Register(new NotImplementedPackageSource(PackageSourceIds.PowerShell5, "PowerShell Gallery (5.x)", "PS modules for powershell.exe.", "powershell.exe"));
-        Register(new NotImplementedPackageSource(PackageSourceIds.Local, "Local PC", "Installed Win32 + Store apps (installed-list only when built)."));
+        Register(new ScoopPackageSource());
+        Register(new ChocolateyPackageSource());
     }
 
     public IReadOnlyList<IPackageSource> Sources => _sources;

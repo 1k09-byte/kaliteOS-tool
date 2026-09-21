@@ -99,70 +99,6 @@
             </Button>
         </DataTemplate>
 
-        <!-- Details dialog lives in resources (never in the visual tree): it is
-             only materialized by ShowAsync, so nothing here can disturb the
-             Install tab layout behind it. -->
-        <ContentDialog x:Name="BrowserDetailsDialog"
-                       Style="{StaticResource DefaultContentDialogStyle}"
-                       Title="{x:Null}"
-                       PrimaryButtonText=""
-                       CloseButtonText="{x:Bind local:InstallerPage.GetCloseButtonText(ViewModel.SelectedBrowser.Status), Mode=OneWay}">
-            <!--
-                 We hide Title natively and put the title inside the content panel for better icon alignment
-            -->
-            <StackPanel Spacing="16">
-                <!-- Title Panel -->
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                     <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay, Converter={StaticResource AssetPathConverter}}"/>
-                     <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
-                </StackPanel>
-
-                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.SelectedBrowser.Description, Mode=OneWay}"/>
-
-                <!-- Extensions List -->
-                <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedBrowser.Extensions, Mode=OneWay}">
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="models:ExtensionItem">
-                            <CheckBox
-                                IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
-                                IsEnabled="{x:Bind IsAvailable, Mode=OneWay}"
-                                Margin="0,8,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="{x:Bind Description, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                </StackPanel>
-                            </CheckBox>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-
-                <!-- Status Checkmark (only visible if installed) -->
-                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}">
-                    <FontIcon Glyph="&#xE73E;" FontSize="16" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.SelectedBrowser.StatusText, Mode=OneWay}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
-                </StackPanel>
-
-                <!-- Action Button at bottom (aligned right, mimicking dialog button) -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <Button x:Name="DialogUninstallBtn"
-                            Content="Uninstall"
-                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                            Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
-                            IsEnabled="{x:Bind local:InstallerPage.Not(ViewModel.IsInstalling), Mode=OneWay}"
-                            Click="DialogUninstallBtn_Click"/>
-
-                    <dev:ProgressButton x:Name="DialogProgressBtn"
-                                        Content="Install"
-                                        CheckedContent="{x:Bind ViewModel.InstallStatusText, Mode=OneWay}"
-                                        IsChecked="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
-                                        IsIndeterminateProgressRing="false"
-                                        ProgressRingVisibility="Collapsed"
-                                        IsEnabled="{x:Bind local:InstallerPage.Not(ViewModel.IsInstalling), Mode=OneWay}"
-                                        Visibility="{x:Bind local:InstallerPage.StatusToNotInstalledVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
-                                        Click="DialogProgressBtn_Click"/>
-                </StackPanel>
-            </StackPanel>
-        </ContentDialog>
     </Page.Resources>
 
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
@@ -277,5 +213,66 @@
         </ScrollViewer>
         </Grid>
         <pm:PackageManagerPage x:Name="PackagesPanel" Grid.Row="2" Visibility="Collapsed" />
+        
+        <!-- ContentDialog moved inside the visual tree to resolve XamlRoot / Binding cycle crashes -->
+        <ContentDialog x:Name="BrowserDetailsDialog"
+                       Style="{StaticResource DefaultContentDialogStyle}"
+                       Title="{x:Null}"
+                       PrimaryButtonText=""
+                       CloseButtonText="{x:Bind local:InstallerPage.GetCloseButtonText(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
+                       Grid.RowSpan="3">
+            <StackPanel Spacing="16">
+                <!-- Title Panel -->
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                     <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay, Converter={StaticResource AssetPathConverter}}"/>
+                     <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
+                </StackPanel>
+
+                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.SelectedBrowser.Description, Mode=OneWay}"/>
+
+                <!-- Extensions List -->
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedBrowser.Extensions, Mode=OneWay}">
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="models:ExtensionItem">
+                            <CheckBox
+                                IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                IsEnabled="{x:Bind IsAvailable, Mode=OneWay}"
+                                Margin="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="{x:Bind Description, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </CheckBox>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+
+                <!-- Status Checkmark (only visible if installed) -->
+                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}">
+                    <FontIcon Glyph="&#xE73E;" FontSize="16" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                    <TextBlock Text="{x:Bind ViewModel.SelectedBrowser.StatusText, Mode=OneWay}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
+                </StackPanel>
+
+                <!-- Action Button at bottom (aligned right, mimicking dialog button) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button x:Name="DialogUninstallBtn"
+                            Content="Uninstall"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                            Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
+                            IsEnabled="{x:Bind local:InstallerPage.Not(ViewModel.IsInstalling), Mode=OneWay}"
+                            Click="DialogUninstallBtn_Click"/>
+
+                    <dev:ProgressButton x:Name="DialogProgressBtn"
+                                        Content="Install"
+                                        CheckedContent="{x:Bind ViewModel.InstallStatusText, Mode=OneWay}"
+                                        IsChecked="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
+                                        IsIndeterminateProgressRing="false"
+                                        ProgressRingVisibility="Collapsed"
+                                        IsEnabled="{x:Bind local:InstallerPage.Not(ViewModel.IsInstalling), Mode=OneWay}"
+                                        Visibility="{x:Bind local:InstallerPage.StatusToNotInstalledVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
+                                        Click="DialogProgressBtn_Click"/>
+                </StackPanel>
+            </StackPanel>
+        </ContentDialog>
     </Grid>
 </Page>
