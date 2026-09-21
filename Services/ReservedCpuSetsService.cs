@@ -15,6 +15,11 @@ namespace kaliteConfig.Services
         private const string RunKeyPath = @"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValueName = "kaliteConfig_ReservedCpuSets";
 
+        // Desired mask, so a startup launch can re-assert the reservation even
+        // when the OS dropped the live kernel value across a reboot.
+        private const string DesiredKeyPath = @"SOFTWARE\kaliteConfig";
+        private const string DesiredValueName = "ReservedCpuSetsDesiredMask";
+
         public ulong? GetReservedCpuMask()
         {
             try
@@ -60,6 +65,23 @@ namespace kaliteConfig.Services
             // Convert to byte array (8 bytes, little endian)
             byte[] bytes = BitConverter.GetBytes(mask);
             key.SetValue(ValueName, bytes, RegistryValueKind.Binary);
+
+            using var desiredKey = Registry.LocalMachine.CreateSubKey(DesiredKeyPath, true);
+            desiredKey?.SetValue(DesiredValueName, mask.ToString("X16"), RegistryValueKind.String);
+        }
+
+        public ulong? GetDesiredMask()
+        {
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(DesiredKeyPath, false);
+                var value = key?.GetValue(DesiredValueName) as string;
+                if (string.IsNullOrWhiteSpace(value)) return null;
+                if (ulong.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out ulong mask))
+                    return mask;
+            }
+            catch { }
+            return null;
         }
 
         public void ClearReservedCpuMask()
@@ -74,6 +96,14 @@ namespace kaliteConfig.Services
             {
                 key.DeleteValue(ValueName, false);
             }
+
+            try
+            {
+                using var desiredKey = Registry.LocalMachine.OpenSubKey(DesiredKeyPath, true);
+                if (desiredKey?.GetValue(DesiredValueName) != null)
+                    desiredKey.DeleteValue(DesiredValueName, false);
+            }
+            catch { }
         }
 
         public bool IsElevated()

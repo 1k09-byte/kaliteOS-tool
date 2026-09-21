@@ -802,22 +802,25 @@ namespace kaliteConfig.Services
                 EnsureHeliumServicesEnabled();
                 SeedHeliumExtensionsFromStore(item);
             }
-            else if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase))
+            else if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase)
+                || item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
             {
+                // Reference-style (AutoOS): merge AMO install URLs into the
+                // browser's distribution\policies.json → policies.Extensions.Install[].
                 string? installDir = GetBrowserInstallDirectory(item);
                 if (installDir != null)
                 {
-                    // var firefoxInstaller = new FirefoxExtensionInstaller();
-                    // firefoxInstaller.InstallExtensions(item.Extensions, Path.Combine(installDir, "distribution"));
-                }
-            }
-            else if (item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
-            {
-                string? installDir = GetBrowserInstallDirectory(item);
-                if (installDir != null)
-                {
-                    // var firefoxInstaller = new FirefoxExtensionInstaller();
-                    // firefoxInstaller.InstallExtensions(item.Extensions, Path.Combine(installDir, "distribution"));
+                    var urls = new List<string>();
+                    foreach (var ext in item.Extensions)
+                    {
+                        if (ext.IsSelected && ext.IsAvailable && !string.IsNullOrWhiteSpace(ext.FirefoxAddonSlug))
+                            urls.Add($"https://addons.mozilla.org/firefox/downloads/latest/{ext.FirefoxAddonSlug.Trim()}");
+                    }
+                    if (urls.Count > 0)
+                    {
+                        var firefoxInstaller = new FirefoxExtensionInstaller();
+                        firefoxInstaller.AddInstallUrls(Path.Combine(installDir, "distribution"), urls);
+                    }
                 }
             }
         }

@@ -233,6 +233,25 @@ namespace kaliteConfig
                 ThemeService = new ThemeService().Initialize(_window);
                 _window.Activate();
 
+                // Reserved CPU sets reapply: the Run key launches the app with
+                // --apply-reserved-cpus at login when "Apply at Startup" is on.
+                // Re-asserts the saved mask (older Windows builds drop the live
+                // kernel reservation across reboots). Best-effort; never breaks
+                // app launch.
+                if (Environment.GetCommandLineArgs().Contains("--apply-reserved-cpus", StringComparer.OrdinalIgnoreCase))
+                {
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var reservedCpus = new ReservedCpuSetsService();
+                            if (reservedCpus.GetDesiredMask() is ulong mask && mask != 0)
+                                reservedCpus.SetReservedCpuMask(mask);
+                        }
+                        catch { /* startup reapply must never break app launch */ }
+                    });
+                }
+
                 // Startup reapply (spec 6): the elevated Task Scheduler task
                 // launches the app with --apply-overclock-startup at login.
                 // The designated, pre-boot-validated profile is reapplied on a

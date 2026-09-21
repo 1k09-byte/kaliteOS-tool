@@ -30,14 +30,20 @@ namespace kaliteConfig.Models
         public partial bool IsVisible { get; set; } = true;
 
         // Dialog state (bound two-way; stored only — writers land in the tuning pass).
+        // MsiLimit 0 means "Auto", matching the reference tool.
         [ObservableProperty]
         public partial bool MsiEnabled { get; set; }
 
         [ObservableProperty]
-        public partial double MsiLimit { get; set; } = 1;
+        public partial double MsiLimit { get; set; }
 
         [ObservableProperty]
-        public partial double MaxMsiLimit { get; set; } = 1;
+        public partial double MaxMsiLimit { get; set; }
+
+        // Reference fallback: when the device reports no max, cap at 2048.
+        public double EffectiveMaxMsiLimit => MaxMsiLimit > 0 ? MaxMsiLimit : 2048;
+
+        public string MaxMsiLimitText => MaxMsiLimit > 0 ? $"{MaxMsiLimit:0}" : string.Empty;
 
         [ObservableProperty]
         public partial string MsiLimitText { get; set; } = "—";
@@ -80,11 +86,17 @@ namespace kaliteConfig.Models
             _ => Category
         };
 
-        public string MsiEnabledText => MsiEnabled ? "Enabled" : "Disabled";
+        public string MsiEnabledText => MsiEnabled ? "On" : "Off";
 
         partial void OnMsiEnabledChanged(bool value)
         {
             OnPropertyChanged(nameof(MsiEnabledText));
+        }
+
+        partial void OnMaxMsiLimitChanged(double value)
+        {
+            OnPropertyChanged(nameof(EffectiveMaxMsiLimit));
+            OnPropertyChanged(nameof(MaxMsiLimitText));
         }
     }
 

@@ -4,34 +4,31 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:kaliteConfig.Pages"
     xmlns:models="using:kaliteConfig.ViewModels">
-    
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,16">
-            <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}" 
-                     Severity="Error" 
+        <TextBlock Grid.Row="0"
+                   Text="Reserve CPU Sets"
+                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+        <StackPanel Grid.Row="1" Spacing="8">
+            <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     Severity="Error"
                      Title="Error"
-                     Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" 
+                     Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
                      IsClosable="True" />
 
-            <InfoBar IsOpen="{x:Bind ViewModel.HasSuccess, Mode=OneWay}" 
-                     Severity="Success" 
+            <InfoBar IsOpen="{x:Bind ViewModel.HasSuccess, Mode=OneWay}"
+                     Severity="Success"
                      Title="Success"
-                     Message="{x:Bind ViewModel.SuccessText, Mode=OneWay}" 
+                     Message="{x:Bind ViewModel.SuccessText, Mode=OneWay}"
                      IsClosable="True" />
-                     
-            <InfoBar IsOpen="{x:Bind ViewModel.RequiresPerBootReapply, Mode=OneWay}"
-                     Severity="Informational"
-                     Title="Reboot note"
-                     Message="Your version of Windows requires reserving CPUs to be applied at every startup. Reserving them manually works until you reboot."
-                     IsClosable="False" />
-                     
+
             <InfoBar IsOpen="{x:Bind ViewModel.IsNotElevated, Mode=OneWay}"
                      Severity="Warning"
                      Title="Elevation Required"
@@ -39,27 +36,41 @@
                      IsClosable="False" />
         </StackPanel>
 
-        <!-- The Check All / Uncheck All / Invert bulk commands were removed:
-             cores are ticked one by one here. "Apply at Startup" stays (older
-             Windows builds drop the kernel reservation on every reboot). -->
-        <CommandBar Grid.Row="1" DefaultLabelPosition="Right" Margin="-12,0,-12,12" Background="Transparent">
-            <CommandBar.SecondaryCommands>
-                <AppBarToggleButton Label="Apply at Startup" 
-                                    IsChecked="{x:Bind ViewModel.ApplyAtStartup, Mode=TwoWay}"
-                                    IsEnabled="{x:Bind ViewModel.RequiresPerBootReapply, Mode=OneWay}" />
-            </CommandBar.SecondaryCommands>
-        </CommandBar>
+        <!-- Cores lay out left-to-right in an even grid; ticking a chip only
+             stages the change — nothing is written until Apply is clicked.
+             Apply sits bottom-right on the same line as the chips. -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ItemsControl Grid.Column="0" ItemsSource="{x:Bind ViewModel.Cores}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VariableSizedWrapGrid Orientation="Horizontal"
+                                               ItemWidth="104"
+                                               ItemHeight="44" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:CpuCoreItem">
+                        <ToggleButton Content="{x:Bind Name}"
+                                      IsChecked="{x:Bind IsReserved, Mode=TwoWay}"
+                                      MinWidth="96"
+                                      Margin="0,0,8,8" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Grid.Column="1"
+                    Content="Apply"
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    IsEnabled="{x:Bind ViewModel.HasPendingChanges, Mode=OneWay}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    MinWidth="120"
+                    Height="36"
+                    Margin="8,0,0,8"
+                    VerticalAlignment="Bottom" />
+        </Grid>
 
-        <TextBlock Grid.Row="2" Text="Select the system cores you want to isolate from the OS Task Scheduler." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" />
-
-        <ListView Grid.Row="3" ItemsSource="{x:Bind ViewModel.Cores}" SelectionMode="None">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="models:CpuCoreItem">
-                    <Grid Padding="12,8">
-                        <CheckBox Content="{x:Bind Name}" IsChecked="{x:Bind IsReserved, Mode=TwoWay}" />
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
     </Grid>
 </Page>
