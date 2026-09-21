@@ -51,6 +51,52 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
 
     public bool CanUpdateNow => IsAvailable && !IsBusy;
 
+    /// <summary>Update already landed on disk; open the registered install instead of re-downloading.</summary>
+    [ObservableProperty]
+    public partial bool PreferHandOffToInstalledCopy { get; set; }
+
+    /// <summary>The last attempt ran and left the installed version unchanged.</summary>
+    [ObservableProperty]
+    public partial bool LastAttemptFailed { get; set; }
+
+    /// <summary>
+    /// Startup dialog already explained this failure once. The Settings banner
+    /// keeps offering the update, but the app stops opening a modal about the
+    /// same version on every launch.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool SuppressStartupOffer { get; set; }
+
+    /// <summary>Setup exe from the failed attempt, kept so it can be re-run visibly.</summary>
+    public string? PendingInstallerPath { get; private set; }
+
+    partial void OnPreferHandOffToInstalledCopyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanUpdateNow));
+        OnPropertyChanged(nameof(PrimaryUpdateActionText));
+    }
+
+    partial void OnLastAttemptFailedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanOpenInstaller));
+        OnPropertyChanged(nameof(PrimaryUpdateActionText));
+    }
+
+    /// <summary>
+    /// The failed attempt's setup exe is still on disk, so the primary action
+    /// can re-run it WITH its window — a silent install that fails shows
+    /// nothing at all, and the visible run is what makes the error readable.
+    /// </summary>
+    public bool CanOpenInstaller =>
+        LastAttemptFailed
+        && !string.IsNullOrWhiteSpace(PendingInstallerPath)
+        && File.Exists(PendingInstallerPath);
+
+    public string PrimaryUpdateActionText =>
+        PreferHandOffToInstalledCopy ? "Open updated copy"
+        : CanOpenInstaller ? "Open installer"
+        : "Update now";
+
     partial void OnIsAvailableChanged(bool value)
     {
         OnPropertyChanged(nameof(BannerVisibility));
@@ -71,13 +117,23 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
         if (IsBusy) return;
         try
         {
-            var pendingVersion = UpdateCheckService.ReadPendingUpdateVersion();
+            // What became of the last attempt? Judge it from the versions that
+            // are actually on disk (this process + the registered install),
+            // never from the fact that we once handed a setup exe to Windows.
+            var pending = UpdateCheckService.ReadPendingUpdate();
             var running = UpdateCheckService.CurrentVersion;
-            if (!string.IsNullOrEmpty(pendingVersion)
-                && !string.IsNullOrEmpty(running)
-                && !UpdateCheckService.IsNewer(pendingVersion, running))
+            var runningPath = Environment.ProcessPath;
+            var installedExe = UpdateCheckService.GetInstalledExePath();
+            var installedVer = installedExe is not null
+                ? UpdateCheckService.TryReadExeVersion(installedExe)
+                : null;
+
+            var attempt = UpdateCheckService.ClassifyPendingAttempt(pending, running, installedVer);
+            if (attempt == UpdateCheckService.UpdateAttemptState.Applied)
             {
                 UpdateCheckService.ClearPendingUpdate();
+                pending = null;
+                attempt = UpdateCheckService.UpdateAttemptState.None;
             }
 
             var release = await _service.CheckAsync();
@@ -88,23 +144,57 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             Notes = string.IsNullOrWhiteSpace(release.Notes)
                 ? "No release notes provided."
                 : release.Notes;
-            // Loop guard: this exact version was already installed once but the
-            // running app still reports older — the install didn't take (wrong
-            // folder, dev copy, or a side-by-side older flavor). Say so instead
-            // of looping the same offer silently.
-            var pending = UpdateCheckService.ReadPendingUpdateVersion();
-            if (!string.IsNullOrEmpty(pending)
-                && string.Equals(pending, release.Version, StringComparison.OrdinalIgnoreCase))
+
+            var sameAttempt = pending is not null
+                && string.Equals(pending.Version, release.Version, StringComparison.OrdinalIgnoreCase);
+
+            // Loop guard: this exact version was attempted and the version on
+            // disk did not move. Say what Setup said instead of re-offering the
+            // same update silently on every launch.
+            var failed = attempt == UpdateCheckService.UpdateAttemptState.Failed && sameAttempt;
+            PendingInstallerPath = failed ? pending!.InstallerPath : null;
+            LastAttemptFailed = failed;
+            SuppressStartupOffer = failed && pending!.Reported;
+
+            PreferHandOffToInstalledCopy =
+                attempt == UpdateCheckService.UpdateAttemptState.AppliedElsewhere
+                && sameAttempt
+                && installedExe is not null;
+
+            if (failed)
             {
-                Notes += "\n\nNote: an update to this version was already installed once, but this copy still " +
-                         "reports the older version — the install didn't take. You may be launching kaliteConfig " +
-                         "from a different folder (a dev build, or the old separate Consumer install — uninstall " +
-                         "any 'kaliteConfig Consumer' copy once and launch from the Start Menu).";
+                var reason = UpdateCheckService.ReadInstallerLogSummary(pending!.LogPath);
+                Notes += $"\n\nThe update to {pending.Version} did not complete — this copy still reports " +
+                         $"v{running ?? "the previous version"}.";
+                if (!string.IsNullOrWhiteSpace(reason))
+                    Notes += $"\nInstaller reported: {reason}";
+                if (!string.IsNullOrWhiteSpace(pending.LogPath) && File.Exists(pending.LogPath))
+                    Notes += $"\nFull installer log: {pending.LogPath}";
+                Notes += CanOpenInstaller
+                    ? "\nChoose Open installer to run it again with its own window, so any error stays on screen."
+                    : "\nChoose Update now to download a fresh copy and try again.";
             }
+            else if (PreferHandOffToInstalledCopy && installedExe is not null)
+            {
+                Notes += $"\n\nThe update is already installed at:\n{installedExe}\n" +
+                         $"This session is still running v{running ?? "?"} from:\n{runningPath ?? "?"}\n\n" +
+                         "Choose Open updated copy to switch (or pin the Start Menu shortcut).";
+            }
+
             IsAvailable = true;
+            OnPropertyChanged(nameof(CanOpenInstaller));
+            OnPropertyChanged(nameof(PrimaryUpdateActionText));
             OnPropertyChanged(nameof(BannerTitle));
         }
         catch { /* never surface check failures */ }
+    }
+
+    [RelayCommand]
+    public void HandOffToInstalledCopy()
+    {
+        if (IsBusy) return;
+        if (!UpdateCheckService.TryLaunchInstalledCopyAndExit())
+            StatusText = "Could not open the installed copy. Use the Start Menu kaliteConfig shortcut.";
     }
 
     /// <summary>Download the setup exe and hand off to the silent installer.</summary>
@@ -112,6 +202,18 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
     public async Task UpdateNowAsync()
     {
         if (IsBusy || _pending is null) return;
+        if (PreferHandOffToInstalledCopy)
+        {
+            HandOffToInstalledCopy();
+            return;
+        }
+        // Primary action routing: a failed attempt re-runs the setup it already
+        // has, visibly, instead of downloading the same bytes again.
+        if (CanOpenInstaller)
+        {
+            OpenInstallerVisibly(PendingInstallerPath!);
+            return;
+        }
 
         IsBusy = true;
         DownloadPercent = null;
@@ -125,12 +227,16 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             UpdateCheckService.LogDiag($"update: downloaded {info.Name} ({info.Length} bytes) for version {_pending.Version}");
 
             StatusText = "Launching installer…";
-            // Silent Inno upgrade: disable CloseApplications (tray swallows
-            // WM_CLOSE), target the registered install dir (/DIR), exit hard so
-            // files are not locked. Setup also taskkill's in PrepareToInstall.
-            UpdateCheckService.WritePendingUpdate(_pending.Version);
+            // Silent Inno upgrade: no Restart Manager (the tray swallows
+            // WM_CLOSE), target the registered install dir (/DIR), always leave
+            // a Setup log, exit hard so files are not locked. Setup also
+            // taskkill's in PrepareToInstall. The attempt is recorded BEFORE
+            // Setup starts, because Setup kills this process — nothing after
+            // this point can be written.
+            var logPath = UpdateCheckService.SetupLogPath(_pending.Version);
+            UpdateCheckService.WritePendingUpdate(_pending.Version, installerPath, logPath);
             var installDir = UpdateCheckService.GetRegisteredInstallDirectory();
-            var installArgs = UpdateCheckService.BuildSilentInstallerArguments(installDir);
+            var installArgs = UpdateCheckService.BuildSilentInstallerArguments(installDir, logPath);
             var psi = new ProcessStartInfo
             {
                 FileName = installerPath,
@@ -166,6 +272,40 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             DownloadPercent = null;
             _cts?.Dispose();
             _cts = null;
+        }
+    }
+
+    /// <summary>
+    /// Re-runs the failed attempt's setup WITH its window. A silent install
+    /// that fails shows nothing (/SUPPRESSMSGBOXES defaults to Abort), so the
+    /// fallback path is what makes the reason readable and lets the user finish
+    /// by hand.
+    /// </summary>
+    private void OpenInstallerVisibly(string installerPath)
+    {
+        try
+        {
+            UpdateCheckService.LogDiag($"update: re-running installer visibly {installerPath}");
+            var psi = new ProcessStartInfo
+            {
+                FileName = installerPath,
+                UseShellExecute = true,
+            };
+            try
+            {
+                if (App.MainWindow is MainWindow mainWindow)
+                    mainWindow.PrepareForUpdateShutdown();
+            }
+            catch { }
+
+            // The interactive run does its own close/kill of this app.
+            Process.Start(psi);
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            UpdateCheckService.LogDiag($"update: visible installer run failed — {ex.Message}");
+            StatusText = $"Could not start the installer: {ex.Message}";
         }
     }
 }

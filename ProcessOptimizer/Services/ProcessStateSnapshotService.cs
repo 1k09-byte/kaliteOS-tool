@@ -252,9 +252,19 @@ public static class ProcessStateSnapshotService
 
                     try
                     {
-                        NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var ideal);
-                        snap.IdealGroup = ideal.Group;
-                        snap.IdealNumber = ideal.Number;
+                        // BOOL return: the out parameter is only meaningful when
+                        // the call succeeded (a failed read used to be recorded
+                        // as a real ideal processor).
+                        if (NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var ideal))
+                        {
+                            snap.IdealGroup = ideal.Group;
+                            snap.IdealNumber = ideal.Number;
+                        }
+                        else
+                        {
+                            snap.IdealGroup = 0;
+                            snap.IdealNumber = 0;
+                        }
                     }
                     catch { snap.IdealGroup = 0; snap.IdealNumber = 0; }
 

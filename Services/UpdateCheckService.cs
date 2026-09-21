@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -120,10 +122,155 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
         return null;
     }
 
-    /// <summary>Inno Setup silent flags for the in-app updater hand-off.</summary>
-    internal static string BuildSilentInstallerArguments(string? installDirectory)
+    internal static string? GetInstalledExePath()
     {
-        var args = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS=0";
+        var dir = GetRegisteredInstallDirectory();
+        if (dir is null) return null;
+        var exe = Path.Combine(dir, "kaliteConfig.exe");
+        return File.Exists(exe) ? exe : null;
+    }
+
+    internal static bool PathsEqual(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(a.Trim()),
+                Path.GetFullPath(b.Trim()),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    internal static string? TryReadExeVersion(string exePath)
+    {
+        try
+        {
+            var fvi = FileVersionInfo.GetVersionInfo(exePath);
+            return $"{fvi.FileMajorPart}.{fvi.FileMinorPart}.{fvi.FileBuildPart}.{fvi.FilePrivatePart}";
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// True when a registered install on disk already has the pending release
+    /// but this process is still an older build from another path (the loop in
+    /// the update dialog screenshot).
+    /// </summary>
+    internal static bool ShouldHandOffToInstalledCopy(
+        string? pendingVersion,
+        string? runningVersion,
+        string? installedExeVersion,
+        string? runningExePath,
+        string? installedExePath)
+    {
+        if (string.IsNullOrWhiteSpace(pendingVersion)
+            || string.IsNullOrWhiteSpace(runningVersion)
+            || string.IsNullOrWhiteSpace(installedExeVersion)
+            || string.IsNullOrWhiteSpace(runningExePath)
+            || string.IsNullOrWhiteSpace(installedExePath))
+        {
+            return false;
+        }
+
+        if (PathsEqual(runningExePath, installedExePath))
+            return false;
+
+        if (!IsNewer(pendingVersion, runningVersion))
+            return false;
+
+        // Install finished on disk (matches pending) while this session is stale.
+        if (string.Equals(pendingVersion, installedExeVersion, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Pending marker matches offer; installed copy is still ahead of us.
+        return !IsNewer(pendingVersion, installedExeVersion)
+               && IsNewer(installedExeVersion, runningVersion);
+    }
+
+    /// <summary>
+    /// Starts the registered install and exits this process. Returns false when
+    /// no hand-off was attempted.
+    /// </summary>
+    internal static bool TryLaunchInstalledCopyAndExit()
+    {
+        var installedExe = GetInstalledExePath();
+        if (installedExe is null) return false;
+
+        var runningPath = Environment.ProcessPath;
+        if (PathsEqual(runningPath, installedExe))
+            return false;
+
+        try
+        {
+            bool isAdmin;
+            using (var identity = WindowsIdentity.GetCurrent())
+            {
+                var principal = new WindowsPrincipal(identity);
+                isAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = installedExe,
+                UseShellExecute = true,
+            };
+            if (!isAdmin) psi.Verb = "runas";
+
+            LogDiag($"handoff: launching installed copy {installedExe} (was {runningPath ?? "?"})");
+            Process.Start(psi);
+            ClearPendingUpdate();
+            Environment.Exit(0);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"handoff: failed — {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// After a silent upgrade, the user may still open a dev copy or an old
+    /// shortcut. Switch once when the registered install already has pending.
+    /// </summary>
+    internal static bool TryLaunchInstalledCopyAndExitIfStaleSession()
+    {
+        var pending = ReadPendingUpdateVersion();
+        var running = CurrentVersion;
+        var installedExe = GetInstalledExePath();
+        if (pending is null || running is null || installedExe is null) return false;
+
+        var installedVer = TryReadExeVersion(installedExe);
+        if (!ShouldHandOffToInstalledCopy(
+                pending, running, installedVer, Environment.ProcessPath, installedExe))
+        {
+            return false;
+        }
+
+        return TryLaunchInstalledCopyAndExit();
+    }
+
+    /// <summary>
+    /// Inno Setup silent flags for the in-app updater hand-off.
+    ///
+    /// - /NOCLOSEAPPLICATIONS: the app minimizes to the tray and swallows
+    ///   WM_CLOSE, so Restart Manager can never close it; Setup then reported
+    ///   "Some applications could not be shut down" and — because
+    ///   /SUPPRESSMSGBOXES defaults to Abort — rolled the ENTIRE upgrade back
+    ///   without a word. The app exits itself and Setup's [Code] kills
+    ///   stragglers instead. (The old /CLOSEAPPLICATIONS=0 was not a real
+    ///   switch: unknown parameters are ignored, so it disabled nothing.)
+    /// - /LOG="…": a silent failure leaves no other trace on the machine.
+    ///   That log is what lets the app explain the failure instead of just
+    ///   re-offering the update forever.
+    /// </summary>
+    internal static string BuildSilentInstallerArguments(string? installDirectory, string? logPath = null)
+    {
+        var args = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCLOSEAPPLICATIONS";
+        if (!string.IsNullOrWhiteSpace(logPath))
+            args += $" /LOG=\"{logPath.Trim()}\"";
         if (!string.IsNullOrWhiteSpace(installDirectory))
         {
             var dir = installDirectory.Trim().TrimEnd('\\');
@@ -145,21 +292,217 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     }
 
     /// <summary>Version recorded by <see cref="WritePendingUpdate"/>, or null when none.</summary>
-    internal static string? ReadPendingUpdateVersion()
+    internal static string? ReadPendingUpdateVersion() => ReadPendingUpdate()?.Version;
+
+    /// <summary>
+    /// What the last update attempt left behind: which version we handed to
+    /// Setup, where the setup exe and its log are, and whether the user has
+    /// already been told that this attempt did not take.
+    /// </summary>
+    internal sealed record PendingUpdate(
+        string Version,
+        string? InstallerPath,
+        string? LogPath,
+        bool Reported);
+
+    /// <summary>Inno Setup log path for a version — the same path we pass as /LOG.</summary>
+    internal static string SetupLogPath(string version) => Path.Combine(
+        Path.GetTempPath(), $"kaliteConfig-setup-{version.Trim()}.log");
+
+    /// <summary>Where the downloaded setup exe for a version lives.</summary>
+    internal static string SetupDownloadPath(string version) => Path.Combine(
+        Path.GetTempPath(), $"{AssetNamePrefix}{version.Trim()}.exe");
+
+    /// <summary>Result of the last update attempt, judged from the versions actually on disk.</summary>
+    internal enum UpdateAttemptState
+    {
+        /// <summary>No attempt on record (or it was reconciled and cleared).</summary>
+        None,
+        /// <summary>This session runs the attempted version or newer — the install took.</summary>
+        Applied,
+        /// <summary>The registered install has the attempted version; this session is a stale copy.</summary>
+        AppliedElsewhere,
+        /// <summary>Setup ran (or never started) and the version did not change — say why.</summary>
+        Failed,
+    }
+
+    /// <summary>
+    /// Judges a pending attempt from the versions on disk. Pure — every
+    /// input is supplied by the caller, so this is checked offline in
+    /// tools/UpdateVerify. Never trust the fact that we once started a setup
+    /// exe: the only proof an upgrade landed is the version of the file that
+    /// is installed now.
+    /// </summary>
+    internal static UpdateAttemptState ClassifyPendingAttempt(
+        PendingUpdate? pending,
+        string? runningVersion,
+        string? installedExeVersion)
+    {
+        if (pending is null || string.IsNullOrWhiteSpace(pending.Version))
+            return UpdateAttemptState.None;
+
+        // Install took: we are the version we asked for (or newer).
+        if (!string.IsNullOrWhiteSpace(runningVersion) && !IsNewer(pending.Version, runningVersion))
+            return UpdateAttemptState.Applied;
+
+        // Install took on disk, but this process is still an older copy.
+        if (!string.IsNullOrWhiteSpace(installedExeVersion)
+            && !IsNewer(pending.Version, installedExeVersion))
+            return UpdateAttemptState.AppliedElsewhere;
+
+        return UpdateAttemptState.Failed;
+    }
+
+    /// <summary>
+    /// Records an attempt. Called BEFORE the setup exe starts, because the
+    /// setup kills this process: nothing after that point can be written.
+    /// </summary>
+    internal static void WritePendingUpdate(
+        string version,
+        string? installerPath = null,
+        string? logPath = null,
+        bool reported = false)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(PendingMarkerPath);
+            if (dir != null) Directory.CreateDirectory(dir);
+            File.WriteAllText(PendingMarkerPath,
+                JsonSerializer.Serialize(new
+                {
+                    version,
+                    at = DateTime.Now,
+                    installer = installerPath,
+                    log = logPath,
+                    reported,
+                }));
+        }
+        catch { }
+    }
+
+    /// <summary>Full pending record, or null when no attempt is on record / unreadable.</summary>
+    internal static PendingUpdate? ReadPendingUpdate()
     {
         try
         {
             if (!File.Exists(PendingMarkerPath)) return null;
             using var doc = JsonDocument.Parse(File.ReadAllText(PendingMarkerPath));
-            if (doc.RootElement.TryGetProperty("version", out var v)
-                && v.ValueKind == JsonValueKind.String)
-            {
-                var s = v.GetString();
-                return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
-            }
-            return null;
+            var root = doc.RootElement;
+            var version = StringProperty(root, "version");
+            if (string.IsNullOrWhiteSpace(version)) return null;
+            return new PendingUpdate(
+                version.Trim(),
+                StringProperty(root, "installer"),
+                StringProperty(root, "log"),
+                root.TryGetProperty("reported", out var reported)
+                    && reported.ValueKind == JsonValueKind.True);
         }
         catch { return null; }
+    }
+
+    private static string? StringProperty(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    /// <summary>
+    /// Marks the attempt as already explained, so one failed upgrade is
+    /// reported exactly once per version instead of re-prompting on every
+    /// launch (the "it keeps offering the same update" loop).
+    /// </summary>
+    internal static void MarkPendingUpdateReported()
+    {
+        var pending = ReadPendingUpdate();
+        if (pending is null) return;
+        WritePendingUpdate(pending.Version, pending.InstallerPath, pending.LogPath, reported: true);
+    }
+
+    /// <summary>
+    /// Reads an Inno Setup log and turns it into one line a user can act on.
+    /// Never throws — diagnostics must not break the updater.
+    /// </summary>
+    internal static string? ReadInstallerLogSummary(string? logPath)
+    {
+        if (string.IsNullOrWhiteSpace(logPath) || !File.Exists(logPath)) return null;
+        try
+        {
+            using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            var lines = new System.Collections.Generic.List<string>();
+            while (reader.ReadLine() is { } line) lines.Add(line);
+            return SummarizeInstallerLog(lines);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// The reason a silent install aborted. Under /SUPPRESSMSGBOXES Setup
+    /// defaults to Abort for the dialog it cannot show, so the log is the ONLY
+    /// place the failure survives — without it the app can only say "the
+    /// install didn't take". Pure: the caller reads the file.
+    /// </summary>
+    internal static string? SummarizeInstallerLog(System.Collections.Generic.IReadOnlyList<string>? lines)
+    {
+        if (lines is null || lines.Count == 0) return null;
+
+        const string AbortMarker = "Defaulting to Abort for suppressed message box";
+        for (int i = lines.Count - 1; i >= 0; i--)
+        {
+            if (lines[i].IndexOf(AbortMarker, StringComparison.OrdinalIgnoreCase) < 0) continue;
+            var message = new System.Collections.Generic.List<string>();
+            for (int j = i + 1; j < lines.Count; j++)
+            {
+                var text = StripLogPrefix(lines[j]);
+                if (text.Length == 0) break;
+                message.Add(text);
+            }
+            return message.Count > 0 ? string.Join(" ", message) : "Setup aborted.";
+        }
+
+        foreach (var (marker, summary) in LogFailureMarkers)
+        {
+            for (int i = lines.Count - 1; i >= 0; i--)
+            {
+                if (lines[i].IndexOf(marker, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                return summary;
+            }
+        }
+
+        for (int i = lines.Count - 1; i >= 0; i--)
+        {
+            if (lines[i].IndexOf("Rolling back changes", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Setup rolled the installation back.";
+        }
+
+        return null;
+    }
+
+    /// <summary>Setup's own words for the failures we can name precisely.</summary>
+    private static readonly (string Marker, string Summary)[] LogFailureMarkers =
+    {
+        ("Some applications could not be shut down",
+            "Setup could not close the running kaliteConfig copy, so it aborted before replacing any file."),
+        ("Setup files are corrupted",
+            "The downloaded installer was corrupt — retry the download."),
+        ("is not a valid Win32 application",
+            "The downloaded installer was not a valid program — retry the download."),
+        ("Access is denied",
+            "Setup was denied access to the install folder (permissions or antivirus)."),
+        ("The process cannot access the file",
+            "An installed file was locked by another process while Setup replaced it."),
+    };
+
+    /// <summary>Strips Inno's "2026-09-16 18:39:15.205   " prefix (continuation lines carry none).</summary>
+    private static string StripLogPrefix(string line)
+    {
+        var text = line.Trim();
+        if (text.Length > 23
+            && text[4] == '-' && text[7] == '-' && text[10] == ' '
+            && text[13] == ':' && text[16] == ':')
+        {
+            text = text[23..].Trim();
+        }
+        return text;
     }
 
     /// <summary>Running app version ("0.1.0" style), or null when unreadable.</summary>
@@ -296,7 +639,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     /// <summary>Downloads the release asset to %TEMP%. Returns the local path.</summary>
     public async Task<string> DownloadAsync(LatestRelease release, IProgress<double>? progress, CancellationToken ct = default)
     {
-        string tempPath = Path.Combine(Path.GetTempPath(), $"{AssetNamePrefix}{release.Version}.exe");
+        string tempPath = SetupDownloadPath(release.Version);
         try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
 
         // Long timeout for the download itself; the 10s client timeout applies

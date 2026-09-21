@@ -203,20 +203,21 @@ public sealed partial class ThreadListDialog : ContentDialog
             {
                 var (ig, cpu) = await Tuner.GetIdealProcessorAsync((uint)row.Tid);
                 IdealCurrent.Text = $"Current: group {ig} CPU {cpu}";
+                // Only tick a box when the thread really lives in group 0 and
+                // the read succeeded — a failed read must leave nothing
+                // pre-selected, or "Apply" silently re-applies CPU 0.
                 if (ig == 0)
                 {
                     _idealCpu = cpu;
                     foreach (var box in IdealCpuGrid.Children.OfType<ToggleButton>())
                         box.IsChecked = box.Tag is int t && t == cpu;
                 }
+                else
+                {
+                    IdealCurrent.Text += " — only processor group 0 is tuneable here, pick a CPU below.";
+                }
             }
-            catch { IdealCurrent.Text = "Current: unreadable"; }
-            try
-            {
-                uint mem = await Tuner.GetMemoryPriorityAsync((uint)row.Tid);
-                SelectComboByTag(MemCombo, (int)mem);
-            }
-            catch { SelectComboByTag(MemCombo, int.MinValue); }
+            catch { IdealCurrent.Text = "Current: unreadable — pick a CPU below."; }
             SuspendButton.Content = row.Suspended ? "Resume" : "Suspend";
             bool editable = row.CanEdit;
             PriorityCombo.IsEnabled = editable;
@@ -225,7 +226,6 @@ public sealed partial class ThreadListDialog : ContentDialog
             IdealCpuGrid.Opacity = editable ? 1 : 0.5;
             SetCpuBoxesEnabled(AffinityCpuGrid, editable);
             SetCpuBoxesEnabled(IdealCpuGrid, editable);
-            MemCombo.IsEnabled = editable;
             SuspendButton.IsEnabled = editable;
             EndButton.IsEnabled = editable;
             if (!editable)
@@ -373,8 +373,6 @@ public sealed partial class ThreadListDialog : ContentDialog
                 rule.AffinityMask = m;
             }
             catch { }
-            try { rule.MemoryPriority = await Tuner.GetMemoryPriorityAsync((uint)row.Tid); }
-            catch { }
             if (_idealSet)
             {
                 rule.IdealGroup = 0;
@@ -394,10 +392,23 @@ public sealed partial class ThreadListDialog : ContentDialog
             }
             existing.ThreadRules.Add(rule);
             await watcher.AddOrUpdate(existing);
+
+            // "Make permanent" must also mean "in effect now": apply the freshly
+            // saved rule to THIS running instance immediately instead of waiting
+            // for the process to be launched again — a rule used to sit idle until
+            // then, which read as "my changes keep resetting".
+            int applied = 0;
+            try
+            {
+                var result = await watcher.ApplyToProcessAsync(existing, _pid);
+                applied = result.Succeeded;
+            }
+            catch { }
+
             bool wide = string.IsNullOrEmpty(rule.Description) && string.IsNullOrEmpty(rule.StartAddress);
             EditorStatus(wide
-                ? "Saved — thread has no name/address, so this rule applies to ALL threads of " + _processName + "."
-                : "Saved — reapplies automatically to matching threads of " + _processName + ".", false);
+                ? $"Saved — applies to ALL threads of {_processName} ({applied} thread(s) now) and on every launch."
+                : $"Saved — applied to {applied} matching thread(s) of {_processName} now, and on every launch.", false);
         }
         catch (Exception ex) { EditorStatus($"Save rule: {Short(ex)}", true); }
     }
@@ -473,25 +484,20 @@ public sealed partial class ThreadListDialog : ContentDialog
         }
         try
         {
+            // The service verifies the write against the kernel (and explains
+            // a rejection, e.g. a CPU outside this thread's affinity mask).
             await Tuner.SetIdealProcessorAsync((uint)_selected.Tid, 0, (byte)_idealCpu);
             _idealSet = true;
-            IdealCurrent.Text = $"Current: group 0 CPU {_idealCpu}.";
             EditorStatus($"Ideal processor set to CPU {_idealCpu}.", false);
+            // Display what Windows reports, not what we asked for.
+            try
+            {
+                var (ig, cpu) = await Tuner.GetIdealProcessorAsync((uint)_selected.Tid);
+                IdealCurrent.Text = $"Current: group {ig} CPU {cpu}";
+            }
+            catch { IdealCurrent.Text = $"Current: group 0 CPU {_idealCpu}."; }
         }
         catch (Exception ex) { EditorStatus($"Ideal processor: {Short(ex)}", true); }
-    }
-
-    private async void MemCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_loadingEditor || _selected == null) return;
-        var level = ComboLevel(MemCombo);
-        if (level == null) return;
-        try
-        {
-            await Tuner.SetMemoryPriorityAsync((uint)_selected.Tid, (uint)level.Value);
-            EditorStatus(null, false);
-        }
-        catch (Exception ex) { EditorStatus($"Memory priority: {Short(ex)}", true); }
     }
 
     private async void SuspendButton_Click(object sender, RoutedEventArgs e)

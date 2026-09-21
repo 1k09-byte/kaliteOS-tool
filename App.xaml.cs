@@ -87,6 +87,10 @@ namespace kaliteConfig
             // Arm Gaming mode for gaming-mode rules whose process is already
             // running (app started mid-game) and watch for exits.
             ProfileWatcher.StartGamingModeWatcher();
+#if CONSUMER
+            if (UpdateCheckService.TryLaunchInstalledCopyAndExitIfStaleSession())
+                return;
+#endif
             _ = CheckForUpdateOnStartupAsync();
         }
 
@@ -108,6 +112,10 @@ namespace kaliteConfig
                 var vm = new ViewModels.UpdateViewModel();
                 await vm.CheckForUpdateCommand.ExecuteAsync(null);
                 if (!vm.IsAvailable || MainWindow is null) return;
+                // A failed install is explained once (the Settings banner keeps
+                // carrying it) — re-opening a modal for the same version on
+                // every launch is the loop users complained about.
+                if (vm.SuppressStartupOffer) return;
 
                 var xamlRoot = MainWindow.Content?.XamlRoot;
                 if (xamlRoot is null) return;
@@ -116,7 +124,7 @@ namespace kaliteConfig
                 {
                     Title = $"kaliteConfig {vm.LatestVersion} is available",
                     Content = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 12 },
-                    PrimaryButtonText = "Update now",
+                    PrimaryButtonText = vm.PrimaryUpdateActionText,
                     CloseButtonText = "Later",
                     DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary,
                     XamlRoot = xamlRoot,
@@ -165,6 +173,9 @@ namespace kaliteConfig
                 // Keep the dialog open while the update downloads/installs.
                 // On completion the updater calls Application.Current.Exit(),
                 // which tears the process down and closes this dialog.
+                // The view model routes internally: hand off to an already
+                // installed newer copy, re-run a failed attempt's setup
+                // visibly, or download + silent-install the new release.
                 dialog.PrimaryButtonClick += (s, args) =>
                 {
                     args.Cancel = true; // don't close on click
@@ -172,6 +183,10 @@ namespace kaliteConfig
                 };
 
                 await dialog.ShowAsync();
+
+                // Shown → don't explain this same failure again next launch.
+                if (vm.LastAttemptFailed)
+                    UpdateCheckService.MarkPendingUpdateReported();
             }
             catch { /* update prompting must never break startup */ }
 #else

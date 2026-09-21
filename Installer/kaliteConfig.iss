@@ -44,6 +44,13 @@ DisableProgramGroupPage=yes
 ; We kill the process ourselves in PrepareToInstall instead.
 CloseApplications=no
 RestartApplications=no
+; Always leave a log. A silent upgrade that fails is invisible otherwise:
+; /SUPPRESSMSGBOXES defaults to Abort for every message it cannot show, so
+; Setup rolls back and exits without telling anyone. The in-app updater also
+; passes an explicit /LOG="…" path, but the app cannot pass one when the user
+; runs Setup by hand (or when Setup is started from the updater's visible
+; fallback), and this directive covers those runs too.
+SetupLogging=yes
 UninstallDisplayName={#MyAppName}
 SetupIconFile=..\\Assets\\kaliteConfig.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
@@ -93,4 +100,8 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
     KillRunningAppInstances;
+  if CurStep = ssPostInstall then
+  begin
+    RegWriteStringValue(HKLM, 'SOFTWARE\KaliteOS', 'InstallPath', ExpandConstant('{app}'));
+  end;
 end;

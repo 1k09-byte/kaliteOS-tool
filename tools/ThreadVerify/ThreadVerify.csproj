@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThreadVerify: runtime probe for the thread tuner's per-thread controls.
+    Compiles the REAL ThreadTuningService + CpuSetService (no fakes), spawns a
+    sacrificial child process, and checks that the ideal-processor control
+    reports what the kernel really did: the rejection it used to swallow
+    ("Apply ideal processor" said "set" while nothing changed) now fails loudly.
+
+    Main app build never sees this: kaliteConfig.csproj removes tools/**.
+      dotnet run with project tools/ThreadVerify   (admin recommended)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Services\ThreadTuningService.cs" Link="Services\ThreadTuningService.cs" />
+    <Compile Include="..\..\Services\CpuSetService.cs" Link="Services\CpuSetService.cs" />
+    <Compile Include="..\..\Services\ReservedCpuSetsService.cs" Link="Services\ReservedCpuSetsService.cs" />
+    <Compile Include="..\..\Models\CoreTopology.cs" Link="Models\CoreTopology.cs" />
+    <Compile Include="..\..\Native\NativeSnapshotService.cs" Link="Native\NativeSnapshotService.cs" />
+    <Compile Include="..\..\Native\SafeHandles.cs" Link="Native\SafeHandles.cs" />
+    <Compile Include="..\..\Native\Kernel32.cs" Link="Native\Kernel32.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Affinity.cs" Link="Native\NativeMethods.Affinity.cs" />
+    <Compile Include="..\..\Native\NativeMethods.CfgMgr32.cs" Link="Native\NativeMethods.CfgMgr32.cs" />
+    <Compile Include="..\..\Native\NativeMethods.CpuSets.cs" Link="Native\NativeMethods.CpuSets.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Handles.cs" Link="Native\NativeMethods.Handles.cs" />
+    <Compile Include="..\..\Native\NativeMethods.JobObjects.cs" Link="Native\NativeMethods.JobObjects.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Ntdll.cs" Link="Native\NativeMethods.Ntdll.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Power.cs" Link="Native\NativeMethods.Power.cs" />
+    <Compile Include="..\..\Native\NativeMethods.Priority.cs" Link="Native\NativeMethods.Priority.cs" />
+  </ItemGroup>
+
+</Project>

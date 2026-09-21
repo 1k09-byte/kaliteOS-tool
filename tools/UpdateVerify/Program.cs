@@ -102,9 +102,94 @@ namespace UpdateVerify
             Check(UpdateCheckService.BuildSilentInstallerArguments(@"C:\Program Files\kaliteConfig")
                     .Contains("/DIR=\"C:\\Program Files\\kaliteConfig\"", StringComparison.Ordinal),
                 "silent args pin registered install directory");
-            Check(UpdateCheckService.BuildSilentInstallerArguments(null)
-                    .Contains("/CLOSEAPPLICATIONS=0", StringComparison.Ordinal),
-                "silent args disable CloseApplications");
+            // /NOCLOSEAPPLICATIONS is the real switch. The old
+            // /CLOSEAPPLICATIONS=0 was not: unknown parameters are ignored, so
+            // Setup kept its RestartManager behaviour, could not close the
+            // tray app, and (Abort by default under /SUPPRESSMSGBOXES) silently
+            // rolled the whole upgrade back.
+            var noClose = UpdateCheckService.BuildSilentInstallerArguments(null, null);
+            Check(noClose.Contains("/NOCLOSEAPPLICATIONS", StringComparison.Ordinal),
+                "silent args use the real /NOCLOSEAPPLICATIONS switch");
+            Check(!noClose.Contains("CLOSEAPPLICATIONS=0", StringComparison.Ordinal),
+                "bogus /CLOSEAPPLICATIONS=0 is gone");
+            var logged = UpdateCheckService.BuildSilentInstallerArguments(
+                null, @"C:\Users\me\AppData\Local\Temp\kaliteConfig-setup-0.3.0.11.log");
+            Check(logged.Contains("/LOG=\"C:\\Users\\me\\AppData\\Local\\Temp\\kaliteConfig-setup-0.3.0.11.log\"",
+                    StringComparison.Ordinal),
+                "silent args always leave a Setup log");
+            Check(!UpdateCheckService.BuildSilentInstallerArguments(null, null)
+                    .Contains("/LOG", StringComparison.Ordinal),
+                "no /LOG flag when no log path is supplied");
+
+            // ---- pending-attempt classification ----
+            // A setup exe was handed to Windows; whether the upgrade landed is
+            // decided ONLY by the versions on disk.
+            var pendingFailed = new UpdateCheckService.PendingUpdate(
+                "0.3.0.10", @"C:\t\kaliteConfig-Setup-0.3.0.10.exe", @"C:\t\setup.log", false);
+            Check(UpdateCheckService.ClassifyPendingAttempt(pendingFailed, "0.3.0.9", "0.3.0.9")
+                    == UpdateCheckService.UpdateAttemptState.Failed,
+                "attempt that changed nothing is Failed");
+            Check(UpdateCheckService.ClassifyPendingAttempt(pendingFailed, "0.3.0.10", "0.3.0.10")
+                    == UpdateCheckService.UpdateAttemptState.Applied,
+                "attempt that landed in this session is Applied");
+            Check(UpdateCheckService.ClassifyPendingAttempt(pendingFailed, "0.3.0.9", "0.3.0.10")
+                    == UpdateCheckService.UpdateAttemptState.AppliedElsewhere,
+                "install took on disk but this session is stale -> AppliedElsewhere");
+            Check(UpdateCheckService.ClassifyPendingAttempt(pendingFailed, "0.3.0.11", "0.3.0.11")
+                    == UpdateCheckService.UpdateAttemptState.Applied,
+                "running newer than the attempt counts as Applied");
+            Check(UpdateCheckService.ClassifyPendingAttempt(null, "0.3.0.9", "0.3.0.9")
+                    == UpdateCheckService.UpdateAttemptState.None,
+                "no pending attempt -> None");
+            Check(UpdateCheckService.ClassifyPendingAttempt(pendingFailed, null, null)
+                    == UpdateCheckService.UpdateAttemptState.Failed,
+                "unreadable versions fail to Failed, never to silence");
+
+            // ---- installer log summariser (real log text from a failed run) ----
+            string[] abortLog =
+            {
+                "2026-09-16 18:38:44.806   Log opened. (Time zone: UTC-07:00)",
+                "2026-09-16 18:38:44.853   Found 292 files to register with RestartManager.",
+                "2026-09-16 18:38:44.970   RestartManager found an application using one of our files: kaliteConfig",
+                "2026-09-16 18:39:15.205   Some applications could not be shut down.",
+                "2026-09-16 18:39:15.205   Defaulting to Abort for suppressed message box (Abort/Retry/Ignore):",
+                "                          Setup was unable to automatically close all applications. It is recommended that you close all applications using files that need to be updated by Setup before continuing.",
+                "2026-09-16 18:39:15.205   User canceled the installation process.",
+                "2026-09-16 18:39:15.205   Rolling back changes.",
+                "2026-09-16 18:39:15.208   Log closed.",
+            };
+            var summary = UpdateCheckService.SummarizeInstallerLog(abortLog);
+            Check(summary is not null && summary.Contains("unable to automatically close all applications", StringComparison.Ordinal),
+                "suppressed-abort log yields Setup's own reason");
+            Check(summary is not null && !summary.Contains("2026-09-16", StringComparison.Ordinal),
+                "summarised reason has the log timestamp stripped");
+            Check(UpdateCheckService.SummarizeInstallerLog(new[]
+                    {
+                        "2026-09-16 18:39:15.205   Log opened.",
+                        "2026-09-16 18:39:15.205   Rolling back changes.",
+                    })
+                    == "Setup rolled the installation back.",
+                "rollback-only log yields the rollback summary");
+            Check(UpdateCheckService.SummarizeInstallerLog(new[] { "2026-09-16 18:39:15.205   Log closed." }) is null,
+                "clean log yields no failure reason");
+            Check(UpdateCheckService.SummarizeInstallerLog(Array.Empty<string>()) is null,
+                "empty log yields no failure reason");
+            Check(UpdateCheckService.SummarizeInstallerLog(null) is null,
+                "missing log yields no failure reason");
+
+            Check(UpdateCheckService.ShouldHandOffToInstalledCopy(
+                    "0.3.0.10", "0.3.0.9", "0.3.0.10",
+                    @"C:\dev\kaliteConfig.exe", @"C:\Program Files\kaliteConfig\kaliteConfig.exe"),
+                "hand off when install dir has pending version");
+            Check(!UpdateCheckService.ShouldHandOffToInstalledCopy(
+                    "0.3.0.10", "0.3.0.9", "0.3.0.9",
+                    @"C:\dev\kaliteConfig.exe", @"C:\Program Files\kaliteConfig\kaliteConfig.exe"),
+                "no hand off when registered install is still old");
+            Check(!UpdateCheckService.ShouldHandOffToInstalledCopy(
+                    "0.3.0.10", "0.3.0.9", "0.3.0.10",
+                    @"C:\Program Files\kaliteConfig\kaliteConfig.exe",
+                    @"C:\Program Files\kaliteConfig\kaliteConfig.exe"),
+                "no hand off when already running installed copy");
 
             Console.WriteLine();
             Console.WriteLine(_failures == 0 ? "=== ALL CHECKS PASSED ===" : $"=== {_failures} CHECK(S) FAILED ===");

@@ -204,8 +204,10 @@ public sealed class ThreadTuningService
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
             CpuSetService.ThrowIfInvalid(thread, tid);
-            uint number = NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var current);
-            if (number == uint.MaxValue)
+            // BOOL return, processor number in the out parameter. The old
+            // "== (DWORD)-1" check could never be true, so a failed read used to
+            // report a bogus ideal processor instead of failing.
+            if (!NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var current))
             {
                 throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Reading thread ideal processor failed."));
             }
@@ -213,24 +215,115 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Sets the thread's ideal processor and verifies it by reading the value
+    /// back, exactly like <see cref="SetAffinityAsync"/>.
+    ///
+    /// The result MUST be checked: Windows refuses a processor the thread's
+    /// affinity mask excludes (ERROR_GEN_FAILURE 31) or one that does not exist
+    /// (ERROR_INVALID_PARAMETER 87). This used to ignore the BOOL entirely, so
+    /// the dialog said "Ideal processor set to CPU 10" while nothing changed —
+    /// the reported "not applying properly" bug.
+    /// </summary>
     public async Task SetIdealProcessorAsync(uint tid, ushort group, byte index)
     {
         await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
-                NativeMethods.ThreadAccess.SetInformation, false, tid);
+                NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation,
+                false, tid);
             CpuSetService.ThrowIfInvalid(thread, tid);
-            
-            var proc = new ProcessorNumber 
-            { 
-                Group = group, 
-                Number = index, 
-                Reserved = 0 
+
+            var requested = new ProcessorNumber
+            {
+                Group = group,
+                Number = index,
+                Reserved = 0,
             };
 
-            NativeMethods.Affinity.SetThreadIdealProcessorEx(thread, ref proc, IntPtr.Zero);
-            // Ignore failures silently (avoid UI toaster popups for protected threads)
+            if (!NativeMethods.Affinity.SetThreadIdealProcessorEx(thread, ref requested, IntPtr.Zero))
+            {
+                throw new InvalidOperationException(
+                    DescribeIdealProcessorFailure(tid, group, index, Marshal.GetLastWin32Error(), thread));
+            }
+
+            if (NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var applied)
+                && (applied.Group != group || applied.Number != index))
+            {
+                throw new InvalidOperationException(
+                    $"Windows kept group {applied.Group} CPU {applied.Number} as the ideal processor instead of CPU {index}.");
+            }
         }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Turns a rejected ideal-processor write into something the user can act
+    /// on. Error 31 has two very different causes and they need different
+    /// advice:
+    ///   - the CPU is outside the thread's affinity mask (the affinity grid or a
+    ///     saved rule pinned the thread to a few cores);
+    ///   - the CPU is inside the mask but belongs to the CPU-set partition's
+    ///     reservation, which only threads inside that partition may use — on a
+    ///     16-thread box with 0xFC00 reserved, every CPU from 10 up is refused.
+    /// </summary>
+    private static string DescribeIdealProcessorFailure(
+        uint tid, ushort group, byte index, int error, SafeThreadHandle thread)
+    {
+        ulong affinity = TryReadAffinityMask(thread);
+        bool insideMask = index < 64 && affinity != 0 && (affinity & (1UL << index)) != 0;
+        string usable = DescribeUsableCpus(affinity, TryReadReservedCpuMask());
+        string usableHint = usable.Length == 0 ? "" : $" Usable CPUs: {usable}.";
+
+        return error switch
+        {
+            31 when affinity != 0 && !insideMask =>
+                $"CPU {index} is outside this thread's affinity mask, so Windows refused it." + usableHint +
+                " Tick one of those CPUs, or widen affinity first.",
+
+            31 => $"CPU {index} is not available to this thread (Windows error 31)." + usableHint +
+                  " CPUs held by the system's reserved CPU-set partition can only be used by " +
+                  "threads inside that partition.",
+
+            87 => $"CPU {index} does not exist in processor group {group}." + usableHint,
+
+            5 => $"Windows denied access to thread {tid} (protected thread or insufficient rights).",
+
+            _ => $"Setting the ideal processor to CPU {index} failed (error {error})." + usableHint,
+        };
+    }
+
+    private static ulong TryReadAffinityMask(SafeThreadHandle thread)
+    {
+        try
+        {
+            return NativeMethods.Affinity.GetThreadGroupAffinity(thread, out var affinity) ? affinity.Mask : 0;
+        }
+        catch { return 0; }
+    }
+
+    private static ulong? TryReadReservedCpuMask()
+    {
+        try { return new ReservedCpuSetsService().GetReservedCpuMask(); }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// "0/1/2/3" or "0-9 (0x03FF)" for the CPUs a thread can really take: its
+    /// affinity mask minus the CPU-set partition's reservation. Reserved CPUs
+    /// are only usable by threads inside that partition, which is exactly why
+    /// Windows refuses them for everything else.
+    /// </summary>
+    private static string DescribeUsableCpus(ulong affinity, ulong? reserved)
+    {
+        if (affinity == 0) return string.Empty;
+        ulong usable = reserved is { } reservedMask ? affinity & ~reservedMask : affinity;
+        var cpus = new List<int>();
+        for (int i = 0; i < 64; i++)
+        {
+            if ((usable & (1UL << i)) != 0) cpus.Add(i);
+        }
+        if (cpus.Count == 0) return string.Empty;
+        return cpus.Count <= 8 ? string.Join('/', cpus) : $"0-{cpus[^1]} (0x{usable:X})";
     }
 
     public async Task SuspendThreadAsync(uint tid)

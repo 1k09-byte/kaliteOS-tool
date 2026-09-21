@@ -190,111 +190,14 @@ namespace kaliteConfig.Pages
                 var svc = App.Current.ForegroundSuspend;
                 PageSuspendStatusText.Text =
                     $"[{svc.SuspendedCount} suspended] {svc.StatusText}";
-                SuspendAutoCheck.IsChecked = svc.Auto;
-                PageResumeAllButton.IsEnabled = svc.SuspendedCount > 0;
             }
             catch { }
         }
 
-        private async void Page_ResumeAll(object sender, RoutedEventArgs e)
-        {
-            PageResumeAllButton.IsEnabled = false;
-            try
-            {
-                await App.Current.ForegroundSuspend.ResumeAllAsync();
-            }
-            finally
-            {
-                RefreshSuspendUi();
-            }
-        }
-
-        private void SuspendAuto_Toggled(object sender, RoutedEventArgs e)
-        {
-            try { App.Current.ForegroundSuspend.Auto = SuspendAutoCheck.IsChecked == true; } catch { }
-            RefreshSuspendUi();
-        }
-
-        private async void Page_ManageGames(object sender, RoutedEventArgs e)
-        {
-            var svc = App.Current.ForegroundSuspend;
-
-            var listTitle = new TextBlock
-            {
-                Text = "Game list", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-                Margin = new Thickness(0, 0, 0, 4),
-            };
-            var gamesBox = new ListView
-            {
-                Height = 160, SelectionMode = ListViewSelectionMode.Single,
-                ItemsSource = svc.GameExes,
-            };
-            var removeBtn = new Button { Content = "Remove selected", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
-            removeBtn.Click += (s, _) =>
-            {
-                if (gamesBox.SelectedItem is string game)
-                {
-                    svc.RemoveGame(game);
-                    gamesBox.ItemsSource = svc.GameExes;
-                }
-            };
-
-            var allTitle = new TextBlock
-            {
-                Text = "All running processes", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-                Margin = new Thickness(0, 12, 0, 4),
-            };
-            var procBox = new ListView
-            {
-                Height = 220, SelectionMode = ListViewSelectionMode.Single,
-            };
-            procBox.ItemsSource = System.Diagnostics.Process.GetProcesses()
-                .Select(p => { try { return p.ProcessName + ".exe"; } catch { return null; } })
-                .Where(n => n != null).Distinct().OrderBy(n => n).ToList();
-            var addBtn = new Button
-            {
-                Content = "Add selected", Style = (Style)Application.Current.Resources["AccentButtonStyle"],
-                HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0),
-            };
-            addBtn.Click += (s, _) =>
-            {
-                if (procBox.SelectedItem is string name)
-                {
-                    svc.AddGame(name);
-                    gamesBox.ItemsSource = svc.GameExes;
-                }
-            };
-
-            var panel = new StackPanel { Spacing = 0 };
-            panel.Children.Add(listTitle);
-            panel.Children.Add(gamesBox);
-            panel.Children.Add(removeBtn);
-            panel.Children.Add(allTitle);
-            panel.Children.Add(procBox);
-            panel.Children.Add(addBtn);
-
-            var dialog = new ContentDialog
-            {
-                Title = "Suspend-mode games",
-                Content = new ScrollViewer { Content = panel, MaxHeight = 560, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
-                PrimaryButtonText = "Done",
-                XamlRoot = this.XamlRoot,
-            };
-            await dialog.ShowAsync();
-            RefreshSuspendUi();
-        }
-
-        private void Page_AddGame(object sender, RoutedEventArgs e)
-        {
-            if (SelectedProcess is { } row)
-            {
-                App.Current.ForegroundSuspend.AddGame(row.Name);
-                RefreshSuspendUi();
-            }
-            else PageSuspendStatusText.Text = "Select a process row to add its game.";
-        }
-
-        // (game removal now lives in the manage-games dialog)
+        // Suspend-mode controls (Resume all / Auto / Add game / Games…) were
+        // removed from the page: the service still tracks state (its status and
+        // suspended count stay visible above, and MainWindow resumes everything
+        // it suspended on exit), but the page no longer drives it.
 
         private async void ExecuteTuning(object sender, Func<TunerProcessRow, Task> action)
         {

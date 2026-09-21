@@ -68,11 +68,18 @@ internal static partial class NativeMethods
             ref GroupAffinity groupAffinity,
             IntPtr previousGroupAffinity);
 
-        // NOTE: unlike SetThreadIdealProcessorEx (3 params, BOOL), the Get variant
-        // takes only (thread, out ideal) and returns the processor number directly
-        // ((DWORD)-1 on failure). Do not add a third parameter.
+        // GetThreadIdealProcessorEx takes only (thread, out ideal) — no third
+        // parameter — and returns BOOL, filling the PPROCESSOR_NUMBER out
+        // parameter. Measured against kernel32 itself (tools/ideal-processor-probe.ps1:
+        // returns 1/TRUE while the processor number comes back in the struct).
+        //
+        // This used to be declared as returning the processor number, with
+        // "(DWORD)-1 on failure": that comparison never matched, so the failure
+        // branch was dead code and a failed read reported an uninitialised
+        // processor as if it were the thread's live ideal processor.
         [LibraryImport("kernel32.dll", SetLastError = true)]
-        internal static partial uint GetThreadIdealProcessorEx(
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool GetThreadIdealProcessorEx(
             SafeThreadHandle thread,
             out ProcessorNumber currentIdeal);
 

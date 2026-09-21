@@ -97,19 +97,10 @@
                     <Grid x:Name="AffinityCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                     <Button Content="Apply affinity" Click="AffinityApply_Click" HorizontalAlignment="Left" />
 
-                    <TextBlock Text="Ideal processor — pick one preferred CPU" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock Text="Ideal processor — pick one preferred CPU the thread's affinity mask allows" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock x:Name="IdealCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     <Grid x:Name="IdealCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                     <Button Content="Apply ideal processor" Click="IdealApply_Click" HorizontalAlignment="Left" />
-
-                    <TextBlock Text="Memory priority" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <ComboBox x:Name="MemCombo" Width="220" HorizontalAlignment="Left" PlaceholderText="Select memory priority…" SelectionChanged="MemCombo_SelectionChanged">
-                        <ComboBoxItem Content="Very low (1)" Tag="1" />
-                        <ComboBoxItem Content="Low (2)" Tag="2" />
-                        <ComboBoxItem Content="Medium (3)" Tag="3" />
-                        <ComboBoxItem Content="Below normal (4)" Tag="4" />
-                        <ComboBoxItem Content="Normal (5)" Tag="5" />
-                    </ComboBox>
 
                     <Button Content="Make permanent (save as rule)" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Click="PermanentButton_Click"
                             ToolTipService.ToolTip="Saves the current editor state as an auto-apply rule for matching threads" />
@@ -122,7 +113,7 @@
 
                     <TextBlock x:Name="EditorStatusBox" FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}" Visibility="Collapsed" />
-                    <TextBlock Text="Every control above maps to a documented Win32 thread API (SetThreadPriority, SetThreadPriorityBoost, SetThreadInformation, SetThreadGroupAffinity, SetThreadIdealProcessorEx, SuspendThread, TerminateThread)." FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="Every control above maps to a documented Win32 thread API (SetThreadPriority, SetThreadPriorityBoost, SetThreadGroupAffinity, SetThreadIdealProcessorEx, SuspendThread, TerminateThread)." FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" TextWrapping="Wrap" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

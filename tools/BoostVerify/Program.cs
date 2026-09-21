@@ -176,8 +176,9 @@ internal static class Program
             int prio = NativeMethods.Priority.GetThreadPriority(h);
             if (prio == NativeMethods.ThreadPriorityLevel.Highest) highest++;
 
-            uint gotIdeal = NativeMethods.Affinity.GetThreadIdealProcessorEx(h, out var ideal);
-            if (gotIdeal != 0xFFFFFFFF && gameSets is { Length: > 0 })
+            // GetThreadIdealProcessorEx returns BOOL and fills the out struct
+            // (measured against kernel32: tools/ideal-processor-probe.ps1).
+            if (NativeMethods.Affinity.GetThreadIdealProcessorEx(h, out var ideal) && gameSets is { Length: > 0 })
             {
                 // IdealNumber is a logical index; verify it maps to a game set's core.
                 // Sets are IDs not indices, so we just check it's not 0 (reserved core).

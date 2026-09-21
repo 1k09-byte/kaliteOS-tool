@@ -77,10 +77,24 @@ if (-not $iscc) {
 }
 
 Write-Host "--> ISCC $issFile ..."
-& $iscc "/DPublishDir=$publishDir" "/DMyAppVersion=$version" $issFile
+# Compile into a staging folder and only move the finished setup into dist\
+# afterwards: ISCC writes its output progressively, so an interrupted or
+# failed compile used to leave a TRUNCATED kaliteConfig-Setup-<ver>.exe in
+# dist\ under the real shipping name (it looked like a valid release and would
+# fail on the user's machine). Nothing partial can reach dist\ now.
+$stagingDir = Join-Path $env:TEMP "kaliteConfig-setup-staging"
+if (Test-Path -LiteralPath $stagingDir) { Remove-Item -LiteralPath $stagingDir -Recurse -Force }
+New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+& $iscc "/DPublishDir=$publishDir" "/DMyAppVersion=$version" "/O$stagingDir" $issFile
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed." }
 
+$staged = Join-Path $stagingDir "kaliteConfig-Setup-$version.exe"
+if (-not (Test-Path -LiteralPath $staged)) { throw "Installer missing after ISCC: $staged" }
+
 # Sanity-check the produced installer actually embeds PresentMon.
-$setup = Join-Path $projectDir "dist\kaliteConfig-Setup-$version.exe"
+$distDir = Join-Path $projectDir "dist"
+if (-not (Test-Path -LiteralPath $distDir)) { New-Item -ItemType Directory -Path $distDir -Force | Out-Null }
+$setup = Join-Path $distDir "kaliteConfig-Setup-$version.exe"
+Move-Item -LiteralPath $staged -Destination $setup -Force
 if (-not (Test-Path -LiteralPath $setup)) { throw "Installer missing after ISCC: $setup" }
 Write-Host "OK: $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"
