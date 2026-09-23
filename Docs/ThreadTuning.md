@@ -65,9 +65,11 @@ Why 10-15 are refused here:
 HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel : ReservedCpusets = 0xFC00
 ```
 
-CPUs 10-15 are held by the CPU-set partition reservation (the gaming partition this
-app sets up). Only threads *inside* that partition may use them. The screenshot that
-reported this bug had **CPU 10** ticked — a CPU Windows refuses for an ordinary thread.
+CPUs 10-15 are held by the kernel's CPU-set reservation (`ReservedCpuSets`, written
+by the Reserved CPU Sets page). Only threads *inside* that partition may use them.
+Game Mode no longer builds a partition of its own on top of it — see
+`Docs/GameMode.md`. The screenshot that reported this bug had **CPU 10** ticked — a
+CPU Windows refuses for an ordinary thread.
 
 ### What changed
 
@@ -119,13 +121,14 @@ one CPU that applies end to end, and confirms a reserved CPU (10, mask `0xFC00`)
 refused *with the reservation explained*.
 
 Also green: `dotnet build kaliteConfig.csproj -c Debug -p:Platform=x64` (0 errors) and
-107 unit tests. `tools/BoostVerify` passes 11 of 12 checks; the one failure
-(`background priority class == BelowNormal: read Normal`) is in
-`BackgroundThrottleService`'s process-priority path, which this change never touches.
-Its boost checks do cover the mechanism the remaining boost controls use:
-"background boost disabled: thread reports disabled=True" is the process-level flag
-plus a thread reading back `GetThreadPriorityBoost`, i.e. exactly the pair
-`BoostPreferenceService`'s suppression path writes.
+116 unit tests. `tools/BoostVerify` was rewritten for the Stage 0 Game Mode contract
+and now passes 15 of 15 (`Docs/GameMode.md`); its old single failure
+(`background priority class == BelowNormal: read Normal`) turned out to be the
+assertion being wrong — a Light throttle deliberately leaves the priority class
+alone — which is also the mechanism the boost controls rely on:
+"background boost disabled" semantics are the process-level boost flag plus a thread
+reading back `GetThreadPriorityBoost`, i.e. exactly the pair `BoostPreferenceService`'s
+suppression path writes.
 
 Not exercised headlessly: the toolbar and dialog paths, which live in WinUI
 page/dialog code. "Make permanent" reports how many live threads it touched in its

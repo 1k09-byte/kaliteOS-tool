@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using System;
 using System.Linq;
@@ -20,6 +22,37 @@ namespace kaliteConfig.Pages
                     await ViewModel.LoadDriversCommand.ExecuteAsync(null);
                 }
             };
+        }
+
+        private static Brush ThemeBrush(string key)
+        {
+            try
+            {
+                var resources = Microsoft.UI.Xaml.Application.Current.Resources;
+                if (resources.TryGetValue(key, out object value)
+                    && value is Brush brush)
+                    return brush;
+            }
+            catch { }
+            return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        }
+
+        private void UninstallerCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Border card)
+            {
+                card.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
+                card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
+            }
+        }
+
+        private void UninstallerCard_PointerExited(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Border card)
+            {
+                card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush");
+                card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush");
+            }
         }
 
         private void BackToHub_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

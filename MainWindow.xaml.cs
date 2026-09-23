@@ -37,6 +37,7 @@ namespace kaliteConfig
         public void PrepareForUpdateShutdown()
         {
             _allowExit = true;
+            try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
             try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
             try { _tray?.Dispose(); } catch { }
             _tray = null;
@@ -93,6 +94,7 @@ namespace kaliteConfig
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     _allowExit = true;
+                    try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
                     try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
                     try { _tray?.Dispose(); } catch { }
                     _tray = null;
@@ -366,6 +368,9 @@ namespace kaliteConfig
                 {
                     case "AppsPage":
                          ContentFrame.Navigate(typeof(InstallerPage));
+                         break;
+                    case "GamesPage":
+                         ContentFrame.Navigate(typeof(GamesPage));
                          break;
                     case "DriversPage":
                          ContentFrame.Navigate(typeof(GpuDriversPage));

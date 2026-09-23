@@ -18,6 +18,60 @@
     </Page.Transitions>
 
     <Page.Resources>
+        <Style x:Key="ProcessCard" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+        <Style x:Key="ProcessSectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        </Style>
+        <!-- Do not let WinUI paint its full-width square hover/selected layer.
+             The row's own rounded Border is the only visual surface. -->
+        <Style x:Key="ProcessCardItemStyle" TargetType="ListViewItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
+            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="SelectionBorder" BorderThickness="2" CornerRadius="12" BorderBrush="Transparent">
+                            <ContentPresenter Background="Transparent"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              Padding="{TemplateBinding Padding}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver" />
+                                    <VisualState x:Name="Selected">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="BorderBrush">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <!-- Rule Row Template -->
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
             <Border Margin="12,4" Padding="14,10" CornerRadius="8"
@@ -118,26 +172,46 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid x:Name="RootGrid" UseLayoutRounding="True">
+    <Grid x:Name="RootGrid" UseLayoutRounding="True" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- Action Bar -->
             <RowDefinition Height="Auto" /> <!-- SelectorBar -->
             <RowDefinition Height="*" />    <!-- Main Content Panel -->
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
-            <TextBlock Text="Process Control" Style="{StaticResource TitleTextBlockStyle}" />
-        </StackPanel>
+        <Border Grid.Row="0" Margin="28,20,28,0" Style="{StaticResource ProcessCard}" Padding="20,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE713;" FontSize="20" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        <TextBlock Text="Process Control" FontSize="24" FontWeight="SemiBold" />
+                    </StackPanel>
+                    <TextBlock Text="Make durable process changes, tune priority boost, and automate rules without losing control." FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+                <Border Grid.Column="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="14,8" VerticalAlignment="Center">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="PERMANENT SETTINGS" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Re-applied automatically" FontSize="13" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
 
-        <Grid Grid.Row="1" Margin="36,12,36,16">
+        <Grid Grid.Row="1" Margin="28,14,28,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
-                <SelectorBarItem x:Name="TabProcesses" Text="Processes" />
-                <SelectorBarItem x:Name="TabRules" Text="Rules" />
-            </SelectorBar>
+            <Border Grid.Column="0" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="5" Margin="0,0,16,0">
+                <SelectorBar CornerRadius="9" x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" VerticalAlignment="Center" Background="Transparent">
+                    <SelectorBarItem CornerRadius="8" x:Name="TabProcesses" Text="Processes" Background="Transparent" />
+                    <SelectorBarItem CornerRadius="8" x:Name="TabRules" Text="Rules" Background="Transparent" />
+                </SelectorBar>
+            </Border>
         </Grid>
 
         <!-- Processes Panel -->
@@ -149,43 +223,66 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             
-            <Grid Grid.Row="0" Margin="36,0,36,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                
-                <StackPanel x:Name="GamingModePanel" Grid.Column="0" Orientation="Vertical" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <StackPanel x:Name="SuspendRow" Orientation="Horizontal" Spacing="8">
-                    <StackPanel x:Name="OptimizerStatusPanel" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Background="{ThemeResource LayerFillColorAltBrush}" Padding="8,4" CornerRadius="4" Visibility="{Binding Optimizer.IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="🎯 Session Optimizer Active:" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource SystemFillColorSuccessBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding Optimizer.ActiveGameName}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
-                        <TextBlock Text="|" Foreground="{ThemeResource TextFillColorDisabledBrush}" FontSize="12" Margin="4,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Managed:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding Optimizer.ProcessesManaged}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
-                        <TextBlock Text="Throttled:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding Optimizer.ProcessesThrottled}" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <TextBlock x:Name="PageGamingStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="PageSuspendStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="300" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="150" Padding="12,4"
-                                ToolTipService.ToolTip="Raises the selected process to Above Normal and lowers other background processes to Below Normal. Select a process row first."/>
-                        <Button x:Name="PageRestoreButton" Content="Restore" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,4"
-                                 ToolTipService.ToolTip="Revert every priority kaliteConfig changed (Gaming mode lowering and CPU-bound auto-raise)."/>
-                        <TextBox x:Name="ProcessesSearchBox" MaxWidth="240" MinWidth="180" PlaceholderText="Search processes" VerticalAlignment="Center"
-                                 Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                    </StackPanel>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
-                    <TextBlock Text="Start with Windows" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ToggleSwitch x:Name="StartupToggle" VerticalAlignment="Center" Toggled="StartupToggle_Toggled" />
-                </StackPanel>
-            </Grid>
+            <Border Grid.Row="0" Margin="28,0,28,16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="16">
+                <Grid RowSpacing="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel x:Name="GamingModePanel" Grid.Column="0" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="Gaming session" FontSize="15" FontWeight="SemiBold" />
+                                    <TextBlock Text="Boost a selected game while keeping every change reversible." FontSize="11"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Border x:Name="OptimizerStatusPanel" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="10,6"
+                                        VerticalAlignment="Center" Visibility="{Binding Optimizer.IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                        <TextBlock Text="{Binding Optimizer.ActiveGameName}" FontSize="11" FontWeight="SemiBold" />
+                                        <TextBlock Text="·" Foreground="{ThemeResource TextFillColorDisabledBrush}" />
+                                        <TextBlock Text="{Binding Optimizer.ProcessesManaged}" FontSize="11" />
+                                        <TextBlock Text="managed" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel x:Name="SuspendRow" Orientation="Horizontal" Spacing="8">
+                                <TextBlock x:Name="PageGamingStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="520" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="PageSuspendStatusText" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="360" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTipService.ToolTip="Keep the app running so rules apply automatically">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Start with Windows" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                <TextBlock Text="Apply rules automatically" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
+                            </StackPanel>
+                            <ToggleSwitch CornerRadius="8" x:Name="StartupToggle" VerticalAlignment="Center" Toggled="StartupToggle_Toggled" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button CornerRadius="8" x:Name="PageGamingModeButton" Grid.Column="0" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="160" Padding="14,8"
+                                ToolTipService.ToolTip="Raises the selected process to Above Normal and applies the safe Gaming Mode profile." />
+                        <Button CornerRadius="8" x:Name="PageRestoreButton" Grid.Column="1" Content="Restore changes" Click="Page_RestorePriorities" IsEnabled="False" Padding="14,8"
+                                ToolTipService.ToolTip="Revert every priority kaliteConfig changed." />
+                        <TextBox CornerRadius="8" x:Name="ProcessesSearchBox" Grid.Column="2" MaxWidth="280" MinWidth="220" HorizontalAlignment="Right" PlaceholderText="Search processes or PID" VerticalAlignment="Center"
+                                 Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+                </Grid>
+            </Border>
 
             <!-- Column Headers -->
-            <Border x:Name="ProcessesHeader" Grid.Row="1" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,1,0,1" Padding="12,12">
+            <Border x:Name="ProcessesHeader" Grid.Row="1" Margin="28,0,28,0" CornerRadius="12" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="16,12">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2.5*" />
@@ -213,10 +310,13 @@
                 </Grid>
             </Border>
 
-            <ListView x:Name="ProcessesGrid" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False">
+            <ListView CornerRadius="12" x:Name="ProcessesGrid" Grid.Row="2" Margin="28,6,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
+                      Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="4"
+                      ItemContainerStyle="{StaticResource ProcessCardItemStyle}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:TunerProcessRow">
-                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Margin="2,0" Padding="0"
+                                PointerEntered="ProcessCard_PointerEntered" PointerExited="ProcessCard_PointerExited">
                         <Grid Padding="4,8" ColumnSpacing="12" Background="Transparent" ToolTipService.ToolTip="{x:Bind Name}" DoubleTapped="Row_DoubleTapped">
                             <Grid.ContextFlyout>
                                 <MenuFlyout Opening="ProcessMenu_Opening">
@@ -284,7 +384,7 @@
 
                             <!-- Per-process Priority boost. Unticking applies to the
                                  live process immediately and is remembered for good. -->
-                            <CheckBox Grid.Column="9"
+                            <CheckBox CornerRadius="8" Grid.Column="9"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
                                       MinWidth="0"
@@ -300,7 +400,7 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <Grid x:Name="ProcessesFooter" Grid.Row="3" Margin="24,12,24,12">
+            <Grid x:Name="ProcessesFooter" Grid.Row="3" Margin="28,12,28,12">
                 <StackPanel Orientation="Horizontal" Spacing="24">
                     <TextBlock Text="Updated 2 s" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -317,7 +417,8 @@
             </Grid.RowDefinitions>
 
             <!-- Rules toolbar -->
-            <Grid Grid.Row="0" Margin="12,4,12,10" ColumnSpacing="8">
+            <Border Grid.Row="0" Margin="28,4,28,10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="12,8">
+            <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -325,19 +426,19 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <TextBox Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
+                <TextBox CornerRadius="8" Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
                          Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button Content="Presets…" VerticalAlignment="Center" Click="RulePresets_Click" />
-                    <Button Content="Edit" VerticalAlignment="Center" Click="RuleEdit_Click" />
-                    <Button Content="Enable / disable" VerticalAlignment="Center" Click="RuleToggle_Click" />
-                    <Button Content="Delete" VerticalAlignment="Center" Click="RuleDelete_Click" />
+                    <Button CornerRadius="8" Content="Edit" VerticalAlignment="Center" Click="RuleEdit_Click" />
+                    <Button CornerRadius="8" Content="Enable / disable" VerticalAlignment="Center" Click="RuleToggle_Click" />
+                    <Button CornerRadius="8" Content="Delete" VerticalAlignment="Center" Click="RuleDelete_Click" />
                 </StackPanel>
-                <Button Grid.Column="3" Content="Add rule" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center" Click="RuleAdd_Click" />
+                <Button CornerRadius="8" Grid.Column="3" Content="Add rule" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center" Click="RuleAdd_Click" />
             </Grid>
+            </Border>
 
             <!-- Rules column headers -->
-            <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
+            <Border Grid.Row="1" Margin="28,0,28,0" Padding="14,8" CornerRadius="8"
                     Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
@@ -356,7 +457,7 @@
             </Border>
 
             <!-- Rules list -->
-            <ListView x:Name="RulesList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedProcessProfiles, Mode=OneWay}"
+            <ListView CornerRadius="12" x:Name="RulesList" Grid.Row="2" Margin="16,0,16,0" ItemsSource="{x:Bind ViewModel.DisplayedProcessProfiles, Mode=OneWay}"
                       SelectedItem="{x:Bind ViewModel.SelectedProfile, Mode=TwoWay}"
                       ItemTemplate="{StaticResource RuleRowTemplate}"
                       SelectionMode="Single" ShowsScrollingPlaceholders="False" />

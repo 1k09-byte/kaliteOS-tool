@@ -63,6 +63,9 @@ namespace kaliteConfig
             // a full stack trace so a crash can be diagnosed after the fact.
             this.UnhandledException += (_, e) =>
             {
+                // Keep a Games-specific copy as well as the legacy crash log so
+                // XAML binding/scan failures can be diagnosed without a debugger.
+                Services.GameLibraryService.Log("Unhandled application exception", e.Exception);
                 try
                 {
                     System.IO.File.AppendAllText("crash.log",
@@ -227,6 +230,12 @@ namespace kaliteConfig
                 _window.Closed += (_, _) =>
                 {
                     try { GpuOverclock.GpuOverclockModule.Instance.Dispose(); }
+                    catch { }
+
+                    // Gaming mode holds do not survive the process: restore every
+                    // demoted process's priority/eco before the app goes away, or
+                    // they stay lowered with nothing left to put them back.
+                    try { GamingMode.ReleaseAll(); }
                     catch { }
                 };
 

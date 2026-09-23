@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    BoostVerify: runtime probe that verifies the Gaming-mode boost path
-    actually applies (CPU Sets partition, thread priority/ideal-processor,
-    background demotion). Spawns a sacrificial child process, runs the REAL
-    ForegroundBoosterService + BackgroundThrottleService against it, then
-    reads back what the OS reports. Main app build never sees it.
-    Run from tools/BoostVerify with dotnet run (admin recommended).
+    BoostVerify: runtime probe for the Game Mode lever contract. Spawns
+    sacrificial child processes, runs the REAL ForegroundBoosterService +
+    BackgroundThrottleService against them, then reads back what the OS
+    reports. Post Stage-0 (Docs/GameMode.md) most checks assert that Game Mode
+    does NOT pin, partition, clamp affinity or rewrite threads. Main app build
+    never sees it. Run from tools/BoostVerify with dotnet run (admin
+    recommended).
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -24,7 +25,6 @@
     <Compile Include="..\..\Services\ReservedCpuSetsService.cs" Link="Services\ReservedCpuSetsService.cs" />
     <Compile Include="..\..\ProcessOptimizer\Services\ForegroundBoosterService.cs" Link="Services\ForegroundBoosterService.cs" />
     <Compile Include="..\..\ProcessOptimizer\Services\BackgroundThrottleService.cs" Link="Services\BackgroundThrottleService.cs" />
-    <Compile Include="..\..\ProcessOptimizer\Services\CpuSetPartitionService.cs" Link="Services\CpuSetPartitionService.cs" />
     <Compile Include="..\..\Services\TopologyService.cs" Link="Services\TopologyService.cs" />
     <Compile Include="..\..\Models\CoreTopology.cs" Link="Models\CoreTopology.cs" />
     <Compile Include="..\..\ProcessOptimizer\Models\OptimizationModels.cs" Link="Models\OptimizationModels.cs" />    <Compile Include="..\..\Native\SafeHandles.cs" Link="Native\SafeHandles.cs" />
@@ -36,6 +36,10 @@
     <Compile Include="..\..\Native\NativeMethods.Ntdll.cs" Link="Native\NativeMethods.Ntdll.cs" />
     <Compile Include="..\..\Native\NativeMethods.Power.cs" Link="Native\NativeMethods.Power.cs" />
     <Compile Include="..\..\Native\NativeMethods.Priority.cs" Link="Native\NativeMethods.Priority.cs" />
-    <Compile Include="..\..\Native\Kernel32.cs" Link="Native\Kernel32.cs" />  </ItemGroup>
+    <Compile Include="..\..\Native\Kernel32.cs" Link="Native\Kernel32.cs" />
+    <!-- The session monitor's one-syscall CPU reader, so this probe can measure
+         it against the per-process handle shape that was removed. -->
+    <Compile Include="..\..\Native\SystemProcessCpuReader.cs" Link="Native\SystemProcessCpuReader.cs" />
+  </ItemGroup>
 
 </Project>

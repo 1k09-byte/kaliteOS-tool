@@ -15,6 +15,13 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string DownloadUrl { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Winget package id (e.g. "Git.Git"). When set, install runs
+        /// `winget install --exact --silent` instead of the URL download flow.
+        /// </summary>
+        [ObservableProperty]
+        public partial string WingetId { get; set; } = string.Empty;
+
         [ObservableProperty]
         public partial string SilentInstallArgs { get; set; } = string.Empty;
 

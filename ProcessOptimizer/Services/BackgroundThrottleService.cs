@@ -6,6 +6,21 @@ using kaliteConfig.ProcessOptimizer.Models;
 
 namespace kaliteConfig.ProcessOptimizer.Services;
 
+/// <summary>
+/// Demotes a background process's MEMORY and DISK worthiness so the game wins
+/// those resources, without ever fighting it for the CPU:
+///
+/// - the priority CLASS is left alone at every level. Demoting it makes a
+///   process compete rather than yield, and the game's 1% lows suffer when a
+///   shared dependency (audio, a launcher helper, a driver worker) is starved;
+/// - nothing is pinned to a core subset. An earlier build partitioned CPU Sets
+///   here, and on a homogeneous CPU that collapsed every background process
+///   onto core 0 — the DPC/interrupt core — while the game lost half of the
+///   machine. Both are gone; see Docs/GameMode.md.
+///
+/// What is left scales with <see cref="AggressivenessLevel"/>: EcoQoS, memory
+/// priority, I/O priority, and (at Moderate) per-thread memory priority.
+/// </summary>
 public static class BackgroundThrottleService
 {
     /// <summary>
@@ -13,83 +28,13 @@ public static class BackgroundThrottleService
     /// Keyed "pid_startTicks_tid" so PID reuse can never restore into the wrong process.
     /// </summary>
     private static readonly ConcurrentDictionary<string, uint> _threadMemoryOriginals = new();
-    private static readonly Microsoft.Win32.SafeHandles.SafeFileHandle _globalJob;
-
-    static BackgroundThrottleService()
-    {
-        _globalJob = NativeMethods.JobObjects.CreateJobObjectW(IntPtr.Zero, null);
-        if (!_globalJob.IsInvalid)
-        {
-            var limit = new NativeMethods.JobObjects.JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
-            {
-                ControlFlags = NativeMethods.JobObjects.JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | 
-                               NativeMethods.JobObjects.JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
-                CpuRate = 2000 // 20% CPU time (2% starves shared dependencies -> 1% low collapse)
-            };
-            NativeMethods.JobObjects.SetInformationJobObject(
-                _globalJob,
-                NativeMethods.JobObjects.JobObjectCpuRateControlInformation,
-                ref limit,
-                8);
-        }
-    }
 
     /// <summary>
-    /// Temporarily lifts the global Job Object limits when the session ends.
-    /// Processes cannot be removed from Jobs, but the limits can be turned off!
-    /// </summary>
-    public static void LiftGlobalJobLimits()
-    {
-        if (_globalJob == null || _globalJob.IsInvalid) return;
-
-        var limit = new NativeMethods.JobObjects.JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
-        {
-            ControlFlags = 0, // Disabled
-            CpuRate = 0
-        };
-        NativeMethods.JobObjects.SetInformationJobObject(
-            _globalJob,
-            NativeMethods.JobObjects.JobObjectCpuRateControlInformation,
-            ref limit,
-            8);
-    }
-
-    /// <summary>
-    /// Affinity-mask fallback when CPU Sets are unavailable: all logical
-    /// processors EXCEPT the game partition's (game sets ∪ kernel-reserved).
-    /// 0 = no partition active / nothing sensible to compute.
-    /// </summary>
-    private static ulong ComputeBackgroundComplementMask()
-    {
-        try
-        {
-            var game = CpuSetPartitionService.LastGameSets;
-            if (game is not { Length: > 0 }) return 0;
-            var reserved = CpuSetPartitionService.LastReservedSets ?? Array.Empty<uint>();
-
-            var topo = CpuSetPartitionService.QueryTopologyPublic();
-            ulong all = 0, exclude = 0;
-            foreach (var e in topo)
-            {
-                if (e.LogicalIndex >= 64) continue;
-                all |= 1UL << e.LogicalIndex;
-                if (game.Contains(e.Id) || reserved.Contains(e.Id))
-                    exclude |= 1UL << e.LogicalIndex;
-            }
-            ulong bg = all & ~exclude;
-            return bg;
-        }
-        catch { return 0; }
-    }
-
-    /// <summary>
-    /// Applies constraints on a target PID corresponding to the given aggressiveness level.
+    /// Applies the constraints on a target PID corresponding to the given aggressiveness level.
     /// Returns a string describing the action taken.
     /// </summary>
     public static string ApplyThrottle(int pid, AggressivenessLevel level)
     {
-        string actionTaken = "";
-
         try
         {
             using var process = NativeMethods.Handles.OpenProcess(
@@ -98,27 +43,7 @@ public static class BackgroundThrottleService
             if (process.IsInvalid)
                 return "Access Denied";
 
-            // Keep throttled background off the game CCX when a partition is active.
-            var bgSets = CpuSetPartitionService.GetBackgroundSets();
-            if (bgSets != null && bgSets.Length > 0)
-            {
-                try { NativeMethods.CpuSets.SetProcessDefaultCpuSets(process, bgSets, (uint)bgSets.Length); } catch { }
-            }
-            else
-            {
-                // Sets unsupported (or no session): fall back to affinity —
-                // mask the throttled process off the game's cores.
-                ulong bgMask = ComputeBackgroundComplementMask();
-                if (bgMask != 0)
-                {
-                    try
-                    {
-                        using var proc = Process.GetProcessById(pid);
-                        proc.ProcessorAffinity = (IntPtr)(long)bgMask;
-                    }
-                    catch { }
-                }
-            }
+            string actionTaken = "no change";
 
             // Light: EcoQoS + memory/IO priority demotion — priority class
             // stays Normal. The demotions make background pages trim first
@@ -160,7 +85,12 @@ public static class BackgroundThrottleService
                 actionTaken = "EcoQoS + Mem2 + IOLow (priority unchanged)";
             }
 
-            // Moderate: Add memory-priority demotion (eco hint already applied above)
+            // Moderate: Add memory-priority demotion (eco hint already applied above).
+            // This is the ceiling — there is no Aggressive tier. The level it used
+            // to reach (a per-process Job Object CPU rate cap, and an affinity
+            // fallback that on a non-hybrid CPU pinned the process to the LAST
+            // logical processor, which can be a kernel-reserved one it may then
+            // never run on) did more harm than the contention it removed.
             if (level >= AggressivenessLevel.Moderate)
             {
                 var memPriority = new ProcessMemoryPriorityInfo { MemoryPriority = 1 };
@@ -178,39 +108,6 @@ public static class BackgroundThrottleService
                 DemoteThreadsMemory(pid);
 
                 actionTaken = "EcoQoS + Low I/O + Mem1 (priority unchanged)";
-            }
-
-            // Aggressive: Add Process Priority Boost Disable and Job Object Limits
-            if (level >= AggressivenessLevel.Aggressive)
-            {                    // Fix 1: Disable priority boost on a per-suppressed-process basis to prevent OS scheduling micro-spikes
-                    NativeMethods.Priority.SetProcessPriorityBoost(process, true);
-
-                // Fix 4: Job Object CPU Rate Limiting with Fallback
-                bool jobAssigned = false;
-                if (_globalJob != null && !_globalJob.IsInvalid)
-                {
-                    jobAssigned = NativeMethods.JobObjects.AssignProcessToJobObject(_globalJob, process);
-                    if (jobAssigned)
-                    {
-                        actionTaken = "Priority: Idle + Eco + Job CPU Cap 20%";
-                    }
-                }
-
-                if (!jobAssigned)
-                {
-                    // Fix 4 Fallback: pin to efficiency / last cores, never Core 0
-                    // (Core 0 hosts DWM/interrupts; colliding with the game causes hitches).
-                    actionTaken = "Priority: Idle + Eco + Low I/O (Job Failed)";
-
-                    try
-                    {
-                        int mask = GetEfficiencyFallbackAffinity();
-                        using var proc = Process.GetProcessById(pid);
-                        proc.ProcessorAffinity = (IntPtr)mask;
-                        actionTaken = "Priority: Idle + Eco + Affinity: E-cores (Job Failed)";
-                    }
-                    catch { }
-                }
             }
 
             return actionTaken;
@@ -333,21 +230,5 @@ public static class BackgroundThrottleService
             }
         }
         catch { }
-    }
-
-    private static int GetEfficiencyFallbackAffinity()
-    {
-        try
-        {
-            var topo = kaliteConfig.Services.TopologyService.Get();
-            int mask = 0;
-            foreach (var m in topo.EfficiencyCoreMasks)
-                mask |= (int)m;
-            if (mask != 0) return mask;
-            // Last resort: highest core only (avoids Core 0 / DWM).
-            int count = System.Environment.ProcessorCount;
-            return count > 1 ? (1 << (count - 1)) : 1;
-        }
-        catch { return 2; }
     }
 }

@@ -53,6 +53,7 @@ public sealed class TrayIconService : IDisposable
     private const uint TPM_NONOTIFY = 0x0080;
 
     // Menu item IDs
+    private const uint ID_VERSION = 99;
     private const uint ID_OPEN = 100;
     private const uint ID_TAKE_SNIP = 101;
     private const uint ID_SNIP_REGION = 102;
@@ -62,6 +63,20 @@ public sealed class TrayIconService : IDisposable
     private const uint ID_SNIP_DELAYED = 106;
     private const uint ID_SEPARATOR1 = 107;
     private const uint ID_EXIT = 108;
+
+    /// <summary>App version for the tray menu header (assembly version, no dots trimmed).</summary>
+    public static string AppVersion
+    {
+        get
+        {
+            try
+            {
+                var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                return v is null ? "unknown" : $"{v.Major}.{v.Minor}.{v.Build}";
+            }
+            catch { return "unknown"; }
+        }
+    }
 
     /// <summary>Per-process registered tray callback message, resolved once.</summary>
     private static uint? _callbackMsg;
@@ -330,6 +345,11 @@ public sealed class TrayIconService : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
+            // Version header: grayed, non-clickable. Tells the user which build
+            // this tray icon belongs to.
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, ID_VERSION, "kaliteConfig v" + AppVersion);
+            AppendMenuW(menu, MF_SEPARATOR, ID_SEPARATOR1, null);
+
             // Open kaliteConfig
             AppendMenuW(menu, MF_STRING, ID_OPEN, "Open kaliteConfig");
 

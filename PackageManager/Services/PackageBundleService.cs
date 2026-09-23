@@ -59,6 +59,26 @@ public sealed class PackageBundleService
         catch { }
     }
 
+    /// <summary>Writes the built-in Essentials bundle once. A marker file records
+    /// that seeding happened, so deleting Essentials is permanent.</summary>
+    public bool SeedEssentials()
+    {
+        try
+        {
+            string marker = Path.Combine(_dir, EssentialsBundle.MarkerFile);
+            if (File.Exists(marker)) return false;
+            if (LoadAll().Any(b => b.Name.Equals(EssentialsBundle.BundleName, StringComparison.OrdinalIgnoreCase)))
+            {
+                File.WriteAllText(marker, DateTime.UtcNow.ToString("o"));
+                return false;
+            }
+            Save(new PackageBundle { Name = EssentialsBundle.BundleName, Items = EssentialsBundle.Items });
+            File.WriteAllText(marker, DateTime.UtcNow.ToString("o"));
+            return true;
+        }
+        catch { return false; }
+    }
+
     public string ExportToJson(PackageBundle bundle) =>
         JsonSerializer.Serialize(bundle, JsonOpts);
 

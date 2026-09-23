@@ -743,6 +743,11 @@ public sealed partial class SnipViewModel : ObservableObject
     public string StatusBarRegistrationText =>
         ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyStatusText ?? "Hotkey: not registered";
 
+    /// <summary>Live capture hotkey for the Region tile caption. The mode tiles share the
+    /// single global hotkey, so only Region advertises one - the rest show no shortcut.</summary>
+    public string CaptureHotkeyCaption =>
+        ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyLabel ?? "Not registered";
+
     public Microsoft.UI.Xaml.Media.Brush StatusBarHotkeyBrush =>
         ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyRegistered == true
             ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.LightGreen)
@@ -764,6 +769,7 @@ public sealed partial class SnipViewModel : ObservableObject
     public void RefreshHotkeyStatus()
     {
         OnPropertyChanged(nameof(StatusBarRegistrationText));
+        OnPropertyChanged(nameof(CaptureHotkeyCaption));
         OnPropertyChanged(nameof(StatusBarHotkeyBrush));
         OnPropertyChanged(nameof(StatusBarHotkeyTooltip));
     }

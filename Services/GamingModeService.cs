@@ -78,33 +78,64 @@ public sealed class CpuBoundDetector
     }
 }
 
+/// <summary>How one <see cref="GamingModeService.AcquireAsync"/> call ended.</summary>
+public enum GamingModeOutcome
+{
+    /// <summary>This call ran the sweep and started a session.</summary>
+    Activated,
+    /// <summary>A session for the same target was already live; this call only added a hold.</summary>
+    JoinedSameTarget,
+    /// <summary>A session for another, still-running target was already live; nothing changed.</summary>
+    JoinedOtherTarget,
+    /// <summary>The session belonged to a process that has exited; it now belongs to this target.</summary>
+    HandedOff,
+    /// <summary>Activation failed and the hold was rolled back.</summary>
+    Failed,
+}
+
 /// <summary>
 /// One-shot result summary for the Gaming mode toggle, formatted for the status line.
 /// </summary>
 public sealed class GamingModeResult
 {
+    public GamingModeOutcome Outcome { get; init; } = GamingModeOutcome.Activated;
     public bool Success { get; init; }
     public int LoweredCount { get; init; }
     public int EcoCount { get; init; }
     public int FailedCount { get; init; }
+    /// <summary>How many callers hold the session after this call finished.</summary>
+    public int HeldCount { get; init; }
     public string TargetBefore { get; init; } = "?";
     public string TargetAfter { get; init; } = "?";
     public string Error { get; init; } = string.Empty;
 
-    public string Summary =>
-        Success
-            ? $"target {TargetBefore} → {TargetAfter} · {LoweredCount} background lowered · {EcoCount} in Efficiency mode" +
-              (FailedCount > 0 ? $" · {FailedCount} skipped (no access)" : "")
-            : $"failed: {Error}";
+    public string Summary => Outcome switch
+    {
+        GamingModeOutcome.JoinedSameTarget =>
+            $"already on for target {TargetAfter} · {HeldCount} holder(s) · {LoweredCount} process(es) still demoted",
+        GamingModeOutcome.JoinedOtherTarget =>
+            $"a session is already running for {TargetAfter} — {TargetBefore} was left as it is",
+        GamingModeOutcome.Failed => $"failed: {Error}",
+        _ => $"target {TargetBefore} → {TargetAfter} · {LoweredCount} background lowered · {EcoCount} in Efficiency mode" +
+             (FailedCount > 0 ? $" · {FailedCount} skipped (no access)" : ""),
+    };
 }
 
 /// <summary>
-/// Gaming mode for the Threads window: raises the target process to Above
-/// Normal (Efficiency mode forced OFF for the target), lowers every other
-/// mutable background process to Below Normal AND turns their Efficiency
-/// mode (EcoQoS) ON, and restores all original priority classes and eco
-/// states when switched off (also on window close, so the system is never
-/// left boosted).
+/// Gaming mode for the Threads window. It does exactly two things:
+///
+/// - the TARGET process goes to AboveNormal with Efficiency mode forced OFF,
+///   memory priority 5 and I/O priority Normal;
+/// - background processes that were really burning CPU in the activation
+///   sample get their priority class lowered to BelowNormal and their
+///   Efficiency mode (EcoQoS) turned ON.
+///
+/// It does NOT partition CPU Sets, clamp affinity, cap Job Objects, rewrite
+/// threads or touch the priority-boost flag. Every one of those used to be
+/// here and each cost more performance than it returned — see Docs/GameMode.md.
+///
+/// All original priority classes and eco states are restored when switched
+/// off (also on window close, so the system is never left boosted).
 ///
 /// CPU-bound detection is a pure counter state machine fed by the window's
 /// 2 s tick: three consecutive samples at >= 50% of one core count as
@@ -119,16 +150,70 @@ public sealed class GamingModeResult
 public sealed class GamingModeService
 {
     /// <summary>
+    /// A background process must be using at least this share of TOTAL machine
+    /// CPU (summed over every logical processor) in the activation sample
+    /// before it is demoted. At 2% of a 16-thread CPU that is roughly a third
+    /// of one core held continuously — real competition for the game, not a
+    /// housekeeping blip.
+    /// </summary>
+    private const double ContentionPercentOfTotalCpu = 2.0;
+
+    /// <summary>
     /// PID → (original priority class, original Efficiency mode). Eco is null
     /// when the original state could not be read — such processes get their
     /// priority lowered but are never eco-toggled. Restoration targets these.
     /// </summary>
     private readonly Dictionary<string, (uint Priority, bool? Eco)> _restoreMap = new();
 
-    public bool IsActive { get; private set; }
+    /// <summary>
+    /// Who is holding the session open. The session lives while at least one
+    /// caller holds it, and the LAST release is what restores everything — see
+    /// <see cref="GameModeHoldRegistry"/> for why the first-release-wins shape
+    /// this replaced stranded state.
+    /// </summary>
+    private readonly GameModeHoldRegistry _holds = new();
+
+    /// <summary>True while the session is live (at least one holder).</summary>
+    public bool IsActive => _holds.IsHeld;
+
+    /// <summary>Current holds, oldest first — what the UI renders to explain why it is on.</summary>
+    public IReadOnlyList<GameModeHold> Holds => _holds.Holds;
+
+    /// <summary>The process the live session belongs to, or null when idle.</summary>
+    public int? SessionTargetPid => _holds.SessionTargetPid;
+
+    public bool IsHeldBy(GameModeOwner owner) => _holds.IsHeldBy(owner);
+
+    public bool IsHeldByOther(GameModeOwner owner) => _holds.IsHeldByOther(owner);
 
     /// <summary>Number of processes we have changed and can restore.</summary>
     public int RestorableCount => _restoreMap.Count;
+
+    /// <summary>Best-effort process name for a hold's label; never throws.</summary>
+    private static string NameOf(int pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return p.ProcessName;
+        }
+        catch { return $"PID {pid}"; }
+    }
+
+    /// <summary>
+    /// Whether the session's current target is still running. Handed to the
+    /// hold registry, which uses it to decide between joining a live session
+    /// and handing the session over to a new target.
+    /// </summary>
+    private static bool IsProcessAlive(int pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return !p.HasExited;
+        }
+        catch { return false; }
+    }
 
     /// <summary>
     /// Safely computes a unique composite key for a process to prevent PID reuse collisions.
@@ -181,18 +266,93 @@ public sealed class GamingModeService
     }
 
     /// <summary>
-    /// Activates Gaming mode: records every mutable process's priority class,
-    /// raises the target to High (never Realtime), lowers other background processes to
-    /// Below Normal. Critical system processes, this app, and processes we
-    /// can't read (no restore possible) are never touched.
+    /// Takes this owner's hold on Gaming mode, activating the session if nobody
+    /// else has it yet. Safe to call repeatedly and from anywhere.
+    ///
+    /// The session is refcounted, so a second caller JOINS rather than re-running
+    /// the sweep: a second sweep would snapshot already-demoted processes as
+    /// their "original" state and lose the real baseline, and its own release
+    /// would then restore that demoted state. Only the LAST release restores.
     /// </summary>
-    public async Task<GamingModeResult> ActivateAsync(
+    public async Task<GamingModeResult> AcquireAsync(
+        GameModeOwner owner,
         int targetPid,
-        IReadOnlyCollection<int>? protectedPids = null)
+        IReadOnlyCollection<int>? protectedPids = null,
+        string? reason = null)
     {
         protectedPids ??= new[] { targetPid };
 
-        return await Task.Run(() =>
+        GameModeAcquireResult decision = _holds.Acquire(
+            owner, targetPid, NameOf(targetPid), reason ?? owner.ToString(), IsProcessAlive);
+
+        switch (decision.Action)
+        {
+            case GameModeAcquireAction.Joined:
+                return new GamingModeResult
+                {
+                    Outcome = GamingModeOutcome.JoinedSameTarget,
+                    Success = true,
+                    LoweredCount = _restoreMap.Count,
+                    HeldCount = _holds.Count,
+                    TargetBefore = decision.Hold.TargetName,
+                    TargetAfter = decision.Hold.TargetName,
+                };
+
+            case GameModeAcquireAction.JoinedOtherTarget:
+                return new GamingModeResult
+                {
+                    Outcome = GamingModeOutcome.JoinedOtherTarget,
+                    Success = true,
+                    HeldCount = _holds.Count,
+                    TargetBefore = decision.Hold.TargetName,
+                    TargetAfter = NameOf(decision.RunningTargetPid ?? targetPid),
+                };
+
+            case GameModeAcquireAction.HandOff:
+                // The session belonged to a process that has exited. Restore it
+                // before pointing the session at the new target.
+                TearDown();
+                break;
+        }
+
+        GamingModeResult result = await ActivateCoreAsync(targetPid, protectedPids).ConfigureAwait(false);
+
+        if (!result.Success)
+        {
+            // Never leave a hold behind claiming a session that never started, and
+            // never leave a half-applied sweep with no holder left to restore it.
+            if (_holds.Release(owner).SessionEnded)
+            {
+                TearDown();
+            }
+            return result;
+        }
+
+        return new GamingModeResult
+        {
+            Outcome = decision.Action == GameModeAcquireAction.HandOff
+                ? GamingModeOutcome.HandedOff
+                : GamingModeOutcome.Activated,
+            Success = true,
+            LoweredCount = result.LoweredCount,
+            EcoCount = result.EcoCount,
+            FailedCount = result.FailedCount,
+            HeldCount = _holds.Count,
+            TargetBefore = result.TargetBefore,
+            TargetAfter = result.TargetAfter,
+        };
+    }
+
+    /// <summary>
+    /// The one-shot sweep for a fresh session: records every mutable process's
+    /// priority class and eco state, raises the target, and demotes the
+    /// background processes that were really using CPU. Critical system
+    /// processes, this app, exempt processes, and anything we cannot read back
+    /// (and therefore could not restore) are never touched.
+    /// </summary>
+    private Task<GamingModeResult> ActivateCoreAsync(int targetPid, IReadOnlyCollection<int> protectedPids)
+    {
+        return Task.Run(() =>
         {
             try
             {
@@ -208,18 +368,23 @@ public sealed class GamingModeService
                 // leaving the game stuck at High after Game Mode turns off.
                 bool ok = true;
 
-                // One-shot background demotion: every ordinary Normal process
-                // drops to BelowNormal, gets its priority boost DISABLED
-                // (no scheduler micro-spikes from OS quantum extensions),
-                // and gets EcoQoS ON. Strict by design — High/Realtime/
+                // One-shot background demotion: an ordinary Normal-priority
+                // process that was really using CPU drops to BelowNormal and
+                // gets EcoQoS ON. Strict by design — High/Realtime/
                 // AboveNormal (deliberate), Idle/BelowNormal (already low),
                 // critical, protected, self, and the game are never touched.
+                // The priority-boost flag is left alone; it is the user's
+                // permanent per-process preference, not ours to override.
                 // Everything recorded here (true originals, pid+startTime
                 // keyed) is restored by Deactivate.
                 int lowered = 0;
                 int ecoCount = 0;
                 int failed = 0;
                 int selfPid = Process.GetCurrentProcess().Id;
+
+                // ONE machine-wide CPU sample for the whole loop (a 250 ms pass
+                // pair), instead of a 200 ms sleep per candidate process.
+                Dictionary<int, double> cpu = SampleCpuPercentOfTotal();
 
                 GamingExemptionService.EnsureStarterFile();
                 foreach (Process proc in Process.GetProcesses())
@@ -235,50 +400,60 @@ public sealed class GamingModeService
                     {
                         continue; // died mid-enumeration
                     }
+                    finally
+                    {
+                        // Released immediately: everything below works off
+                        // `name`/`pid`, and Process.GetProcesses() hands back one
+                        // disposable object per running process.
+                        try { proc.Dispose(); } catch { }
+                    }
 
                     if (pid <= 4 || pid == targetPid || pid == selfPid) continue;
                     if (protectedPids.Contains(pid)) continue;
-                    if (ProcessTuningService.IsCritical(name, pid)) continue;
-                    if (ProcessTuningService.IsSelf(pid)) continue;
-                    if (GamingExemptionService.IsExempt(proc.ProcessName)) continue;
+                     if (ProcessTuningService.IsCritical(name, pid)) continue;
+                     if (ProcessTuningService.IsSelf(pid)) continue;
 
-                    // Contention gate: idle processes don't compete with the
-                    // game (High priority preempts them instantly). Touching
-                    // hundreds of idle processes is pure downside — each write
-                    // churns the scheduler and the restore map for zero gain.
-                    // Only demote processes actually burning CPU right now.
-                    double cpuPct = GetCpuPercentSnapshot(pid);
-                    if (cpuPct < 0.5) continue; // <0.5% CPU = not a contender
+                     // Contention gate: idle processes don't compete with the
+                    // game (its AboveNormal class preempts them instantly), so
+                    // touching them is pure downside — each write churns the
+                    // scheduler and the restore map for zero gain. Only demote
+                    // processes that were actually burning CPU in the sample.
+                    if (!cpu.TryGetValue(pid, out double cpuPct)) continue;
+                    if (cpuPct < ContentionPercentOfTotalCpu) continue;
 
-                    uint original = ReadPriorityClass(pid);
-                    if (original == 0)
+                    // One handle for the read AND the writes; the old path
+                    // opened each candidate process four separate times.
+                    using var handle = NativeMethods.Handles.OpenProcess(
+                        NativeMethods.ProcessAccess.SetInformation | NativeMethods.ProcessAccess.QueryLimitedInformation,
+                        false, (uint)pid);
+                    if (handle.IsInvalid)
                     {
                         failed++; // no access — can't restore later, don't touch
                         continue;
                     }
+
+                    uint original = NativeMethods.Priority.GetPriorityClass(handle);
+                    if (original == 0)
+                    {
+                        failed++; // unreadable — same reasoning, don't touch
+                        continue;
+                    }
                     if (original != NativeMethods.Priority.Normal) continue; // respect all non-Normal
 
-                    bool? ecoOriginal = ReadEcoState(pid);
+                    bool? ecoOriginal = ReadEcoState(handle);
 
+                    // Write-once: the first value seen is the true original, and
+                    // nothing may overwrite it with an already-demoted state.
                     string key = GetProcessKey(pid);
                     if (!_restoreMap.ContainsKey(key))
                     {
                         _restoreMap[key] = (original, ecoOriginal);
                     }
 
-                    bool demoted = TrySetPriorityClass(pid, NativeMethods.Priority.BelowNormal);
-                    if (demoted)
+                    if (NativeMethods.Priority.SetPriorityClass(handle, NativeMethods.Priority.BelowNormal))
                     {
                         lowered++;
-                        // Disable the OS priority boost so background threads
-                        // can't grab quantum extensions mid-frame.
-                        using (var handle = NativeMethods.Handles.OpenProcess(
-                            NativeMethods.ProcessAccess.SetInformation, false, (uint)pid))
-                        {
-                            if (!handle.IsInvalid)
-                                NativeMethods.Priority.SetProcessPriorityBoost(handle, true); // true = disable boost
-                        }
-                        if (ecoOriginal == false && TrySetEco(pid, true))
+                        if (ecoOriginal == false && TrySetEco(handle, true))
                         {
                             ecoCount++;
                         }
@@ -293,12 +468,9 @@ public sealed class GamingModeService
                 try { gameName = Process.GetProcessById(targetPid).ProcessName; } catch { }
 
                 var exclusions = new List<string>();
-                if (protectedPids != null)
+                foreach (int p in protectedPids)
                 {
-                    foreach (int p in protectedPids)
-                    {
-                        try { exclusions.Add(Process.GetProcessById(p).ProcessName); } catch { }
-                    }
+                    try { exclusions.Add(Process.GetProcessById(p).ProcessName); } catch { }
                 }
 
                 OptimizationSessionOrchestrator.Instance.StartSession(targetPid, gameName, new OptimizationProfile { Aggressiveness = AggressivenessLevel.Light, Exclusions = exclusions });
@@ -316,7 +488,6 @@ public sealed class GamingModeService
                 // Read AFTER StartSession: the booster has applied High by now,
                 // so this reports the real before → after transition.
                 string targetAfter = ProcessTuningService.PriorityName(ReadPriorityClass(targetPid));
-                IsActive = true;
 
                 return new GamingModeResult
                 {
@@ -331,18 +502,16 @@ public sealed class GamingModeService
             }
             catch (Exception ex)
             {
-                return new GamingModeResult { Success = false, Error = ex.Message };
+                return new GamingModeResult
+                {
+                    Outcome = GamingModeOutcome.Failed,
+                    Success = false,
+                    Error = ex.Message,
+                };
             }
-        }).ConfigureAwait(false);
+        });
     }
 
-    /// <summary>
-    /// Restores everything Game Mode changed, in two layers: the orchestrator
-    /// session end restores full baselines (game process + threads, throttled
-    /// background incl. boost/mem/IO/affinity/CPU Sets), then the local map
-    /// restores CPU-bound auto-raises (priority-only changes with no baseline).
-    /// Safe to call repeatedly; no-ops when nothing is held.
-    /// </summary>
     /// <summary>
     /// Resets every accessible non-critical process's priority class to Normal.
     /// Intended as a panic "undo everything" — covers processes changed by this
@@ -380,7 +549,47 @@ public sealed class GamingModeService
         return (reset, skipped);
     }
 
-    public void Deactivate()
+    /// <summary>
+    /// Drops this owner's hold. Everything is restored only when that was the
+    /// LAST hold: a rule going quiet must not tear the session down while the
+    /// user's page or the benchmark is still holding it, which is precisely what
+    /// the old unconditional Deactivate did.
+    /// </summary>
+    /// <returns>True when the session ended and state was restored.</returns>
+    public bool Release(GameModeOwner owner)
+    {
+        GameModeReleaseResult result = _holds.Release(owner);
+        if (result.SessionEnded)
+        {
+            TearDown();
+        }
+        return result.SessionEnded;
+    }
+
+    /// <summary>
+    /// Drops every hold and restores immediately, whoever took them. For the
+    /// "Restore" button and for app shutdown, where ending the session is the
+    /// point rather than a side effect.
+    ///
+    /// Restores unconditionally rather than only when a hold existed: CPU-bound
+    /// auto-raise writes to the same restore map without taking a hold, so
+    /// gating this on holds would leave the button enabled (RestorableCount > 0)
+    /// and then do nothing.
+    /// </summary>
+    public void ReleaseAll()
+    {
+        _holds.Clear();
+        TearDown();
+    }
+
+    /// <summary>
+    /// The restore half of a session end, in two layers: the orchestrator
+    /// session end restores full baselines (game process, throttled background
+    /// incl. memory/IO), then the local map restores CPU-bound auto-raises
+    /// (priority + eco changes with no baseline). Safe to call when nothing is
+    /// held; restores nothing it did not change.
+    /// </summary>
+    private void TearDown()
     {
         OptimizationSessionOrchestrator.Instance.EndSession();
 
@@ -399,44 +608,94 @@ public sealed class GamingModeService
                 continue; // Stale PID (process exited and PID reused, or dead)
             }
 
-            TrySetPriorityClass(pid, priority);
-            // Re-enable the OS priority boost (disabled during the session).
-            using (var handle = NativeMethods.Handles.OpenProcess(
-                NativeMethods.ProcessAccess.SetInformation, false, (uint)pid))
-            {
-                if (!handle.IsInvalid)
-                    NativeMethods.Priority.SetProcessPriorityBoost(handle, false); // false = boost enabled
-            }
+            using var handle = NativeMethods.Handles.OpenProcess(
+                NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
+            if (handle.IsInvalid) continue;
+
+            NativeMethods.Priority.SetPriorityClass(handle, priority);
+
+            // The priority-boost flag is deliberately NOT restored here. This
+            // path never changed it — only the priority class and EcoQoS were
+            // demoted — and the old unconditional "re-enable boost" silently
+            // reverted a per-process "boost disabled" preference the user had
+            // set, which the 20 s keeper then turned back off. The two systems
+            // fought forever and the setting looked like it kept resetting.
             if (eco.HasValue)
             {
-                TrySetEco(pid, eco.Value);
+                TrySetEco(handle, eco.Value);
             }
         }
 
         _restoreMap.Clear();
-        IsActive = false;
     }
 
     /// <summary>
-    /// Instantaneous CPU% estimate for one process, sampled over a short
-    /// interval. Cached snapshot pair (two passes ~400 ms apart at activate
-    /// time is fine — activation is not latency-critical).
+    /// CPU usage of every running process, as a percentage of TOTAL machine CPU
+    /// (0-100), from ONE pass pair: read everyone's kernel+user times, wait
+    /// once, read again, diff.
+    ///
+    /// The old shape was a per-PID helper that slept 200 ms inside itself and
+    /// was called once per candidate process — on a machine with a couple of
+    /// hundred processes that was ~40 seconds of serial sleeping inside
+    /// ActivateAsync, with the box churning for the whole first minute of the
+    /// game it was meant to be helping. This costs one 250 ms sleep in total.
     /// </summary>
-    private static double GetCpuPercentSnapshot(int pid)
+    private static Dictionary<int, double> SampleCpuPercentOfTotal(int sampleMs = 250)
     {
-        try
+        var usage = new Dictionary<int, double>();
+        Dictionary<int, long> first = ReadAllCpuTicks();
+        if (first.Count == 0) return usage;
+
+        var sw = Stopwatch.StartNew();
+        Thread.Sleep(sampleMs);
+        Dictionary<int, long> second = ReadAllCpuTicks();
+        sw.Stop();
+
+        double elapsedMs = sw.Elapsed.TotalMilliseconds;
+        if (elapsedMs <= 0) return usage;
+
+        int cpus = Math.Max(1, Environment.ProcessorCount);
+        foreach (var kvp in second)
         {
-            using var p = Process.GetProcessById(pid);
-            TimeSpan t1 = p.TotalProcessorTime;
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            Thread.Sleep(200);
-            using var p2 = Process.GetProcessById(pid);
-            TimeSpan t2 = p2.TotalProcessorTime;
-            sw.Stop();
-            if (sw.ElapsedMilliseconds <= 0) return 0;
-            return (t2 - t1).TotalMilliseconds / sw.ElapsedMilliseconds * 100.0;
+            if (!first.TryGetValue(kvp.Key, out long before)) continue; // born mid-sample
+            long delta = kvp.Value - before;
+            if (delta <= 0) continue;
+            // 10 000 ticks = 1 ms; share of wall time, then of the whole machine.
+            usage[kvp.Key] = delta / 10_000.0 / elapsedMs * 100.0 / cpus;
         }
-        catch { return 0; }
+        return usage;
+    }
+
+    /// <summary>
+    /// Kernel+user CPU time per PID in 100 ns ticks. One handle at a time, each
+    /// opened and released inside the loop, so a sample never holds more than a
+    /// single process open.
+    /// </summary>
+    private static Dictionary<int, long> ReadAllCpuTicks()
+    {
+        var ticks = new Dictionary<int, long>();
+        Process[] procs;
+        try { procs = Process.GetProcesses(); }
+        catch { return ticks; }
+
+        foreach (Process proc in procs)
+        {
+            try
+            {
+                int pid = proc.Id;
+                if (pid <= 4) continue;
+                using var handle = NativeMethods.Handles.OpenProcess(
+                    NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
+                if (handle.IsInvalid) continue;
+                if (NativeMethods.Times.GetProcessTimes(handle, out _, out _, out var kernel, out var user))
+                {
+                    ticks[pid] = kernel.ToTicks() + user.ToTicks();
+                }
+            }
+            catch { }
+            finally { try { proc.Dispose(); } catch { } }
+        }
+        return ticks;
     }
 
     private static uint ReadPriorityClass(int pid)
@@ -483,12 +742,10 @@ public sealed class GamingModeService
     /// GetProcessInformation. Null when unreadable — callers must not
     /// toggle eco for such processes, because restore would be impossible.
     /// </summary>
-    private static bool? ReadEcoState(int pid)
+    private static bool? ReadEcoState(SafeProcessHandle process)
     {
         try
         {
-            using var process = NativeMethods.Handles.OpenProcess(
-                NativeMethods.ProcessAccess.QueryLimitedInformation, false, (uint)pid);
             if (process.IsInvalid)
             {
                 return null;
@@ -511,12 +768,10 @@ public sealed class GamingModeService
     }
 
     /// <summary>Sets Efficiency mode (EcoQoS) for one process. Best effort.</summary>
-    private static bool TrySetEco(int pid, bool enabled)
+    private static bool TrySetEco(SafeProcessHandle process, bool enabled)
     {
         try
         {
-            using var process = NativeMethods.Handles.OpenProcess(
-                NativeMethods.ProcessAccess.SetInformation, false, (uint)pid);
             if (process.IsInvalid)
             {
                 return false;

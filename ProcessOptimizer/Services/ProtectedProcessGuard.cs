@@ -24,6 +24,13 @@ public static class ProtectedProcessGuard
         if (string.IsNullOrWhiteSpace(processName)) return true; // Err on side of caution
 
         string name = processName.ToLowerInvariant();
+
+        // Callers are inconsistent about the extension: some pass
+        // "proc.ProcessName" ("dwm") and some "proc.ProcessName + \".exe\""
+        // ("dwm.exe"). The denylist is spelled WITHOUT it, so normalise here —
+        // otherwise any caller that appends ".exe" silently disables the entire
+        // hard denylist and the processes it exists to protect become fair game.
+        if (name.EndsWith(".exe", StringComparison.Ordinal)) name = name[..^4];
         
         if (_hardDenylist.Contains(name))
             return true;

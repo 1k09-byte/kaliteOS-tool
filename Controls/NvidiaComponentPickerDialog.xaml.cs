@@ -135,6 +135,16 @@ namespace kaliteConfig.Controls
         {
             if (!_installStarted)
             {
+                // Refuse an empty install: with every removable component unticked the
+                // rewritten package would fail inside NVIDIA's installer with a
+                // cryptic error. Stay in the dialog instead.
+                if (!_vms.Any(v => v.IsSelected))
+                {
+                    args.Cancel = true;
+                    StatusText.Visibility = Visibility.Visible;
+                    StatusText.Text = "Select at least one component (the display driver itself cannot be removed).";
+                    return;
+                }
                 // First activation: keep the dialog open and run the install.
                 args.Cancel = true;
                 _installStarted = true;

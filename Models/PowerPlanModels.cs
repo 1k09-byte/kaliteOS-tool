@@ -58,11 +58,27 @@ public sealed partial class PowerSetting : ObservableObject
     public bool IsBooleanType => !IsChoiceType && PossibleChoices.Count == 2
         && PossibleChoices.Any(c => c.ValueIndex == 0) && PossibleChoices.Any(c => c.ValueIndex == 1);
     public bool IsRangeType => !IsChoiceType && !IsBooleanType;
+    /// <summary>Range with named options: show the friendly picker, not the raw number.</summary>
+    public bool HasRangeChoices => IsRangeType && PossibleChoices.Count > 0;
+    /// <summary>Range with no named options: numeric entry plus a friendly caption.</summary>
+    public bool IsBareRange => IsRangeType && PossibleChoices.Count == 0;
 
     partial void OnTypeChanged(uint value)
     {
         OnPropertyChanged(nameof(IsChoiceType));
         OnPropertyChanged(nameof(IsBooleanType));
+        OnPropertyChanged(nameof(HasRangeChoices));
+        OnPropertyChanged(nameof(IsBareRange));
+    }
+
+    partial void OnAcValueIndexChanged(double value)
+    {
+        OnPropertyChanged(nameof(AcValueText));
+    }
+
+    partial void OnDcValueIndexChanged(double value)
+    {
+        OnPropertyChanged(nameof(DcValueText));
     }
 
     /// <summary>Selected friendly option for the AC (plugged in) value.</summary>
@@ -117,13 +133,59 @@ public sealed partial class PowerSetting : ObservableObject
         }
     }
 
-    /// <summary>Friendly name of the current AC value ("Balanced", "On", …) for range types' caption.</summary>
+    /// <summary>Friendly value for range captions: named choice, else a humanized
+    /// unit ("20 minutes", "200 ms", "100 %") instead of a bare number.</summary>
     public string AcValueText
     {
         get
         {
             var c = PossibleChoices.FirstOrDefault(x => (uint)AcValueIndex == x.ValueIndex);
-            return c?.Name ?? $"{AcValueIndex:0}";
+            if (c is not null) return c.Name;
+            return HumanizeValue(AcValueIndex);
+        }
+    }
+
+    /// <summary>Unit inferred from the setting name. Power scheme values carry no unit
+    /// metadata, so well-established Windows conventions are matched by keyword.</summary>
+    private string ValueUnit
+    {
+        get
+        {
+            var n = Name ?? string.Empty;
+            if (n.Contains("HIPM/DIPM", StringComparison.OrdinalIgnoreCase)) return "hipm";
+            if (n.Contains("Power Level", StringComparison.OrdinalIgnoreCase)) return "percent";
+            if (n.Contains("NVMe", StringComparison.OrdinalIgnoreCase) &&
+                (n.Contains("Timeout", StringComparison.OrdinalIgnoreCase) ||
+                 n.Contains("Latency", StringComparison.OrdinalIgnoreCase) ||
+                 n.Contains("Tolerance", StringComparison.OrdinalIgnoreCase))) return "ms";
+            if (n.Contains("AHCI", StringComparison.OrdinalIgnoreCase) &&
+                n.Contains("Adaptive", StringComparison.OrdinalIgnoreCase)) return "ms";
+            if (n.Contains("Second", StringComparison.OrdinalIgnoreCase)) return "s";
+            if (n.Contains("Disk", StringComparison.OrdinalIgnoreCase) &&
+                (n.Contains("after", StringComparison.OrdinalIgnoreCase) ||
+                 n.Contains("idle", StringComparison.OrdinalIgnoreCase) ||
+                 n.Contains("burst", StringComparison.OrdinalIgnoreCase))) return "s";
+            return "";
+        }
+    }
+
+    private string HumanizeValue(double v)
+    {
+        switch (ValueUnit)
+        {
+            case "hipm":
+                return (uint)v switch { 0 => "Active", 1 => "HIPM", 2 => "DIPM", _ => $"{v:0}" };
+            case "percent":
+                return $"{v:0} %";
+            case "ms":
+                if (v >= 1000 && v % 1000 == 0) return $"{v / 1000:0} s";
+                return $"{v:0} ms";
+            case "s":
+                if (v == 0) return "Never";
+                if (v >= 90) return $"{v / 60:0.##} minutes";
+                return $"{v:0} seconds";
+            default:
+                return $"{v:0}";
         }
     }
 

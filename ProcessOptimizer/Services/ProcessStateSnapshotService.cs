@@ -91,7 +91,10 @@ public static class ProcessStateSnapshotService
             }
             catch { }
 
-            // Default CPU Sets (throttle pushes background off the game CCX).
+            // Default CPU Sets. Nothing in Game Mode writes these any more (the
+            // automatic partition is gone — Docs/GameMode.md); they are still
+            // captured and restored because a per-rule CPU-set change lives on
+            // the same process and must survive a session either way.
             try
             {
                 uint[]? sets = ReadProcessCpuSets(process);
@@ -171,15 +174,16 @@ public static class ProcessStateSnapshotService
                     ref ioPriority, sizeof(uint));
             }
 
-            // 6. Restore Affinity (booster pins the game to P-cores; job
-            // fallback pins background to E-cores — both must come back).
+            // 6. Restore Affinity. Game Mode no longer writes affinity, so this
+            // is a no-op for its own changes and stays for anything else that
+            // moved the process while the session was open.
             if (snapshot.OriginalProcessorAffinity != IntPtr.Zero)
             {
                 try { proc.ProcessorAffinity = snapshot.OriginalProcessorAffinity; }
                 catch { }
             }
 
-            // 7. Restore default CPU Sets (throttle moves background off-CCX).
+            // 7. Restore default CPU Sets (see the capture note above).
             if (snapshot.OriginalCpuSets is { Length: > 0 })
             {
                 try

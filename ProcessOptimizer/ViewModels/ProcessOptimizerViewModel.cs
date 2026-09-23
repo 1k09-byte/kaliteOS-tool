@@ -13,7 +13,7 @@ public class ProcessOptimizerViewModel : INotifyPropertyChanged
 {
     private readonly DispatcherQueue _dispatcher;
 
-    public event PropertyChangedEventHandler PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public bool IsActive => OptimizationSessionOrchestrator.Instance.CurrentState.IsActive;
     public string ActiveGameName => OptimizationSessionOrchestrator.Instance.CurrentState.ActiveGameName ?? "None";
@@ -31,7 +31,7 @@ public class ProcessOptimizerViewModel : INotifyPropertyChanged
         RefreshState();
     }
 
-    private void OnStateChanged(object sender, EventArgs e)
+    private void OnStateChanged(object? sender, EventArgs e)
     {
         if (_dispatcher == null) return;
         _dispatcher.TryEnqueue(() => RefreshState());
@@ -58,7 +58,7 @@ public class ProcessOptimizerViewModel : INotifyPropertyChanged
         OptimizationSessionOrchestrator.Instance.EndSession();
     }
 
-    protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

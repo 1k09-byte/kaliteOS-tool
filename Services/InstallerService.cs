@@ -803,6 +803,7 @@ namespace kaliteConfig.Services
                 SeedHeliumExtensionsFromStore(item);
             }
             else if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase)
+                || item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase)
                 || item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
             {
                 // Reference-style (AutoOS): merge AMO install URLs into the
@@ -839,6 +840,14 @@ namespace kaliteConfig.Services
             if (!string.IsNullOrEmpty(item.ToolInstallDir))
             {
                 await InstallPortableToolAsync(item, progress, downloadProgress, errorProgress, ct);
+                return;
+            }
+
+            // Winget-backed entry: no URL, no asset. Silent install by package id,
+            // verified the same way (installed-check paths with polling).
+            if (!string.IsNullOrEmpty(item.WingetId))
+            {
+                await InstallViaWingetAsync(item, progress, errorProgress, ct);
                 return;
             }
 
@@ -987,6 +996,75 @@ namespace kaliteConfig.Services
 
             // 6. Clean up
             CleanUp(tempPath);
+        }
+
+        /// <summary>
+        /// Installs a winget-backed entry (`winget install --exact --silent`). Used for
+        /// apps without a vendored URL/logo asset. Verification is the same
+        /// installed-check polling as the URL flow; an empty check path means the
+        /// tile never auto-hides, which is safe (it just stays installable).
+        /// </summary>
+        private async Task InstallViaWingetAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<string> errorProgress, CancellationToken ct)
+        {
+            progress.Report(BrowserInstallStatus.Installing);
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "winget",
+                    Arguments = $"install --id \"{item.WingetId}\" --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                };
+                using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start winget. Is App Installer installed?");
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(TimeSpan.FromMinutes(10));
+                try
+                {
+                    await process.WaitForExitAsync(timeoutCts.Token);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+                    errorProgress.Report("winget timed out after 10 minutes and was terminated.");
+                    progress.Report(BrowserInstallStatus.Failed);
+                    return;
+                }
+                if (process.ExitCode != 0)
+                {
+                    errorProgress.Report($"winget exited with code {process.ExitCode}.");
+                    progress.Report(BrowserInstallStatus.Failed);
+                    return;
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                errorProgress.Report($"Install failed: {ex.Message}");
+                progress.Report(BrowserInstallStatus.Failed);
+                return;
+            }
+
+            bool verified = false;
+            if (string.IsNullOrWhiteSpace(item.InstalledCheckPath))
+            {
+                // No known install path (portable/store-routed apps): winget exit 0 is the verdict.
+                verified = true;
+            }
+            else for (int i = 0; i < 60; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (IsBrowserInstalled(item)) { verified = true; break; }
+                await Task.Delay(2000, ct);
+            }
+            if (!verified)
+            {
+                errorProgress.Report("winget finished but the app was not detected afterwards.");
+                progress.Report(BrowserInstallStatus.Failed);
+                return;
+            }
+            progress.Report(BrowserInstallStatus.Installed);
         }
 
         /// <summary>

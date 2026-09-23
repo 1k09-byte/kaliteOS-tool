@@ -795,13 +795,13 @@ public sealed class ProfileWatcherService : IDisposable
 
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                if (gamingRule && !App.Current.GamingMode.IsActive)
-                {
-                    _watcherInitiatedGamingMode = true;
-                    await App.Current.GamingMode.ActivateAsync(pid, armed);
-                    Log($"gaming-mode: activated for [{name}] pid={pid}, protected={armed.Count}");
-                }
-
+                // Take the RULE's hold. The session is refcounted, so this joins
+                // an existing session instead of re-running the sweep, and the
+                // hold is what stops this watcher from ever tearing down a
+                // session the user or the benchmark is holding.
+                await App.Current.GamingMode.AcquireAsync(
+                    GameModeOwner.Rule, pid, armed, $"automatic gaming mode rule matched {name}");
+                Log($"gaming-mode: rule hold taken for [{name}] pid={pid}, protected={armed.Count}");
             }
 
             bool benchmarkRule = matched.Any(p => p.AutoBenchmarkOnLaunch);
@@ -845,12 +845,16 @@ public sealed class ProfileWatcherService : IDisposable
         }
     }
 
-    /// <summary>
-    /// True when the CURRENT Gaming mode session was started by the watcher
-    /// (automatic). Manual sessions from the UI are never auto-deactivated —
-    /// the user controls those via the toggle/Restore buttons.
-    /// </summary>
-    private bool _watcherInitiatedGamingMode;
+    /// <summary>Best-effort liveness check for the session's target.</summary>
+    private static bool IsPidAlive(int pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return !p.HasExited;
+        }
+        catch { return false; }
+    }
 
     /// <summary>
     /// Initial sweep at startup: applies every enabled auto-apply rule to
@@ -993,18 +997,19 @@ public sealed class ProfileWatcherService : IDisposable
             {
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                if (!App.Current.GamingMode.IsActive)
-                {
-                    _watcherInitiatedGamingMode = true;
-                    _ = App.Current.GamingMode.ActivateAsync(armed[0], armed).ContinueWith(_ =>
-                        Log($"gaming-mode: evaluated + activated, armed pids=[{string.Join(",", armed)}]"));
-                }
+                // Idempotent by design: the hold registry joins the running
+                // session when the target still matches, and hands the session
+                // over when the process it belonged to has exited. No local
+                // "did the watcher start it" flag is needed any more — the hold
+                // IS that flag, and releasing it cannot touch other holders.
+                _ = App.Current.GamingMode.AcquireAsync(
+                        GameModeOwner.Rule, armed[0], armed, "automatic gaming mode rule")
+                    .ContinueWith(_ => Log($"gaming-mode: evaluated, armed pids=[{string.Join(",", armed)}]"));
             }
-            else if (App.Current.GamingMode.IsActive && _watcherInitiatedGamingMode)
+            else if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
             {
-                _watcherInitiatedGamingMode = false;
-                Log("gaming-mode: no armed processes remain (rules changed), restoring");
-                App.Current.GamingMode.Deactivate();
+                Log("gaming-mode: no armed processes remain (rules changed), releasing the rule's hold");
+                App.Current.GamingMode.Release(GameModeOwner.Rule);
             }
         }
         catch (Exception ex)
@@ -1058,12 +1063,24 @@ public sealed class ProfileWatcherService : IDisposable
                 }
             }
 
-            if (hasArmed && !anyAlive && _watcherInitiatedGamingMode)
+            if (hasArmed && !anyAlive && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
             {
-                _watcherInitiatedGamingMode = false;
-                Log("gaming-mode: liveness monitor found no armed game processes, restoring priorities");
-                App.Current.GamingMode.Deactivate();
+                Log("gaming-mode: liveness monitor found no armed game processes, releasing the rule's hold");
+                App.Current.GamingMode.Release(GameModeOwner.Rule);
                 _gamingLivenessTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+            }
+            else if (anyAlive && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            {
+                // Another armed game is still running, but the session may belong
+                // to the one that just exited (two titles armed, the first closed).
+                // Re-evaluating lets the registry hand the session to the survivor
+                // instead of leaving it pointed at a dead PID.
+                int? target = App.Current.GamingMode.SessionTargetPid;
+                if (target.HasValue && !IsPidAlive(target.Value))
+                {
+                    Log("gaming-mode: session target exited while other armed games run — handing over");
+                    EvaluateGamingModeRules();
+                }
             }
         }
         catch
@@ -1127,11 +1144,10 @@ public sealed class ProfileWatcherService : IDisposable
                 wasLast = _gamingModePids.Count == 0;
             }
 
-            if (wasLast && _watcherInitiatedGamingMode)
+            if (wasLast && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
             {
-                _watcherInitiatedGamingMode = false;
-                Log("gaming-mode: last armed process exited, restoring priorities");
-                App.Current.GamingMode.Deactivate();
+                Log("gaming-mode: last armed process exited, releasing the rule's hold");
+                App.Current.GamingMode.Release(GameModeOwner.Rule);
                 _gamingLivenessTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
             }
             else if (wasLast)

@@ -104,6 +104,13 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     [ObservableProperty]
     public partial BenchmarkRun? SelectedRun { get; set; }
 
+    /// <summary>Most recent saved run, shown as a summary card on the Runs tab.</summary>
+    [ObservableProperty]
+    public partial BenchmarkRun? LastRun { get; set; }
+
+    [ObservableProperty]
+    public partial string LastRunSummary { get; set; } = "No runs yet.";
+
     [ObservableProperty]
     public partial BenchmarkStats? SelectedStats { get; set; }
 
@@ -328,30 +335,47 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         try
         {
             var gaming = App.Current.GamingMode;
-            bool wasActive = gaming.IsActive;
-            if (wasActive) gaming.Deactivate(); // start from a clean OFF
-            await Task.Delay(1500); // let priorities settle
+
+            // A/B takes its own hold rather than exclusive control — it must not
+            // tear down a session the user or a rule is holding. But that means
+            // the "OFF" half of every pair is only genuinely off when nothing
+            // else holds the session, and a GamingModeAuto rule for this very
+            // game is the common case. Say so in the stored run comments instead
+            // of silently producing a comparison that measures nothing.
+            bool contaminated = gaming.IsHeldByOther(GameModeOwner.Benchmark);
+            string caveat = contaminated
+                ? " [WARNING: another holder is active — OFF runs are not truly off]"
+                : "";
 
             string game = SelectedTarget.Name.Replace(".exe", "");
             var savedRunIds = new List<Guid>();
+            await Task.Delay(1500); // let priorities settle
+
+            if (contaminated)
+            {
+                AutoAbStatus = "Auto A/B: another holder is active";
+                StatusText = "Auto A/B — Gaming mode is already held (a rule or the Threads page). " +
+                             "Release it first, or the OFF runs include it and the comparison is meaningless.";
+            }
 
             for (int r = 1; r <= runs; r++)
             {
                 AutoAbStatus = $"Run {r}/{runs}: OFF";
                 StatusText = $"Auto A/B {r}/{runs} — capturing baseline (gaming mode off)…";
-                Guid? offId = await StartCaptureAsync($"{game} gaming mode off (A/B r{r})");
+                Guid? offId = await StartCaptureAsync($"{game} gaming mode off (A/B r{r}){caveat}");
                 if (offId.HasValue) savedRunIds.Add(offId.Value);
                 while (IsCapturing) await Task.Delay(500);
                 await Task.Delay(2000); // settle between runs
 
                 AutoAbStatus = $"Run {r}/{runs}: ON";
-                var res = await gaming.ActivateAsync(SelectedTarget.Pid);
+                var res = await gaming.AcquireAsync(
+                    GameModeOwner.Benchmark, SelectedTarget.Pid, reason: "benchmark A/B harness");
                 StatusText = $"Auto A/B {r}/{runs} — gaming mode ON: {res.Summary}";
                 await Task.Delay(1500);
-                Guid? onId = await StartCaptureAsync($"{game} gaming mode on (A/B r{r})");
+                Guid? onId = await StartCaptureAsync($"{game} gaming mode on (A/B r{r}){caveat}");
                 if (onId.HasValue) savedRunIds.Add(onId.Value);
                 while (IsCapturing) await Task.Delay(500);
-                gaming.Deactivate();
+                gaming.Release(GameModeOwner.Benchmark);
                 StatusText = $"Auto A/B {r}/{runs} — gaming mode off again.";
                 await Task.Delay(2000);
             }
@@ -387,7 +411,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         {
             AutoAbStatus = $"Failed: {ex.Message}";
             StatusText = $"Auto A/B failed: {ex.Message}";
-            try { App.Current.GamingMode.Deactivate(); } catch { }
+            try { App.Current.GamingMode.Release(GameModeOwner.Benchmark); } catch { }
         }
         finally
         {
@@ -596,11 +620,30 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         try
         {
             var runs = await _store.ListAsync();
+            BenchmarkRun? lastMeta = runs.Count > 0 ? runs[0] : null;
+            BenchmarkStats? lastStats = null;
+            if (lastMeta != null)
+            {
+                BenchmarkRun? full = await _store.LoadAsync(lastMeta.Id);
+                if (full != null)
+                {
+                    lastStats = await Task.Run(() => ComputeRunStats(full));
+                    if (lastMeta.FrametimesMs.Length == 0)
+                    {
+                        lastMeta.FrametimesMs = full.FrametimesMs;
+                        lastMeta.TimestampsMs = full.TimestampsMs;
+                    }
+                }
+            }
             _dispatcher.TryEnqueue(() =>
             {
                 Runs.Clear();
                 foreach (var r in runs) Runs.Add(r);
                 PruneCompare();
+                LastRun = lastMeta;
+                LastRunSummary = lastStats == null || lastMeta == null
+                    ? "No runs yet."
+                    : $"{lastStats.AverageFps:F0} avg FPS · {lastStats.Low1TimeFps:F0} 1% low · {lastStats.MedianFps:F0} median · {lastStats.StutterCount} stutters · {lastMeta.DurationSec:F0}s";
             });
         }
         catch (Exception ex)
@@ -1188,12 +1231,10 @@ public sealed partial class BenchmarkViewModel : ObservableObject
             if (scheme != Guid.Empty) info.PowerPlan = scheme.ToString("D");
         }
         catch { }
-        try
-        {
-            var sets = CpuSetPartitionService.LastGameSets;
-            info.CpuSetsPartition = sets != null && sets.Length > 0 ? $"game CCX: {sets.Length} sets" : "none";
-        }
-        catch { }
+        // Gaming mode no longer partitions CPU Sets (Docs/GameMode.md), so new
+        // runs always record "none". The field stays because runs already stored
+        // carry "game CCX: N sets" and the run list still renders it.
+        info.CpuSetsPartition = "none";
         return info;
     }
 }

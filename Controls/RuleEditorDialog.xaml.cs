@@ -78,15 +78,13 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         set => Set(ref _efficiencyName, value);
     }
 
+    // No longer branch on E-core availability: nothing is pinned to cores any
+    // more, so the promise is the same on every CPU (Docs/GameMode.md).
     public string AutomaticGamingModeDescription =>
-        Services.TopologyService.Get().EfficiencyCoreMasks.Count > 0
-            ? "Boost this app + trap background tasks onto E-cores (Efficiency Mode)"
-            : "Boost this app + drop background task clock speeds (Efficiency Mode)";
+        "Boost this app + put busy background tasks in Efficiency Mode";
 
     public string AutomaticGamingModeTooltip =>
-        Services.TopologyService.Get().EfficiencyCoreMasks.Count > 0
-            ? "When this process launches, boost its priority and trap all background processes onto E-cores via EcoQoS. Restores when the app exits."
-            : "When this process launches, boost its priority and throttle all background process CPU clocks via EcoQoS. Restores when the app exits.";
+        "When this process launches, raise it to Above Normal and put CPU-hungry background processes in Efficiency Mode (EcoQoS). Everything is restored when the app exits.";
 
     private bool _gamingAutoChecked;
     /// <summary>Rule triggers automatic app-wide Gaming mode on process launch.</summary>

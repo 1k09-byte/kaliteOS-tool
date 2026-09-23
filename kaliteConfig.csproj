@@ -68,6 +68,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.11" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
     <PackageReference Include="System.Management" Version="10.0.11" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
@@ -141,6 +142,57 @@
         silently at startup (0xC000027B). Top it up after publish. -->
   <Target Name="EnsureAppPriInPublishDir" AfterTargets="Publish">
     <Copy SourceFiles="$(ProjectPriFullPath)" DestinationFolder="$(PublishDir)" Condition="Exists('$(ProjectPriFullPath)')" SkipUnchangedFiles="false" />
+  </Target>
+
+  <!--  Self-heal a half-written XAML incremental state. When a build dies
+        mid-pass (killed process, out-of-disk, VS and a CLI build racing) or
+        markup is edited while the markup compiler is working, it can leave
+        generated code that no longer matches the markup: a stale Pages\X.g.cs
+        still implementing the IX_Bindings interface its regenerated X.g.i.cs no
+        longer declares, and no Pass1 assembly for Pass2 to bind against. Every
+        later build then fails with a CS0246 for the missing IX_Bindings plus a
+        wall of "WMC1509: No LocalAssembly parameter given during
+        MarkupCompilePass2" for each local type any page binds. Clean does not
+        run on a plain Build, so that state sticks until obj\ is deleted by hand.
+        Dropping the generated pair and the compiler's save-state file whenever
+        the markup is newer than them forces the next Pass1 to regenerate both
+        from scratch - the state Clean+Rebuild would have produced. A healthy
+        build leaves its generated files newer than the markup, so this stays
+        inert and XAML compilation stays incremental. -->
+
+  <!--  Resolve the markup files and the generated code the markup compiler is
+        expected to own for each of them. Runs before the heal target so
+        IntermediateOutputPath is the real one, not the empty value MSBuild has
+        while the project body is still being evaluated. -->
+  <Target Name="CollectXamlHealInputs">
+    <ItemGroup>
+      <_HealXamlSource Remove="@(_HealXamlSource)" />
+      <_HealXamlSource Include="**\*.xaml" Exclude="obj\**;bin\**" />
+      <!--Deliberately unfiltered by Exists(): a generated file that is simply
+          missing is as much of a reason to regenerate as a stale one, and the
+          build would otherwise fail with "could not find file" on the Compile
+          item the compiler never wrote. -->
+      <_HealXamlGenerated Remove="@(_HealXamlGenerated)" />
+      <_HealXamlGenerated Include="@(_HealXamlSource->'$(IntermediateOutputPath)%(RecursiveDir)%(Filename).g.i.cs')" />
+      <_HealXamlGenerated Include="@(_HealXamlSource->'$(IntermediateOutputPath)%(RecursiveDir)%(Filename).g.cs')" />
+    </ItemGroup>
+  </Target>
+
+  <!--Declared as inputs/outputs rather than compared with a property function:
+      MSBuild only allows a whitelisted set of static methods, and file
+      timestamps are not on it. Missing or older-than-markup outputs make the
+      target run; a healthy build skips it and keeps XAML compilation
+      incremental. -->
+  <Target Name="HealStaleXamlGeneratedCode"
+          BeforeTargets="BeforeBuild"
+          DependsOnTargets="CollectXamlHealInputs"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="@(_HealXamlSource)"
+          Outputs="@(_HealXamlGenerated)">
+    <Delete Files="@(_HealXamlGenerated)" />
+    <Delete Files="$(XamlSavedStateFilePath)" />
+    <Message Importance="high"
+             Text="HealStaleXamlGeneratedCode: generated XAML code was missing or older than the markup - dropping @(_HealXamlGenerated->Count()) files so Pass1 regenerates them from scratch." />
   </Target>
 
   <!--  The running app locks its own exe, which fails the build with

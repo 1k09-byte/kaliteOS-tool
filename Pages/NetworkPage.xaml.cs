@@ -37,6 +37,45 @@ public sealed partial class NetworkPage : Page
 
     public static Brush DotBrush(bool isUp) => new SolidColorBrush(isUp ? Colors.LimeGreen : Colors.Gray);
 
+    private void NetworkCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        // Border needs Border's own dependency properties: writing
+        // Panel.Background on a Border compiles and never paints.
+        if (sender is Border border)
+        {
+            border.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
+            border.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
+        }
+        else if (sender is Panel panel)
+        {
+            panel.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
+        }
+    }
+
+    private void NetworkCard_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            border.Background = ThemeBrush("LayerFillColorAltBrush");
+            border.BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        }
+        else if (sender is Panel panel)
+        {
+            panel.Background = null;
+        }
+    }
+
+    private static Brush ThemeBrush(string key)
+    {
+        try
+        {
+            if (Application.Current.Resources.TryGetValue(key, out var value) && value is Brush brush)
+                return brush;
+        }
+        catch { }
+        return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+    }
+
     public static Brush SeverityBrush(NetFindingSeverity s) => new SolidColorBrush(
         s == NetFindingSeverity.Warning ? Colors.OrangeRed : Colors.DodgerBlue);
 

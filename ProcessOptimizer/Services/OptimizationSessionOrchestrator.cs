@@ -26,11 +26,11 @@ public class OptimizationSessionOrchestrator : IDisposable
     public OptimizationSessionState CurrentState => _state;
     public IEnumerable<ManagedProcessEntry> GetManagedProcesses() => _managed.Values.ToList();
 
-    public event EventHandler StateChanged;
+    public event EventHandler? StateChanged;
 
     private OptimizationSessionOrchestrator()
     {
-        _monitor = new PdhContentionMonitor();
+        _monitor = new ContentionMonitor();
         _monitor.ContentionDetected += OnContentionDetected;
     }
 
@@ -82,10 +82,6 @@ public class OptimizationSessionOrchestrator : IDisposable
 
             _monitor.StopMonitoring();
 
-            // Lift hardware CPU caps for orphaned Job Object residents
-            BackgroundThrottleService.LiftGlobalJobLimits();
-            CpuSetPartitionService.RestoreAll();
-
             foreach (var kvp in _baselines)
             {
                 ProcessStateSnapshotService.RestoreSnapshot(kvp.Value);
@@ -109,13 +105,26 @@ public class OptimizationSessionOrchestrator : IDisposable
         }
     }
 
-    private void OnContentionDetected(object sender, Dictionary<int, double> contentionPids)
+    private void OnContentionDetected(object? sender, ContentionSample sample)
     {
+        var contentionPids = sample.HotCpuPercent;
+
         lock (_lock)
         {
             if (!_state.IsActive) return;
 
             bool stateChanged = false;
+
+            // Drop hysteresis counters for processes that no longer exist, so a PID
+            // reused later in the session starts from zero instead of inheriting a
+            // dead process's heat.
+            if (!_hysteresisCounts.IsEmpty)
+            {
+                foreach (int pid in _hysteresisCounts.Keys)
+                {
+                    if (!sample.AlivePids.Contains(pid)) _hysteresisCounts.TryRemove(pid, out _);
+                }
+            }
 
             foreach (var kvp in contentionPids)
             {
@@ -133,15 +142,14 @@ public class OptimizationSessionOrchestrator : IDisposable
                     || ProtectedProcessGuard.IsProcessProtected(procName, _currentProfile.Exclusions))
                     continue;
 
-                // Escalate tier based on continuous high CPU ticks.
-                // Require 2 sustained hits before touching anything (no
-                // first-sight punishment -> protects 1% lows).
+                // Escalate on SUSTAINED heat only: the first busy sample is never
+                // punished, which is what protects 1% lows from a momentary spike.
                 int hits = _hysteresisCounts.AddOrUpdate(pid, 1, (_, v) => v + 1);
-                if (hits < 2) continue;
+                if (!ContentionPolicy.ShouldThrottle(hits)) continue;
 
-                AggressivenessLevel targetLevel = AggressivenessLevel.Light;
-                if (hits >= 4) targetLevel = AggressivenessLevel.Moderate;
-                if (hits >= 6) targetLevel = AggressivenessLevel.Aggressive;
+                // Moderate is the ceiling (no Aggressive tier: its Job Object rate
+                // cap could never be lifted off a process mid-session).
+                AggressivenessLevel targetLevel = ContentionPolicy.EscalationFor(hits);
 
                 // Cap at the maximum aggressiveness allowed by the current profile
                 if (targetLevel > _currentProfile.Aggressiveness)
@@ -151,6 +159,7 @@ public class OptimizationSessionOrchestrator : IDisposable
                 if (_managed.TryGetValue(pid, out var existing))
                 {
                     existing.LastContentionSignal = cpu;
+                    existing.QuietTicks = 0; // hot again: the calm streak is over
                     
                     if (existing.CurrentThrottleLevel != targetLevel)
                     {
@@ -189,19 +198,36 @@ public class OptimizationSessionOrchestrator : IDisposable
                 stateChanged = true;
             }
 
-            // Restore quiet processes (hysteresis cool-down)
-            var quietPids = new List<int>();
-            foreach (var key in _managed.Keys)
+            // Release pass: SUSTAINED calm plus a minimum dwell. The old rule gave a
+            // process back the moment it missed a single sample, so anything sitting
+            // near the threshold was demoted and restored over and over — and each
+            // restore is a full priority/eco/memory/IO pass, which costs more than
+            // the contention it was reacting to.
+            DateTime now = DateTime.UtcNow;
+            var release = new List<int>();
+            foreach (var kvp in _managed)
             {
-                if (!contentionPids.ContainsKey(key))
+                if (contentionPids.ContainsKey(kvp.Key)) continue; // hot: reset in the loop above
+
+                kvp.Value.QuietTicks++;
+                if (ContentionPolicy.ShouldForgetHeat(kvp.Value.QuietTicks))
                 {
-                    quietPids.Add(key);
+                    // Calm long enough not to count as sustained any more: the ladder
+                    // restarts from Light on the next surge instead of resuming at
+                    // Moderate. The process stays demoted until the dwell is up.
+                    _hysteresisCounts.TryRemove(kvp.Key, out _);
+                }
+
+                double managedSeconds = (now - kvp.Value.ManagedSince).TotalSeconds;
+                if (ContentionPolicy.ShouldRelease(kvp.Value.QuietTicks, managedSeconds))
+                {
+                    release.Add(kvp.Key);
                 }
             }
 
-            foreach (var q in quietPids)
+            foreach (int q in release)
             {
-                if (_managed.TryRemove(q, out var entry))
+                if (_managed.TryRemove(q, out _))
                 {
                     if (_baselines.TryRemove(q, out var baseline))
                     {

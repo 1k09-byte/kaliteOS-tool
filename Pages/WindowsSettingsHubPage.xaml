@@ -5,58 +5,43 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    mc:Ignorable="d"
-    Background="Transparent"
-    NavigationCacheMode="Enabled">
-
-    <Grid x:Name="RootGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <TextBlock Grid.Row="0" Text="Windows Settings" Margin="36,24,36,12" Style="{StaticResource TitleTextBlockStyle}" />
-
-        <ScrollViewer Grid.Row="1" Padding="36,0,36,24" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="SettingsPanel" HorizontalAlignment="Stretch" Spacing="4">
-                
-                <toolkit:SettingsCard x:Name="Win32PSCard" Header="Win32 priority separation (Win32PrioritySeparation)" Description="Reading current value…" Margin="0,0,0,12">
-                     <ComboBox x:Name="Win32PSBox" PlaceholderText="Select a preset" SelectionChanged="Win32PSBox_SelectionChanged" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard x:Name="ThreadedDpcCard" Header="Threaded DPCs" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="ThreadedDpc" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard x:Name="IrqRoutingCard" Header="Disable automatic interrupt routing" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="IrqRoutingToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="InterruptRouting" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard x:Name="MmcssCard" Header="Disable Multimedia Class Scheduler (MMCSS)" Description="Reading…" Margin="0,0,0,12">
-                     <ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold (SvcHostSplitThresholdInKB)"
-                                      Description="RAM size above which Windows stops grouping services into shared svchost processes. Windows default: 380000 (~371 GB, effectively never split on typical RAM). Takes effect after a restart." Margin="0,0,0,12">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ComboBox x:Name="SvcSplitBox" PlaceholderText="Select RAM size" SelectionChanged="SvcSplitBox_SelectionChanged" MinWidth="160" />
-                        <Button Content="Reset" Click="SvcSplitReset_Click" ToolTipService.ToolTip="Delete the value and return to the Windows default" />
-                    </StackPanel>
-                </toolkit:SettingsCard>
-
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16"
-                        Margin="0,0,0,12">
-                    <Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True" />
+    mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Enabled">
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Border Grid.Row="0" Margin="28,20,28,14" Padding="22,18" CornerRadius="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Grid ColumnSpacing="20">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Windows Settings" FontSize="26" FontWeight="SemiBold"/>
+                    <TextBlock Text="Tune Windows scheduling, kernel behavior, service layout, and CPU topology from one controlled workspace."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <Border Grid.Column="1" Padding="14,8" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                    <StackPanel Spacing="2"><TextBlock Text="SYSTEM TUNING" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/><TextBlock Text="Changes are verified" FontWeight="SemiBold"/></StackPanel>
                 </Border>
-
+            </Grid>
+        </Border>
+        <ScrollViewer Grid.Row="1" Padding="28,0,28,28" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="SettingsPanel" Spacing="12">
+                <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Spacing="10">
+                        <toolkit:SettingsCard x:Name="Win32PSCard" Header="Win32 priority separation" Description="Reading current value…" Margin="0,0,0,2"><ComboBox x:Name="Win32PSBox" PlaceholderText="Select a preset" SelectionChanged="Win32PSBox_SelectionChanged"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="ThreadedDpcCard" Header="Threaded DPCs" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="ThreadedDpc"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="IrqRoutingCard" Header="Disable automatic interrupt routing" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="IrqRoutingToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="InterruptRouting"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)" Description="Reading…"><ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus"/></toolkit:SettingsCard>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Spacing="10">
+                        <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold" Description="Reading…"><StackPanel Orientation="Horizontal" Spacing="8"><ComboBox x:Name="SvcSplitBox" PlaceholderText="Select RAM size" SelectionChanged="SvcSplitBox_SelectionChanged" MinWidth="220"/><Button Content="Reset" Click="SvcSplitReset_Click"/></StackPanel></toolkit:SettingsCard>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True"/></StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </Grid>

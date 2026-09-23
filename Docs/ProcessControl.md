@@ -136,12 +136,14 @@ every reboot.
 dotnet build kaliteConfig.csproj -p:Platform=x64        # 0 errors
 dotnet test kaliteconfig.Tests/kaliteConfig.Tests.csproj # 116 passed
 dotnet run --project kaliteConfig/tools/ThreadVerify     # 7 passed, 0 failed
-dotnet run --project kaliteConfig/tools/BoostVerify      # 11 passed, 1 known failure
+dotnet run --project kaliteConfig/tools/BoostVerify      # 15 passed, 0 failed
 ```
 
-`BoostVerify`'s single failure (`background priority class == BelowNormal: read
-Normal`) is pre-existing in `BackgroundThrottleService`'s process-priority path
-and is documented in `Docs/ThreadTuning.md`.
+`BoostVerify`'s old failure (`background priority class == BelowNormal: read
+Normal`) is resolved. It was never a `BackgroundThrottleService` bug: a Light
+throttle deliberately leaves the priority class alone, so the *assertion* was
+wrong. `BoostVerify` is rewritten against the new Game Mode contract — see
+`Docs/GameMode.md`.
 
 `%LOCALAPPDATA%\kaliteConfig\rules-debug.log` is the place to confirm the DWM
 rule live: after this change the keeper logs

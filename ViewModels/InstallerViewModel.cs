@@ -427,6 +427,52 @@ namespace kaliteConfig.ViewModels
             Browsers.Add(braveBrowser);
             Browsers.Add(vivaldiBrowser);
             Browsers.Add(heliumBrowser);
+            var mullvadBrowser = new BrowserInstallItem
+            {
+                Name = "Mullvad Browser",
+                ImagePath = "ms-appx:///Assets/mullvad-logo.png",
+                WingetId = "Mullvad.MullvadBrowser",
+                InstalledCheckPath = @"%PROGRAMFILES%\Mullvad Browser\mullvadbrowser.exe",
+                Description = "Privacy-focused browser from Mullvad and the Tor Project, built to resist fingerprinting."
+            };
+
+            mullvadBrowser.Extensions.Add(new ExtensionItem
+            {
+                Name = "uBlock Origin",
+                FirefoxAddonSlug = "ublock-origin",
+                Description = "Blocks ads and trackers across every site you visit."
+            });
+            mullvadBrowser.Extensions.Add(new ExtensionItem
+            {
+                Name = "Privacy Badger",
+                FirefoxAddonSlug = "privacy-badger17",
+                Description = "Automatically learns to block hidden trackers, made by the EFF."
+            });
+            mullvadBrowser.Extensions.Add(new ExtensionItem
+            {
+                Name = "Location Guard",
+                FirefoxAddonSlug = "location-guard",
+                Description = "Hides your precise geographic location from websites by adding noise to it."
+            });
+            mullvadBrowser.Extensions.Add(new ExtensionItem
+            {
+                Name = "I Still Don't Care About Cookies",
+                FirefoxAddonSlug = "istilldontcareaboutcookies",
+                Description = "Automatically dismisses cookie consent banners on most websites."
+            });
+            mullvadBrowser.Extensions.Add(new ExtensionItem
+            {
+                Name = "Decentraleyes",
+                FirefoxAddonSlug = "decentraleyes",
+                Description = "Protects against tracking through free, centralized content delivery by serving local files."
+            });
+            mullvadBrowser.Extensions.Add(new ExtensionItem
+            {
+                Name = "ClearURLs",
+                FirefoxAddonSlug = "clearurls",
+                Description = "Automatically removes tracking parameters from URLs."
+            });
+            Browsers.Add(mullvadBrowser);
 
             GameLaunchers.Add(epicLauncher);
             GameLaunchers.Add(eaApp);
@@ -434,6 +480,22 @@ namespace kaliteConfig.ViewModels
             GameLaunchers.Add(minecraftLauncher);
             GameLaunchers.Add(steamLauncher);
             GameLaunchers.Add(riotLauncher);
+            GameLaunchers.Add(new BrowserInstallItem
+            {
+                Name = "Froststrap",
+                ImagePath = "ms-appx:///Assets/froststrap-logo.png",
+                WingetId = "Froststrap.Froststrap",
+                InstalledCheckPath = @"%LOCALAPPDATA%\Froststrap\Froststrap.exe",
+                Description = "Fast Roblox bootstrapper focused on performance and customization."
+            });
+            GameLaunchers.Add(new BrowserInstallItem
+            {
+                Name = "Medal",
+                ImagePath = "ms-appx:///Assets/medal-logo.png",
+                WingetId = "MedalB.V.Medal",
+                InstalledCheckPath = @"%LOCALAPPDATA%\Medal\Medal.exe",
+                Description = "Clip your gameplay without dropping frames, then edit and share it."
+            });
 
             SocialApps.Add(discordLauncher);
             SocialApps.Add(telegramApp);
@@ -448,7 +510,127 @@ namespace kaliteConfig.ViewModels
                 InstallerFileName = "Autoruns.zip",
                 ToolInstallDir = @"%PROGRAMDATA%\kaliteTools\Autoruns",
                 InstalledCheckPath = @"%PROGRAMDATA%\kaliteTools\Autoruns\Autoruns64.exe",
-                Description = "Sysinternals utility that shows every autostart location — startup folders, services, drivers, scheduled tasks and more — so nothing launches behind your back."
+                Description = "Sysinternals utility that shows every autostart location - startup folders, services, drivers, scheduled tasks and more - so nothing launches behind your back."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Everything",
+                ImagePath = "ms-appx:///Assets/everything-logo.png",
+                WingetId = "voidtools.Everything",
+                InstalledCheckPath = @"%PROGRAMFILES%\Everything\Everything.exe",
+                Description = "Instant file search across every drive by name."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "7-Zip",
+                ImagePath = "ms-appx:///Assets/7zip-logo.png",
+                WingetId = "7zip.7zip",
+                InstalledCheckPath = @"%PROGRAMFILES%\7-Zip\7z.exe",
+                Description = "Free archiver for zip, 7z, rar and everything else."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "NanaZip",
+                ImagePath = "ms-appx:///Assets/nanazip-logo.png",
+                WingetId = "M2Team.NanaZip",
+                InstalledCheckPath = @"%PROGRAMFILES%\NanaZip\NanaZip.exe",
+                Description = "Modern 7-Zip fork with Windows 11 shell integration."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Process Explorer",
+                ImagePath = "ms-appx:///Assets/procexp-logo.png",
+                WingetId = "Microsoft.Sysinternals.ProcessExplorer",
+                InstalledCheckPath = string.Empty,
+                Description = "Sysinternals task manager on steroids: handles, DLLs and live process trees."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Rufus",
+                ImagePath = "ms-appx:///Assets/rufus-logo.png",
+                WingetId = "Rufus.Rufus",
+                InstalledCheckPath = string.Empty,
+                Description = "Create bootable USB drives in seconds."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Ventoy",
+                ImagePath = "ms-appx:///Assets/ventoy-logo.png",
+                WingetId = "Ventoy.Ventoy",
+                InstalledCheckPath = string.Empty,
+                Description = "Multiboot USB tool: drop ISOs on a stick and boot any of them."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Visual Studio Code",
+                ImagePath = "ms-appx:///Assets/vscode-logo.png",
+                WingetId = "Microsoft.VisualStudioCode",
+                InstalledCheckPath = @"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe",
+                Description = "Lightweight, extensible code editor."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Visual Studio 2026 Community",
+                ImagePath = "ms-appx:///Assets/vs-logo.png",
+                WingetId = "Microsoft.VisualStudio.Community",
+                InstalledCheckPath = @"%PROGRAMFILES%\Microsoft Visual Studio\18\Community\Common7\IDE\devenv.exe",
+                Description = "Full .NET and C++ IDE, free Community edition."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Git",
+                ImagePath = "ms-appx:///Assets/git-logo.png",
+                WingetId = "Git.Git",
+                InstalledCheckPath = @"%PROGRAMFILES%\Git\bin\git.exe",
+                Description = "Distributed version control for everything you build."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Python 3.14",
+                ImagePath = "ms-appx:///Assets/python-logo.png",
+                WingetId = "Python.Python.3.14",
+                InstalledCheckPath = @"%LOCALAPPDATA%\Programs\Python\Python314\python.exe",
+                Description = "Latest Python runtime for scripts and tools."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "OBS Studio",
+                ImagePath = "ms-appx:///Assets/obs-logo.png",
+                WingetId = "OBSProject.OBSStudio",
+                InstalledCheckPath = @"%PROGRAMFILES%\obs-studio\bin\64bit\obs64.exe",
+                Description = "Free recording and streaming studio."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Bitwarden",
+                ImagePath = "ms-appx:///Assets/bitwarden-logo.png",
+                WingetId = "Bitwarden.Bitwarden",
+                InstalledCheckPath = @"%LOCALAPPDATA%\Programs\Bitwarden\Bitwarden.exe",
+                Description = "Open-source password manager with end-to-end encryption."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Wireshark",
+                ImagePath = "ms-appx:///Assets/wireshark-logo.png",
+                WingetId = "WiresharkFoundation.Wireshark",
+                InstalledCheckPath = @"%PROGRAMFILES%\Wireshark\Wireshark.exe",
+                Description = "Deep packet inspection for diagnosing network traffic."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "AnyDesk",
+                ImagePath = "ms-appx:///Assets/anydesk-logo.png",
+                WingetId = "AnyDeskSoftwareGmbH.AnyDesk",
+                InstalledCheckPath = @"%PROGRAMFILES%\AnyDesk\AnyDesk.exe",
+                Description = "Fast remote desktop access."
+            });
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "RustDesk",
+                ImagePath = "ms-appx:///Assets/rustdesk-logo.png",
+                WingetId = "RustDesk.RustDesk",
+                InstalledCheckPath = @"%PROGRAMFILES%\RustDesk\rustdesk.exe",
+                Description = "Open-source remote desktop, self-hostable."
             });
 
             foreach (var browser in Browsers)

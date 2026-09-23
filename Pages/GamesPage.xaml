@@ -1,0 +1,111 @@
+<Page x:Class="kaliteConfig.Pages.GamesPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      NavigationCacheMode="Disabled">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" xmlns:converters="using:kaliteConfig.Converters"/>
+        <x:String x:Key="GenericBanner">ms-appx:///Assets/generic-banner.jpg</x:String>
+
+        <DataTemplate x:Key="GameCardTemplate">
+            <Grid Width="240" Height="340" Margin="0,0,18,20">
+                <Grid.RenderTransform>
+                    <ScaleTransform x:Name="CardScale" ScaleX="1" ScaleY="1"/>
+                </Grid.RenderTransform>
+                <Border CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <Border.Shadow><ThemeShadow/></Border.Shadow>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="92"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0" CornerRadius="12,12,0,0" Background="#2B2B33">
+                            <Grid>
+                                <Border x:Name="ArtFallback" Background="#2B2B33" Visibility="Collapsed">
+                                    <TextBlock x:Name="ArtFallbackText" Text="{Binding Title}" FontSize="20" FontWeight="Bold"
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               TextWrapping="Wrap" TextAlignment="Center" Margin="10"/>
+                                </Border>
+                                <Image x:Name="CoverImage" Source="{Binding CoverImageUrl}" Stretch="Uniform" ImageFailed="CoverImage_ImageFailed"/>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" Padding="14,10">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#00101014" Offset="0"/>
+                                    <GradientStop Color="#CC101014" Offset="0.35"/>
+                                    <GradientStop Color="#F5101014" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Row="1" Text="{Binding LauncherLabel}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <Button Grid.Row="2" Content="Play" Tag="{Binding}" Click="Play_Click" HorizontalAlignment="Left" Padding="16,4" Margin="0,6,0,0"/>
+                            </Grid>
+                        </Border>
+                        <Border Grid.RowSpan="2" Width="34" Height="34" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                CornerRadius="17" Background="#C9000000" BorderBrush="#33FFFFFF" BorderThickness="1">
+                            <Border.Shadow><ThemeShadow/></Border.Shadow>
+                            <Image Source="{Binding LauncherIconPath}" Width="18" Height="18" Stretch="Uniform"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid Padding="30,24,30,28" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="12" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Spacing="3">
+                <TextBlock Text="Games" Style="{ThemeResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Your installed library, ready when you are." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="Add game" Click="AddGame_Click" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Refresh" Click="Refresh_Click" Padding="16,8"/>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="Installed games" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="8,2">
+                    <TextBlock x:Name="CountText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <ProgressRing x:Name="LoadingRing" Width="18" Height="18" IsActive="False"/>
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <GridView x:Name="GamesList" IsItemClickEnabled="False" SelectionMode="None" ItemTemplate="{StaticResource GameCardTemplate}"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
+                <GridView.ItemContainerStyle>
+                    <Style TargetType="GridViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0"/>
+                    </Style>
+                </GridView.ItemContainerStyle>
+            </GridView>
+            <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Visibility="Collapsed">
+                <Border Width="64" Height="64" CornerRadius="32" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                    <FontIcon Glyph="&#xE7FC;" FontSize="30" Opacity="0.6" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="No installed games found" FontSize="20" HorizontalAlignment="Center"/>
+                <TextBlock Text="Refresh to scan Steam, Epic, Roblox, GOG, and Ubisoft." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

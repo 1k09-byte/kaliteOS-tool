@@ -41,6 +41,36 @@ namespace kaliteConfig.Pages
         /// <summary>x:Bind helper for the per-process boost tick box.</summary>
         public static bool Not(bool value) => !value;
 
+        private static Microsoft.UI.Xaml.Media.Brush ThemeBrush(string key)
+        {
+            try
+            {
+                if (Application.Current.Resources.TryGetValue(key, out var value)
+                    && value is Microsoft.UI.Xaml.Media.Brush brush)
+                    return brush;
+            }
+            catch { }
+            return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        }
+
+        private void ProcessCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Border card)
+            {
+                card.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
+                card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
+            }
+        }
+
+        private void ProcessCard_PointerExited(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Border card)
+            {
+                card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush");
+                card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush");
+            }
+        }
+
         private void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
         {
             ViewModel.LoadProcessesCommand.Execute(null);
@@ -49,9 +79,10 @@ namespace kaliteConfig.Pages
             App.Current.ProfileWatcher.RulesChanged += (_, _) =>
             {
                 RefreshPageGamingModeUi();
-                PageGamingStatusText.Text = App.Current.GamingMode.IsActive
-                    ? "Gaming mode ON (automatic · from a rule)"
-                    : string.Empty;
+                if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+                {
+                    PageGamingStatusText.Text = "Gaming mode ON (automatic · from a rule)";
+                }
             };
             _ = SyncStartupToggleAsync();
         }
@@ -96,17 +127,31 @@ namespace kaliteConfig.Pages
         {
             var svc = App.Current.GamingMode;
             bool hasTarget = SelectedProcess is not null;
+            bool mine = svc.IsHeldBy(GameModeOwner.UserInterface);
 
-            PageGamingModeButton.Content = svc.IsActive ? "Turn off Gaming mode" : "Enable Gaming mode";
+            // The button acts on THIS page's hold only. A session kept alive by a
+            // rule or by the benchmark's A/B harness is left alone — that is the
+            // whole point of refcounting the session.
+            PageGamingModeButton.Content = mine ? "Turn off Gaming mode" : "Enable Gaming mode";
             PageGamingModeButton.IsEnabled = true;
-            PageRestoreButton.IsEnabled = svc.RestorableCount > 0;
+            PageRestoreButton.IsEnabled = svc.RestorableCount > 0 || svc.IsActive;
 
             string target = SelectedProcess is { } r ? r.Name : "(no process selected)";
-            PageGamingStatusText.Text = svc.IsActive
-                ? $"Gaming mode ON · target {target} · {svc.RestorableCount} restorable"
-                : hasTarget
+            if (mine)
+            {
+                PageGamingStatusText.Text = $"Gaming mode ON · target {target} · {svc.RestorableCount} restorable";
+            }
+            else if (svc.IsActive)
+            {
+                string why = string.Join(", ", svc.Holds.Select(h => h.Owner.ToString().ToLowerInvariant()));
+                PageGamingStatusText.Text = $"Gaming mode ON (held by {why}) · {svc.RestorableCount} restorable";
+            }
+            else
+            {
+                PageGamingStatusText.Text = hasTarget
                     ? $"Ready · target {target}"
                     : "Select a process row, or use a rule with Automatic Gaming mode";
+            }
         }
 
         private async void Page_ToggleGamingMode(object sender, RoutedEventArgs e)
@@ -115,7 +160,7 @@ namespace kaliteConfig.Pages
             PageGamingModeButton.IsEnabled = false;
             try
             {
-                if (!svc.IsActive)
+                if (!svc.IsHeldBy(GameModeOwner.UserInterface))
                 {
                     if (SelectedProcess is not { } row)
                     {
@@ -123,13 +168,17 @@ namespace kaliteConfig.Pages
                         return;
                     }
 
-                    var result = await svc.ActivateAsync(row.Pid);
+                    var result = await svc.AcquireAsync(GameModeOwner.UserInterface, row.Pid, reason: "Threads page button");
                     PageGamingStatusText.Text = result.Summary;
                 }
                 else
                 {
-                    svc.Deactivate();
-                    PageGamingStatusText.Text = "Gaming mode off · priorities restored";
+                    // Releases only the page's own hold; if a rule or the benchmark
+                    // is still holding the session, the state stays applied.
+                    bool ended = svc.Release(GameModeOwner.UserInterface);
+                    PageGamingStatusText.Text = ended
+                        ? "Gaming mode off · priorities restored"
+                        : $"Gaming mode handed back · still held by {svc.Holds.Count} other holder(s)";
                 }
             }
             catch (Exception ex)
@@ -144,7 +193,8 @@ namespace kaliteConfig.Pages
 
         private async void Page_RestorePriorities(object sender, RoutedEventArgs e)
         {
-            App.Current.GamingMode.Deactivate();
+            // Full stop, whoever started it: this is the explicit "put it back" button.
+            App.Current.GamingMode.ReleaseAll();
             PageGamingStatusText.Text = "Priorities restored";
             RefreshPageGamingModeUi();
 
@@ -572,11 +622,6 @@ namespace kaliteConfig.Pages
 
         private async void RuleAdd_Click(object sender, RoutedEventArgs e) =>
             await OpenRuleEditorAsync(new TunerProfile(), isNew: true);
-
-        private async void RulePresets_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowRulesErrorAsync("Gaming presets were removed in Phase 4.");
-        }
 
         private Task ShowRulesErrorAsync(string message)
         {

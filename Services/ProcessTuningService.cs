@@ -34,6 +34,30 @@ public sealed class ProcessTuningService
         "textinputhost.exe", "ctfmon.exe", "securityhealthservice.exe",
         "msmpeng.exe", "nissrv.exe", "smartscreen.exe", "sechealthui.exe",
         "system.exe", "idle.exe", "memcompression.exe",
+        // Shell / logon / lock screen: suspending these freezes login, lock or Start.
+        "shellhost.exe", "applicationframehost.exe",
+        "logonui.exe", "lockapp.exe", "searchhost.exe", "useroobebroker.exe",
+        // Input stack: touch keyboard, touchpad helpers, Intel graphics hotkeys.
+        "tabtip.exe", "syntpenh.exe", "syntphelper.exe",
+        "igfxem.exe", "igfxhk.exe", "igfxtray.exe",
+        // Audio stack services: suspending them kills sound or enhancements.
+        "rtkauduservice64.exe", "nahimicservice.exe", "intelaudioservice.exe",
+        "dolbydax2api.exe", "conexantaudioservice.exe",
+        // GPU vendor control panels: suspending them can break display events.
+        "nvdisplay.container.exe", "atieclxx.exe", "atiesrxx.exe",
+        // Virtualization: suspending these freezes VMs and WSL.
+        "vmmem.exe", "vmmemwsl.exe", "vmcompute.exe", "vmms.exe",
+        "wsl.exe", "wslhost.exe", "wslservice.exe",
+        // Remote sessions: suspending the client freezes the remote window.
+        "mstsc.exe", "rdpclip.exe",
+        // Licensing / servicing: suspending mid-update corrupts component work.
+        "sppsvc.exe", "trustedinstaller.exe", "tiworker.exe",
+        // Security platform beyond the engine itself.
+        "mpdefendercoreservice.exe", "mssense.exe", "lsaiso.exe",
+        // Hardware pairing and device frameworks.
+        "dashost.exe", "jhi_service.exe",
+        // Widgets/WebView hosts visible UI in other apps.
+        "widgets.exe", "msedgewebview2.exe",
     };
 
     private readonly NativeSnapshotService _snapshot = new();
@@ -323,23 +347,15 @@ public sealed class ProcessTuningService
                 row.AffinitySummary = AffinitySummary(row.AffinityMask, (ulong)sys.ToInt64());
             }
 
-            // CPU Sets partition (Gaming mode) is invisible to the affinity
-            // mask — surface it so the context menu tells the truth.
+            // Explicit CPU Sets (set by a rule, or by the user) are invisible to
+            // the affinity mask — surface them so the context menu tells the
+            // truth. Gaming mode no longer partitions, so there is no partition
+            // left to report here (Docs/GameMode.md).
             try
             {
-                uint[]? sets = ProcessOptimizer.Services.CpuSetPartitionService.LastGameSets;
-                uint[]? bg = ProcessOptimizer.Services.CpuSetPartitionService.LastBackgroundSets;
-                if ((sets is { Length: > 0 } || bg is { Length: > 0 }) &&
-                    ProcessOptimizer.Services.CpuSetPartitionService.QueryTopologyPublic() is { Count: > 0 } topo)
-                {
-                    uint[] procSets = ReadProcessCpuSetIds(row.Pid);
-                    if (procSets.Length > 0 && sets is { Length: > 0 } && procSets.All(sets.Contains))
-                        row.AffinitySummary = $"Game partition ({sets.Length} P-cores)";
-                    else if (procSets.Length > 0 && bg is { Length: > 0 } && procSets.All(bg.Contains))
-                        row.AffinitySummary = $"Background partition ({bg.Length} sets)";
-                    else if (procSets.Length > 0)
-                        row.AffinitySummary = $"{procSets.Length} CPU sets";
-                }
+                uint[] procSets = ReadProcessCpuSetIds(row.Pid);
+                if (procSets.Length > 0)
+                    row.AffinitySummary = $"{procSets.Length} CPU sets";
             }
             catch { }
 

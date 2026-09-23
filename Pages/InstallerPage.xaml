@@ -71,12 +71,11 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Spacing="8">
-                        <!-- Large browser icon -->
-                        <Image
-                            HorizontalAlignment="Center"
-                            Width="48"
-                            Height="48"
-                            Source="{x:Bind ImagePath, Converter={StaticResource AssetPathConverter}}" />
+                        <!-- Large app icon (no fallback glyph behind images). -->
+                        <Grid HorizontalAlignment="Center" Width="48" Height="48">
+                            <Image HorizontalAlignment="Center" Width="48" Height="48"
+                                Source="{x:Bind ImagePath, Converter={StaticResource AssetPathConverter}}" />
+                        </Grid>
                         <!-- Browser name -->
                         <TextBlock
                             HorizontalAlignment="Center"

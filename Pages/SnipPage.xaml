@@ -20,7 +20,7 @@
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="12"/>
         </Style>
         <Style x:Key="RecentActionStyle" TargetType="Button">
             <Setter Property="Padding" Value="0"/>
@@ -30,7 +30,18 @@
             <Setter Property="Background" Value="#99202020"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style x:Key="SnipSurface" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+        <Style x:Key="SnipActionButton" TargetType="Button">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,8"/>
         </Style>
 
         <!-- Shared ItemContainerStyle to disable default selection/focus visuals -->
@@ -120,13 +131,17 @@
         <vm:SnipViewModel />
     </Page.DataContext>
 
-    <Grid>
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <NavigationView x:Name="HubNav" PaneDisplayMode="Top" IsBackButtonVisible="Collapsed" SelectionChanged="HubNav_SelectionChanged" IsSettingsVisible="False">
+        <NavigationView x:Name="HubNav" PaneDisplayMode="Top" IsBackButtonVisible="Collapsed" SelectionChanged="HubNav_SelectionChanged" IsSettingsVisible="False" Background="Transparent">
+            <NavigationView.Resources>
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+            </NavigationView.Resources>
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="Capture" Content="Capture" Style="{StaticResource HubTabStyle}">
                     <NavigationViewItem.Icon>
@@ -148,7 +163,8 @@
                 <NavigationViewItem Tag="Settings" Content="Settings" Icon="Setting" Style="{StaticResource HubTabStyle}"/>
             </NavigationView.MenuItems>
             
-            <Grid Padding="24">
+            <Border Margin="20,8,20,16" Style="{StaticResource SnipSurface}">
+            <Grid Padding="4">
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <Grid>
                         <!-- Capture Home -->
@@ -166,7 +182,16 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             
-                            <TextBlock Text="Capture" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,16"/>
+                            <Border Grid.Row="0" Style="{StaticResource SnipSurface}" Padding="18,14" Margin="0,0,0,16">
+                                <StackPanel Spacing="3">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <FontIcon Glyph="&#xE7A8;" FontSize="20" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                        <TextBlock Text="Capture Studio" FontSize="24" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <TextBlock Text="Create, organize, and share clean screenshots without leaving your workflow." FontSize="11"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
                             
 <!-- Mode Tiles -->
                             <GridView Grid.Row="1" Margin="-4,0,-4,20" SelectionMode="None" IsItemClickEnabled="True"
@@ -181,28 +206,25 @@
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE7A8;" FontSize="24" Margin="0,0,0,6"/>
                                         <TextBlock Text="Region" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="PrtScn" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"/>
+                                        <TextBlock Text="{x:Bind ViewModel.CaptureHotkeyCaption, Mode=OneWay}" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"/>
                                     </StackPanel>
                                 </Grid>
                                 <Grid Style="{StaticResource CaptureTileStyle}" ToolTipService.ToolTip="Capture a window" AutomationProperties.Name="Capture window">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8A7;" FontSize="24" Margin="0,0,0,6"/>
                                         <TextBlock Text="Window" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Ctrl+PrtScn" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"/>
                                     </StackPanel>
                                 </Grid>
                                 <Grid Style="{StaticResource CaptureTileStyle}" ToolTipService.ToolTip="Capture the whole screen" AutomationProperties.Name="Capture full screen">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE740;" FontSize="24" Margin="0,0,0,6"/>
                                         <TextBlock Text="Fullscreen" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Shift+PrtScn" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"/>
                                     </StackPanel>
                                 </Grid>
                                 <Grid Style="{StaticResource CaptureTileStyle}" ToolTipService.ToolTip="Capture a freeform shape" AutomationProperties.Name="Capture freeform">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE7C9;" FontSize="24" Margin="0,0,0,6"/>
                                         <TextBlock Text="Freeform" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Alt+PrtScn" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"/>
                                     </StackPanel>
                                 </Grid>
                                 <Grid Style="{StaticResource CaptureTileStyle}" ToolTipService.ToolTip="Capture after a delay" AutomationProperties.Name="Capture delayed">
@@ -362,7 +384,7 @@
 
                              <InfoBar x:Name="GalleryInfoBar" Grid.Row="1" Margin="0,0,0,8" IsOpen="False" IsClosable="True" Severity="Success">
                                  <InfoBar.ActionButton>
-                                     <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
+                                     <Button Style="{StaticResource SnipActionButton}" Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
                                  </InfoBar.ActionButton>
                              </InfoBar>
 
@@ -904,10 +926,11 @@
                     </Grid>
                 </ScrollViewer>
             </Grid>
+            </Border>
         </NavigationView>
 
         <!-- Bottom Status Bar -->
-        <Border Grid.Row="1" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="12,4">
+        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Margin="20,0,20,8" Padding="12,6">
              <StackPanel Orientation="Horizontal" Spacing="16">
                  <TextBlock Text="{x:Bind ViewModel.StatusBarRegistrationText, Mode=OneWay}" Foreground="{x:Bind ViewModel.StatusBarHotkeyBrush, Mode=OneWay}" VerticalAlignment="Center"
                             ToolTipService.ToolTip="{x:Bind ViewModel.StatusBarHotkeyTooltip, Mode=OneWay}"/>

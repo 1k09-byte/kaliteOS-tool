@@ -319,10 +319,9 @@ public sealed class ForegroundSuspendService : IDisposable
                 {
                     if (_games.Contains(name)) continue; // other listed games are never noise
                 }
-                if (ProcessTuningService.IsCritical(name, pid)) continue;
-                if (ProcessTuningService.IsSelf(pid)) continue;
-                if (ProtectedProcessGuard.IsProcessProtected(proc.ProcessName)) continue;
-                long ticks;
+                 if (ProcessTuningService.IsCritical(name, pid)) continue;
+                 if (ProcessTuningService.IsSelf(pid)) continue;
+                 long ticks;
                 try
                 {
                     using var p = Process.GetProcessById(pid);

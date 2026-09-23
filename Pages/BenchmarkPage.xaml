@@ -11,11 +11,53 @@
     <Page.Resources>
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <Style x:Key="BenchCard" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+        <Style x:Key="BenchSectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        </Style>
+        <Style x:Key="BenchCaption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="BenchFlatListItemStyle" TargetType="ListViewItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
+            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <ContentPresenter Background="Transparent"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          ContentTransitions="{TemplateBinding ContentTransitions}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          Padding="{TemplateBinding Padding}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
 
 
-    <Grid UseLayoutRounding="True">
+    <Grid UseLayoutRounding="True" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -23,29 +65,47 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="4">
-            <TextBlock Text="Benchmark" Style="{StaticResource TitleTextBlockStyle}" />
-            <TextBlock x:Name="StatusLine" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                       FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       TextWrapping="Wrap" />
-        </StackPanel>
+        <Border Grid.Row="0" Margin="28,20,28,0" Style="{StaticResource BenchCard}" Padding="20,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE9D2;" FontSize="20" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        <TextBlock Text="Benchmark Lab" FontSize="24" FontWeight="SemiBold" />
+                    </StackPanel>
+                    <TextBlock Text="Measure frame pacing, compare changes, and keep the result reproducible." Style="{StaticResource BenchCaption}" />
+                    <TextBlock x:Name="StatusLine" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" Style="{StaticResource BenchCaption}" Margin="0,4,0,0" />
+                </StackPanel>
+                <Border Grid.Column="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="14,8" VerticalAlignment="Center">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="CAPTURE STATUS" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.CaptureStateText, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
 
-        <Grid Grid.Row="1" Margin="36,12,36,8">
+        <Grid Grid.Row="1" Margin="28,14,28,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged"
-                         Grid.Column="0" VerticalAlignment="Center">
-                <SelectorBarItem x:Name="TabCapture" Text="Capture" IsSelected="True" />
-                <SelectorBarItem x:Name="TabRuns" Text="Runs" />
-                <SelectorBarItem x:Name="TabAnalysis" Text="Analysis" />
-                <SelectorBarItem x:Name="TabCompare" Text="Compare" />
-                <SelectorBarItem x:Name="TabExport" Text="Export" />
-            </SelectorBar>
+            <Border Grid.Column="0" Background="{ThemeResource LayerFillColorAltBrush}" CornerRadius="10" Padding="4">
+                <SelectorBar CornerRadius="8" x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged"
+                             VerticalAlignment="Center" Background="Transparent">
+                    <SelectorBarItem CornerRadius="8" x:Name="TabCapture" Text="Capture" IsSelected="True" />
+                    <SelectorBarItem CornerRadius="8" x:Name="TabRuns" Text="Runs" />
+                    <SelectorBarItem CornerRadius="8" x:Name="TabAnalysis" Text="Analysis" />
+                    <SelectorBarItem CornerRadius="8" x:Name="TabCompare" Text="Compare" />
+                    <SelectorBarItem CornerRadius="8" x:Name="TabExport" Text="Export" />
+                </SelectorBar>
+            </Border>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Border Background="{ThemeResource LayerFillColorAltBrush}" Padding="8,4" CornerRadius="4">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="12,6" CornerRadius="8">
                     <TextBlock FontSize="11">
                         <Run Text="State: " Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind ViewModel.CaptureStateText, Mode=OneWay}" FontWeight="SemiBold" />
                     </TextBlock>
@@ -53,11 +113,11 @@
             </StackPanel>
         </Grid>
 
-        <ProgressBar Grid.Row="2" Margin="36,0,36,8" IsIndeterminate="True"
+        <ProgressBar Grid.Row="2" Margin="28,0,28,8" IsIndeterminate="True"
                      Visibility="{x:Bind ViewModel.IsCapturing, Mode=OneWay}" />
 
         <!-- Capture -->
-        <Grid x:Name="CapturePanel" Grid.Row="3" Margin="36,0,36,24">
+        <Grid x:Name="CapturePanel" Grid.Row="3" Margin="28,0,28,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
@@ -68,30 +128,60 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8" VerticalAlignment="Center">
-                <Button Content="Refresh" Command="{x:Bind ViewModel.LoadTargetsCommand}" VerticalAlignment="Center" />
-                <Button Content="Use foreground" Command="{x:Bind ViewModel.UseForegroundCommand}" VerticalAlignment="Center"
-                        ToolTipService.ToolTip="Target the focused game window." />
-                <ComboBox ItemsSource="{x:Bind ViewModel.DurationOptions}" SelectedItem="{x:Bind ViewModel.Duration, Mode=TwoWay}"
+            <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="12,10" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.LoadTargetsCommand}" VerticalAlignment="Center"
+                        ToolTipService.ToolTip="Refresh process list">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" /><TextBlock Text="Refresh" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                 <Button CornerRadius="8" Command="{x:Bind ViewModel.UseForegroundCommand}" VerticalAlignment="Center"
+                         ToolTipService.ToolTip="Target the focused game window.">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE7B8;" FontSize="14" /><TextBlock Text="Use foreground" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <ComboBox CornerRadius="8" ItemsSource="{x:Bind ViewModel.Targets, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedTarget, Mode=TwoWay}"
+                          DisplayMemberPath="Name" VerticalAlignment="Center"
+                          ToolTipService.ToolTip="Select the process to benchmark"
+                          PlaceholderText="Pick a process" MinWidth="180" />
+                <ComboBox CornerRadius="8" ItemsSource="{x:Bind ViewModel.DurationOptions}" SelectedItem="{x:Bind ViewModel.Duration, Mode=TwoWay}"
                           VerticalAlignment="Center" ToolTipService.ToolTip="Capture duration (Manual = stop button)." />
-                <NumberBox Value="{x:Bind ViewModel.CountdownSec, Mode=TwoWay}" Minimum="0" Maximum="30"
+                <NumberBox CornerRadius="8" Value="{x:Bind ViewModel.CountdownSec, Mode=TwoWay}" Minimum="0" Maximum="30"
                            VerticalAlignment="Center" SpinButtonPlacementMode="Compact" Width="130"
                            PlaceholderText="Countdown (s)" ToolTipService.ToolTip="Countdown in seconds before capture starts." />
-                <Button Content="Start capture" Command="{x:Bind ViewModel.StartCaptureCommand}" VerticalAlignment="Center"
-                        Style="{StaticResource AccentButtonStyle}" />
-                <Button Content="Stop" Command="{x:Bind ViewModel.StopCaptureCommand}" VerticalAlignment="Center" />
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.StartCaptureCommand}" VerticalAlignment="Center"
+                        Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE768;" FontSize="14" /><TextBlock Text="Start capture" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.StopCaptureCommand}" VerticalAlignment="Center"
+                        ToolTipService.ToolTip="Stop the running capture">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE71A;" FontSize="14" /><TextBlock Text="Stop" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
                 <Border Width="1" Height="20" Background="{ThemeResource DividerStrokeColorDefaultBrush}" VerticalAlignment="Center" Margin="4,0" />
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                             ToolTipService.ToolTip="Auto A/B: with the game selected, press the hotkey (or Run now) to capture N runs with Gaming mode off and on, automatically. Runs are labeled 'A/B r# off/on' for the Compare tab.">
-                    <CheckBox Content="Auto A/B" IsChecked="{x:Bind ViewModel.AutoAbEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
-                    <NumberBox Value="{x:Bind ViewModel.AutoAbRuns, Mode=TwoWay}" Minimum="1" Maximum="10"
+                    <CheckBox CornerRadius="8" Content="Auto A/B" IsChecked="{x:Bind ViewModel.AutoAbEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                    <NumberBox CornerRadius="8" Value="{x:Bind ViewModel.AutoAbRuns, Mode=TwoWay}" Minimum="1" Maximum="10"
                                SpinButtonPlacementMode="Compact" Width="84" VerticalAlignment="Center"
                                PlaceholderText="Pairs" ToolTipService.ToolTip="Number of off/on run pairs." />
-                    <Button Content="Run now" Command="{x:Bind ViewModel.RunAutoAbCommand}" VerticalAlignment="Center" />
+                    <Button CornerRadius="8" Command="{x:Bind ViewModel.RunAutoAbCommand}" VerticalAlignment="Center"
+                            ToolTipService.ToolTip="Run the A/B pair loop now">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE7C3;" FontSize="14" /><TextBlock Text="Run now" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <TextBlock Text="{x:Bind ViewModel.AutoAbStatus, Mode=OneWay}" FontSize="11"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" MaxWidth="200" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </StackPanel>
+            </Border>
             <InfoBar Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,8" HorizontalAlignment="Left" MaxWidth="700"
                      Message="{x:Bind ViewModel.ConflictWarningText, Mode=OneWay}"
                      Severity="Warning" IsOpen="True" IsClosable="False"
@@ -102,12 +192,17 @@
                     <Canvas x:Name="LiveCanvas" Height="110"
                             Visibility="{x:Bind ViewModel.IsCapturing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 </Border>
-            <ListView Grid.Row="2" Grid.Column="0" ItemsSource="{x:Bind ViewModel.Targets, Mode=OneWay}"
+            <ListView CornerRadius="12" Grid.Row="2" Grid.Column="0" ItemsSource="{x:Bind ViewModel.Targets, Mode=OneWay}"
+                      Background="{ThemeResource LayerFillColorDefaultBrush}"
+                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="6"
                       SelectedItem="{x:Bind ViewModel.SelectedTarget, Mode=TwoWay}"
-                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0">
+                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0"
+                      ItemContainerStyle="{StaticResource BenchFlatListItemStyle}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:TunerProcessRow">
-                        <Grid Padding="4,6" ColumnSpacing="12">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8"
+                                PointerEntered="BenchmarkCard_PointerEntered" PointerExited="BenchmarkCard_PointerExited" PointerPressed="BenchmarkCard_PointerPressed">
+                        <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" />
                                 <ColumnDefinition Width="80" />
@@ -117,68 +212,118 @@
                             <TextBlock Grid.Column="1" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{x:Bind CpuPercent}" />
                             <TextBlock Grid.Column="2" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Pid}" />
                         </Grid>
+                        </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <StackPanel Grid.Row="2" Grid.Column="1" Spacing="8">
+            <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource BenchCard}" Padding="18">
+            <StackPanel Spacing="10">
                 <TextBlock Text="Comment for next run" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBox Text="{x:Bind ViewModel.CommentDraft, Mode=TwoWay}" PlaceholderText="e.g. Gaming Mode ON" TextWrapping="Wrap" />
+                <TextBox CornerRadius="8" Text="{x:Bind ViewModel.CommentDraft, Mode=TwoWay}" PlaceholderText="e.g. Gaming Mode ON" TextWrapping="Wrap" />
                 <TextBlock Text="Hotkey (global, works in-game)" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.HotkeyEnabled, Mode=TwoWay}" VerticalAlignment="Center"
+                    <ToggleSwitch CornerRadius="8" IsOn="{x:Bind ViewModel.HotkeyEnabled, Mode=TwoWay}" VerticalAlignment="Center"
                                   ToolTipService.ToolTip="Start/stop capture from anywhere." />
-                    <ComboBox ItemsSource="{x:Bind ViewModel.HotkeyPresets}" SelectedItem="{x:Bind ViewModel.SelectedHotkeyPreset, Mode=TwoWay}"
+                    <ComboBox CornerRadius="8" ItemsSource="{x:Bind ViewModel.HotkeyPresets}" SelectedItem="{x:Bind ViewModel.SelectedHotkeyPreset, Mode=TwoWay}"
                               DisplayMemberPath="Label" VerticalAlignment="Center" MinWidth="120" />
                 </StackPanel>
                 <TextBlock Text="{x:Bind ViewModel.HotkeyStatus, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                 <TextBlock Text="Sounds" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <ComboBox ItemsSource="{x:Bind ViewModel.CueModes}" SelectedItem="{x:Bind ViewModel.CueModeSelected, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                <ComboBox CornerRadius="8" ItemsSource="{x:Bind ViewModel.CueModes}" SelectedItem="{x:Bind ViewModel.CueModeSelected, Mode=TwoWay}" HorizontalAlignment="Stretch" />
                 <TextBlock Text="{x:Bind ViewModel.VoiceNote, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                 <Slider Value="{x:Bind ViewModel.CueVolume, Mode=TwoWay}" Minimum="0" Maximum="1" StepFrequency="0.05"
                         ToolTipService.ToolTip="Cue volume." />
                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
                            Text="Capture needs ETW rights (admin or Performance Log Users). Keep the game visible while recording. PresentMon 2.5.1 bundled under Assets/PresentMon." />
             </StackPanel>
+            </Border>
         </Grid>
 
         <!-- Runs -->
-        <Grid x:Name="RunsPanel" Grid.Row="3" Margin="36,0,36,24" Visibility="Collapsed">
+        <Grid x:Name="RunsPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-                <Button Content="Refresh" Command="{x:Bind ViewModel.RefreshRunsCommand}" />
-                <Button Content="Add to compare" Command="{x:Bind ViewModel.AddToCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}" />
-                <Button Content="Delete" Command="{x:Bind ViewModel.DeleteRunCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}" />
+            <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource BenchCard}" Padding="12,8" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.RefreshRunsCommand}"
+                        ToolTipService.ToolTip="Reload saved runs">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" /><TextBlock Text="Refresh" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.AddToCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
+                        ToolTipService.ToolTip="Add the selected run to the Compare tab">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE8E5;" FontSize="14" /><TextBlock Text="Add to compare" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.DeleteRunCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
+                        ToolTipService.ToolTip="Delete the selected run">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE74D;" FontSize="14" /><TextBlock Text="Delete" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
-            <ListView Grid.Row="1" Grid.Column="0" ItemsSource="{x:Bind ViewModel.Runs, Mode=OneWay}"
+            </Border>
+            <Border Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource BenchCard}" Padding="14,10" Margin="0,0,0,8"
+                    Visibility="{x:Bind ViewModel.LastRun, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" CornerRadius="8" VerticalAlignment="Center"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}">
+                        <FontIcon Glyph="&#xE9D2;" FontSize="16" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                    </Border>
+                    <StackPanel Spacing="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Last run" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.LastRun.Game, Mode=OneWay}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="{x:Bind ViewModel.LastRun.Date, Mode=OneWay}" FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.LastRun.Comment, Mode=OneWay}" FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center"
+                                       MaxWidth="240" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.LastRunSummary, Mode=OneWay}" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <ListView CornerRadius="12" Grid.Row="2" Grid.Column="0" ItemsSource="{x:Bind ViewModel.Runs, Mode=OneWay}"
                       SelectedItem="{x:Bind ViewModel.SelectedRun, Mode=TwoWay}"
-                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0">
+                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0"
+                      ItemContainerStyle="{StaticResource BenchFlatListItemStyle}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:BenchmarkRun">
-                        <StackPanel Padding="4,6" Spacing="1">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerEntered="BenchmarkCard_PointerEntered" PointerExited="BenchmarkCard_PointerExited" PointerPressed="BenchmarkCard_PointerPressed">
+                            <StackPanel Spacing="1">
                             <TextBlock FontSize="12" FontWeight="SemiBold" Text="{x:Bind Game}" />
                             <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                 <Run Text="{x:Bind Date}" /><Run Text="  ·  " /><Run Text="{x:Bind Comment, Mode=OneWay}" />
                             </TextBlock>
                         </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8">
+            <StackPanel Grid.Row="2" Grid.Column="1" Spacing="8">
                 <TextBlock Text="Comment" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBox Text="{x:Bind ViewModel.CommentDraft, Mode=TwoWay}" TextWrapping="Wrap" />
-                <Button Content="Save comment" Command="{x:Bind ViewModel.SaveCommentCommand}" />
+                <TextBox CornerRadius="8" Text="{x:Bind ViewModel.CommentDraft, Mode=TwoWay}" TextWrapping="Wrap" />
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.SaveCommentCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE70E;" FontSize="14" /><TextBlock Text="Save comment" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
 
         <!-- Analysis -->
-        <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="36,0,36,24" Visibility="Collapsed">
+        <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
             <StackPanel x:Name="AnalysisContent" Spacing="12">
                 <TextBlock x:Name="ReportHeader" Text="{x:Bind ViewModel.ReportHeaderText, Mode=OneWay}"
                            FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
@@ -216,7 +361,7 @@
                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
                            Text="Lows exclude the first 2 s + last 1 s (attach/tab artifacts). Mid-run stalls stay in and list as stutter events below." />
                 <TextBlock Text="{x:Bind ViewModel.SensorSummaryText, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                <CheckBox Content="Overlay GPU util %" IsChecked="{x:Bind ViewModel.ShowSensorOverlay, Mode=TwoWay}" />
+                <CheckBox CornerRadius="8" Content="Overlay GPU util %" IsChecked="{x:Bind ViewModel.ShowSensorOverlay, Mode=TwoWay}" />
                 <Grid ColumnSpacing="6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -242,7 +387,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,4,0,0">
                         <TextBlock Text="Y-Axis scale" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                        <ComboBox x:Name="YScaleCombo" SelectedIndex="0" MinWidth="110" SelectionChanged="YScaleCombo_SelectionChanged">
+                        <ComboBox CornerRadius="8" x:Name="YScaleCombo" SelectedIndex="0" MinWidth="110" SelectionChanged="YScaleCombo_SelectionChanged">
                             <ComboBoxItem Content="Full fit" />
                             <ComboBoxItem Content="0–10 ms" />
                             <ComboBoxItem Content="0–20 ms" />
@@ -266,7 +411,7 @@
                     <Canvas x:Name="HistCanvas" Height="140" />
                 </Border>
                 <TextBlock Text="Stutter events (click to jump)" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <ListView x:Name="StutterList" MaxHeight="160" SelectionMode="Single" SelectionChanged="StutterList_SelectionChanged">
+                <ListView CornerRadius="12" x:Name="StutterList" MaxHeight="160" SelectionMode="Single" SelectionChanged="StutterList_SelectionChanged">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:StutterEvent">
                             <TextBlock FontSize="12">
@@ -279,7 +424,7 @@
         </ScrollViewer>
 
         <!-- Compare -->
-        <Grid x:Name="ComparePanel" Grid.Row="3" Margin="36,0,36,24" Visibility="Collapsed">
+        <Grid x:Name="ComparePanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -292,9 +437,22 @@
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                        Margin="0,0,0,8" />
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-                <Button Content="Set baseline" Command="{x:Bind ViewModel.SetBaselineCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}" />
-                <Button Content="Remove" Command="{x:Bind ViewModel.RemoveFromCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}" />
-                <Button Content="Clear" Command="{x:Bind ViewModel.ClearCompareCommand}" />
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.SetBaselineCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
+                        ToolTipService.ToolTip="Use the selected run as the comparison baseline">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE915;" FontSize="14" /><TextBlock Text="Set baseline" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.RemoveFromCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE738;" FontSize="14" /><TextBlock Text="Remove" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button CornerRadius="8" Command="{x:Bind ViewModel.ClearCompareCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE894;" FontSize="14" /><TextBlock Text="Clear" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
             <Grid Grid.Row="3">
                 <Grid.ColumnDefinitions>
@@ -310,10 +468,11 @@
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
-                <ListView Grid.Column="1" ItemsSource="{x:Bind ViewModel.CompareRows, Mode=OneWay}" SelectionMode="None">
+                <ListView CornerRadius="12" Grid.Column="1" ItemsSource="{x:Bind ViewModel.CompareRows, Mode=OneWay}" SelectionMode="None">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:CompareRow">
-                            <StackPanel Padding="4,6" Spacing="1">
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerEntered="BenchmarkCard_PointerEntered" PointerExited="BenchmarkCard_PointerExited" PointerPressed="BenchmarkCard_PointerPressed">
+                            <StackPanel Spacing="1">
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="{x:Bind Name}" />
                                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{x:Bind ShortLabel}" />
                                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
@@ -326,6 +485,7 @@
                                     <Run Text="0.1% " /><Run Text="{x:Bind Low01Text}" /><Run Text=" (" /><Run Text="{x:Bind DeltaLow01Text}" /><Run Text=")" />
                                 </TextBlock>
                             </StackPanel>
+                        </Border>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
@@ -333,16 +493,42 @@
         </Grid>
 
         <!-- Export -->
-        <StackPanel x:Name="ExportPanel" Grid.Row="3" Margin="36,0,36,24" Spacing="8" Visibility="Collapsed">
-            <Button Content="Export frames CSV" Command="{x:Bind ViewModel.ExportCsvCommand}" HorizontalAlignment="Left" />
-            <Button Content="Export report JSON" Command="{x:Bind ViewModel.ExportJsonCommand}" HorizontalAlignment="Left" />
-            <Button Content="Import PresentMon CSV" Command="{x:Bind ViewModel.ImportCsvCommand}" HorizontalAlignment="Left" />
-            <Button Content="Import CapFrameX JSON" Command="{x:Bind ViewModel.ImportJsonCommand}" HorizontalAlignment="Left" />
-            <Button Content="Save PNG report" Click="SavePngReport_Click" HorizontalAlignment="Left"
-                    ToolTipService.ToolTip="Renders the Analysis tab (graph + stats) to a shareable PNG. Open a run in Analysis first." />
-            <Button Content="Copy stats table" Command="{x:Bind ViewModel.CopyStatsTableCommand}" HorizontalAlignment="Left" />
+        <Border x:Name="ExportPanel" Grid.Row="3" Margin="28,0,28,24" Style="{StaticResource BenchCard}" Visibility="Collapsed">
+            <StackPanel Spacing="8">
+            <Button CornerRadius="8" Command="{x:Bind ViewModel.ExportCsvCommand}" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xEDE1;" FontSize="14" /><TextBlock Text="Export frames CSV" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button CornerRadius="8" Command="{x:Bind ViewModel.ExportJsonCommand}" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xEDE1;" FontSize="14" /><TextBlock Text="Export report JSON" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button CornerRadius="8" Command="{x:Bind ViewModel.ImportCsvCommand}" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE8B5;" FontSize="14" /><TextBlock Text="Import PresentMon CSV" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button CornerRadius="8" Command="{x:Bind ViewModel.ImportJsonCommand}" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE8B5;" FontSize="14" /><TextBlock Text="Import CapFrameX JSON" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button CornerRadius="8" Click="SavePngReport_Click" HorizontalAlignment="Left"
+                    ToolTipService.ToolTip="Renders the Analysis tab (graph + stats) to a shareable PNG. Open a run in Analysis first.">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xEB9F;" FontSize="14" /><TextBlock Text="Save PNG report" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button CornerRadius="8" Command="{x:Bind ViewModel.CopyStatsTableCommand}" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE8C8;" FontSize="14" /><TextBlock Text="Copy stats table" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
             <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
                        Text="Runs live under %LocalAppData%/kaliteConfig/benchmarks/ as JSON + gzip float32 frames." />
-        </StackPanel>
+            </StackPanel>
+        </Border>
     </Grid>
 </Page>

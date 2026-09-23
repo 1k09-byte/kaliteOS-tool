@@ -47,6 +47,7 @@ public sealed partial class PackageBundlesViewModel : ObservableObject
     [RelayCommand]
     public void Refresh()
     {
+        Module.Bundles.SeedEssentials();
         Bundles.Clear();
         foreach (var b in Module.Bundles.LoadAll())
             Bundles.Add(new BundleRow { Bundle = b });

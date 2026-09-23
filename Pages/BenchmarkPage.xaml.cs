@@ -51,6 +51,51 @@ namespace kaliteConfig.Pages
             return Application.Current.Resources[key] as Brush ?? new SolidColorBrush(fallback);
         }
 
+        private static Brush ThemeBrush(string key)
+        {
+            try
+            {
+                if (Application.Current.Resources.TryGetValue(key, out var value)
+                    && value is Brush brush)
+                    return brush;
+            }
+            catch { }
+            return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        }
+
+        private void BenchmarkCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Border card)
+            {
+                card.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
+                card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
+            }
+        }
+
+        private void BenchmarkCard_PointerExited(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Border card)
+            {
+                card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush");
+                card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush");
+            }
+        }
+
+        private void BenchmarkCard_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement element) return;
+            if (element.DataContext is Models.TunerProcessRow target)
+            {
+                ViewModel.SelectedTarget = target;
+                e.Handled = false;
+            }
+            else if (element.DataContext is Models.BenchmarkRun run)
+            {
+                ViewModel.SelectedRun = run;
+                e.Handled = false;
+            }
+        }
+
         private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(BenchmarkViewModel.SelectedStats))

@@ -14,6 +14,12 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
+        <Style x:Key="PowerCard" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+        </Style>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
@@ -31,7 +37,7 @@
         </Grid.RowDefinitions>
 
         <!-- BreadcrumbBar header -->
-        <Grid Margin="36,24,36,12" ColumnSpacing="12">
+        <Border Margin="28,20,28,12" Padding="16,12" Style="{StaticResource PowerCard}"><Grid ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -46,10 +52,10 @@
                 </TextBlock>
                 <TextBlock Text="Power Plans" Style="{StaticResource TitleTextBlockStyle}" />
             </StackPanel>
-        </Grid>
+        </Grid></Border>
 
         <!-- Main Layout -->
-        <Grid Grid.Row="1" ColumnSpacing="24" Padding="36,0,36,24">
+        <Grid Grid.Row="1" ColumnSpacing="18" Padding="28,0,28,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="320" /> <!-- Master -->
                 <ColumnDefinition Width="*" />   <!-- Details -->
@@ -66,7 +72,7 @@
             </Grid>
 
             <!-- Master List (Schemes) -->
-            <Grid Grid.Column="0">
+            <Border Grid.Column="0" Style="{StaticResource PowerCard}" Padding="14"><Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -85,26 +91,28 @@
                     <InfoBar Message="{Binding ErrorMessage}" Severity="Warning" IsOpen="True" Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" IsClosable="False" />
                 </StackPanel>
 
-                <ListView Grid.Row="1" 
+                        <ListView Grid.Row="1" 
                           ItemsSource="{Binding Schemes}" 
                           SelectedItem="{Binding SelectedScheme, Mode=TwoWay}"
                           SelectionMode="Single"
                           Background="{ThemeResource LayerFillColorDefaultBrush}"
                           BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                           BorderThickness="1"
-                          CornerRadius="8">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="models:PowerScheme">
-                            <Grid Padding="8">
+                          CornerRadius="10"
+                          Padding="6">
+                    <ListView.ItemTemplate>                            <DataTemplate x:DataType="models:PowerScheme">
+                                <!-- The rounded card is the hover + selection surface. -->
+                            <Border Padding="10,9" CornerRadius="10" BorderThickness="1"
+                                        Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="Transparent"><Grid>
                                 <StackPanel>
                                     <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="Currently applied" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
-                            </Grid>
+                            </Grid></Border>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-            </Grid>
+            </Grid></Border>
 
             <!-- Details View (Subgroups & Settings) -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,16,0">
@@ -205,17 +213,37 @@
                                                         </StackPanel>
 
                                                         <StackPanel
-                                                            Visibility="{Binding IsRangeType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            Visibility="{Binding HasRangeChoices, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
-                                                            <NumberBox Value="{Binding AcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
-                                                                       SmallChange="1" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedItem="{Binding SelectedAcChoice, Mode=TwoWay}" />
                                                         </StackPanel>
 
                                                         <StackPanel
-                                                            Visibility="{Binding IsRangeType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            Visibility="{Binding HasRangeChoices, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedItem="{Binding SelectedDcChoice, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBareRange, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <NumberBox Value="{Binding AcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" />
+                                                            <TextBlock Text="{Binding AcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBareRange, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
                                                             <NumberBox Value="{Binding DcValueIndex, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
                                                                        SmallChange="1" />
+                                                            <TextBlock Text="{Binding DcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
                                                         </StackPanel>
                                                     </StackPanel>
                                                     
