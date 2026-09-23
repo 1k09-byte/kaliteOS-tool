@@ -35,7 +35,7 @@ internal static partial class NativeMethods
             out uint returnLength);
 
         // NTSTATUS return (0 = success). Undocumented/version-fragile: every caller
-        // must validate sizes and degrade gracefully — see NativeSnapshotService.
+        // must validate sizes and degrade gracefully - see NativeSnapshotService.
         [LibraryImport("ntdll.dll")]
         internal static partial int NtQuerySystemInformation(
             int systemInformationClass,

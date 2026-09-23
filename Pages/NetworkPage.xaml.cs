@@ -179,7 +179,7 @@ public sealed partial class NetworkPage : Page
         if (!ViewModel.ConfirmRiskyEdit && ViewModel.Adapters.Count(a => a.IsUp && (a.Kind == NetAdapterKind.Ethernet || a.Kind == NetAdapterKind.WiFi)) <= 1
             && ViewModel.SelectedAdapter.IsUp)
         {
-            OnBanner("Confirm first", "This looks like the only adapter with a link. Tick the confirmation checkbox to apply anyway — the keep-countdown still protects you.");
+            OnBanner("Confirm first", "This looks like the only adapter with a link. Tick the confirmation checkbox to apply anyway - the keep-countdown still protects you.");
             return;
         }
         try { await ViewModel.ApplyAsync().ConfigureAwait(true); }

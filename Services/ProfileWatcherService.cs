@@ -215,7 +215,7 @@ public sealed class ProfileWatcherService : IDisposable
                     // The saved copy carries its own display name as the process
                     // pattern ("Input/Sensor Threads" instead of "dwm.exe"), so
                     // FindPids could never match a process and the rule sat at
-                    // "Waiting for process" forever — the reason the built-in
+                    // "Waiting for process" forever - the reason the built-in
                     // DWM Master Input / Kernel Sensor rule never applied.
                     // Only the pattern is repaired; every other user tweak on
                     // the rule (thread affinities, boost flags…) is preserved.
@@ -317,7 +317,7 @@ public sealed class ProfileWatcherService : IDisposable
 
     /// <summary>
     /// Serializes profile saves. Concurrent saves previously raced on a shared
-    /// .tmp filename — one save moved the file out from under the other,
+    /// .tmp filename - one save moved the file out from under the other,
     /// logging "save FAILED: tmp not found" and, in the worst interleaving,
     /// letting a stale/empty snapshot win. Evidence: rules-debug.log.
     /// </summary>
@@ -339,7 +339,7 @@ public sealed class ProfileWatcherService : IDisposable
             try
             {
                 // Atomic write: a crash mid-save must never leave a truncated
-                // file. Unique tmp name per save — a shared name raced between
+                // file. Unique tmp name per save - a shared name raced between
                 // concurrent saves (one Move stole the other's tmp file).
                 string tmp = _profilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 await File.WriteAllTextAsync(tmp, text);
@@ -590,7 +590,7 @@ public sealed class ProfileWatcherService : IDisposable
             // A pattern that equals the rule name can never match: say so
             // instead of leaving the rule looking like it is merely waiting.
             string waiting = PatternIsDisplayName(profile)
-                ? "Pattern is the rule name — nothing can match it"
+                ? "Pattern is the rule name - nothing can match it"
                 : "Waiting for process";
             bool waitingChanged = profile.LastResult != waiting;
             profile.LastResult = waiting;
@@ -804,19 +804,11 @@ public sealed class ProfileWatcherService : IDisposable
                 Log($"gaming-mode: rule hold taken for [{name}] pid={pid}, protected={armed.Count}");
             }
 
-            bool benchmarkRule = matched.Any(p => p.AutoBenchmarkOnLaunch);
-            if (benchmarkRule)
-            {
-                _ = App.Current.Benchmark.AutoStartCaptureAsync(pid, name, $"{name} auto-benchmark");
-                Log($"auto-benchmark: triggered capture for [{name}] pid={pid}");
-            }
-
-
             if (matched.Count == 0)
             {
                 // Even with no rule match, persisted boost preferences must
                 // still re-arm on every launch of the owning process (they are
-                // independent of rules) — per thread and per process.
+                // independent of rules) - per thread and per process.
                 _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
                 _ = ProcessBoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
                 return;
@@ -907,7 +899,7 @@ public sealed class ProfileWatcherService : IDisposable
     /// enabled auto-apply rules are re-applied to the processes that are
     /// running, and the persisted priority-boost preferences (per thread and per
     /// process) are re-armed. A one-shot apply at process start always looked
-    /// like "the settings keep resetting themselves" — a process restart, a
+    /// like "the settings keep resetting themselves" - a process restart, a
     /// thread created later, or Windows re-enabling boost undid it. This sweep
     /// is what makes Process Control settings permanent.
     /// </summary>
@@ -1000,7 +992,7 @@ public sealed class ProfileWatcherService : IDisposable
                 // Idempotent by design: the hold registry joins the running
                 // session when the target still matches, and hands the session
                 // over when the process it belonged to has exited. No local
-                // "did the watcher start it" flag is needed any more — the hold
+                // "did the watcher start it" flag is needed any more - the hold
                 // IS that flag, and releasing it cannot touch other holders.
                 _ = App.Current.GamingMode.AcquireAsync(
                         GameModeOwner.Rule, armed[0], armed, "automatic gaming mode rule")
@@ -1078,7 +1070,7 @@ public sealed class ProfileWatcherService : IDisposable
                 int? target = App.Current.GamingMode.SessionTargetPid;
                 if (target.HasValue && !IsPidAlive(target.Value))
                 {
-                    Log("gaming-mode: session target exited while other armed games run — handing over");
+                    Log("gaming-mode: session target exited while other armed games run - handing over");
                     EvaluateGamingModeRules();
                 }
             }

@@ -51,7 +51,7 @@ public sealed partial class PackageBundlesViewModel : ObservableObject
         Bundles.Clear();
         foreach (var b in Module.Bundles.LoadAll())
             Bundles.Add(new BundleRow { Bundle = b });
-        if (Bundles.Count == 0) StatusLine = "No bundles yet — add a selection to a bundle from any list.";
+        if (Bundles.Count == 0) StatusLine = "No bundles yet - add a selection to a bundle from any list.";
         else StatusLine = "";
     }
 

@@ -130,7 +130,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
         new StartupSectionVm("HKCU Run",
             "Applications Windows launches for this user. Unchecking keeps the command in kaliteConfig's backup store, so it can be switched back on."),
         new StartupSectionVm("HKLM Run",
-            "Machine-wide startup values — they run for every account on this PC."),
+            "Machine-wide startup values - they run for every account on this PC."),
         new StartupSectionVm("Services",
             "User-mode services only (own process, shared process, interactive). Checked = automatic start, unchecked = start mode Disabled."),
         new StartupSectionVm("Scheduled Tasks",
@@ -143,7 +143,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public StartupSectionVm CurrentStartupSection =>
         StartupSections[Math.Clamp(StartupSectionIndex, 0, StartupSections.Count - 1)];
 
-    /// <summary>The list for the selected source — never all four at once.</summary>
+    /// <summary>The list for the selected source - never all four at once.</summary>
     public ObservableCollection<StartupEntry> CurrentStartupEntries => StartupSectionIndex switch
     {
         0 => FilteredHkcu,
@@ -384,7 +384,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
         SummaryText = $"{FilteredApps.Count} shown • {Apps.Count} installed • {total} registered";
         InfoText = $"{Apps.Count} applications found.";
         HasResults = FilteredApps.Count > 0;
-        // Newly visible rows may still lack icons — loader is re-entrancy guarded.
+        // Newly visible rows may still lack icons - loader is re-entrancy guarded.
         _ = LoadIconsAsync();
     }
 
@@ -484,7 +484,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 catch (Exception ex) { errors.Add($"{app.Name}: {ex.Message}"); }
             }
 
-            // Refresh list (LoadAppsAsync guards on IsLoading — release first)
+            // Refresh list (LoadAppsAsync guards on IsLoading - release first)
             IsLoading = false;
             await LoadAppsAsync();
             ActionStatus = errors.Count == 0
@@ -587,7 +587,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 }
                 catch (Exception ex) { errors.Add($"{app.Name}: {ex.Message}"); }
             }
-            IsLoading = false; // LoadAppsAsync guards on IsLoading — release first
+            IsLoading = false; // LoadAppsAsync guards on IsLoading - release first
             await LoadAppsAsync();
             ActionStatus = errors.Count == 0
                 ? $"Force-removed residue for {cleaned} application{(cleaned == 1 ? "" : "s")}."

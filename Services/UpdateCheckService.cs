@@ -18,7 +18,7 @@ namespace kaliteConfig.Services;
 ///
 /// - Repo constants live here; change them once when the repo moves.
 /// - Uses /releases/latest, which GitHub only returns for full (non-prerelease,
-///   non-draft) releases — so tagging an alpha never ships to consumers.
+///   non-draft) releases - so tagging an alpha never ships to consumers.
 /// - Asset lookup by name prefix "kaliteConfig-Consumer-Setup-" (what
 ///   Installer/Build-Consumer.ps1 produces via kaliteConfig-Consumer.iss).
 /// - Every network call is best-effort: a timeout/404/rate-limit never
@@ -81,7 +81,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     /// <summary>
     /// Records the version an update was just launched for. If the app later
     /// still offers that same version, the install didn't take (different
-    /// install folder, dev copy, side-by-side flavor) — and the UI can say so
+    /// install folder, dev copy, side-by-side flavor) - and the UI can say so
     /// instead of looping silently.
     /// </summary>
     internal static void ClearPendingUpdate()
@@ -226,7 +226,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
         }
         catch (Exception ex)
         {
-            LogDiag($"handoff: failed — {ex.Message}");
+            LogDiag($"handoff: failed - {ex.Message}");
             return false;
         }
     }
@@ -257,8 +257,8 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     ///
     /// - /NOCLOSEAPPLICATIONS: the app minimizes to the tray and swallows
     ///   WM_CLOSE, so Restart Manager can never close it; Setup then reported
-    ///   "Some applications could not be shut down" and — because
-    ///   /SUPPRESSMSGBOXES defaults to Abort — rolled the ENTIRE upgrade back
+    ///   "Some applications could not be shut down" and - because
+    ///   /SUPPRESSMSGBOXES defaults to Abort - rolled the ENTIRE upgrade back
     ///   without a word. The app exits itself and Setup's [Code] kills
     ///   stragglers instead. (The old /CLOSEAPPLICATIONS=0 was not a real
     ///   switch: unknown parameters are ignored, so it disabled nothing.)
@@ -305,7 +305,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
         string? LogPath,
         bool Reported);
 
-    /// <summary>Inno Setup log path for a version — the same path we pass as /LOG.</summary>
+    /// <summary>Inno Setup log path for a version - the same path we pass as /LOG.</summary>
     internal static string SetupLogPath(string version) => Path.Combine(
         Path.GetTempPath(), $"kaliteConfig-setup-{version.Trim()}.log");
 
@@ -318,16 +318,16 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     {
         /// <summary>No attempt on record (or it was reconciled and cleared).</summary>
         None,
-        /// <summary>This session runs the attempted version or newer — the install took.</summary>
+        /// <summary>This session runs the attempted version or newer - the install took.</summary>
         Applied,
         /// <summary>The registered install has the attempted version; this session is a stale copy.</summary>
         AppliedElsewhere,
-        /// <summary>Setup ran (or never started) and the version did not change — say why.</summary>
+        /// <summary>Setup ran (or never started) and the version did not change - say why.</summary>
         Failed,
     }
 
     /// <summary>
-    /// Judges a pending attempt from the versions on disk. Pure — every
+    /// Judges a pending attempt from the versions on disk. Pure - every
     /// input is supplied by the caller, so this is checked offline in
     /// tools/UpdateVerify. Never trust the fact that we once started a setup
     /// exe: the only proof an upgrade landed is the version of the file that
@@ -419,7 +419,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
 
     /// <summary>
     /// Reads an Inno Setup log and turns it into one line a user can act on.
-    /// Never throws — diagnostics must not break the updater.
+    /// Never throws - diagnostics must not break the updater.
     /// </summary>
     internal static string? ReadInstallerLogSummary(string? logPath)
     {
@@ -438,7 +438,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     /// <summary>
     /// The reason a silent install aborted. Under /SUPPRESSMSGBOXES Setup
     /// defaults to Abort for the dialog it cannot show, so the log is the ONLY
-    /// place the failure survives — without it the app can only say "the
+    /// place the failure survives - without it the app can only say "the
     /// install didn't take". Pure: the caller reads the file.
     /// </summary>
     internal static string? SummarizeInstallerLog(System.Collections.Generic.IReadOnlyList<string>? lines)
@@ -483,9 +483,9 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
         ("Some applications could not be shut down",
             "Setup could not close the running kaliteConfig copy, so it aborted before replacing any file."),
         ("Setup files are corrupted",
-            "The downloaded installer was corrupt — retry the download."),
+            "The downloaded installer was corrupt - retry the download."),
         ("is not a valid Win32 application",
-            "The downloaded installer was not a valid program — retry the download."),
+            "The downloaded installer was not a valid program - retry the download."),
         ("Access is denied",
             "Setup was denied access to the install folder (permissions or antivirus)."),
         ("The process cannot access the file",
@@ -515,7 +515,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
                 var v = Assembly.GetEntryAssembly()?.GetName().Version;
                 // All four parts: the release tags carry a revision
                 // (v0.3.0.1), and truncating it made 0.3.0.1 compare as
-                // 0.3.0 — the updater then offered the identical version.
+                // 0.3.0 - the updater then offered the identical version.
                 return v is null ? null : $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
             }
             catch { return null; }
@@ -561,7 +561,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
             using var response = await _http.GetAsync(ReleasesApiUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
             {
-                LogDiag($"check: HTTP {(int)response.StatusCode} — no offer");
+                LogDiag($"check: HTTP {(int)response.StatusCode} - no offer");
                 return null; // 404 = no releases yet; 403 = rate limit
             }
 
@@ -576,7 +576,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
 
             if (!IsNewer(tag, CurrentVersion))
             {
-                LogDiag($"check: tag '{tag}' not newer than running {CurrentVersion ?? "?"} — no offer");
+                LogDiag($"check: tag '{tag}' not newer than running {CurrentVersion ?? "?"} - no offer");
                 return null;
             }
 
@@ -586,7 +586,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
 
             if (picked is null)
             {
-                LogDiag($"check: tag '{tag}' has no setup asset matching its own version — no offer (not installing a stale asset)");
+                LogDiag($"check: tag '{tag}' has no setup asset matching its own version - no offer (not installing a stale asset)");
                 return null;
             }
 
@@ -605,7 +605,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
     /// contains the release's own version is eligible. The full-flavor prefix
     /// wins over the legacy consumer prefix when both match (single-flavor
     /// going forward; old consumer installs migrate to it).
-    /// Pure logic — unit-tested in tools/UpdateVerify without network.
+    /// Pure logic - unit-tested in tools/UpdateVerify without network.
     /// </summary>
     internal static SetupAsset? PickSetupAsset(JsonElement assetsArray, string tag)
     {
@@ -622,7 +622,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
                 || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 continue;
             if (!name.Contains(version, StringComparison.OrdinalIgnoreCase))
-                continue; // not built for this release — never install it as "the update"
+                continue; // not built for this release - never install it as "the update"
 
             string? url = asset.TryGetProperty("browser_download_url", out var u) && u.ValueKind == JsonValueKind.String
                 ? u.GetString() : null;

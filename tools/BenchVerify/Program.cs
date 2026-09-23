@@ -111,7 +111,7 @@ namespace BenchVerify
 
         /// <summary>
         /// CSV tests use the REAL header line captured from PresentMon 2.5.1
-        /// (default schema smoke run) — header lookup, never index.
+        /// (default schema smoke run) - header lookup, never index.
         /// </summary>
         private static void VerifyCsvParsing()
         {

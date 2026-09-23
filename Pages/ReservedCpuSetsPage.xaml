@@ -37,7 +37,7 @@
         </StackPanel>
 
         <!-- Cores lay out left-to-right in an even grid; ticking a chip only
-             stages the change — nothing is written until Apply is clicked.
+             stages the change - nothing is written until Apply is clicked.
              Apply sits bottom-right on the same line as the chips. -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>

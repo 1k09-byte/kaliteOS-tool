@@ -17,7 +17,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// The loop stops and hands back to Auto (a real restore call) when:
     /// the app is closing, the GPU is disconnected/re-detected, or the user
     /// switches away from Curve mode. "Silently keeps running after the UI
-    /// closes" is a bug class this class is explicitly designed against —
+    /// closes" is a bug class this class is explicitly designed against -
     /// Dispose always restores Auto.
     ///
     /// Crash-orphan protection (phase-2 finding): a HARD process kill cannot
@@ -77,11 +77,11 @@ namespace kaliteConfig.GpuOverclock.Services
                 var fresh = stamp != default && DateTime.UtcNow - stamp < TimeSpan.FromMinutes(1);
 
                 // Our OWN pid with a fresh marker = a live curve loop in this very
-                // process owns the fan (double init, page re-navigation) — never
+                // process owns the fan (double init, page re-navigation) - never
                 // fight it. A stale own-pid marker is pid-reuse debris → recover.
                 if (pid > 0 && pid == Environment.ProcessId && fresh) return false;
 
-                // Another live instance owns the fan — do not fight it.
+                // Another live instance owns the fan - do not fight it.
                 if (pid > 0 && pid != Environment.ProcessId)
                 {
                     try
@@ -89,7 +89,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         using var proc = System.Diagnostics.Process.GetProcessById(pid);
                         if (!proc.HasExited) return false;
                     }
-                    catch (System.ArgumentException) { /* pid gone — orphan confirmed */ }
+                    catch (System.ArgumentException) { /* pid gone - orphan confirmed */ }
                 }
 
                 controller.RestoreFanAuto(); // explicit hand-back, never "just delete the file"
@@ -115,7 +115,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>
         /// Ramp/smoothing cap: maximum percentage-points the applied fan speed
         /// may move toward the curve's target per tick. 0 (default) disables
-        /// smoothing — the target applies directly, exactly as before. Damps
+        /// smoothing - the target applies directly, exactly as before. Damps
         /// audible fan-speed hunting when the temperature hovers near a curve
         /// knee. Read live every tick, like <see cref="Interval"/>.
         /// </summary>
@@ -140,7 +140,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         /// <summary>
         /// Starts (or restarts with new points) the curve loop. The temp provider
-        /// is usually the polling service's latest snapshot — kept as a delegate
+        /// is usually the polling service's latest snapshot - kept as a delegate
         /// so this service never depends on the polling implementation.
         /// </summary>
         public void Start(FanCurvePoint[] points, Func<int?> tempProvider)
@@ -181,7 +181,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 cts.Dispose();
                 lock (_gate) _lastAppliedPct = null;
                 ClearMarkerSafe();
-                // Explicit hand-back to the driver default — not "just stop writing".
+                // Explicit hand-back to the driver default - not "just stop writing".
                 await Task.Run(() => _controller.RestoreFanAuto()).ConfigureAwait(false);
                 Stopped?.Invoke(reason);
             }
@@ -208,7 +208,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     var target = Evaluate(_points, temp.Value);
                     var pct = lastApplied.HasValue ? RampTowards(lastApplied.Value, target, maxStep) : target;
                     // Quiesced (device restarts in flight): hold the last
-                    // speed and skip the write — same native-handle hazard
+                    // speed and skip the write - same native-handle hazard
                     // as telemetry (see HardwareQuiesceGate).
                     if (!HardwareQuiesceGate.IsQuiesced)
                     {
@@ -222,12 +222,12 @@ namespace kaliteConfig.GpuOverclock.Services
                         }
                         else if (res.ErrorKind == OverclockErrorKind.GpuDisconnected)
                         {
-                            await StopAsync("GPU disconnected — fan restored to auto").ConfigureAwait(false);
+                            await StopAsync("GPU disconnected - fan restored to auto").ConfigureAwait(false);
                             return;
                         }
                     }
                 }
-                // temp == null: telemetry unavailable this tick — hold last speed
+                // temp == null: telemetry unavailable this tick - hold last speed
                 // rather than slamming 100% or 0% on a single missed read.
 
                 try { await Task.Delay(interval, token).ConfigureAwait(false); }
@@ -279,7 +279,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public async ValueTask DisposeAsync()
         {
-            await StopAsync("app closing — fan restored to auto").ConfigureAwait(false);
+            await StopAsync("app closing - fan restored to auto").ConfigureAwait(false);
         }
     }
 }

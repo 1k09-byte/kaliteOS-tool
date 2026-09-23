@@ -9,7 +9,7 @@ namespace kaliteConfig.Services;
 /// Parses PresentMon 2.5.1 console CSV output (default schema, see
 /// Assets/PresentMon/VERSION.txt). Pure logic: header lookup, never index.
 /// Primary frametime column MsBetweenPresents, fallback FrameTime
-/// (--v2_metrics schema). No UI, no IO beyond the given lines — unit-tested.
+/// (--v2_metrics schema). No UI, no IO beyond the given lines - unit-tested.
 /// </summary>
 public static class BenchmarkPresentMonCsv
 {
@@ -109,7 +109,7 @@ public static class BenchmarkPresentMonCsv
     /// <summary>
     /// Incremental live-tail parse: reads only the bytes appended since the
     /// last call. The 1 Hz live graph used to re-parse the whole CSV every
-    /// tick (O(n²) over a 60 s capture — ~50k rows re-read by the end),
+    /// tick (O(n²) over a 60 s capture - ~50k rows re-read by the end),
     /// which itself perturbed the machine being measured.
     /// </summary>
     public static (ParsedCapture Capture, long LastOffset) ParseFileTail(

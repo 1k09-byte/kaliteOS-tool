@@ -16,14 +16,14 @@ namespace kaliteConfig.Services;
 /// windhawk-user-data-v1 JSON backup and applies it to a running Windhawk
 /// installation. Two strategies, best-first:
 ///
-/// 1. PREFERRED — windhawk-cli.exe (ships with Windhawk 2.0+):
+/// 1. PREFERRED - windhawk-cli.exe (ships with Windhawk 2.0+):
 ///    "windhawk-cli data import &lt;archive&gt; --yes --confirm-app-restart" consumes
 ///    this exact format natively (verified in the Windhawk 2.0 source:
 ///    src/windhawk-core/cli/src/commands/data.rs). The CLI talks to the running
 ///    Windhawk core, which fetches each modId's source from the official mod
-///    repository, applies per-mod settings, and reports per-mod outcomes —
+///    repository, applies per-mod settings, and reports per-mod outcomes -
 ///    settings-only entries are sufficient (no manual .wh.cpp handling).
-/// 2. FALLBACK — direct HKLM\SOFTWARE\Windhawk registry writes (stable 1.7.x
+/// 2. FALLBACK - direct HKLM\SOFTWARE\Windhawk registry writes (stable 1.7.x
 ///    has no import CLI). Verified layout (upstream issue #195 backup script):
 ///    - Mods live under Engine\Mods\&lt;modId&gt; with values LibraryFileName,
 ///      MetadataJson, Disabled, Settings_&lt;n&gt; keyed per setting.
@@ -92,12 +92,12 @@ public sealed class WindhawkImportService
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Service restart failed: {ex.Message}");
-                    status?.Report("Note: Windhawk service could not be restarted automatically — it will pick up the mods on its next start.");
+                    status?.Report("Note: Windhawk service could not be restarted automatically - it will pick up the mods on its next start.");
                 }
                 return cliResult;
             }
 
-            status?.Report("windhawk-cli import did not complete — falling back to registry import.");
+            status?.Report("windhawk-cli import did not complete - falling back to registry import.");
         }
 
         // Strategy 2: direct registry (stable 1.7.x, no CLI).
@@ -249,7 +249,7 @@ public sealed class WindhawkImportService
                 result.Skipped++;
                 result.Outcomes.Add(new WindhawkModImportOutcome(
                     mod.ModId, false,
-                    "Mod id is not in the bundled catalog — skipped for safety."));
+                    "Mod id is not in the bundled catalog - skipped for safety."));
                 Debug.WriteLine($"Mod '{mod.ModId}' skipped: not in catalog.");
                 continue;
             }
@@ -267,7 +267,7 @@ public sealed class WindhawkImportService
                     result.Skipped++;
                     result.Outcomes.Add(new WindhawkModImportOutcome(
                         mod.ModId, false,
-                        "Registry write succeeded but the mod is not enabled — Windhawk will not apply it."));
+                        "Registry write succeeded but the mod is not enabled - Windhawk will not apply it."));
                     Debug.WriteLine($"Mod '{mod.ModId}' import verified as NOT applied.");
                     continue;
                 }
@@ -297,7 +297,7 @@ public sealed class WindhawkImportService
         catch (Exception ex)
         {
             Debug.WriteLine($"Service restart failed: {ex.Message}");
-            status?.Report("Note: Windhawk service could not be restarted automatically — it will pick up the mods on its next start.");
+            status?.Report("Note: Windhawk service could not be restarted automatically - it will pick up the mods on its next start.");
         }
 
         // Post-import summary: recompute Imported/Skipped counts from the verified
@@ -354,7 +354,7 @@ public sealed class WindhawkImportService
     /// <summary>
     /// Writes one mod's registration under HKLM\SOFTWARE\Windhawk\Engine\Mods\&lt;modId&gt;.
     /// The registry stores settings as flat string values ("key" → stringified
-    /// scalar, arrays as key[i] entries) — this is exactly the flat form the
+    /// scalar, arrays as key[i] entries) - this is exactly the flat form the
     /// backup already uses, so values transfer directly.
     /// </summary>
     private static void ApplyModToRegistry(WindhawkModEntry mod)
@@ -390,7 +390,7 @@ public sealed class WindhawkImportService
 
     /// <summary>
     /// Verifies that a single mod was written correctly by re-opening its registry
-    /// key and checking the Disabled value — the most reliable signal that the
+    /// key and checking the Disabled value - the most reliable signal that the
     /// engine will honor the mod.
     /// </summary>
     private static bool VerifyModApplied(string modId)

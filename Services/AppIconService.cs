@@ -12,7 +12,7 @@ namespace kaliteConfig.Services;
 /// Loads real per-app icons: Win32 via the shell thumbnail of the exe/DisplayIcon
 /// target (or an exe found in the install folder), AppX via the package logo file.
 /// Thumbnails are cached to %LocalAppData%\kaliteConfig\IconCache so repeat visits
-/// are instant. Everything returns null on failure — callers keep the letter-avatar
+/// are instant. Everything returns null on failure - callers keep the letter-avatar
 /// fallback. Must be called on the UI thread (BitmapImage requires it).
 /// </summary>
 public static class AppIconService
@@ -59,14 +59,14 @@ public static class AppIconService
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var s = raw.Trim().Trim('"');
-        // DisplayIcon often looks like "C:\...\\app.exe,0" — drop the ",index".
+        // DisplayIcon often looks like "C:\...\\app.exe,0" - drop the ",index".
         int comma = s.LastIndexOf(',');
         if (comma > 0)
         {
             var tail = s.Substring(comma + 1).Trim();
             if (int.TryParse(tail, out _)) s = s.Substring(0, comma).Trim().Trim('"');
         }
-        // Uninstall strings carry arguments — keep only a bare existing exe path.
+        // Uninstall strings carry arguments - keep only a bare existing exe path.
         if (!File.Exists(s))
         {
             if (s.StartsWith("\""))
@@ -128,7 +128,7 @@ public static class AppIconService
             }
             catch
             {
-                // Cache write failed — still show this session's icon.
+                // Cache write failed - still show this session's icon.
                 var bmp = new BitmapImage();
                 thumb.Seek(0);
                 await bmp.SetSourceAsync(thumb);

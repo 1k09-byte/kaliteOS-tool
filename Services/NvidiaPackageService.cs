@@ -45,7 +45,7 @@ namespace kaliteConfig.Services
     /// run setup.exe elevated with silent switches.
     ///
     /// SAFETY INVARIANTS (do not weaken):
-    ///  1. Download URLs must be https://*.nvidia.com — enforced before any byte.
+    ///  1. Download URLs must be https://*.nvidia.com - enforced before any byte.
     ///  2. The package must carry a valid NVIDIA Authenticode signature, verified
     ///     with WinVerifyTrust, BEFORE extraction or execution. Failure stops
     ///     everything; driver-signature enforcement is never bypassed.
@@ -57,7 +57,7 @@ namespace kaliteConfig.Services
         private static readonly HttpClient _http = new();
 
         // ------------------------------------------------------------------
-        // Part 2 — download with host enforcement
+        // Part 2 - download with host enforcement
         // ------------------------------------------------------------------
 
         public static bool IsAllowedUrl(string? url)
@@ -109,7 +109,7 @@ namespace kaliteConfig.Services
         }
 
         // ------------------------------------------------------------------
-        // Part 2 — signature + hash verification
+        // Part 2 - signature + hash verification
         // ------------------------------------------------------------------
 
         #region WinVerifyTrust interop
@@ -237,14 +237,14 @@ namespace kaliteConfig.Services
         }
 
         // ------------------------------------------------------------------
-        // Part 3 — 7z SFX extraction
+        // Part 3 - 7z SFX extraction
         // ------------------------------------------------------------------
 
         /// <summary>
         /// Pinned SHA-256 of the official https://www.7-zip.org/a/7zr.exe
         /// (verified stable across downloads). 7zr.exe is NOT Authenticode-signed
         /// (verified: Get-AuthenticodeSignature reports NotSigned), so a signature
-        /// check would always fail — the pinned hash IS the trust anchor here.
+        /// check would always fail - the pinned hash IS the trust anchor here.
         /// If 7-zip.org ships a new build, this hash must be updated deliberately.
         /// </summary>
         private const string Expected7zrSha256 = "AD4C82FADCBDF93C03B4FC440F300509C7D60C5C2F4D183E35D9D70D6957037D";
@@ -304,7 +304,7 @@ namespace kaliteConfig.Services
         }
 
         // ------------------------------------------------------------------
-        // Part 3/4 — setup.cfg parsing into components
+        // Part 3/4 - setup.cfg parsing into components
         // ------------------------------------------------------------------
 
         /// <summary>
@@ -314,7 +314,7 @@ namespace kaliteConfig.Services
         /// </summary>
         private static readonly Dictionary<string, (string Label, string Desc, bool DefaultOn)> KnownComponents = new(StringComparer.OrdinalIgnoreCase)
         {
-            ["Display.Driver"]         = ("Display Driver", "The core graphics driver. Required — cannot be removed.", true),
+            ["Display.Driver"]         = ("Display Driver", "The core graphics driver. Required - cannot be removed.", true),
             ["Display.ControlPanel"]   = ("NVIDIA Control Panel", "Per-display and 3D settings UI.", true),
             ["Display.PhysX"]          = ("PhysX", "Legacy physics engine used by some games.", true),
             ["HDAudio.Driver"]         = ("HD Audio Driver", "Audio over HDMI/DisplayPort. Needed for monitor/TV speakers.", true),
@@ -351,7 +351,7 @@ namespace kaliteConfig.Services
                 var components = new List<NvidiaComponent>();
                 string cfgPath = Path.Combine(extractDir, "setup.cfg");
                 if (!File.Exists(cfgPath))
-                    throw new InvalidOperationException($"setup.cfg not found in {extractDir} — not a valid NVIDIA package layout.");
+                    throw new InvalidOperationException($"setup.cfg not found in {extractDir} - not a valid NVIDIA package layout.");
 
                 var doc = XDocument.Load(cfgPath);
                 var subPackages = doc.Descendants()
@@ -360,7 +360,7 @@ namespace kaliteConfig.Services
                     .ToList();
 
                 if (subPackages.Count == 0)
-                    throw new InvalidOperationException("setup.cfg has no <sub-package> entries — unknown package schema.");
+                    throw new InvalidOperationException("setup.cfg has no <sub-package> entries - unknown package schema.");
 
                 foreach (var el in subPackages)
                 {
@@ -378,11 +378,11 @@ namespace kaliteConfig.Services
                     // stray optional one is visible and one tick away from off.
                     var known = KnownComponents.TryGetValue(id, out var meta)
                         ? meta
-                        : (Label: id, Desc: "New in this package — not in the known list, so it is left selected.", DefaultOn: true);
+                        : (Label: id, Desc: "New in this package - not in the known list, so it is left selected.", DefaultOn: true);
 
                     // Sizes: the package lays out each sub-package's payload in a
                     // matching folder (Display.Driver/…). NvContainer* entries
-                    // share one folder — try exact, then prefix match.
+                    // share one folder - try exact, then prefix match.
                     string dir = ResolveComponentDir(extractDir, id);
                     long size = Directory.Exists(dir)
                         ? Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
@@ -394,7 +394,7 @@ namespace kaliteConfig.Services
                         Id = id,
                         Name = known.Label,
                         Description = known.Desc +
-                            (hidden ? " (hidden package — internal)" : "") +
+                            (hidden ? " (hidden package - internal)" : "") +
                             (!userSelectable ? " (installer-managed)" : ""),
                         // Locked = the display driver itself. Installer-managed
                         // internals (userSelectable=false) also can't be toggled,
@@ -411,7 +411,7 @@ namespace kaliteConfig.Services
             });
 
         // ------------------------------------------------------------------
-        // Part 5 — setup.cfg rewrite + elevated silent install
+        // Part 5 - setup.cfg rewrite + elevated silent install
         // ------------------------------------------------------------------
 
         /// <summary>
@@ -436,14 +436,14 @@ namespace kaliteConfig.Services
         /// <paramref name="components"/> MUST carry every parsed component with
         /// its final IsSelected state. Handing over only the ticked ones made
         /// <c>deselected</c> always empty, so nothing was ever excluded and the
-        /// "useless stuff" installed anyway — the bug this method now guards
+        /// "useless stuff" installed anyway - the bug this method now guards
         /// against by reporting exactly what it excluded.
         /// </para>
         ///
         /// <para>
         /// Two things happen for each deselected component: the sub-package is
         /// marked <c>disposition="hidden"</c> (the schema's own way of taking a
-        /// component out of the install set — VirtualAudio.Driver ships hidden),
+        /// component out of the install set - VirtualAudio.Driver ships hidden),
         /// and any child entry that names payload inside that component's own
         /// folder is removed so the installer has nothing left to copy. The
         /// element itself is never removed: the installer resolves the remaining
@@ -597,7 +597,7 @@ namespace kaliteConfig.Services
         /// <summary>
         /// Runs the extracted setup.exe elevated with NVIDIA's documented silent
         /// switches. Streams the installer's own log tail into the UI. Returns
-        /// the exit code — 0 success, 1 failure, 1641/3010 reboot required.
+        /// the exit code - 0 success, 1 failure, 1641/3010 reboot required.
         /// </summary>
         public async Task<(int ExitCode, bool RebootRequired, string LogTail)> InstallAsync(
             string extractDir, bool cleanInstall, Action<string> log, CancellationToken ct)
@@ -609,7 +609,7 @@ namespace kaliteConfig.Services
             // ACCURACY FLAG: -s (silent), -noreboot, -noeula and -clean are the
             // switches the NVIDIA installer has supported for years and are the
             // ones NVCleanstall/NVSlimmer drive. Run "setup.exe -?" / -h against
-            // the real extracted package before relying on the exact set —
+            // the real extracted package before relying on the exact set -
             // the exact grammar is not contractually documented.
             var args = new StringBuilder("-s -noreboot -noeula");
             if (cleanInstall) args.Append(" -clean");
@@ -620,12 +620,12 @@ namespace kaliteConfig.Services
                 FileName = setupExe,
                 Arguments = args.ToString(),
                 UseShellExecute = true,           // required for the UAC prompt
-                Verb = "runas",                   // real UAC consent — no tricks
+                Verb = "runas",                   // real UAC consent - no tricks
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
 
             using var proc = Process.Start(psi) ?? throw new InvalidOperationException("setup.exe failed to start.");
-            log("Installer is running (elevated). Screen may flicker — this is normal.");
+            log("Installer is running (elevated). Screen may flicker - this is normal.");
 
             // Progress: poll the installer's own log file (NVIDIA writes
             // %ProgramData%\NVIDIA Corporation\... or the extraction dir).

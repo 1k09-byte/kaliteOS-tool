@@ -335,7 +335,7 @@ public sealed class GameLibraryService
     /// <summary>
     /// Extracts the executable's icon at the highest available resolution and
     /// saves it as a PNG. ExtractAssociatedIcon only yields 32×32, which looks
-    /// blurry on a 200×300 card — so we use SHDefExtractIcon to ask the shell
+    /// blurry on a 200×300 card - so we use SHDefExtractIcon to ask the shell
     /// for the 256×256 (jumbo) icon first, then fall back progressively.
     /// </summary>
     private static string ExtractIconCache(string exePath, string id)

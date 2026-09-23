@@ -6,7 +6,7 @@ namespace kaliteConfig.GpuOverclock.Models
     /// <summary>How the fan loop behaves when a profile with fan settings is applied.</summary>
     public enum GpuFanMode
     {
-        /// <summary>Driver default — an explicit restore call, never "just stop writing".</summary>
+        /// <summary>Driver default - an explicit restore call, never "just stop writing".</summary>
         Auto,
 
         /// <summary>Fixed percentage, one write.</summary>
@@ -40,7 +40,7 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>
         /// Per-point V/F curve offsets in driver point order (v2). Null/empty
         /// means "this profile doesn't touch the curve". Lengths are matched
-        /// against the live curve on apply — a count mismatch skips the curve
+        /// against the live curve on apply - a count mismatch skips the curve
         /// portion rather than writing misaligned points.
         /// </summary>
         public List<int>? VfCurveOffsets { get; set; }
@@ -77,7 +77,7 @@ namespace kaliteConfig.GpuOverclock.Models
         /// Auto-switch eligibility (v2, per-game profiles): true only after
         /// this profile was manually applied AND confirmed by the user through
         /// the normal interactive safety state machine in a plain desktop
-        /// context — never set by startup reapply or game auto-apply paths.
+        /// context - never set by startup reapply or game auto-apply paths.
         /// A profile that was never manually validated can never auto-apply.
         /// </summary>
         public bool HasBeenManuallyValidated { get; set; }
@@ -115,7 +115,7 @@ namespace kaliteConfig.GpuOverclock.Models
         }
     }
 
-    /// <summary>Why a change was made — the audit trail's "who asked for this".</summary>
+    /// <summary>Why a change was made - the audit trail's "who asked for this".</summary>
     public enum OverclockChangeSource
     {
         Manual,
@@ -169,7 +169,7 @@ namespace kaliteConfig.GpuOverclock.Models
                 var line = $"{ControlName}: {OldValue}";
                 if (!string.Equals(OldValue, NewValue, StringComparison.Ordinal)) line += $" -> {NewValue}";
                 line += $"  ({Source})";
-                if (!string.IsNullOrEmpty(FailureReason)) line += $" — {FailureReason}";
+                if (!string.IsNullOrEmpty(FailureReason)) line += $" - {FailureReason}";
                 return line;
             }
         }

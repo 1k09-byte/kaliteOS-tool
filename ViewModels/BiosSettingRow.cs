@@ -31,11 +31,11 @@ public sealed partial class BiosSettingRow : ObservableObject
     public string SectionText => Item.MenuPath.Length == 0
         ? "(unsectioned)"
         : string.Join(" › ", Item.MenuPath);
-    public string TokenLineText => string.IsNullOrEmpty(Item.Token) ? "—" : $"Token {Item.Token}";
-    public string TokenValueText => string.IsNullOrEmpty(Item.Token) ? "—" : Item.Token;
-    public string OffsetValueText => string.IsNullOrEmpty(Item.Offset) ? "—" : Item.Offset;
-    public string WidthValueText => string.IsNullOrEmpty(Item.Width) ? "—" : Item.Width;
-    public string BiosDefaultText => string.IsNullOrEmpty(Item.BiosDefault) ? "—" : Item.BiosDefault;
+    public string TokenLineText => string.IsNullOrEmpty(Item.Token) ? "-" : $"Token {Item.Token}";
+    public string TokenValueText => string.IsNullOrEmpty(Item.Token) ? "-" : Item.Token;
+    public string OffsetValueText => string.IsNullOrEmpty(Item.Offset) ? "-" : Item.Offset;
+    public string WidthValueText => string.IsNullOrEmpty(Item.Width) ? "-" : Item.Width;
+    public string BiosDefaultText => string.IsNullOrEmpty(Item.BiosDefault) ? "-" : Item.BiosDefault;
     public bool IsEnumerated => Item.HasEnumeratedOptions;
     public IReadOnlyList<BiosOption> Options => Item.Options ?? Array.Empty<BiosOption>();
 

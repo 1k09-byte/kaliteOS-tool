@@ -54,7 +54,7 @@ public sealed partial class UninstallerItem : ObservableObject
         get
         {
             if (string.IsNullOrWhiteSpace(InstallDate)) return string.Empty;
-            // Registry dates are usually yyyyMMdd; Store dates vary — parse leniently.
+            // Registry dates are usually yyyyMMdd; Store dates vary - parse leniently.
             if (InstallDate.Length == 8 &&
                 int.TryParse(InstallDate.Substring(0, 4), out int y) &&
                 int.TryParse(InstallDate.Substring(4, 2), out int m) &&

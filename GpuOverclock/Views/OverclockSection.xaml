@@ -89,7 +89,7 @@
                 </Grid>
 
                 <!-- Telemetry tiles: responsive grid (same UniformGridLayout pattern
-                     as InstallerPage/AffinityPage) — 6 per row on wide layouts,
+                     as InstallerPage/AffinityPage) - 6 per row on wide layouts,
                      fewer on narrow ones. Rows rebuilt every tick; conditional
                      tiles (hotspot, memory temp, PCIe TX/RX) only exist when
                      the GPU actually reports them. -->
@@ -217,7 +217,7 @@
                                        Value="{x:Bind Vm.CoreOffsetValue, Mode=OneWay}"
                                        ValueChanged="CoreOffsetBox_ValueChanged"
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
-                                       ToolTipService.ToolTip="Type an exact offset — commits through the same confirmation countdown as dragging." />
+                                       ToolTipService.ToolTip="Type an exact offset - commits through the same confirmation countdown as dragging." />
                         </Grid>
                         <Slider x:Name="CoreOffsetSlider"
                                 Minimum="{x:Bind Vm.CoreOffsetMin, Mode=OneWay}"
@@ -237,7 +237,7 @@
                                        Value="{x:Bind Vm.MemOffsetValue, Mode=OneWay}"
                                        ValueChanged="MemOffsetBox_ValueChanged"
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
-                                       ToolTipService.ToolTip="Type an exact offset — commits through the same confirmation countdown as dragging." />
+                                       ToolTipService.ToolTip="Type an exact offset - commits through the same confirmation countdown as dragging." />
                         </Grid>
                         <Slider x:Name="MemOffsetSlider"
                                 Minimum="{x:Bind Vm.MemOffsetMin, Mode=OneWay}"
@@ -257,7 +257,7 @@
                                        Value="{x:Bind Vm.PowerLimitValue, Mode=OneWay}"
                                        ValueChanged="PowerLimitBox_ValueChanged"
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
-                                       ToolTipService.ToolTip="Type an exact value — commits through the same confirmation countdown as dragging." />
+                                       ToolTipService.ToolTip="Type an exact value - commits through the same confirmation countdown as dragging." />
                         </Grid>
                         <Slider x:Name="PowerLimitSlider"
                                 Minimum="{x:Bind Vm.PowerLimitMin, Mode=OneWay}"
@@ -278,7 +278,7 @@
                                        Value="{x:Bind Vm.TempLimitValue, Mode=OneWay}"
                                        ValueChanged="TempLimitBox_ValueChanged"
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
-                                       ToolTipService.ToolTip="Type an exact value — commits through the same confirmation countdown as dragging." />
+                                       ToolTipService.ToolTip="Type an exact value - commits through the same confirmation countdown as dragging." />
                         </Grid>
                         <Slider x:Name="TempLimitSlider"
                                 Minimum="{x:Bind Vm.TempLimitMin, Mode=OneWay}"
@@ -296,7 +296,7 @@
                                 <TextBlock Text="Voltage boost (MHz)" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <FontIcon Glyph="&#xE946;" FontSize="13"
                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                          ToolTipService.ToolTip="Adjusts clock behavior across voltage points within the GPU's existing envelope — does not set voltage directly on this GPU generation." />
+                                          ToolTipService.ToolTip="Adjusts clock behavior across voltage points within the GPU's existing envelope - does not set voltage directly on this GPU generation." />
                             </StackPanel>
                             <NumberBox Grid.Column="1" Width="104"
                                        Minimum="{x:Bind Vm.VfFlatMin, Mode=OneWay}"
@@ -304,7 +304,7 @@
                                        Value="{x:Bind Vm.VfFlatValue, Mode=OneWay}"
                                        ValueChanged="VfFlatBox_ValueChanged"
                                        SpinButtonPlacementMode="Compact" SmallChange="1"
-                                       ToolTipService.ToolTip="Type an exact flat offset — commits through the same confirmation countdown as dragging." />
+                                       ToolTipService.ToolTip="Type an exact flat offset - commits through the same confirmation countdown as dragging." />
                         </Grid>
                         <Slider x:Name="VfFlatSlider"
                                 Minimum="{x:Bind Vm.VfFlatMin, Mode=OneWay}"
@@ -314,7 +314,7 @@
                                 StepFrequency="1" SnapsTo="StepValues"
                                 ToolTipService.ToolTip="One flat clock offset applied uniformly across all voltage points. For per-point control, open the advanced curve editor on the right." />
                         <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="Points currently differ per voltage — the curve editor shows them. Moving this slider makes them uniform again."
+                                   Text="Points currently differ per voltage - the curve editor shows them. Moving this slider makes them uniform again."
                                    Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.VfOffsetsMixed), Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
@@ -405,7 +405,7 @@
                         </Expander.Header>
                         <StackPanel Spacing="8" Margin="0,8,0,0">
                             <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Drag points to set per-point clock offsets. Frequency must not decrease as voltage rises — invalid curves are blocked before anything is written. Every commit runs through the same confirmation countdown as the other controls (slightly longer for curve edits)." />
+                                       Text="Drag points to set per-point clock offsets. Frequency must not decrease as voltage rises - invalid curves are blocked before anything is written. Every commit runs through the same confirmation countdown as the other controls (slightly longer for curve edits)." />
                             <Border CornerRadius="8" Padding="4"
                                     Background="{ThemeResource LayerFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -436,7 +436,7 @@
                                         <TextBlock Text="Driver voltage boost" />
                                         <FontIcon Glyph="&#xE946;" FontSize="13"
                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                  ToolTipService.ToolTip="Exposed by the driver on this GPU. On most RTX 30/40 cards this control is locked by the vBIOS and stays hidden — the curve above is the effective control there." />
+                                                  ToolTipService.ToolTip="Exposed by the driver on this GPU. On most RTX 30/40 cards this control is locked by the vBIOS and stays hidden - the curve above is the effective control there." />
                                     </StackPanel>
                                     <TextBlock HorizontalAlignment="Right" FontWeight="SemiBold"
                                                Text="{x:Bind Vm.VoltageBoostPercentDisplay, Mode=OneWay}" />
@@ -493,7 +493,7 @@
                                                 <Border CornerRadius="6" Padding="5,1"
                                                         Background="{ThemeResource SubtleFillColorTertiaryBrush}"
                                                          Visibility="{x:Bind local:OverclockSection.BoolToVis(HasBeenManuallyValidated), Mode=OneTime}"
-                                                        ToolTipService.ToolTip="Manually applied and confirmed at least once — eligible for per-game auto-switch.">
+                                                        ToolTipService.ToolTip="Manually applied and confirmed at least once - eligible for per-game auto-switch.">
                                                     <TextBlock Text="auto-switch ready ✓" FontSize="10"
                                                                Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                                                 </Border>
@@ -501,7 +501,7 @@
                                             <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        Text="{x:Bind Summary}" />
                                             <TextBlock FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                                       Text="Not yet validated — apply manually once to enable auto-switch."
+                                                       Text="Not yet validated - apply manually once to enable auto-switch."
                                                         Visibility="{x:Bind local:OverclockSection.InverseBoolToVis(HasBeenManuallyValidated), Mode=OneTime}" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -655,7 +655,7 @@
                 <StackPanel Spacing="16" VerticalAlignment="Center" MaxWidth="720" HorizontalAlignment="Center">
                     <FontIcon Glyph="&#xE7BA;" FontSize="40"
                               Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
-                    <TextBlock Text="Extreme caution — advanced feature"
+                    <TextBlock Text="Extreme caution - advanced feature"
                                FontSize="20" FontWeight="SemiBold"
                                Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                     <TextBlock FontSize="14"
@@ -665,14 +665,14 @@
                     <TextBlock FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"
-                               Text="Safety net: every change is applied through a confirmation window and is reverted automatically to your previous working settings if you don't confirm it, or if the driver crashes. Changes beyond the driver's limits may still freeze the display before a revert can run — save your work before experimenting." />
+                               Text="Safety net: every change is applied through a confirmation window and is reverted automatically to your previous working settings if you don't confirm it, or if the driver crashes. Changes beyond the driver's limits may still freeze the display before a revert can run - save your work before experimenting." />
                     <Button Style="{StaticResource AccentButtonStyle}"
                             HorizontalAlignment="Left"
                             Margin="0,4,0,0"
                             Command="{x:Bind Vm.AcceptRiskCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE73E;" FontSize="14" />
-                            <TextBlock Text="I understand — continue at my own risk" />
+                            <TextBlock Text="I understand - continue at my own risk" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

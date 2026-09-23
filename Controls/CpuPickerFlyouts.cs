@@ -130,7 +130,7 @@ public static class CpuPickerFlyouts
         {
             root.Children.Add(new TextBlock
             {
-                Text = "Multiple processor groups detected — affinity applies to group 0 only.",
+                Text = "Multiple processor groups detected - affinity applies to group 0 only.",
                 Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
                 Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
                 TextWrapping = TextWrapping.Wrap,

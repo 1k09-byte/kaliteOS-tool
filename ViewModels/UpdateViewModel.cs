@@ -84,7 +84,7 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
 
     /// <summary>
     /// The failed attempt's setup exe is still on disk, so the primary action
-    /// can re-run it WITH its window — a silent install that fails shows
+    /// can re-run it WITH its window - a silent install that fails shows
     /// nothing at all, and the visible run is what makes the error readable.
     /// </summary>
     public bool CanOpenInstaller =>
@@ -164,7 +164,7 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             if (failed)
             {
                 var reason = UpdateCheckService.ReadInstallerLogSummary(pending!.LogPath);
-                Notes += $"\n\nThe update to {pending.Version} did not complete — this copy still reports " +
+                Notes += $"\n\nThe update to {pending.Version} did not complete - this copy still reports " +
                          $"v{running ?? "the previous version"}.";
                 if (!string.IsNullOrWhiteSpace(reason))
                     Notes += $"\nInstaller reported: {reason}";
@@ -231,7 +231,7 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             // WM_CLOSE), target the registered install dir (/DIR), always leave
             // a Setup log, exit hard so files are not locked. Setup also
             // taskkill's in PrepareToInstall. The attempt is recorded BEFORE
-            // Setup starts, because Setup kills this process — nothing after
+            // Setup starts, because Setup kills this process - nothing after
             // this point can be written.
             var logPath = UpdateCheckService.SetupLogPath(_pending.Version);
             UpdateCheckService.WritePendingUpdate(_pending.Version, installerPath, logPath);
@@ -304,7 +304,7 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
         }
         catch (Exception ex)
         {
-            UpdateCheckService.LogDiag($"update: visible installer run failed — {ex.Message}");
+            UpdateCheckService.LogDiag($"update: visible installer run failed - {ex.Message}");
             StatusText = $"Could not start the installer: {ex.Message}";
         }
     }

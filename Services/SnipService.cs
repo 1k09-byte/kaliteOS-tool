@@ -76,7 +76,7 @@ public sealed class SnipService : IDisposable
     /// <summary>One line for the status bar: never claims "Active" when it is not.</summary>
     public string HotkeyStatusText => HotkeyRegistered
         ? $"Hotkey: {HotkeyLabel}"
-        : "Hotkey: not registered — click to fix";
+        : "Hotkey: not registered - click to fix";
 
     public event Action? HotkeyStatusChanged;
 
@@ -139,7 +139,7 @@ public sealed class SnipService : IDisposable
             NotifyGalleryChanged();
             return (true, $"Repeated {r.Value.W}×{r.Value.H} → {System.IO.Path.GetFileName(result.Path)}" +
                 (copied ? " + clipboard." : " (clipboard copy failed).") +
-                (result.IsUniform ? " Warning: flat color — protected content?" : ""));
+                (result.IsUniform ? " Warning: flat color - protected content?" : ""));
         }
         catch (Exception ex)
         {
@@ -219,7 +219,7 @@ public sealed class SnipService : IDisposable
             NotifyGalleryChanged();
             return (true, $"Fullscreen {totalW}×{totalH} ({areas.Count} monitors) → {System.IO.Path.GetFileName(result.Path)}" +
                 (copied ? " + clipboard." : " (clipboard copy failed).") +
-                (result.IsUniform ? " Warning: flat color — protected content?" : ""));
+                (result.IsUniform ? " Warning: flat color - protected content?" : ""));
         }
         catch (Exception ex)
         {

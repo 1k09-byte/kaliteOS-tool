@@ -57,7 +57,7 @@ namespace kaliteConfig.Models
         // -------------------------------------
 
         // Check-button state: the button itself carries "up to date" once a
-        // check has confirmed it (disabled — nothing to do), stays actionable
+        // check has confirmed it (disabled - nothing to do), stays actionable
         // otherwise, and goes quiet while a download/install is running.
 
         // Fallback official page (used when lookup/download fails, and for page-only vendors).

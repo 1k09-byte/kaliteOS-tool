@@ -11,13 +11,13 @@ namespace kaliteConfig.GpuOverclock.Services
     /// Detects start/stop of bound game executables.
     ///
     /// Mechanism: WMI process trace events (Win32_ProcessStartTrace /
-    /// Win32_ProcessStopTrace), one filtered watcher per watched executable —
+    /// Win32_ProcessStopTrace), one filtered watcher per watched executable -
     /// event-driven, so both more responsive and cheaper than polling.
     ///
     /// ELEVATION NOTE: the Start/StopTrace event classes require an elevated
     /// caller. This app's manifest is requireAdministrator, so they work. If
     /// WMI fails anyway (service disabled, query refused), the watcher falls
-    /// back to 2.5 s polling — and says so: <see cref="UsingEventDriven"/>,
+    /// back to 2.5 s polling - and says so: <see cref="UsingEventDriven"/>,
     /// <see cref="ModeDescription"/> and <see cref="LastError"/> are surfaced
     /// in the UI status line, never silently degraded.
     ///

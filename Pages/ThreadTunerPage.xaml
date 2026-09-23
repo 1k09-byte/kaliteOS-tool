@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     x:Class="kaliteConfig.Pages.ThreadTunerPage"
     x:Name="RootPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -148,7 +148,6 @@
                             <MenuFlyoutItem Text="Disabled" Click="Action_Boost" Tag="Disabled" />
                         </MenuFlyoutSubItem>
                         <MenuFlyoutSeparator />
-                        <MenuFlyoutItem Text="Threads..." Click="Action_Threads" />
                         <MenuFlyoutItem Text="Create rule..." Click="Action_CreateRule" />
                         <MenuFlyoutItem Text="Show details" Click="Action_Details" />
                     </MenuFlyout>
@@ -222,7 +221,6 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            
             <Border Grid.Row="0" Margin="28,0,28,16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="16">
                 <Grid RowSpacing="14">
                     <Grid.RowDefinitions>
@@ -286,6 +284,7 @@
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2.5*" />
+                        <ColumnDefinition Width="84" />
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="80" />
@@ -297,16 +296,16 @@
                         <ColumnDefinition Width="64" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="1" Text="CPU" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="2" Text="PID" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="3" Text="Memory" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="4" Text="Threads" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="5" Text="Priority" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="6" Text="State" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="7" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="8" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="9" Text="Boost" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it — the choice is saved and re-applied to this process every time it starts." />
+                    <TextBlock Grid.Column="2" Text="CPU" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="3" Text="PID" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="4" Text="Memory" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="5" Text="Threads" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="6" Text="Priority" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="7" Text="State" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="8" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="9" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="10" Text="Boost" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it - the choice is saved and re-applied to this process every time it starts." />
                 </Grid>
             </Border>
 
@@ -342,7 +341,6 @@
                                         <MenuFlyoutItem Text="Disabled" Click="Action_Eco" Tag="Disabled" />
                                     </MenuFlyoutSubItem>
                                     <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem Text="Threads..." Click="Action_Threads" />
                                     <MenuFlyoutItem Text="Create rule..." Click="Action_CreateRule" />
                                     <MenuFlyoutItem Text="Show details" Click="Action_Details" />
                                 </MenuFlyout>
@@ -350,6 +348,7 @@
                             
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2.5*" />
+                                <ColumnDefinition Width="84" />
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="80" />
@@ -368,23 +367,28 @@
                                 </Grid>
                                 <FontIcon Glyph="&#xE72E;" FontSize="11" Foreground="{ThemeResource SystemFillColorCriticalBrush}" VerticalAlignment="Center"
                                           Visibility="{x:Bind IsProtected, Mode=OneWay}"
-                                          ToolTipService.ToolTip="Protected process — Windows does not allow priority/affinity changes." />
+                                          ToolTipService.ToolTip="Protected process - Windows does not allow priority/affinity changes." />
                                 <TextBlock Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                            Foreground="{x:Bind local:ThreadTunerPage.RowNameBrush(IsProtected), Mode=OneWay}" />
                             </StackPanel>
 
-                            <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CpuPercent, Mode=OneWay}" />
-                            <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Pid}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Memory, Mode=OneWay}" />
-                            <TextBlock Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Threads, Mode=OneWay}" />
-                            <TextBlock Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind PriorityText, Mode=OneWay}" />
-                            <TextBlock Grid.Column="6" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}" />
-                            <TextBlock Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CyclesDelta, Mode=OneWay}" />
+                            <Button Grid.Column="1" Content="Threads" FontSize="12" Padding="10,4" MinWidth="0"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Tag="{x:Bind}" Click="RowThreads_Click"
+                                    ToolTipService.ToolTip="Open the threads dialog for this process" />
+
+                            <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CpuPercent, Mode=OneWay}" />
+                            <TextBlock Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Pid}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Memory, Mode=OneWay}" />
+                            <TextBlock Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Threads, Mode=OneWay}" />
+                            <TextBlock Grid.Column="6" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind PriorityText, Mode=OneWay}" />
+                            <TextBlock Grid.Column="7" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}" />
+                            <TextBlock Grid.Column="9" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind CyclesDelta, Mode=OneWay}" />
 
                             <!-- Per-process Priority boost. Unticking applies to the
                                  live process immediately and is remembered for good. -->
-                            <CheckBox CornerRadius="8" Grid.Column="9"
+                            <CheckBox CornerRadius="8" Grid.Column="10"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
                                       MinWidth="0"

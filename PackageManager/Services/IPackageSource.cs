@@ -37,7 +37,7 @@ public sealed class PackageOperationResult
 /// <summary>
 /// Every package-manager backend implements this. A source that cannot do an
 /// operation advertises it via the Can* flags (checked by the UI) and its
-/// method returns a failed result — never a throw for expected cases.
+/// method returns a failed result - never a throw for expected cases.
 /// </summary>
 public interface IPackageSource
 {

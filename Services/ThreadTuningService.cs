@@ -70,7 +70,7 @@ public sealed class ThreadTuningService
 
     /// <summary>
     /// Per-thread Efficiency Mode (EcoQoS) via SetThreadInformation. Uses the
-    /// THREAD_POWER_THROTTLING_EXECUTION_SPEED mask (0x1) — note this differs
+    /// THREAD_POWER_THROTTLING_EXECUTION_SPEED mask (0x1) - note this differs
     /// from the process-level mask (0x4) on purpose.
     /// </summary>
     public async Task SetEfficiencyAsync(uint tid, bool enabled)
@@ -100,7 +100,7 @@ public sealed class ThreadTuningService
         return await CpuSetService.RunNativeAsync(() =>
         {
             // NOTE: despite the docs, GetThreadInformation demands full
-            // THREAD_QUERY_INFORMATION on this build — LIMITED fails with
+            // THREAD_QUERY_INFORMATION on this build - LIMITED fails with
             // access denied even on our own threads (verified live).
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
@@ -222,7 +222,7 @@ public sealed class ThreadTuningService
     /// The result MUST be checked: Windows refuses a processor the thread's
     /// affinity mask excludes (ERROR_GEN_FAILURE 31) or one that does not exist
     /// (ERROR_INVALID_PARAMETER 87). This used to ignore the BOOL entirely, so
-    /// the dialog said "Ideal processor set to CPU 10" while nothing changed —
+    /// the dialog said "Ideal processor set to CPU 10" while nothing changed -
     /// the reported "not applying properly" bug.
     /// </summary>
     public async Task SetIdealProcessorAsync(uint tid, ushort group, byte index)
@@ -263,7 +263,7 @@ public sealed class ThreadTuningService
     ///   - the CPU is outside the thread's affinity mask (the affinity grid or a
     ///     saved rule pinned the thread to a few cores);
     ///   - the CPU is inside the mask but belongs to the CPU-set partition's
-    ///     reservation, which only threads inside that partition may use — on a
+    ///     reservation, which only threads inside that partition may use - on a
     ///     16-thread box with 0xFC00 reserved, every CPU from 10 up is refused.
     /// </summary>
     private static string DescribeIdealProcessorFailure(

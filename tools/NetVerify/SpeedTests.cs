@@ -11,7 +11,7 @@ internal static class SpeedTests
         check(NetSpeedTest.FormatMbps(35.44) == "35.4 Mbps", "speed formats tens");
         check(NetSpeedTest.FormatMbps(9.876) == "9.88 Mbps", "speed formats singles");
         check(NetSpeedTest.FormatMbps(0) == "0 Mbps", "speed formats zero");
-        check(NetSpeedTest.FormatMbps(double.NaN) == "—", "speed guards NaN");
-        check(NetSpeedTest.FormatMbps(-1) == "—", "speed guards negative");
+        check(NetSpeedTest.FormatMbps(double.NaN) == "-", "speed guards NaN");
+        check(NetSpeedTest.FormatMbps(-1) == "-", "speed guards negative");
     }
 }

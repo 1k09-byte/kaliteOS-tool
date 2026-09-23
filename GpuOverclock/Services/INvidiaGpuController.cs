@@ -14,7 +14,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
     /// <summary>
     /// The module's only door to NVAPI. ViewModels and services never touch
-    /// NvAPIWrapper types directly — this isolates wrapper breaking-changes and
+    /// NvAPIWrapper types directly - this isolates wrapper breaking-changes and
     /// makes the write path unit-testable via a fake implementation.
     ///
     /// Threading model: all methods are synchronous and serialized internally
@@ -41,10 +41,10 @@ namespace kaliteConfig.GpuOverclock.Services
         /// </summary>
         GpuResult<GpuCapabilities> ReadCapabilities();
 
-        /// <summary>Current applied clock deltas in MHz — the revert anchor and readback source.</summary>
+        /// <summary>Current applied clock deltas in MHz - the revert anchor and readback source.</summary>
         GpuResult<(int CoreOffsetMHz, int MemOffsetMHz)> ReadCurrentOffsets();
 
-        /// <summary>Current power limit (%) and temp limit (°C) — revert anchors.</summary>
+        /// <summary>Current power limit (%) and temp limit (°C) - revert anchors.</summary>
         GpuResult<(double PowerLimitPercent, int? TempLimitC)> ReadCurrentLimits();
 
         GpuResult SetCoreOffsetMhz(int offsetMhz);
@@ -56,7 +56,7 @@ namespace kaliteConfig.GpuOverclock.Services
         GpuResult SetFanStaticPercent(int percent);
 
         /// <summary>
-        /// Explicitly hands fan control back to the driver default — a real
+        /// Explicitly hands fan control back to the driver default - a real
         /// restore call, so a stale forced speed can never persist silently.
         /// </summary>
         GpuResult RestoreFanAuto();
@@ -68,7 +68,7 @@ namespace kaliteConfig.GpuOverclock.Services
         // not thread-safe); callers that must not block the UI thread wrap
         // calls in Task.Run. The V/F members follow that same convention
         // rather than introducing a second async convention + a new
-        // WriteResult type — GpuResult is the module's established shape.
+        // WriteResult type - GpuResult is the module's established shape.
 
         /// <summary>
         /// Reads the graphics-domain V/F base curve (voltages + stock
@@ -88,7 +88,7 @@ namespace kaliteConfig.GpuOverclock.Services
         GpuResult SetVoltageFrequencyCurveOffsets(IReadOnlyList<int> offsetsMhz);
 
         /// <summary>
-        /// Current per-point graphics-domain offsets from the boost table —
+        /// Current per-point graphics-domain offsets from the boost table -
         /// the revert anchor / resync source for curve batches. Empty when
         /// the curve is unsupported.
         /// </summary>
@@ -96,14 +96,14 @@ namespace kaliteConfig.GpuOverclock.Services
 
         /// <summary>
         /// Current voltage-boost percent, or ControlUnsupported when the
-        /// driver refuses the query (the normal case on Ampere/Ada — the
+        /// driver refuses the query (the normal case on Ampere/Ada - the
         /// vBIOS locks raw voltage control there).
         /// </summary>
         GpuResult<uint> ReadVoltageBoostPercent();
 
         /// <summary>
         /// Sets voltage-boost percent (0-100). Refused on GPUs where the
-        /// vBIOS locks voltage control — surfaced as ControlUnsupported or
+        /// vBIOS locks voltage control - surfaced as ControlUnsupported or
         /// WriteRejected, never thrown.
         /// </summary>
         GpuResult SetVoltageBoostPercent(uint percent);

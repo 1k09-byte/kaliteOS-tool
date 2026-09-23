@@ -87,8 +87,8 @@ namespace kaliteConfig.Controls
         VerSize.Text = $"Size: {verification.SizeBytes / (1024.0 * 1024):#,0} MB";
         VerSha.Text = $"SHA-256: {verification.Sha256}";
         VerSig.Text = verification.SignatureValid
-            ? $"Signature: valid — {verification.SignatureSubject}"
-            : $"Signature: INVALID — {verification.SignatureError}";
+            ? $"Signature: valid - {verification.SignatureSubject}"
+            : $"Signature: INVALID - {verification.SignatureError}";
     }
 
     /// <summary>Called once the package is extracted and setup.cfg is parsed.</summary>
@@ -149,7 +149,7 @@ namespace kaliteConfig.Controls
                 args.Cancel = true;
                 _installStarted = true;
 
-                // EVERY component is handed over with its final selection —
+                // EVERY component is handed over with its final selection -
                 // passing only the ticked ones left the caller with nothing to
                 // exclude, which is why unchecked extras still installed.
                 Result = (_vms.Select(v => v.Model).ToList(),
@@ -227,7 +227,7 @@ namespace kaliteConfig.Controls
                     SecondaryButtonText = "Restart now";
                     SecondaryButtonClick += (_, _) =>
                     {
-                        // Explicit consent path only — never an automatic reboot.
+                        // Explicit consent path only - never an automatic reboot.
                         // Elevation is a real UAC prompt; cancel = no restart.
                         var psi = new System.Diagnostics.ProcessStartInfo("shutdown", "/r /t 0")
                         { UseShellExecute = true, Verb = "runas" };

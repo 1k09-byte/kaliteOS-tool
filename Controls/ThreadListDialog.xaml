@@ -40,15 +40,15 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE718;" FontSize="11" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                       VerticalAlignment="Center" Visibility="{x:Bind IsNamed, Mode=OneWay}"
-                                      ToolTipService.ToolTip="Named thread — pinned to top" />
+                                      ToolTipService.ToolTip="Named thread - pinned to top" />
                             <!-- Priority-boost tick: checked = boost allowed (Windows default).
-                                 Untick = boost off immediately AND forever — the preference is
+                                 Untick = boost off immediately AND forever - the preference is
                                  stored and re-applied on every future launch of this process.
                                  Only boost is affected; no rule is created. -->
                             <CheckBox Grid.Column="1" IsChecked="{x:Bind BoostAllowed, Mode=TwoWay}"
                                       IsEnabled="{x:Bind CanEdit, Mode=OneWay}"
                                       MinWidth="0" Padding="0" Margin="0,-2,0,0"
-                                      ToolTipService.ToolTip="Priority boost — checked = allowed, unticked = off (persists across restarts)"
+                                      ToolTipService.ToolTip="Priority boost - checked = allowed, unticked = off (persists across restarts)"
                                       Checked="BoostBox_Checked" Unchecked="BoostBox_Unchecked" />
                             <StackPanel Grid.Column="2" Spacing="1">
                             <TextBlock FontSize="13" FontWeight="SemiBold">
@@ -92,18 +92,18 @@
                     <!-- Boost moved to per-row tick boxes in the list; Eco stays here. -->
                     <ToggleSwitch x:Name="EcoToggle" Header="Efficiency mode (EcoQoS)" Toggled="EcoToggle_Toggled" />
 
-                    <TextBlock Text="CPU affinity — tick the CPUs this thread may run on" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock Text="CPU affinity - tick the CPUs this thread may run on" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock x:Name="AffinityCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     <Grid x:Name="AffinityCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                     <Button Content="Apply affinity" Click="AffinityApply_Click" HorizontalAlignment="Left" />
 
-                    <TextBlock Text="Ideal processor — pick one preferred CPU the thread's affinity mask allows" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock Text="Ideal processor - pick one preferred CPU the thread's affinity mask allows" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock x:Name="IdealCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     <Grid x:Name="IdealCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                     <Button Content="Apply ideal processor" Click="IdealApply_Click" HorizontalAlignment="Left" />
 
                     <Button Content="Make permanent (save as rule)" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Click="PermanentButton_Click"
-                            ToolTipService.ToolTip="Saves the current editor state as an auto-apply rule for matching threads" />
+                            ToolTipService.ToolTip="Saves priority, Eco, the ticked affinity CPUs and the picked ideal CPU as an auto-apply rule - no need to press Apply first; the rule also takes effect immediately" />
 
                     <TextBlock Text="Danger zone" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">

@@ -11,12 +11,12 @@ namespace kaliteConfig.GpuOverclock.Services
     /// login via the elevated Task Scheduler task (StartupTaskService).
     ///
     /// SAFETY TRADEOFF (stated explicitly per spec): at login the user cannot
-    /// see an interactive confirmation prompt — the window would block a
+    /// see an interactive confirmation prompt - the window would block a
     /// headless session. Instead the profile is re-applied through the SAME
     /// safety state machine with a SHORT window (5 s vs 15 s) that expires
     /// on its own: the TDR watchdog is armed the entire time, so a driver
     /// reset reverts immediately; a clean expiry confirms the batch.
-    /// Only profiles marked pre-boot-validated (ConfirmedAt non-null — their
+    /// Only profiles marked pre-boot-validated (ConfirmedAt non-null - their
     /// values survived a full interactive confirmation window before) are
     /// eligible for startup reapply.
     /// </summary>
@@ -70,7 +70,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
                 if (profile.ConfirmedAt is null)
                 {
-                    // Not pre-boot validated — the spec's known-safe flag is
+                    // Not pre-boot validated - the spec's known-safe flag is
                     // absent, so the values have never survived a confirmation
                     // window. Refuse rather than risk a black screen at login.
                     _trace?.Invoke($"startup reapply: '{name}' is not pre-boot validated (no ConfirmedAt); skipping");
@@ -151,7 +151,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     }
 
                     _safety.ConfirmSilently(); // headless: let the short window run out
-                    // Curve batches run a LONGER window (per-control overrides) —
+                    // Curve batches run a LONGER window (per-control overrides) -
                     // wait for the batch's actual window, not the global default.
                     int window = _safety.GetConfirmationSecondsFor(batch.Select(b => b.ControlName));
                     var closed = await WaitForSafetyIdleAsync(TimeSpan.FromSeconds(window + 10));

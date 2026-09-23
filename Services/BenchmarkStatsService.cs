@@ -7,7 +7,7 @@ namespace kaliteConfig.Services;
 
 /// <summary>
 /// Pure frametime statistics (CapFrameX conventions, clearly labeled).
-/// FPS = 1000 / frametimeMs per frame. No UI, no IO — unit-tested.
+/// FPS = 1000 / frametimeMs per frame. No UI, no IO - unit-tested.
 /// </summary>
 public static class BenchmarkStatsService
 {
@@ -18,7 +18,7 @@ public static class BenchmarkStatsService
     /// <summary>
     /// Drops warmup/cooldown edges by time: keeps frames with
     /// t0+headMs &lt;= t &lt;= tLast-tailMs. PresentMon attach, countdown tail,
-    /// alt-tab-to-stop and minimize gaps all land in the edges — a single
+    /// alt-tab-to-stop and minimize gaps all land in the edges - a single
     /// 900 ms stall there otherwise defines the entire time-weighted 1% low
     /// (e.g. 1.1 FPS on a 1900 FPS run). Falls back to untrimmed when stamps
     /// are missing/mismatched or the window would empty the run.

@@ -14,7 +14,7 @@ internal static partial class NativeMethods
     {
         // Standard Win32 two-pass idiom: call once with a zero-size buffer to get
         // the required size, allocate, then call again. process = NULL for
-        // system-wide. NOTE: IntPtr, not SafeHandle — the LibraryImport
+        // system-wide. NOTE: IntPtr, not SafeHandle - the LibraryImport
         // SafeHandle marshaller throws on null, and this call always passes
         // NULL here (verified live: NRE otherwise).
         [LibraryImport("kernel32.dll", SetLastError = true)]
@@ -26,7 +26,7 @@ internal static partial class NativeMethods
             IntPtr process,
             uint flags);
 
-        // NOTE: ID arrays are PULONG (32-bit), NOT 64-bit — verified live.
+        // NOTE: ID arrays are PULONG (32-bit), NOT 64-bit - verified live.
         // ulong[] here silently garbles every element past the first and the
         // kernel rejects multi-element lists with 813 (invalid CPU set IDs).
         [LibraryImport("kernel32.dll", SetLastError = true)]

@@ -1,4 +1,4 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="kaliteConfig.Controls.RuleEditorDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -139,18 +139,6 @@
                             <ColumnDefinition Width="220" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <CheckBox Grid.Column="0" Content="Automatic Benchmarking" VerticalAlignment="Center"
-                                  IsChecked="{x:Bind Draft.AutoBenchmarkOnLaunch, Mode=TwoWay}"
-                                  ToolTipService.ToolTip="Automatically triggers a Benchmark Capture immediately when this process launches." />
-                        <TextBlock Grid.Column="1" Text="Start background capture when process launches, bypassing hotkeys" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
-                    </Grid>
-                </Border>
-                <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="220" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
                         <CheckBox Grid.Column="0" Content="Protect process threads" VerticalAlignment="Center"
                                   IsChecked="{x:Bind Draft.ProtectThreads, Mode=TwoWay}"
                                   ToolTipService.ToolTip="Prevents Global Optimize from stripping priority boosts off this process's threads." />
@@ -195,7 +183,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBox Grid.Column="0" PlaceholderText="Search live threads"
                              Text="{x:Bind ThreadSearch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Column="1" x:Name="LiveSelectedText" Text="0 selected · right-click to add rules" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" x:Name="LiveSelectedText" Text="0 selected Â· right-click to add rules" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Button Grid.Column="2" Content="Refresh" Click="ThreadsRefresh_Click" />
                 </Grid>
 
@@ -306,12 +294,12 @@
 
             <!-- Summary -->
             <Border Grid.Row="4" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,10">
-                <TextBlock x:Name="SummaryText" Text="0 process settings · 0 thread rules" Style="{StaticResource BodyTextBlockStyle}" />
+                <TextBlock x:Name="SummaryText" Text="0 process settings Â· 0 thread rules" Style="{StaticResource BodyTextBlockStyle}" />
             </Border>
 
             <TextBlock x:Name="ErrorText" Grid.Row="5" Visibility="Collapsed" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
 
-            <TextBlock Grid.Row="6" Text="Esc closes · Ctrl+Enter applies" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Grid.Row="6" Text="Esc closes Â· Ctrl+Enter applies" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </Grid>
     </ScrollViewer>
 </ContentDialog>

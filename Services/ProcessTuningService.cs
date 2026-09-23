@@ -22,7 +22,7 @@ public sealed class ProcessTuningService
     {
         "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe",
         "smss.exe", "svchost.exe", "dwm.exe", "winlogon.exe", "fontdrvhost.exe",
-        // Kernel/system infrastructure — demoting these causes multi-second
+        // Kernel/system infrastructure - demoting these causes multi-second
         // system stalls (the 13:43 capture's 0.1% low of 5.3 FPS was almost
         // certainly Memory Compression being starved on the interrupt core).
         // Note: entries match "ProcessName + .exe"; system processes like
@@ -334,7 +334,7 @@ public sealed class ProcessTuningService
             row.PriorityText = PriorityName(cls);
 
             // Process-wide Priority boost. The handle is already open, so this
-            // costs nothing extra — and it is what the tick box column shows.
+            // costs nothing extra - and it is what the tick box column shows.
             if (NativeMethods.Priority.GetProcessPriorityBoost(process, out bool boostDisabled))
             {
                 row.PriorityBoostText = boostDisabled ? "Disabled" : "Enabled";
@@ -348,7 +348,7 @@ public sealed class ProcessTuningService
             }
 
             // Explicit CPU Sets (set by a rule, or by the user) are invisible to
-            // the affinity mask — surface them so the context menu tells the
+            // the affinity mask - surface them so the context menu tells the
             // truth. Gaming mode no longer partitions, so there is no partition
             // left to report here (Docs/GameMode.md).
             try

@@ -33,7 +33,7 @@ internal struct FileTime
 
 internal static partial class NativeMethods
 {
-    // SetupDi device-property read — the same mechanism the reference tool
+    // SetupDi device-property read - the same mechanism the reference tool
     // uses for DEVPKEY_PciDevice_InterruptMessageMaximum.
     internal static partial class SetupApi
     {
@@ -75,7 +75,7 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool SetupDiGetDeviceInstanceId(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, StringBuilder deviceInstanceId, uint deviceInstanceIdSize, out uint requiredSize);
 
-        // NOTE: explicit W entry point — this API is Unicode-only; without it
+        // NOTE: explicit W entry point - this API is Unicode-only; without it
         // the runtime probes for a nonexistent ...PropertyA and every call throws.
         [DllImport("setupapi.dll", EntryPoint = "SetupDiGetDevicePropertyW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -122,8 +122,8 @@ internal static partial class NativeMethods
             ref GroupAffinity groupAffinity,
             IntPtr previousGroupAffinity);
 
-        // GetThreadIdealProcessorEx takes only (thread, out ideal) — no third
-        // parameter — and returns BOOL, filling the PPROCESSOR_NUMBER out
+        // GetThreadIdealProcessorEx takes only (thread, out ideal) - no third
+        // parameter - and returns BOOL, filling the PPROCESSOR_NUMBER out
         // parameter. Measured against kernel32 itself (tools/ideal-processor-probe.ps1:
         // returns 1/TRUE while the processor number comes back in the struct).
         //
@@ -185,7 +185,7 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool TerminateThread(SafeThreadHandle thread, uint exitCode);
 
-        // Returns HRESULT (0 = S_OK). Frees with LocalFree — never leak the pointer.
+        // Returns HRESULT (0 = S_OK). Frees with LocalFree - never leak the pointer.
         [LibraryImport("kernel32.dll")]
         internal static partial int GetThreadDescription(SafeThreadHandle thread, out IntPtr description);
 

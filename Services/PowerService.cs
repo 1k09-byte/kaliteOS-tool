@@ -20,7 +20,7 @@ public sealed class PowerService
         try
         {
         // Clears ONLY the hidden bit (bit 0) of Attributes. Other bits carry
-        // OEM/platform meaning on laptops (Modern Standby overlays) — the old
+        // OEM/platform meaning on laptops (Modern Standby overlays) - the old
         // code overwrote the whole DWORD with 0 and broke Control Panel
         // ("power plan information isn't available", empty Advanced list).
         using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
@@ -51,7 +51,7 @@ public sealed class PowerService
         object? v = key.GetValue("Attributes");
         int current = v switch { int i => i, long l => (int)l, _ => -1 };
         if (current < 0) return;
-        if ((current & 0x1) == 0) return; // already visible — leave other bits alone
+        if ((current & 0x1) == 0) return; // already visible - leave other bits alone
         key.SetValue("Attributes", current & ~0x1, RegistryValueKind.DWord);
     }
 
@@ -75,7 +75,7 @@ public sealed class PowerService
             index++;
             bufferSize = 16;
         }
-        progress?.Report($"Found {guids.Count} power schemes — reading settings…");
+        progress?.Report($"Found {guids.Count} power schemes - reading settings…");
         for (int i = 0; i < guids.Count; i++)
         {
             var guid = guids[i];
@@ -258,7 +258,7 @@ public sealed class PowerService
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
-    // Apply operations — native return codes are checked so failures surface
+    // Apply operations - native return codes are checked so failures surface
     // in the UI instead of silently doing nothing.
     public void SetActiveScheme(Guid schemeGuid)
     {
@@ -288,7 +288,7 @@ public sealed class PowerService
     public void DeleteScheme(Guid schemeGuid)
     {
         if (IsBuiltInScheme(schemeGuid))
-            throw new InvalidOperationException("Built-in Windows plans (Balanced / High performance / Power saver) cannot be deleted — duplicate one instead. Deleting them breaks Control Panel on laptops.");
+            throw new InvalidOperationException("Built-in Windows plans (Balanced / High performance / Power saver) cannot be deleted - duplicate one instead. Deleting them breaks Control Panel on laptops.");
         PowrProf.PowerDeleteScheme(IntPtr.Zero, ref schemeGuid);
     }
 

@@ -17,7 +17,7 @@ namespace ThreadVerify;
 /// It exists because the control reported success no matter what the kernel
 /// did: SetThreadIdealProcessorEx returns BOOL, the return value was ignored,
 /// and SetThreadIdealProcessorEx rejects a processor the thread's affinity mask
-/// excludes (error 31) — so "Apply ideal processor" could do nothing at all and
+/// excludes (error 31) - so "Apply ideal processor" could do nothing at all and
 /// still say "Ideal processor set to CPU 10". GetThreadIdealProcessorEx was
 /// declared with the wrong return type too, so a failed read reported a bogus
 /// processor instead of failing.
@@ -53,7 +53,7 @@ internal static class Program
         Console.WriteLine($"Logical processors: {cpus}");
         if (cpus < 5)
         {
-            Console.WriteLine("Need at least 5 logical processors for the affinity-vs-ideal check — skipping.");
+            Console.WriteLine("Need at least 5 logical processors for the affinity-vs-ideal check - skipping.");
             return 0;
         }
 
@@ -94,7 +94,7 @@ internal static class Program
             await tuner.SetAffinityAsync((uint)thread.Id, null, narrowed);
             int outside = cpus - 1;
 
-            string message = "(no error thrown — the failure was swallowed)";
+            string message = "(no error thrown - the failure was swallowed)";
             bool threw = false;
             try
             {
@@ -158,7 +158,7 @@ internal static class Program
             }
             else
             {
-                Console.WriteLine("  [SKIP] no reserved CPU-set mask on this machine — reservation check not applicable");
+                Console.WriteLine("  [SKIP] no reserved CPU-set mask on this machine - reservation check not applicable");
             }
         }
         finally

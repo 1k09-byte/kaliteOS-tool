@@ -99,7 +99,7 @@ public sealed class StartupManagerService
 
     /// <summary>
     /// Merges live Run values (checked) with backed-up ones missing from the
-    /// registry (unchecked). Pure logic — unit-tested.
+    /// registry (unchecked). Pure logic - unit-tested.
     /// </summary>
     internal static List<StartupEntry> MergeRunEntries(
         StartupEntryKind kind,
@@ -200,7 +200,7 @@ public sealed class StartupManagerService
             {
                 var backups = LoadBackups(area);
                 if (!backups.TryGetValue(entry.Id, out BackupEntry? backup))
-                    return "No backup for this entry — it may have been removed outside the app.";
+                    return "No backup for this entry - it may have been removed outside the app.";
                 using var key = baseKey.CreateSubKey(RunSubKey, true);
                 if (key == null) return "Could not open the Run key.";
                 key.SetValue(entry.Id, backup.RawCommand, ParseKind(backup.Kind));
@@ -474,7 +474,7 @@ public sealed class StartupManagerService
     /// Parses verbose schtasks CSV into (TaskName, Scheduled Task State,
     /// Task To Run). Skips the \Microsoft\ subtree (Windows' own tasks are
     /// not startup clutter). Header-matched with positional fallback so
-    /// localized Windows builds still parse. Pure logic — unit-tested.
+    /// localized Windows builds still parse. Pure logic - unit-tested.
     /// </summary>
     internal static List<(string Name, string State, string Command)> ParseTaskListCsv(string csv)
     {
@@ -501,7 +501,7 @@ public sealed class StartupManagerService
             }
             if (nameIdx >= fields.Count) continue;
             // A row shorter than the columns we need is corrupt output, not
-            // a task with unknown state — skipping beats mislabeling it.
+            // a task with unknown state - skipping beats mislabeling it.
             int need = Math.Max(nameIdx, Math.Max(stateIdx, cmdIdx));
             if (fields.Count <= need) continue;
             string name = fields[nameIdx].Trim();
@@ -525,7 +525,7 @@ public sealed class StartupManagerService
         return -1;
     }
 
-    /// <summary>Minimal quoted-CSV splitter (handles "" escapes). Pure — unit-tested.</summary>
+    /// <summary>Minimal quoted-CSV splitter (handles "" escapes). Pure - unit-tested.</summary>
     internal static List<string> SplitCsv(string line)
     {
         var fields = new List<string>();
@@ -548,7 +548,7 @@ public sealed class StartupManagerService
 
     /// <summary>
     /// Trigger kind from a task's XML (namespace-aware): Logon, Boot, Time,
-    /// Scheduled, Event, Session, Multiple, or — when triggerless. Pure — unit-tested.
+    /// Scheduled, Event, Session, Multiple, or - when triggerless. Pure - unit-tested.
     /// </summary>
     internal static string ParseTaskTriggers(string xml)
     {
@@ -557,7 +557,7 @@ public sealed class StartupManagerService
             var doc = System.Xml.Linq.XDocument.Parse(xml);
             XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
             var triggers = doc.Root?.Element(ns + "Triggers");
-            if (triggers == null) return "—";
+            if (triggers == null) return "-";
             var kinds = triggers.Elements()
                 .Select(e => e.Name.LocalName switch
                 {
@@ -572,13 +572,13 @@ public sealed class StartupManagerService
                 })
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            if (kinds.Count == 0) return "—";
+            if (kinds.Count == 0) return "-";
             return kinds.Count == 1 ? kinds[0] : "Multiple";
         }
-        catch { return "—"; }
+        catch { return "-"; }
     }
 
-    /// <summary>First Exec action's command line ("cmd args", plus a count suffix). Pure — unit-tested.</summary>
+    /// <summary>First Exec action's command line ("cmd args", plus a count suffix). Pure - unit-tested.</summary>
     internal static string ParseTaskExec(string xml)
     {
         try
@@ -586,14 +586,14 @@ public sealed class StartupManagerService
             var doc = System.Xml.Linq.XDocument.Parse(xml);
             XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
             var execs = doc.Root?.Element(ns + "Actions")?.Elements(ns + "Exec").ToList();
-            if (execs == null || execs.Count == 0) return "—";
+            if (execs == null || execs.Count == 0) return "-";
             string cmd = (execs[0].Element(ns + "Command")?.Value ?? "").Trim();
             string args = (execs[0].Element(ns + "Arguments")?.Value ?? "").Trim();
             string line = (cmd + " " + args).Trim();
-            if (line.Length == 0) line = "—";
+            if (line.Length == 0) line = "-";
             return execs.Count > 1 ? $"{line} (+{execs.Count - 1} more)" : line;
         }
-        catch { return "—"; }
+        catch { return "-"; }
     }
 
     /// <summary>Checked unless explicitly Disabled (Ready/Running/Queued count as on).</summary>

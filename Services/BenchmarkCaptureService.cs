@@ -96,7 +96,7 @@ public sealed class BenchmarkCaptureService
         {
             throw new InvalidOperationException(
                 $"PresentMon hash mismatch (expected {PinnedSha256}, got {actual}). " +
-                "The bundled build was replaced or corrupted — restore Assets/PresentMon/PresentMon.exe (v2.5.1) before capturing.");
+                "The bundled build was replaced or corrupted - restore Assets/PresentMon/PresentMon.exe (v2.5.1) before capturing.");
         }
     }
 
@@ -345,10 +345,10 @@ public sealed class BenchmarkCaptureService
               $"other-PID {parsed.RowsSkippedOtherPid}, bad values {parsed.RowsSkippedBadValue})"
             : " (no CSV was written)";
         return "PresentMon recorded no frames for the target" + detail + ". Likely causes: " +
-               "1) wrong process — pick the game exe, not its launcher; " +
+               "1) wrong process - pick the game exe, not its launcher; " +
                $"2) target exited early (PID {pid}, {exeName}); " +
-               "3) no presents during the window — keep the game visible, not minimized; " +
-               "4) missing ETW rights — run elevated or join Performance Log Users; " +
-               "5) a stale session conflict — retry, the app passes --stop_existing_session automatically.";
+               "3) no presents during the window - keep the game visible, not minimized; " +
+               "4) missing ETW rights - run elevated or join Performance Log Users; " +
+               "5) a stale session conflict - retry, the app passes --stop_existing_session automatically.";
     }
 }

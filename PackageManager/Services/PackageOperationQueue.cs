@@ -11,7 +11,7 @@ namespace kaliteConfig.PackageManager.Services;
 /// <summary>
 /// Serialized package-operation execution: installers love to reboot, lock
 /// files, and pop their own UI, so operations run strictly one at a time
-/// (bounded concurrency of one — a deliberate safety choice, not a
+/// (bounded concurrency of one - a deliberate safety choice, not a
 /// limitation). Bulk callers get per-item results and continue past
 /// individual failures; nothing aborts-on-first-failure.
 /// </summary>
@@ -47,7 +47,7 @@ public sealed class PackageOperationQueue
         lock (_lock) _active[record] = opCts;
         Publish(record);
 
-        // NOTE: no ConfigureAwait(false) anywhere in this method — every
+        // NOTE: no ConfigureAwait(false) anywhere in this method - every
         // continuation below touches PackageInfo bindings and must resume on
         // the UI thread (RPC_E_WRONG_THREAD otherwise). The backend itself
         // stays off-thread internally.

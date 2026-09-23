@@ -19,8 +19,8 @@ public interface IContentionMonitor
 ///
 /// One <c>NtQuerySystemInformation</c> call per tick, diffed against the previous
 /// tick: no process handles at all (see <see cref="SystemProcessCpuReader"/>).
-/// The previous shape opened a handle to EVERY running process once a second —
-/// plus <c>Process.GetProcesses()</c>, which allocates a Process object per PID —
+/// The previous shape opened a handle to EVERY running process once a second -
+/// plus <c>Process.GetProcesses()</c>, which allocates a Process object per PID -
 /// for the whole session, which is the opposite of what a game-mode helper should
 /// cost.
 ///
@@ -127,7 +127,7 @@ public sealed class ContentionMonitor : IContentionMonitor, IDisposable
 
         // Raised even when NOTHING is contended. The orchestrator's release pass
         // lives in this handler, so suppressing the empty case meant a demoted
-        // process could only be restored once some other process got busy — if the
+        // process could only be restored once some other process got busy - if the
         // session went quiet, it stayed demoted for the rest of the session.
         ContentionDetected?.Invoke(this, sample);
     }

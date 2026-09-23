@@ -82,7 +82,7 @@ public static class SnipIcons
     public static string Pick(string name) =>
         All.FirstOrDefault(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).Glyph ?? "";
 
-    /// <summary>(Name, glyph) for every icon — used by the debug Icon test page.</summary>
+    /// <summary>(Name, glyph) for every icon - used by the debug Icon test page.</summary>
     public static IReadOnlyList<(string Name, string Glyph)> All { get; } = new List<(string, string)>
     {
         ("Region", Region), ("Window", Window), ("Fullscreen", Fullscreen),

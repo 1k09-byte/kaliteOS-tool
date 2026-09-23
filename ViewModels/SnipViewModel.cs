@@ -738,7 +738,7 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    /// <summary>Real hotkey state — this used to be a hard-coded "Hotkey: Active" even when
+    /// <summary>Real hotkey state - this used to be a hard-coded "Hotkey: Active" even when
     /// registration had failed (which is why a dead PrtScn was invisible to the user).</summary>
     public string StatusBarRegistrationText =>
         ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyStatusText ?? "Hotkey: not registered";
@@ -775,7 +775,7 @@ public sealed partial class SnipViewModel : ObservableObject
     }
 
     /// <summary>"Blocked" meant: registry value PrintScreenKeyForSnippingEnabled=0,
-    /// i.e. Windows Snipping Tool no longer owns PrtScn — kaliteConfig does. Good state.</summary>
+    /// i.e. Windows Snipping Tool no longer owns PrtScn - kaliteConfig does. Good state.</summary>
     public string StatusBarPrtScnOwner
     {
         get

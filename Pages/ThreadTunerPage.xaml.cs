@@ -130,7 +130,7 @@ namespace kaliteConfig.Pages
             bool mine = svc.IsHeldBy(GameModeOwner.UserInterface);
 
             // The button acts on THIS page's hold only. A session kept alive by a
-            // rule or by the benchmark's A/B harness is left alone — that is the
+            // rule or by the benchmark's A/B harness is left alone - that is the
             // whole point of refcounting the session.
             PageGamingModeButton.Content = mine ? "Turn off Gaming mode" : "Enable Gaming mode";
             PageGamingModeButton.IsEnabled = true;
@@ -204,7 +204,7 @@ namespace kaliteConfig.Pages
                 Title = "Normalize all priorities?",
                 Content = new TextBlock
                 {
-                    Text = "Set every accessible process's priority back to Normal?\n\nThis is a full reset — anything (including this app or other tools) that raised or lowered a priority gets set to Normal. Critical and protected system processes are skipped.",
+                    Text = "Set every accessible process's priority back to Normal?\n\nThis is a full reset - anything (including this app or other tools) that raised or lowered a priority gets set to Normal. Critical and protected system processes are skipped.",
                     TextWrapping = TextWrapping.Wrap,
                 },
                 PrimaryButtonText = "Reset all to Normal",
@@ -364,7 +364,7 @@ namespace kaliteConfig.Pages
 
                 await new ContentDialog
                 {
-                    Title = $"Current settings — {row.Name}",
+                    Title = $"Current settings - {row.Name}",
                     Content = new TextBlock
                     {
                         Text = $"PID: {row.Pid}\nAffinity mask: 0x{affinity:X}\nCPUs: {FormatCpuMask(affinity)}\nPriority boost: {(boost ? "Enabled" : "Disabled")}\nEfficiency mode: {(efficiency ? "Enabled" : "Disabled")}",
@@ -495,7 +495,7 @@ namespace kaliteConfig.Pages
             if (applied == 0)
             {
                 // Recorded, but nothing was running to write it to (or Windows
-                // refused every instance) — say so instead of pretending.
+                // refused every instance) - say so instead of pretending.
                 _ = new ContentDialog
                 {
                     Title = "Boost preference saved",
@@ -535,6 +535,24 @@ namespace kaliteConfig.Pages
         }
 
         private void Action_Threads(object sender, RoutedEventArgs? e) => ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
+
+        private async void RowThreads_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: TunerProcessRow row })
+            {
+                try { await ShowThreadsDialogAsync(row); }
+                catch (Exception ex)
+                {
+                    _ = new ContentDialog
+                    {
+                        Title = "Threads",
+                        Content = new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap },
+                        CloseButtonText = "Close",
+                        XamlRoot = this.XamlRoot
+                    }.ShowAsync();
+                }
+            }
+        }
 
         private async Task ShowThreadsDialogAsync(Models.TunerProcessRow row)
         {

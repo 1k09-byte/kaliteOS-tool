@@ -11,7 +11,7 @@ namespace OcVerify
     /// flat expansion, base/edit separation), the shared ProfileBatchBuilder
     /// against a fake controller, the safety machine's per-control countdowns
     /// + curve/voltage revert anchors, and game-binding match rules.
-    /// Runs anywhere (no NVAPI, no GPU) — the hardware half lives in
+    /// Runs anywhere (no NVAPI, no GPU) - the hardware half lives in
     /// Program.VerifyVfCurve, which must run on the real RTX machine.
     /// </summary>
     internal static class VfLogicChecks
@@ -416,7 +416,7 @@ namespace OcVerify
             // 5: exit with nobody else running -> default returns.
             svc.HandleProcessStopped(Ev("GameA.exe", 1111));
             // Writes land at batch-apply time; the status message publishes
-            // after the silent window closes — poll for BOTH, not one-then-other.
+            // after the silent window closes - poll for BOTH, not one-then-other.
             bool t5 = WaitFor(() => fake.Writes.Contains("core=5")
                       && (svc.Current.LastMessage ?? "").Contains("Daily"));
             if (!t5)
@@ -424,7 +424,7 @@ namespace OcVerify
             Check(t5, "game exit reverts to the designated default ('Daily', core=5)");
             Settle();
 
-            // 6: multi-game — most-recent wins; survivor keeps its profile.
+            // 6: multi-game - most-recent wins; survivor keeps its profile.
             int mark = fake.Writes.Count;
             svc.HandleProcessStarted(Ev("GameA.exe", 1111));
             Check(WaitFor(() => (svc.Current.LastMessage ?? "").StartsWith("Applied profile 'Ranked'")), "A started again");

@@ -127,7 +127,7 @@ namespace kaliteConfig.PackageManager.Views
         /// <summary>
         /// Fires ActionRequested only when no ActionCommand is bound (pages
         /// that need a confirmation step first leave the command unset and
-        /// handle this event instead — e.g. uninstall).
+        /// handle this event instead - e.g. uninstall).
         /// </summary>
         private void ActionButton_Click(object sender, RoutedEventArgs e)
         {

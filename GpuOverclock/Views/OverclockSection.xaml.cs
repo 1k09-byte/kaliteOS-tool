@@ -70,7 +70,7 @@ namespace kaliteConfig.GpuOverclock.Views
         // The commit handlers already track user edits in the ViewModel (the
         // commit methods mirror the value into CoreOffsetValue etc., and the
         // x:Bind feeds it back). ValueChanged fires again for that programmatic
-        // update — swallowing that echo prevents the revert resync / profile
+        // update - swallowing that echo prevents the revert resync / profile
         // apply slider moves from being re-queued as fresh user writes.
         private void CoreOffsetSlider_ValueChanged(object sender, RoutedEventArgs e)
         {
@@ -464,13 +464,13 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void VfCurveCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            // Bool-gated: hover moves never edit — only moves between our own
+            // Bool-gated: hover moves never edit - only moves between our own
             // press (capture) and release/cancel can drag a point.
             if (_vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
             var canvas = (Canvas)sender;
             var pos = e.GetCurrentPoint(canvas).Position;
 
-            // Same geometry as the drawing — a drag lands exactly where the
+            // Same geometry as the drawing - a drag lands exactly where the
             // graph shows it.
             if (!TryGetVfPlotGeom(out var g)) return;
             double frac = 1.0 - (pos.Y - g.PlotT) / Math.Max(1.0, g.PlotH);
@@ -499,7 +499,7 @@ namespace kaliteConfig.GpuOverclock.Views
         }
 
         // ---------------- Fan curve graph: drag ↔ table two-way sync ----------------
-        // The TABLE stays the commit path (Apply curve button) — the graph only
+        // The TABLE stays the commit path (Apply curve button) - the graph only
         // edits row values, exactly like typing in the table cells. No write
         // logic changes: dragging never starts the loop by itself.
 
@@ -689,7 +689,7 @@ namespace kaliteConfig.GpuOverclock.Views
         }
 
         /// <summary>
-        /// Draws autoscaled history sparklines (nulls break the line — gaps,
+        /// Draws autoscaled history sparklines (nulls break the line - gaps,
         /// never fabricated zeros). Fixed bounds pin scales where they carry
         /// meaning (0–100 % fan, watts from 0).
         /// </summary>

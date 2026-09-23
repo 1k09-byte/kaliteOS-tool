@@ -16,7 +16,7 @@ public sealed partial class ThreadRow : ObservableObject
     [ObservableProperty]
     public partial int Tid { get; set; }
     [ObservableProperty]
-    public partial string CurrentText { get; set; } = "—";
+    public partial string CurrentText { get; set; } = "-";
     [ObservableProperty]
     public partial int CurrentLevel { get; set; } = int.MinValue;
     [ObservableProperty]
@@ -34,7 +34,7 @@ public sealed partial class ThreadRow : ObservableObject
     /// <summary>Per-row Priority-boost tick. Checked = boost allowed (default);
     /// unticked = boost forced off live AND persisted so it stays off for this
     /// thread identity across every future process launch. Backed by
-    /// BoostPreferenceService — never a rule, never touches priority.</summary>
+    /// BoostPreferenceService - never a rule, never touches priority.</summary>
     [ObservableProperty]
     public partial bool BoostAllowed { get; set; } = true;
     public string ProcessName { get; set; } = string.Empty;
@@ -52,7 +52,7 @@ public sealed partial class ThreadListDialog : ContentDialog
     private bool _endArmed;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
-    private bool _idealSet;
+    private bool _idealUserPicked;
     private int _idealCpu = -1;
     private const int CpuBoxColumns = 8;
 
@@ -68,7 +68,7 @@ public sealed partial class ThreadListDialog : ContentDialog
     {
         _pid = pid;
         _processName = processName;
-        Title = $"Threads — {processName} ({pid})";
+        Title = $"Threads - {processName} ({pid})";
         XamlRoot = root;
         _ = ShowAsync();
         await LoadThreadsAsync();
@@ -121,9 +121,9 @@ public sealed partial class ThreadListDialog : ContentDialog
                 }
                 Rows.Add(row);
             }
-            HeaderText.Text = $"{Rows.Count} threads — select one to tune it";
+            HeaderText.Text = $"{Rows.Count} threads - select one to tune it";
             if (anyLocked)
-                EditorStatus("Some threads are protected — Windows blocks tuning them.", true);
+                EditorStatus("Some threads are protected - Windows blocks tuning them.", true);
             else
                 EditorStatus(null, false);
             if (Rows.Count == 0)
@@ -146,7 +146,7 @@ public sealed partial class ThreadListDialog : ContentDialog
     {
         _selected = row;
         _endArmed = false;
-        _idealSet = false;
+        _idealUserPicked = false;
         EndButton.Content = "End thread";
         bool has = row != null;
         NoSelectionText.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
@@ -175,7 +175,7 @@ public sealed partial class ThreadListDialog : ContentDialog
         try
         {
             EditorTitle.Text = $"TID {row.Tid}";
-            EditorSub.Text = $"{row.Description} — {row.StartAddress}";
+            EditorSub.Text = $"{row.Description} - {row.StartAddress}";
             PriorityCurrent.Text = "Current: " + row.CurrentText;
             SelectComboByTag(PriorityCombo, row.CurrentLevel);
             // Live tunables; each degrades independently.
@@ -204,7 +204,7 @@ public sealed partial class ThreadListDialog : ContentDialog
                 var (ig, cpu) = await Tuner.GetIdealProcessorAsync((uint)row.Tid);
                 IdealCurrent.Text = $"Current: group {ig} CPU {cpu}";
                 // Only tick a box when the thread really lives in group 0 and
-                // the read succeeded — a failed read must leave nothing
+                // the read succeeded - a failed read must leave nothing
                 // pre-selected, or "Apply" silently re-applies CPU 0.
                 if (ig == 0)
                 {
@@ -214,10 +214,10 @@ public sealed partial class ThreadListDialog : ContentDialog
                 }
                 else
                 {
-                    IdealCurrent.Text += " — only processor group 0 is tuneable here, pick a CPU below.";
+                    IdealCurrent.Text += " - only processor group 0 is tuneable here, pick a CPU below.";
                 }
             }
-            catch { IdealCurrent.Text = "Current: unreadable — pick a CPU below."; }
+            catch { IdealCurrent.Text = "Current: unreadable - pick a CPU below."; }
             SuspendButton.Content = row.Suspended ? "Resume" : "Suspend";
             bool editable = row.CanEdit;
             PriorityCombo.IsEnabled = editable;
@@ -229,7 +229,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             SuspendButton.IsEnabled = editable;
             EndButton.IsEnabled = editable;
             if (!editable)
-                EditorStatus("Protected thread — Windows does not allow changes.", true);
+                EditorStatus("Protected thread - Windows does not allow changes.", true);
         }
         finally { _loadingEditor = false; }
     }
@@ -284,6 +284,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             box.Click += (_, _) =>
             {
                 _idealCpu = cpu;
+                _idealUserPicked = true;
                 foreach (var other in IdealCpuGrid.Children.OfType<ToggleButton>())
                     other.IsChecked = ReferenceEquals(other, box);
             };
@@ -355,7 +356,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             int? prio = ComboLevel(PriorityCombo) ?? (row.CurrentLevel != int.MinValue ? row.CurrentLevel : null);
             if (prio == null)
             {
-                EditorStatus("Cannot read the live priority — pick one from the dropdown first.", true);
+                EditorStatus("Cannot read the live priority - pick one from the dropdown first.", true);
                 return;
             }
             var rule = new Models.TunerThreadRule
@@ -366,20 +367,30 @@ public sealed partial class ThreadListDialog : ContentDialog
                 BoostEnabled = _boostReadable ? row.BoostAllowed : null,
                 EfficiencyMode = _ecoReadable ? EcoToggle.IsOn : null,
             };
-            try
+            // One-click save: take affinity + ideal straight from the editor
+            // UI so the user does NOT have to press "Apply affinity" / "Apply
+            // ideal processor" first. The boxes are seeded from the live
+            // thread, so an untouched editor still saves the live state.
+            ulong uiMask = ReadAffinityMask();
+            if (uiMask != 0)
             {
-                var (g, m) = await Tuner.GetAffinityStateAsync((uint)row.Tid);
-                rule.AffinityGroup = g;
-                rule.AffinityMask = m;
+                rule.AffinityGroup = 0;
+                rule.AffinityMask = uiMask;
             }
-            catch { }
-            if (_idealSet)
+            if (_idealUserPicked && _idealCpu >= 0 && _idealCpu < 64)
             {
                 rule.IdealGroup = 0;
                 rule.IdealIndex = (byte)_idealCpu;
             }
+            // A rule with neither description nor address matches nothing
+            // (ThreadMatches requires one) - mark it match-all so an unnamed
+            // thread rule really applies to every thread, as the status line claims.
+            if (string.IsNullOrWhiteSpace(rule.Description) && string.IsNullOrWhiteSpace(rule.StartAddress))
+                rule.MatchAllThreads = true;
             var watcher = App.Current.ProfileWatcher;
-            var existing = watcher.ActiveProfiles.FirstOrDefault(p => p.Pattern == _processName);
+            var existing = watcher.ActiveProfiles.FirstOrDefault(p =>
+                string.Equals(p.Name, _processName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.Pattern, _processName, StringComparison.OrdinalIgnoreCase));
             if (existing == null)
             {
                 existing = new Models.TunerProfile
@@ -391,11 +402,12 @@ public sealed partial class ThreadListDialog : ContentDialog
                 };
             }
             existing.ThreadRules.Add(rule);
+            existing.RefreshSummaries();
             await watcher.AddOrUpdate(existing);
 
             // "Make permanent" must also mean "in effect now": apply the freshly
             // saved rule to THIS running instance immediately instead of waiting
-            // for the process to be launched again — a rule used to sit idle until
+            // for the process to be launched again - a rule used to sit idle until
             // then, which read as "my changes keep resetting".
             int applied = 0;
             try
@@ -407,8 +419,8 @@ public sealed partial class ThreadListDialog : ContentDialog
 
             bool wide = string.IsNullOrEmpty(rule.Description) && string.IsNullOrEmpty(rule.StartAddress);
             EditorStatus(wide
-                ? $"Saved — applies to ALL threads of {_processName} ({applied} thread(s) now) and on every launch."
-                : $"Saved — applied to {applied} matching thread(s) of {_processName} now, and on every launch.", false);
+                ? $"Saved - applies to ALL threads of {_processName} ({applied} thread(s) now) and on every launch."
+                : $"Saved - applied to {applied} matching thread(s) of {_processName} now, and on every launch.", false);
         }
         catch (Exception ex) { EditorStatus($"Save rule: {Short(ex)}", true); }
     }
@@ -436,7 +448,7 @@ public sealed partial class ThreadListDialog : ContentDialog
         {
             await Services.BoostPreferenceService.Instance.SuppressAsync(
                 row.ProcessName, row.Tid, row.Description, row.StartAddress);
-            EditorStatus("Boost off — stays off for this thread across restarts.", false);
+            EditorStatus("Boost off - stays off for this thread across restarts.", false);
         }
         catch (Exception ex)
         {
@@ -487,7 +499,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             // The service verifies the write against the kernel (and explains
             // a rejection, e.g. a CPU outside this thread's affinity mask).
             await Tuner.SetIdealProcessorAsync((uint)_selected.Tid, 0, (byte)_idealCpu);
-            _idealSet = true;
+            _idealUserPicked = true;
             EditorStatus($"Ideal processor set to CPU {_idealCpu}.", false);
             // Display what Windows reports, not what we asked for.
             try
@@ -535,7 +547,7 @@ public sealed partial class ThreadListDialog : ContentDialog
         try
         {
             await Tuner.TerminateThreadAsync((uint)_selected.Tid);
-            EditorStatus($"TID {_selected.Tid} terminated — refreshing list.", false);
+            EditorStatus($"TID {_selected.Tid} terminated - refreshing list.", false);
             await LoadThreadsAsync();
         }
         catch (Exception ex) { EditorStatus($"End thread: {Short(ex)}", true); }
@@ -573,6 +585,6 @@ public sealed partial class ThreadListDialog : ContentDialog
 
     private static string Short(Exception ex) =>
         ex is UnauthorizedAccessException
-            ? "Access denied — protected thread."
+            ? "Access denied - protected thread."
             : ex.Message.Split('\n')[0];
 }

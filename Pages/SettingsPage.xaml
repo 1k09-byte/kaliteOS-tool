@@ -43,7 +43,7 @@
                 Spacing="{StaticResource SettingsCardSpacing}">
 
                 <!-- Consumer update banner (hidden unless a newer GitHub release exists).
-                     Wired in code-behind only for the CONSUMER flavor — the full
+                     Wired in code-behind only for the CONSUMER flavor - the full
                      flavor leaves Vm null and never checks, so this stays closed. -->
                 <InfoBar Title="{x:Bind Vm.BannerTitle, Mode=OneWay}"
                          Message="{x:Bind Vm.Notes, Mode=OneWay}"
@@ -75,7 +75,7 @@
                     Text="General" />
 
                 <toolkit:SettingsCard
-                    Description="Keep the app running so thread rules apply automatically"
+                    Description="Starts minimized to the system tray so thread rules keep applying"
                     Header="Start with Windows">
                     <toolkit:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7E8;" />
@@ -132,7 +132,7 @@
 
                 <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="About" />
 
-                <toolkit:SettingsCard x:Name="AboutCard" Header="About kaliteConfig" Description="Version — View development team and application links" IsClickEnabled="True" Click="AboutCard_Click">
+                <toolkit:SettingsCard x:Name="AboutCard" Header="About kaliteConfig" Description="Version - View development team and application links" IsClickEnabled="True" Click="AboutCard_Click">
                     <toolkit:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE946;" />
                     </toolkit:SettingsCard.HeaderIcon>

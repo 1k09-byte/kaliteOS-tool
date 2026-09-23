@@ -127,7 +127,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         voltageMv = GPUApi.GetCurrentVoltage(gpu.Handle).ValueInMicroVolt / 1000.0;
                     }
-                    catch (NVIDIAApiException) { } // private API — refused on some driver builds
+                    catch (NVIDIAApiException) { } // private API - refused on some driver builds
 
                     double? powerPct = null;
                     try
@@ -155,7 +155,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     try
                     {
                         // Client fan-coolers status first (modern cards report here).
-                        // NOTE: FanCoolersStatusEntry is a STRUCT — FirstOrDefault()
+                        // NOTE: FanCoolersStatusEntry is a STRUCT - FirstOrDefault()
                         // would give Nullable<T> with no members; index instead.
                         var fanEntries = GPUApi.GetClientFanCoolersStatus(gpu.Handle).FanCoolersStatusEntries;
                         if (fanEntries is { Length: > 0 })
@@ -425,7 +425,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private static OverclockControlRange? DeltaRangeToMhz(IPerformanceStates20ClockEntry e)
         {
-            // FrequencyDeltaInkHz and its DeltaRange are structs — always present.
+            // FrequencyDeltaInkHz and its DeltaRange are structs - always present.
             var d = e.FrequencyDeltaInkHz;
             var r = d.DeltaRange;
             if (r.Maximum <= r.Minimum) return null;
@@ -486,7 +486,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         foreach (var e in entries)
                         {
-                            var d = e.FrequencyDeltaInkHz; // struct copy — no null
+                            var d = e.FrequencyDeltaInkHz; // struct copy - no null
                             if (e.DomainId == PublicClockDomain.Graphics) core = d.DeltaValue;
                             if (e.DomainId == PublicClockDomain.Memory) mem = d.DeltaValue;
                         }
@@ -556,7 +556,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         /// <summary>
         /// Editable delta range (MHz) for one public clock domain as reported by
-        /// PStates20 — the same source ReadCapabilities uses, so the clamp here
+        /// PStates20 - the same source ReadCapabilities uses, so the clamp here
         /// and the UI slider range can never disagree. Null when not queryable.
         /// </summary>
         private (int MinMhz, int MaxMhz)? QueryDeltaRangeMhz(PublicClockDomain domain)
@@ -583,7 +583,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>
         /// Applies a whole-domain clock offset by shifting the V/F curve: every
         /// boost-table point of the domain moves by the same delta. This is the
-        /// write path modern drivers still accept — the PStates20 delta write
+        /// write path modern drivers still accept - the PStates20 delta write
         /// (SetPerformanceStates20) returns NotSupported on current drivers
         /// even when its read side reports editable ranges.
         ///
@@ -716,7 +716,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
                 // Modern path first: the client fan-coolers API (what current
                 // NVIDIA tooling and the LLT fork's own fan control drive).
-                // Legacy SetCoolerLevels is refused by recent cards/drivers —
+                // Legacy SetCoolerLevels is refused by recent cards/drivers -
                 // that was the "driver refused the change to fan speed" failure.
                 try
                 {
@@ -763,7 +763,7 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 if (!EnsureGpu(out var fail)) return fail;
 
-                // Modern path: an explicit FanCoolersControlMode.Auto write —
+                // Modern path: an explicit FanCoolersControlMode.Auto write -
                 // a real hand-back, not "stop writing".
                 try
                 {
@@ -810,7 +810,7 @@ namespace kaliteConfig.GpuOverclock.Services
         ///
         /// INDEX-ALIGNMENT NOTE (verify on hardware): when the V/F status
         /// point count equals the graphics boost-table slice length the join
-        /// is 1:1 (the expected shape — both describe the same table). When
+        /// is 1:1 (the expected shape - both describe the same table). When
         /// counts differ, voltage/frequency labels are proportionally
         /// resampled for DISPLAY ONLY; offsets always address exact
         /// boost-table indices, so the write path is unaffected either way.
@@ -848,7 +848,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         for (int i = 0; i < n && first + i < src.Length; i++)
                             curDeltaMhz[i] = src[first + i].FrequencyDeltaInkHz / 1000;
                     }
-                    catch (NVIDIAApiException) { /* offsets stay 0 — base still valid */ }
+                    catch (NVIDIAApiException) { /* offsets stay 0 - base still valid */ }
 
                     bool vbSupported = false;
                     uint vbCurrent = 0;
@@ -942,7 +942,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// Per-point editable offset ranges (MHz) for one clock domain's
         /// boost-table slice. Primary source is the boost-range entries
         /// covering each point; entries whose min/max look like ABSOLUTE
-        /// frequencies (floor above zero — real delta ranges always extend to
+        /// frequencies (floor above zero - real delta ranges always extend to
         /// or below zero, since underclocking is allowed) are rejected as
         /// garbage, because clamping an offset to an absolute-frequency range
         /// would catapult the clock. Falls back to the uniform PStates20
@@ -994,9 +994,9 @@ namespace kaliteConfig.GpuOverclock.Services
         /// Writes per-point graphics-domain offsets (MHz, boost-table point
         /// order). Count must match the live slice; every point is clamped to
         /// its driver-queried range first (the driver accepts out-of-range
-        /// deltas without error — same defense-in-depth as SetClockOffset).
+        /// deltas without error - same defense-in-depth as SetClockOffset).
         /// Other domains are preserved from current driver state.
-        /// Monotonicity is NOT re-checked here — the caller validates
+        /// Monotonicity is NOT re-checked here - the caller validates
         /// client-side before committing (GpuVoltageFrequencyCurve.ValidateMonotonic).
         /// </summary>
         public GpuResult SetVoltageFrequencyCurveOffsets(IReadOnlyList<int> offsetsMhz)
@@ -1012,7 +1012,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     int n = last - first + 1;
                     if (offsetsMhz.Count != n)
                         return GpuResult.Fail(OverclockErrorKind.WriteRejected,
-                            $"V/F curve point count changed (expected {n}, got {offsetsMhz.Count}) — re-read the curve and retry.");
+                            $"V/F curve point count changed (expected {n}, got {offsetsMhz.Count}) - re-read the curve and retry.");
 
                     var pointRanges = QueryPointRangesMhz(PublicClockDomain.Graphics, first, last);
                     if (pointRanges is null) return GpuResult.Fail(OverclockErrorKind.ControlUnsupported);
@@ -1050,7 +1050,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         /// <summary>
         /// Reads the CURRENT per-point graphics-domain offsets straight from
-        /// the boost table — the revert anchor and resync source for curve
+        /// the boost table - the revert anchor and resync source for curve
         /// batches. Empty when unsupported.
         /// </summary>
         public GpuResult<int[]> ReadVfCurveOffsets()
@@ -1153,7 +1153,7 @@ namespace kaliteConfig.GpuOverclock.Services
             return true;
         }
 
-        /// <summary>Called when the GPU may have changed (re-detect) — forgets the cached handle.</summary>
+        /// <summary>Called when the GPU may have changed (re-detect) - forgets the cached handle.</summary>
         public void InvalidateGpu()
         {
             lock (_gate) _gpu = null;

@@ -12,7 +12,7 @@ namespace kaliteConfig.GpuOverclock.Services
         Available,
 
         /// <summary>The last read failed (driver reload, GPU gone). Consumers must
-        /// show a distinct "telemetry unavailable" state — never stale values.</summary>
+        /// show a distinct "telemetry unavailable" state - never stale values.</summary>
         Unavailable,
     }
 
@@ -99,7 +99,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         // Quiesced (device restarts in flight): skip the tick
                         // entirely rather than calling into NVAPI/NVML on
-                        // handles a restart may have invalidated — a native
+                        // handles a restart may have invalidated - a native
                         // fault there bypasses every managed catch below.
                         if (!HardwareQuiesceGate.IsQuiesced)
                         {
@@ -118,7 +118,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     catch (Exception ex)
                     {
                         // Defensive: the controller converts expected failures to
-                        // values, so this is genuinely exceptional — still never crash.
+                        // values, so this is genuinely exceptional - still never crash.
                         Update?.Invoke(new TelemetryUpdate(null, TelemetryHealth.Unavailable, ex.GetType().Name));
                     }
                     finally
@@ -126,7 +126,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         Volatile.Write(ref _inFlight, 0);
                     }
                 }
-                // else: previous read still running — skip this tick.
+                // else: previous read still running - skip this tick.
 
                 var remaining = interval - sw.Elapsed;
                 if (remaining > TimeSpan.Zero)

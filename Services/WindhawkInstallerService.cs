@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace kaliteConfig.Services;
 
 /// <summary>
-/// Windhawk provisioning flow — direct-download variant copied from AutoOS AppsStage.cs:
+/// Windhawk provisioning flow - direct-download variant copied from AutoOS AppsStage.cs:
 /// 1. Download windhawk_setup.exe from pinned URL https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.5/windhawk_setup.exe
 ///    to %TEMP%\windhawk_setup.exe (AutoOS: DownloadHelper.Download(directUrl, Path.GetTempPath(), "windhawk_setup.exe"))
 /// 2. Run NSIS installer with /S (silent), hidden window, wait for exit (AutoOS: Process.Start(... "/S", Hidden))
@@ -22,13 +22,13 @@ namespace kaliteConfig.Services;
 ///    windhawk-cli.exe data import "json" --confirm-app-restart --yes   WorkingDirectory = %ProgramFiles%\Windhawk
 /// 4. Update mods:  mod list --update-available --json  →  mod update &lt;id&gt;  (AutoOS ProcessActions.UpdateWindhawkMods)
 ///
-/// No GitHub API is used — the installer URL is pinned per user request. No AutoOS remote is used.
+/// No GitHub API is used - the installer URL is pinned per user request. No AutoOS remote is used.
 /// </summary>
 public sealed class WindhawkInstallerService
 {
     private static readonly HttpClient _http = new();
 
-    // Direct pinned URL — replaces GitHub API + offline asset lookup (AutoOS pattern).
+    // Direct pinned URL - replaces GitHub API + offline asset lookup (AutoOS pattern).
     public const string DirectDownloadUrl = "https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.5/windhawk_setup.exe";
     public const string DirectVersion = "2.0.0-alpha.5";
 
@@ -68,7 +68,7 @@ public sealed class WindhawkInstallerService
     public async Task<string> DownloadInstallerAsync(
         string downloadUrl, IProgress<string>? status = null, CancellationToken ct = default)
     {
-        // Use windhawk_setup.exe (pinned direct URL) — matches requested link.
+        // Use windhawk_setup.exe (pinned direct URL) - matches requested link.
         string tempPath = Path.Combine(Path.GetTempPath(), "windhawk_setup.exe");
 
         // Avoid reusing a stale/locked temp file from a previous failed run (AutoOS kills locking processes).
@@ -118,7 +118,7 @@ public sealed class WindhawkInstallerService
 
         status?.Report("Installing Windhawk silently...");
 
-        // Direct invocation (AutoOS) — not cmd /c start /wait. Hidden, no window.
+        // Direct invocation (AutoOS) - not cmd /c start /wait. Hidden, no window.
         var psi = new ProcessStartInfo
         {
             FileName = installerPath,
@@ -521,7 +521,7 @@ public sealed class WindhawkInstallerService
             }
             catch (IOException)
             {
-                // File locked — try to find and kill the locking process, then retry.
+                // File locked - try to find and kill the locking process, then retry.
                 var locker = FindLockedProcess(path);
                 if (locker is not null && locker.Id != Environment.ProcessId)
                 {

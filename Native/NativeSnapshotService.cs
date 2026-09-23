@@ -214,7 +214,7 @@ public sealed partial class NativeSnapshotService
                 // details for us. NOTE: check SUCCEEDED (hr >= 0), not == S_OK.
                 // Threads named via NtSetInformationThread (all seven DWM role
                 // threads) return success code 0x10000000 with a valid string
-                // pointer — verified live. An == 0 check silently discards
+                // pointer - verified live. An == 0 check silently discards
                 // every one of them and the Description column goes unnamed.
                 if (NativeMethods.Threads.GetThreadDescription(thread, out IntPtr description) >= 0
                     && description != IntPtr.Zero)

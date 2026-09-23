@@ -26,7 +26,7 @@ public enum CpuBoundState
 /// Per-window CPU-bound detection state machine. Deliberately NOT part of
 /// <see cref="GamingModeService"/>, which is shared app-wide: each Threads
 /// window samples its own target process, so each owns its own detector.
-/// Three consecutive samples at >= 50% of one core count as "CPU-bound" —
+/// Three consecutive samples at >= 50% of one core count as "CPU-bound" -
 /// that is the regime where raising priority actually changes scheduling.
 /// </summary>
 public sealed class CpuBoundDetector
@@ -114,7 +114,7 @@ public sealed class GamingModeResult
         GamingModeOutcome.JoinedSameTarget =>
             $"already on for target {TargetAfter} · {HeldCount} holder(s) · {LoweredCount} process(es) still demoted",
         GamingModeOutcome.JoinedOtherTarget =>
-            $"a session is already running for {TargetAfter} — {TargetBefore} was left as it is",
+            $"a session is already running for {TargetAfter} - {TargetBefore} was left as it is",
         GamingModeOutcome.Failed => $"failed: {Error}",
         _ => $"target {TargetBefore} → {TargetAfter} · {LoweredCount} background lowered · {EcoCount} in Efficiency mode" +
              (FailedCount > 0 ? $" · {FailedCount} skipped (no access)" : ""),
@@ -132,14 +132,14 @@ public sealed class GamingModeResult
 ///
 /// It does NOT partition CPU Sets, clamp affinity, cap Job Objects, rewrite
 /// threads or touch the priority-boost flag. Every one of those used to be
-/// here and each cost more performance than it returned — see Docs/GameMode.md.
+/// here and each cost more performance than it returned - see Docs/GameMode.md.
 ///
 /// All original priority classes and eco states are restored when switched
 /// off (also on window close, so the system is never left boosted).
 ///
 /// CPU-bound detection is a pure counter state machine fed by the window's
 /// 2 s tick: three consecutive samples at >= 50% of one core count as
-/// "CPU-bound" — that is the regime where raising priority actually changes
+/// "CPU-bound" - that is the regime where raising priority actually changes
 /// scheduling. Detection never lowers anything else; that is opt-in via the
 /// Gaming mode switch.
 ///
@@ -153,21 +153,21 @@ public sealed class GamingModeService
     /// A background process must be using at least this share of TOTAL machine
     /// CPU (summed over every logical processor) in the activation sample
     /// before it is demoted. At 2% of a 16-thread CPU that is roughly a third
-    /// of one core held continuously — real competition for the game, not a
+    /// of one core held continuously - real competition for the game, not a
     /// housekeeping blip.
     /// </summary>
     private const double ContentionPercentOfTotalCpu = 2.0;
 
     /// <summary>
     /// PID → (original priority class, original Efficiency mode). Eco is null
-    /// when the original state could not be read — such processes get their
+    /// when the original state could not be read - such processes get their
     /// priority lowered but are never eco-toggled. Restoration targets these.
     /// </summary>
     private readonly Dictionary<string, (uint Priority, bool? Eco)> _restoreMap = new();
 
     /// <summary>
     /// Who is holding the session open. The session lives while at least one
-    /// caller holds it, and the LAST release is what restores everything — see
+    /// caller holds it, and the LAST release is what restores everything - see
     /// <see cref="GameModeHoldRegistry"/> for why the first-release-wins shape
     /// this replaced stranded state.
     /// </summary>
@@ -176,7 +176,7 @@ public sealed class GamingModeService
     /// <summary>True while the session is live (at least one holder).</summary>
     public bool IsActive => _holds.IsHeld;
 
-    /// <summary>Current holds, oldest first — what the UI renders to explain why it is on.</summary>
+    /// <summary>Current holds, oldest first - what the UI renders to explain why it is on.</summary>
     public IReadOnlyList<GameModeHold> Holds => _holds.Holds;
 
     /// <summary>The process the live session belongs to, or null when idle.</summary>
@@ -241,7 +241,7 @@ public sealed class GamingModeService
     /// Detection fired: raise the target Normal → Above Normal. Returns true
     /// when a raise was applied. Processes already above Normal are left
     /// alone (never pushed towards High/Realtime automatically) and never
-    /// raised out of Below Normal/Idle — a throttled process was set there
+    /// raised out of Below Normal/Idle - a throttled process was set there
     /// on purpose, either by the user or by the OS.
     /// </summary>
     public async Task<bool> AutoRaiseTargetAsync(int pid)
@@ -364,13 +364,13 @@ public sealed class GamingModeService
                 // raises it to High (Eco OFF, boost on, mem/IO maxed) inside
                 // StartSession, AFTER the orchestrator snapshots its original
                 // state. Mutating it here would poison that baseline, and
-                // Deactivate could then only restore the boosted values —
+                // Deactivate could then only restore the boosted values -
                 // leaving the game stuck at High after Game Mode turns off.
                 bool ok = true;
 
                 // One-shot background demotion: an ordinary Normal-priority
                 // process that was really using CPU drops to BelowNormal and
-                // gets EcoQoS ON. Strict by design — High/Realtime/
+                // gets EcoQoS ON. Strict by design - High/Realtime/
                 // AboveNormal (deliberate), Idle/BelowNormal (already low),
                 // critical, protected, self, and the game are never touched.
                 // The priority-boost flag is left alone; it is the user's
@@ -415,7 +415,7 @@ public sealed class GamingModeService
 
                      // Contention gate: idle processes don't compete with the
                     // game (its AboveNormal class preempts them instantly), so
-                    // touching them is pure downside — each write churns the
+                    // touching them is pure downside - each write churns the
                     // scheduler and the restore map for zero gain. Only demote
                     // processes that were actually burning CPU in the sample.
                     if (!cpu.TryGetValue(pid, out double cpuPct)) continue;
@@ -428,14 +428,14 @@ public sealed class GamingModeService
                         false, (uint)pid);
                     if (handle.IsInvalid)
                     {
-                        failed++; // no access — can't restore later, don't touch
+                        failed++; // no access - can't restore later, don't touch
                         continue;
                     }
 
                     uint original = NativeMethods.Priority.GetPriorityClass(handle);
                     if (original == 0)
                     {
-                        failed++; // unreadable — same reasoning, don't touch
+                        failed++; // unreadable - same reasoning, don't touch
                         continue;
                     }
                     if (original != NativeMethods.Priority.Normal) continue; // respect all non-Normal
@@ -482,8 +482,8 @@ public sealed class GamingModeService
                 // Only ACTIVE contenders get demoted: the per-process demotion
                 // loop above (BelowNormal + no boost + EcoQoS) and the
                 // orchestrator's reactive path handle them one by one. Idle
-                // background processes cost the game nothing — High priority
-                // preempts them instantly — so leave them alone.
+                // background processes cost the game nothing - High priority
+                // preempts them instantly - so leave them alone.
 
                 // Read AFTER StartSession: the booster has applied High by now,
                 // so this reports the real before → after transition.
@@ -514,7 +514,7 @@ public sealed class GamingModeService
 
     /// <summary>
     /// Resets every accessible non-critical process's priority class to Normal.
-    /// Intended as a panic "undo everything" — covers processes changed by this
+    /// Intended as a panic "undo everything" - covers processes changed by this
     /// app, other tools, or manual tweaks. Skips critical system processes,
     /// itself, and protected processes. Returns (reset, skipped) counts.
     /// </summary>
@@ -615,8 +615,8 @@ public sealed class GamingModeService
             NativeMethods.Priority.SetPriorityClass(handle, priority);
 
             // The priority-boost flag is deliberately NOT restored here. This
-            // path never changed it — only the priority class and EcoQoS were
-            // demoted — and the old unconditional "re-enable boost" silently
+            // path never changed it - only the priority class and EcoQoS were
+            // demoted - and the old unconditional "re-enable boost" silently
             // reverted a per-process "boost disabled" preference the user had
             // set, which the 20 s keeper then turned back off. The two systems
             // fought forever and the setting looked like it kept resetting.
@@ -635,7 +635,7 @@ public sealed class GamingModeService
     /// once, read again, diff.
     ///
     /// The old shape was a per-PID helper that slept 200 ms inside itself and
-    /// was called once per candidate process — on a machine with a couple of
+    /// was called once per candidate process - on a machine with a couple of
     /// hundred processes that was ~40 seconds of serial sleeping inside
     /// ActivateAsync, with the box churning for the whole first minute of the
     /// game it was meant to be helping. This costs one 250 ms sleep in total.
@@ -739,7 +739,7 @@ public sealed class GamingModeService
 
     /// <summary>
     /// Reads the process's Efficiency mode (EcoQoS) state via
-    /// GetProcessInformation. Null when unreadable — callers must not
+    /// GetProcessInformation. Null when unreadable - callers must not
     /// toggle eco for such processes, because restore would be impossible.
     /// </summary>
     private static bool? ReadEcoState(SafeProcessHandle process)

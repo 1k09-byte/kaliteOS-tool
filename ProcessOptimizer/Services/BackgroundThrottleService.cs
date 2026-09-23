@@ -15,7 +15,7 @@ namespace kaliteConfig.ProcessOptimizer.Services;
 ///   shared dependency (audio, a launcher helper, a driver worker) is starved;
 /// - nothing is pinned to a core subset. An earlier build partitioned CPU Sets
 ///   here, and on a homogeneous CPU that collapsed every background process
-///   onto core 0 — the DPC/interrupt core — while the game lost half of the
+///   onto core 0 - the DPC/interrupt core - while the game lost half of the
 ///   machine. Both are gone; see Docs/GameMode.md.
 ///
 /// What is left scales with <see cref="AggressivenessLevel"/>: EcoQoS, memory
@@ -45,7 +45,7 @@ public static class BackgroundThrottleService
 
             string actionTaken = "no change";
 
-            // Light: EcoQoS + memory/IO priority demotion — priority class
+            // Light: EcoQoS + memory/IO priority demotion - priority class
             // stays Normal. The demotions make background pages trim first
             // and yield disk bandwidth to the game without scheduler churn.
             if (level >= AggressivenessLevel.Light)
@@ -86,7 +86,7 @@ public static class BackgroundThrottleService
             }
 
             // Moderate: Add memory-priority demotion (eco hint already applied above).
-            // This is the ceiling — there is no Aggressive tier. The level it used
+            // This is the ceiling - there is no Aggressive tier. The level it used
             // to reach (a per-process Job Object CPU rate cap, and an affinity
             // fallback that on a non-hybrid CPU pinned the process to the LAST
             // logical processor, which can be a kernel-reserved one it may then

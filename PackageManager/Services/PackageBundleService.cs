@@ -97,7 +97,7 @@ public sealed class PackageBundleService
 
     /// <summary>
     /// Bundle items not currently installed (matched by id+source, case-insensitive).
-    /// Pure logic — unit-tested.
+    /// Pure logic - unit-tested.
     /// </summary>
     public static IReadOnlyList<BundleItem> DiffMissing(
         PackageBundle bundle, IEnumerable<PackageInfo> installed)

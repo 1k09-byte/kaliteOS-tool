@@ -14,7 +14,7 @@ namespace kaliteConfig.ProcessOptimizer.Services;
 ///   non-hybrid CPU, intersected with the CPU-set partition to leave the game
 ///   roughly three cores.
 /// - No CPU-set partition. On a homogeneous CPU the partition gave the game
-///   every core but one and pinned the ENTIRE rest of the system to core 0 —
+///   every core but one and pinned the ENTIRE rest of the system to core 0 -
 ///   the DPC/interrupt core.
 /// - No thread rewriting. Raising individual threads to Highest and pinning
 ///   their ideal processors fights the engine's own scheduling (it sets thread

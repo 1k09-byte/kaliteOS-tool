@@ -42,7 +42,7 @@ namespace kaliteConfig.ViewModels
             HasPendingChanges = false;
         }
 
-        // Core ticks only stage changes — nothing is written until Apply is
+        // Core ticks only stage changes - nothing is written until Apply is
         // clicked. The button enables only while the staged selection differs
         // from the saved mask, so reverting to the saved state greys it out.
         private void MarkDirty() => HasPendingChanges = CurrentMask() != VisibleSavedMask();

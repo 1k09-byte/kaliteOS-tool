@@ -13,7 +13,7 @@ namespace kaliteConfig.PackageManager.Services;
 ///
 /// WHY CLI, NOT COM: Microsoft.Management.Deployment (the WinGet COM API)
 /// does not resolve in this app's dependency context (verified: CS0234 with
-/// and without the WindowsAppSDK reference — only Microsoft.Windows.* MSIX
+/// and without the WindowsAppSDK reference - only Microsoft.Windows.* MSIX
 /// projections ship). winget.exe v1.29 here also offers no --output json, so
 /// this backend parses the human-readable tables with dash-anchored column
 /// slicing (never whitespace-splitting, so names/ids with spaces survive).
@@ -37,7 +37,7 @@ public sealed class WinGetPackageSource : IPackageSource
     public bool CanListInstalled => true;
     public bool CanListUpdates => true;
 
-    /// <summary>Optional executable override (preferences page) — null means PATH lookup.</summary>
+    /// <summary>Optional executable override (preferences page) - null means PATH lookup.</summary>
     public string? ExecutableOverride { get; set; }
 
     private string Exe => string.IsNullOrWhiteSpace(ExecutableOverride) ? "winget" : ExecutableOverride!.Trim();
@@ -199,7 +199,7 @@ public sealed class WinGetPackageSource : IPackageSource
     /// spaces (names, monikers) survive. Header names map columns (upgrade
     /// adds Available); unknown columns are ignored. Preamble, footers
     /// ("No … found", "N upgrades available.") and id-less rows are skipped.
-    /// Pure logic — unit-tested against captured live output.
+    /// Pure logic - unit-tested against captured live output.
     /// </summary>
     internal static List<PackageInfo> ParsePackageTable(string output, string sourceId, string sourceLabel)
     {

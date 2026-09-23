@@ -144,7 +144,7 @@
                 <!-- MSI Policies card -->
                 <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" CornerRadius="8" Padding="20">
                     <StackPanel Spacing="16">
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="MSI Policies — Message Signaled Interrupts" />
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="MSI Policies - Message Signaled Interrupts" />
                         <Grid ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

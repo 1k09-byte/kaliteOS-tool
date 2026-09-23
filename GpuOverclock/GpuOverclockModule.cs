@@ -4,7 +4,7 @@ using kaliteConfig.GpuOverclock.Services;
 namespace kaliteConfig.GpuOverclock
 {
     /// <summary>
-    /// Composition root for the overclock module. The app has no DI container —
+    /// Composition root for the overclock module. The app has no DI container -
     /// services are composed explicitly here and exposed through a singleton,
     /// mirroring how ProcessTuning/GamingMode live on App. One instance per
     /// process: NVAPI initializes once, one polling loop, one safety machine.

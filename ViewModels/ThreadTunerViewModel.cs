@@ -49,7 +49,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public ObservableCollection<ThreadBoostRow> ThreadBoostRows { get; } = new();
     /// <summary>Filtered view driven by RulesFilter search box.</summary>
     public ObservableCollection<ThreadBoostRow> DisplayedThreadBoostRows { get; } = new();
-    /// <summary>Set by the page when the Thread Tune tab is selected — gates the expensive per-thread scan.</summary>
+    /// <summary>Set by the page when the Thread Tune tab is selected - gates the expensive per-thread scan.</summary>
     [ObservableProperty]
     public partial bool IsThreadTuneTabActive { get; set; }
 
@@ -236,7 +236,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     }
 
     /// <summary>Search matches process name and PID on the Processes tab, and
-    /// rule name/pattern on the Rules tab — one box serves both tabs.</summary>
+    /// rule name/pattern on the Rules tab - one box serves both tabs.</summary>
     public void RefreshDisplayedProcesses()
     {
         string filter = (RulesFilter ?? string.Empty).Trim();
@@ -300,9 +300,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 || p.Pattern.Contains(filter, StringComparison.OrdinalIgnoreCase))
             {
                 DisplayedProfiles.Add(p);
-                if (p.ProcessActionCount > 0 || (p.ProcessActionCount == 0 && p.ThreadRules.Count == 0))
-                    DisplayedProcessProfiles.Add(p);
-                
+                // Rules tab is bound to DisplayedProcessProfiles: it must list
+                // every profile, including thread-only rules (no process
+                // actions). Those were previously filtered out and never appeared.
+                DisplayedProcessProfiles.Add(p);
+
                 if (p.ThreadRules.Count > 0)
                     DisplayedThreadProfiles.Add(p);
             }
@@ -530,7 +532,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             {
                 if (existingByTid.TryGetValue(r.Tid, out var existing))
                 {
-                    // Patch in place — don't touch BoostEnabled if user is toggling
+                    // Patch in place - don't touch BoostEnabled if user is toggling
                     if (!existing.IsBusy && existing.BoostEnabled != r.BoostEnabled)
                         existing.BoostEnabled = r.BoostEnabled;
                     if (existing.ProcessName != r.ProcessName) existing.ProcessName = r.ProcessName;
@@ -567,7 +569,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         }
 
         // Identical set+order (the common poll case): leave the collection
-        // alone — Clear/Add resets the ListView scroll position and the
+        // alone - Clear/Add resets the ListView scroll position and the
         // user's mouse wheel position every tick.
         if (DisplayedThreadBoostRows.Count == visible.Count)
         {

@@ -13,7 +13,7 @@ namespace kaliteConfig.ViewModels;
 /// those surfaces can never disagree about a snip:
 ///
 ///  - Loading: a skeleton at the exact final size (no layout shift).
-///  - Loaded:  pixels fade in (~150 ms) — the page runs the animation off <see cref="Loaded"/>.
+///  - Loaded:  pixels fade in (~150 ms) - the page runs the animation off <see cref="Loaded"/>.
 ///  - Failed:  an icon + the short reason + Retry, with the full error in the tooltip.
 ///  - Missing: "File missing" + "Remove from gallery" (the file was deleted outside the app).
 ///  - Blank:   a "looks blank" badge (protected/DRM captures are legitimately flat: warn, never hide).

@@ -472,7 +472,7 @@ public sealed partial class SnipPage : Page
                         {
                             new TextBlock
                             {
-                                Text = "These look like a single flat color (DRM blanks, black frames). Deleting moves them to the bin — recoverable until emptied.",
+                                Text = "These look like a single flat color (DRM blanks, black frames). Deleting moves them to the bin - recoverable until emptied.",
                                 TextWrapping = TextWrapping.Wrap,
                                 Margin = new Thickness(0, 0, 0, 8),
                             },
@@ -1408,13 +1408,13 @@ public sealed partial class SnipPage : Page
         => ViewModel.NotifyMessage("Copy text from screen", "Press the snip hotkey, then use the 'Copy Text (OCR)' toolbar button on the region.");
 
     private void QuickColorPicker_Click(object sender, RoutedEventArgs e)
-        => ViewModel.NotifyMessage("Color picker", "Take a snip first — the color picker lives in the snip overlay toolbar (eyedropper).\n" + SnipIcons.Pick("Eyedropper"));
+        => ViewModel.NotifyMessage("Color picker", "Take a snip first - the color picker lives in the snip overlay toolbar (eyedropper).\n" + SnipIcons.Pick("Eyedropper"));
 
     private void QuickRuler_Click(object sender, RoutedEventArgs e)
-        => ViewModel.NotifyMessage("Ruler", "Take a snip first — the ruler lives in the snip overlay toolbar.\n" + SnipIcons.Pick("Ruler"));
+        => ViewModel.NotifyMessage("Ruler", "Take a snip first - the ruler lives in the snip overlay toolbar.\n" + SnipIcons.Pick("Ruler"));
 
     private void QuickQrScan_Click(object sender, RoutedEventArgs e)
-        => ViewModel.NotifyMessage("QR scan", "Take a snip first — QR scan lives in the snip overlay toolbar.\n" + SnipIcons.Pick("QR"));
+        => ViewModel.NotifyMessage("QR scan", "Take a snip first - QR scan lives in the snip overlay toolbar.\n" + SnipIcons.Pick("QR"));
 
     // ---- Drop zone ----
 
@@ -1485,7 +1485,7 @@ public sealed partial class SnipPage : Page
     }
 
     // The details panel used to hook the retry/remove buttons to the shared card handlers, which
-    // read DataContext off the button — the panel's DataContext is the view model, so both buttons
+    // read DataContext off the button - the panel's DataContext is the view model, so both buttons
     // were dead. They act on the selected item explicitly here.
     private async void DetailsRetry_Click(object sender, RoutedEventArgs e)
     {

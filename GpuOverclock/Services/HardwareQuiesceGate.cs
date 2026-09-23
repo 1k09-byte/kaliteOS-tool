@@ -8,7 +8,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// WHY THIS EXISTS: restarting a device (pnputil /restart-device on the
     /// GPU itself, which IRQ/Affinity Optimize does) momentarily invalidates
     /// the native handles NVAPI/NVML calls go through. A telemetry or fan
-    /// tick landing in that window can fault INSIDE nvapi64.dll/nvml.dll —
+    /// tick landing in that window can fault INSIDE nvapi64.dll/nvml.dll -
     /// a native access violation (0xc0000005) that no managed try/catch can
     /// contain, killing the process with a "System Error" dialog. So every
     /// flow that restarts devices holds this gate across the restarts plus a
@@ -16,7 +16,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// held. A gap in the graphs is always preferable to a dead process.
     ///
     /// Ref-counted and thread-safe; nested holds are fine. Keep holds short
-    /// (seconds, not minutes) — telemetry simply pauses while held.
+    /// (seconds, not minutes) - telemetry simply pauses while held.
     /// </summary>
     public static class HardwareQuiesceGate
     {

@@ -4,7 +4,7 @@ namespace kaliteConfig.GpuOverclock.Models
 {
     /// <summary>
     /// "Nice" axis ticks (1/2/2.5/5 × 10^n) for the V/F curve graph. Pure
-    /// math, no UI — unit-tested in the OcVerify harness, used by the
+    /// math, no UI - unit-tested in the OcVerify harness, used by the
     /// OverclockSection canvas.
     /// </summary>
     public static class GraphTicks

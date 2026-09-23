@@ -109,7 +109,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Intel Arc Graphics Driver",
                 Vendor = "Intel",
-                Description = "Intel ships versioned bundles only — this card opens the official Intel download center.",
+                Description = "Intel ships versioned bundles only - this card opens the official Intel download center.",
                 VendorPageUrl = "https://www.intel.com/content/www/us/en/download-center/home.html",
                 GuidedInstallOnly = true,
                 IsPageOnly = true
@@ -157,7 +157,7 @@ namespace kaliteConfig.ViewModels
                     driver.IsPrimary = match.IsPrimary;
 
                     // Laptop GPUs ship distinct driver packages ("… Laptop GPU"
-                    // products in NVIDIA's catalog) — default the notebook lookup
+                    // products in NVIDIA's catalog) - default the notebook lookup
                     // on when WMI reports one, so the first Check is correct.
                     if (driver.Vendor.Equals("NVIDIA", StringComparison.OrdinalIgnoreCase))
                         NotebookGpu = match.Name.Contains("Laptop", StringComparison.OrdinalIgnoreCase);
@@ -232,7 +232,7 @@ namespace kaliteConfig.ViewModels
                 try
                 {
                     // Fetch up to 15 versions for dropdown selection. Prefer
-                    // the PCI device ID (hardware identity — works even when
+                    // the PCI device ID (hardware identity - works even when
                     // Windows can't name a driverless card); name lookup is the
                     // fallback.
                     var packages = await _nvidiaService.GetDriversByDeviceIdAsync(gpu.PnpDeviceId ?? "", 15, StudioChannel, CancellationToken.None);
@@ -270,15 +270,15 @@ namespace kaliteConfig.ViewModels
                     }
                     else
                     {
-                        // Undocumented NVIDIA lookup returned nothing usable —
+                        // Undocumented NVIDIA lookup returned nothing usable -
                         // never present a stale cache as current fact.
-                        item.ErrorMessage = "Unable to check — NVIDIA lookup unavailable. Use the vendor page.";
+                        item.ErrorMessage = "Unable to check - NVIDIA lookup unavailable. Use the vendor page.";
                         item.Status = GpuDriverStatus.Failed;
                     }
                 }
                 catch (Exception ex)
                 {
-                    item.ErrorMessage = $"Unable to check — NVIDIA lookup unavailable: {ex.Message}";
+                    item.ErrorMessage = $"Unable to check - NVIDIA lookup unavailable: {ex.Message}";
                     item.Status = GpuDriverStatus.Failed;
                 }
                 return;
@@ -315,7 +315,7 @@ namespace kaliteConfig.ViewModels
         }
 
         /// <summary>
-        /// Unique temp path per download (GUID suffix) — a fixed name like
+        /// Unique temp path per download (GUID suffix) - a fixed name like
         /// "nvidia_driver.exe" gets locked by a crashed prior run, antivirus
         /// scanning, or a still-running installer, and FileStream(Create) then
         /// throws "file being used by another process".
@@ -340,7 +340,7 @@ namespace kaliteConfig.ViewModels
                 return;
             }
 
-            // Real UAC-sensitive operations follow — confirm first with a
+            // Real UAC-sensitive operations follow - confirm first with a
             // summary of what is about to happen.
             bool confirmed = await ConfirmInstallAsync(item);
             if (!confirmed) return;
@@ -589,7 +589,7 @@ namespace kaliteConfig.ViewModels
                     bool success = exit == 0 || reboot;
                     dialog.CompleteInstall(success, reboot,
                         success
-                            ? (reboot ? "Install complete — a restart is required." : "Install complete.")
+                            ? (reboot ? "Install complete - a restart is required." : "Install complete.")
                             : $"Installer failed with exit code {exit}. The extracted package was kept at {NvidiaPackageService.TempRoot} for inspection.");
 
                     if (success)

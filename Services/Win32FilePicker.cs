@@ -10,7 +10,7 @@ namespace kaliteConfig.Services;
 /// The brokered WinUI pickers (<c>FileOpenPicker</c>/<c>FileSavePicker</c>)
 /// throw E_ACCESSDENIED in elevated processes (a long-standing WinUI 3 issue),
 /// so callers try the WinUI picker first and fall back to these Win32 dialogs
-/// — which do work elevated — when that happens.
+/// - which do work elevated - when that happens.
 /// </summary>
 internal static class Win32FilePicker
 {
@@ -31,7 +31,7 @@ internal static class Win32FilePicker
     [Guid("C0B4E2F3-BA21-4773-8DBA-335EC946EB8B")]
     private sealed class FileSaveDialogClass { }
 
-    // Full IFileDialog vtable (order matters — this is the COM contract).
+    // Full IFileDialog vtable (order matters - this is the COM contract).
     [ComImport]
     [Guid("42F85136-DB7E-439C-85F1-E4075D135FC8")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -94,7 +94,7 @@ internal static class Win32FilePicker
             suggestedName: null, title: "Open SCEWIN dump");
     }
 
-    /// <summary>Open dialog with caller-defined filters — used by the
+    /// <summary>Open dialog with caller-defined filters - used by the
     /// per-game profile binding picker (elevated-safe fallback path).</summary>
     public static string? PickOpenFile(
         nint owner,
@@ -112,7 +112,7 @@ internal static class Win32FilePicker
             title: "Export modified dump", defaultExtension: "txt");
     }
 
-    /// <summary>Save dialog with caller-defined filters — used by the
+    /// <summary>Save dialog with caller-defined filters - used by the
     /// overclock verification-record export (elevated-safe fallback path).</summary>
     public static string? PickSaveFile(
         nint owner, string suggestedName,

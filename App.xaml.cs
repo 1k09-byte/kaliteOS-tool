@@ -19,6 +19,13 @@ namespace kaliteConfig
         public static bool IsDryRun { get; private set; }
         public static bool IsAdmin { get; private set; }
 
+        /// <summary>
+        /// True when this launch came from login autostart (Run key --tray or
+        /// the packaged startup task): the window stays hidden and the app
+        /// lives in the notification-area tray until opened.
+        /// </summary>
+        public static bool StartedToTray { get; private set; }
+
         public IThemeService? ThemeService { get; set; }
 
         /// <summary>
@@ -96,6 +103,12 @@ namespace kaliteConfig
             // Keep every Process Control setting applied: rules and boost
             // preferences are re-armed on a fixed cadence, not just once when a
             // process starts.
+            // Autostart to tray: the toolkit must be running for rules to
+            // apply, so unpackaged installs keep the login Run entry (with
+            // --tray) without needing the Settings toggle. Packaged installs
+            // need user consent via the StartupTask prompt - those stay on the
+            // toggle only.
+            _ = EnsureAutostartAsync();
             ProfileWatcher.StartKeeper();
             // Arm Gaming mode for gaming-mode rules whose process is already
             // running (app started mid-game) and watch for exits.
@@ -107,11 +120,23 @@ namespace kaliteConfig
             _ = CheckForUpdateOnStartupAsync();
         }
 
+        private static async Task EnsureAutostartAsync()
+        {
+            try
+            {
+                if (StartupService.IsPackaged) return;
+                var startup = new StartupService();
+                if (!await startup.IsEnabledAsync())
+                    await startup.SetEnabledAsync(true);
+            }
+            catch { /* autostart is best-effort; never break startup */ }
+        }
+
         /// <summary>
         /// Consumer startup update dialog: checks GitHub Releases shortly after
         /// the window is up; if a newer full release exists, shows a modal
         /// offering "Update now" (download + silent Inno install + exit) or
-        /// "Later". Full flavor: no-op. Never throws — a failed check is a
+        /// "Later". Full flavor: no-op. Never throws - a failed check is a
         /// silent no-op, exactly like the Settings-page banner path.
         /// </summary>
         private async Task CheckForUpdateOnStartupAsync()
@@ -126,7 +151,7 @@ namespace kaliteConfig
                 await vm.CheckForUpdateCommand.ExecuteAsync(null);
                 if (!vm.IsAvailable || MainWindow is null) return;
                 // A failed install is explained once (the Settings banner keeps
-                // carrying it) — re-opening a modal for the same version on
+                // carrying it) - re-opening a modal for the same version on
                 // every launch is the loop users complained about.
                 if (vm.SuppressStartupOffer) return;
 
@@ -216,6 +241,25 @@ namespace kaliteConfig
                 _singleInstanceMutex = new System.Threading.Mutex(true, "kaliteConfigAppMutex", out bool isFirstInstance);
                 if (!isFirstInstance)
                 {
+                    // Already running (usually hidden in the tray): ask it to
+                    // show its window, then exit instead of starting a duplicate.
+                    try
+                    {
+                        for (int i = 0; i < 50; i++)
+                        {
+                            try
+                            {
+                                using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ShowWindowEventName);
+                                ev.Set();
+                                break;
+                            }
+                            catch (System.Threading.WaitHandleCannotBeOpenedException)
+                            {
+                                System.Threading.Thread.Sleep(100);
+                            }
+                        }
+                    }
+                    catch { }
                     Environment.Exit(0);
                     return;
                 }
@@ -224,7 +268,7 @@ namespace kaliteConfig
                 _windowStatic = _window;
 
                 // Overclock module teardown on close: stops telemetry, ends the
-                // fan-curve loop with a real driver hand-back (spec §5 — closing
+                // fan-curve loop with a real driver hand-back (spec §5 - closing
                 // the app must never leave a forced fan speed), disarms the TDR
                 // watchdog. Best-effort; never delays the close.
                 _window.Closed += (_, _) =>
@@ -240,7 +284,20 @@ namespace kaliteConfig
                 };
 
                 ThemeService = new ThemeService().Initialize(_window);
-                _window.Activate();
+                StartedToTray = StartupService.IsTrayLaunch(args.Arguments);
+                if (StartedToTray)
+                {
+                    // Login autostart: live in the tray, no window popup.
+                    // The MainWindow constructor already created the tray icon
+                    // (with Open/Exit), and the rules engine runs in-proc.
+                    // The window was never activated, so it is already hidden -
+                    // Hide() just makes that explicit. First tray-Open shows it.
+                    _window.AppWindow.Hide();
+                }
+                else
+                {
+                    _window.Activate();
+                }
 
                 // Reserved CPU sets reapply: the Run key launches the app with
                 // --apply-reserved-cpus at login when "Apply at Startup" is on.
@@ -264,7 +321,7 @@ namespace kaliteConfig
                 // Startup reapply (spec 6): the elevated Task Scheduler task
                 // launches the app with --apply-overclock-startup at login.
                 // The designated, pre-boot-validated profile is reapplied on a
-                // background thread after the driver has settled — through the
+                // background thread after the driver has settled - through the
                 // full safety machine with the shortened headless window.
                 if (Environment.GetCommandLineArgs().Contains("--apply-overclock-startup", StringComparer.OrdinalIgnoreCase))
                 {

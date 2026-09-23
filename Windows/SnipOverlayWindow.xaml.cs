@@ -289,7 +289,7 @@ public sealed partial class SnipOverlayWindow : Window
     // WinUI 3 exposes the cursor only as UIElement.ProtectedCursor (protected).
     // Without a subclassed root element, reflection is the documented fallback
     // (WindowsAppSDK discussion #1816). Crosshair while Idle/Selecting, sizing
-    // cursors on handles — all guarded so a failure just keeps the arrow.
+    // cursors on handles - all guarded so a failure just keeps the arrow.
     private void SetOverlayCursor(Microsoft.UI.Input.InputSystemCursorShape shape)
     {
         try
@@ -372,7 +372,7 @@ public sealed partial class SnipOverlayWindow : Window
                 OverlayLog($"sticker selected {System.IO.Path.GetFileName(path)} {_activeSticker.Value.W}x{_activeSticker.Value.H}");
 
                 // Drop the sticker straight onto the shot (selection center, selected),
-                // so it can be dragged into place immediately — no extra click needed.
+                // so it can be dragged into place immediately - no extra click needed.
                 double scx = (_startPoint.X + _endPoint.X) / 2, scy = (_startPoint.Y + _endPoint.Y) / 2;
                 var stamp = CreateStickerAt(new Point(scx, scy));
                 if (stamp != null)
@@ -1325,7 +1325,7 @@ public sealed partial class SnipOverlayWindow : Window
             {
                 // CF_DIB alongside the PNG: pass the stream itself (both a stream
                 // reference and raw bytes throw "data type mismatch" here).
-                // Best-effort only — the PNG covers all modern paste targets.
+                // Best-effort only - the PNG covers all modern paste targets.
                 byte[] dib = Services.SnipRegionLogic.BuildDib32(cropped, w, h);
                 var dibStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
                 await dibStream.WriteAsync(dib.AsBuffer());

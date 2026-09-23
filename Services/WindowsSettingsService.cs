@@ -9,7 +9,7 @@ namespace kaliteConfig.Services;
 /// <summary>
 /// Applies the kernel timer/interrupt tweaks (backed by the supplied .reg logic)
 /// and detects their current state. Per-scheme values are resolved against the
-/// ACTIVE power scheme — never a hardcoded GUID.
+/// ACTIVE power scheme - never a hardcoded GUID.
 /// </summary>
 public sealed class WindowsSettingsService
 {
@@ -25,7 +25,7 @@ public sealed class WindowsSettingsService
         bool NeedsReboot,
         // Power-setting mechanism (InterruptRouting only): when set, the
         // tweak is a real power-scheme setting written via PowrProf
-        // AC+DC value indices — NOT a direct DWORD. OnValue/OffValue double
+        // AC+DC value indices - NOT a direct DWORD. OnValue/OffValue double
         // as the on/off indices so detection and the UI keep working unchanged.
         Guid PowerSubgroup = default,
         Guid PowerSetting = default)
@@ -49,19 +49,19 @@ public sealed class WindowsSettingsService
         new TweakDef(
             "ThreadedDpc",
             "Threaded DPCs",
-            "Runs deferred procedure calls on dedicated threads (1) instead of inline at DISPATCH_LEVEL (0). Can smooth DPC latency spikes on some systems. Read by the kernel at boot — takes effect after a restart.",
+            "Runs deferred procedure calls on dedicated threads (1) instead of inline at DISPATCH_LEVEL (0). Can smooth DPC latency spikes on some systems. Read by the kernel at boot - takes effect after a restart.",
             @"SYSTEM\CurrentControlSet\Control\Session Manager\Kernel",
             "ThreadedDpcEnable", 1, 0, false, true),
         new TweakDef(
             "InterruptRouting",
             "Lock interrupt routing",
-            "Sets Interrupt Steering Mode to 'Lock Interrupt Routing' for the active power scheme, plugged in and on battery — Windows stops moving device interrupts across cores. Pairs with manual IRQ affinity in Affinity Tuning. Applies immediately.",
+            "Sets Interrupt Steering Mode to 'Lock Interrupt Routing' for the active power scheme, plugged in and on battery - Windows stops moving device interrupts across cores. Pairs with manual IRQ affinity in Affinity Tuning. Applies immediately.",
             "", "", IntSteerLockIndex, IntSteerDefaultIndex, true, false,
             IntSteerSubgroup, IntSteerModeSetting),
         new TweakDef(
             "TimerExpiration",
             "Serialized timer expiration",
-            "Forces timer serialization on (1) instead of letting the kernel decide. Read by the kernel at boot — takes effect after a restart. Can reduce timer coalescing jitter at the cost of throughput.",
+            "Forces timer serialization on (1) instead of letting the kernel decide. Read by the kernel at boot - takes effect after a restart. Can reduce timer coalescing jitter at the cost of throughput.",
             @"SYSTEM\CurrentControlSet\Control\Session Manager\Kernel",
             "SerializeTimerExpiration", 1, 0, false, true),
         new TweakDef(
@@ -80,7 +80,7 @@ public sealed class WindowsSettingsService
     }
 
     /// <summary>
-    /// True when THIS process token carries the Administrator role — the real
+    /// True when THIS process token carries the Administrator role - the real
     /// elevation check. Never throws (false on any failure).
     /// </summary>
     public static bool IsElevated()
@@ -99,7 +99,7 @@ public sealed class WindowsSettingsService
     /// target. "Run as admin" is only claimed when the process genuinely is
     /// NOT elevated; an elevated process that is still denied gets the real
     /// target, the OS error, and the likely culprits (security software,
-    /// hardened key ACLs). Pure logic — unit-tested.
+    /// hardened key ACLs). Pure logic - unit-tested.
     /// </summary>
     internal static string AccessDeniedMessage(string location, bool elevated, string osError)
     {
@@ -160,7 +160,7 @@ public sealed class WindowsSettingsService
 
     /// <summary>
     /// Reads one Interrupt-Steering-style power index for the active scheme.
-    /// Null when the scheme can't be determined or the API refuses — callers
+    /// Null when the scheme can't be determined or the API refuses - callers
     /// treat null as unknown, never as zero.
     /// </summary>
     private static uint? ReadPowerIndex(TweakDef def, bool dc)
@@ -231,8 +231,8 @@ public sealed class WindowsSettingsService
     // The kernel tweaks touch sensitive keys (Session Manager\Kernel, power
     // scheme values). Before the FIRST write to a given key+value, the
     // original state (value or "absent") is snapshotted under HKLM\SOFTWARE\
-    // kaliteConfig\Backup so it can be restored exactly — including restoring
-    // "not set" — via ResetToOriginal. Subsequent writes don't overwrite the
+    // kaliteConfig\Backup so it can be restored exactly - including restoring
+    // "not set" - via ResetToOriginal. Subsequent writes don't overwrite the
     // backup, so the true original survives repeated toggling.
     public const string BackupKeyPath = @"SOFTWARE\kaliteConfig\Backup";
 
@@ -263,7 +263,7 @@ public sealed class WindowsSettingsService
         catch { /* best-effort: protection never blocks the tweak itself */ }
     }
 
-    /// <summary>Restores the value snapshotted before the first write — including
+    /// <summary>Restores the value snapshotted before the first write - including
     /// deleting it again if it did not exist originally. Returns false when no
     /// backup exists for this tweak.</summary>
     public bool ResetToOriginal(TweakDef def)
@@ -383,13 +383,13 @@ public sealed class WindowsSettingsService
 
     public static readonly (uint Value, string Label)[] Win32PSPresets = new[]
     {
-        (0x02u, "2 (0x02) — Windows default"),
-        (0x16u, "22 (0x16) — Long, Variable, High boost"),
-        (0x18u, "24 (0x18) — Long, Fixed, No boost"),
-        (0x1Au, "26 (0x1A) — Long, Fixed, High boost"),
-        (0x24u, "36 (0x24) — Short, Variable, No boost"),
-        (0x28u, "40 (0x28) — Short, Fixed, No boost"),
-        (0x2Au, "42 (0x2A) — Short, Fixed, High boost"),
+        (0x02u, "2 (0x02) - Windows default"),
+        (0x16u, "22 (0x16) - Long, Variable, High boost"),
+        (0x18u, "24 (0x18) - Long, Fixed, No boost"),
+        (0x1Au, "26 (0x1A) - Long, Fixed, High boost"),
+        (0x24u, "36 (0x24) - Short, Variable, No boost"),
+        (0x28u, "40 (0x28) - Short, Fixed, No boost"),
+        (0x2Au, "42 (0x2A) - Short, Fixed, High boost"),
     };
 
     /// <summary>Current value, or null when absent (Windows default behavior).</summary>
@@ -454,7 +454,7 @@ public sealed class WindowsSettingsService
 
     public static readonly (uint Value, string Label)[] SvcSplitPresets = new[]
     {
-        (380000u,     "(default) — 380000 KB"),
+        (380000u,     "(default) - 380000 KB"),
         (0x400000u,   "4 GB"),
         (0x600000u,   "6 GB"),
         (0x800000u,   "8 GB"),

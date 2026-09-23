@@ -130,12 +130,12 @@ namespace kaliteConfig.Pages
         private void UpdateTiles()
         {
             var s = ViewModel.SelectedStats;
-            StatAvg.Text = s == null ? "—" : $"{s.AverageFps:F0}";
-            StatP1.Text = s == null ? "—" : $"{s.P1Fps:F0}";
-            StatP02.Text = s == null ? "—" : $"{s.P02Fps:F0}";
-            StatLow1.Text = s == null ? "—" : $"{s.Low1CountFps:F0}";
-            StatMinMax.Text = s == null ? "—" : $"{s.MinFps:F0}/{s.MaxFps:F0}";
-            StatStutter.Text = s == null ? "—" : $"{s.StutterCount} ({s.StutterPct:F1}%)";
+            StatAvg.Text = s == null ? "-" : $"{s.AverageFps:F0}";
+            StatP1.Text = s == null ? "-" : $"{s.P1Fps:F0}";
+            StatP02.Text = s == null ? "-" : $"{s.P02Fps:F0}";
+            StatLow1.Text = s == null ? "-" : $"{s.Low1CountFps:F0}";
+            StatMinMax.Text = s == null ? "-" : $"{s.MinFps:F0}/{s.MaxFps:F0}";
+            StatStutter.Text = s == null ? "-" : $"{s.StutterCount} ({s.StutterPct:F1}%)";
         }
 
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)

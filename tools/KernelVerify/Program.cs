@@ -58,7 +58,7 @@ namespace KernelVerify
             Check(WindowsSettingsService.All.Count == 3, "tweak catalog intact (3 defs)");
 
             // Location correctness: every tweak must point at a real,
-            // Windows-honored setting — never a placebo path.
+            // Windows-honored setting - never a placebo path.
             var dpc = WindowsSettingsService.Find("ThreadedDpc")!;
             Check(!dpc.IsPowerSetting && dpc.ValueName == "ThreadDpcEnable"
                   && dpc.SubKey.EndsWith(@"Session Manager\Kernel") && dpc.NeedsReboot,
@@ -76,7 +76,7 @@ namespace KernelVerify
 
             // Live read-only end-to-end: the PowrProf declarations must
             // actually work on a real box (a marshaling mistake here would
-            // fault). No writes — detection only.
+            // fault). No writes - detection only.
             var svc = new WindowsSettingsService();
             bool threwLive = false;
             WindowsSettingsService.TweakDetection liveIrq = default;

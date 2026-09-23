@@ -24,7 +24,7 @@ namespace kaliteConfig.Controls;
 /// full-resolution source crossfades in over it. Full resolution means either
 ///   - a one-shot decode into a CanvasBitmap (normal snips), or
 ///   - CanvasVirtualBitmap for huge snips, where only the regions behind the visible source
-///     rectangle are ever realized — a 20000 x 20000 capture never has to be resident.
+///     rectangle are ever realized - a 20000 x 20000 capture never has to be resident.
 ///
 /// Zoom/pan lives in <see cref="SnipPreviewViewport"/> (pure, unit-tested). Zoom 1.0 is 100%:
 /// one image pixel per PHYSICAL device pixel, at whatever the monitor scale is. Interpolation

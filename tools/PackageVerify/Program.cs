@@ -120,7 +120,7 @@ namespace PackageVerify
             var availOnly = new PackageInfo { AvailableVersion = "2.0" };
             Check(availOnly.VersionLine == "2.0", "available-only display");
             var neither = new PackageInfo();
-            Check(neither.VersionLine == "—" && !neither.HasUpdate, "empty display");
+            Check(neither.VersionLine == "-" && !neither.HasUpdate, "empty display");
             Check(new PackageInfo { Name = "", Id = "x.y" }.DisplayName == "x.y", "id fallback for empty name");
 
             // Bundles: round-trip + missing diff.
@@ -166,7 +166,7 @@ namespace PackageVerify
             return _failures == 0 ? 0 : 1;
         }
 
-        /// <summary>Read-only winget.exe paths only — never installs anything.</summary>
+        /// <summary>Read-only winget.exe paths only - never installs anything.</summary>
         private static void LiveChecks()
         {
             Console.WriteLine("--- live winget (read-only) ---");
