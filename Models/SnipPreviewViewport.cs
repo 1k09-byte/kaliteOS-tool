@@ -89,7 +89,7 @@ public static class SnipPreviewPolicy
         return Math.Clamp(zoom, MinZoom, MaxZoom);
     }
 
-    /// <summary>"100%", "25%", "1200%" — the label under the zoom chrome.</summary>
+    /// <summary>"100%", "25%", "1200%" - the label under the zoom chrome.</summary>
     public static string FormatZoom(double zoom) => $"{Math.Round(ClampZoom(zoom) * 100.0)}%";
 }
 
@@ -99,7 +99,7 @@ public static class SnipPreviewPolicy
 /// The contract that makes 100% DPI-correct: <see cref="Zoom"/> 1.0 means one IMAGE pixel per
 /// PHYSICAL device pixel, at any monitor scale. Everything is stored in DIPs (what XAML and
 /// Win2D's CanvasControl speak), and <see cref="RasterizationScale"/> converts to device pixels.
-/// So on a 150% monitor a 4000 px wide snip at 100% is 2666.7 DIPs wide — exactly 4000 device
+/// So on a 150% monitor a 4000 px wide snip at 100% is 2666.7 DIPs wide - exactly 4000 device
 /// pixels, pixel for pixel, and never a blurry "100%" that is really 100% of DIPs.
 /// </summary>
 public sealed class SnipPreviewViewport
@@ -201,7 +201,7 @@ public sealed class SnipPreviewViewport
 
     /// <summary>
     /// Multiplies the zoom while keeping the image point under (<paramref name="anchorXDip"/>,
-    /// <paramref name="anchorYDip"/>) pinned to that spot — the standard wheel-zoom feel.
+    /// <paramref name="anchorYDip"/>) pinned to that spot - the standard wheel-zoom feel.
     /// </summary>
     public void ZoomAt(double anchorXDip, double anchorYDip, double factor)
     {

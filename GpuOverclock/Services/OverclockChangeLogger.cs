@@ -47,7 +47,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         sb.Append(" -> ").Append(entry.NewValue);
                     sb.Append("  (").Append(entry.Source).Append(')');
                     if (!string.IsNullOrEmpty(entry.FailureReason))
-                        sb.Append("  — ").Append(entry.FailureReason);
+                        sb.Append("  - ").Append(entry.FailureReason);
                     sb.AppendLine();
                     File.AppendAllText(_path, sb.ToString());
                 }

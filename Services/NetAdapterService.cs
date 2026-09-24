@@ -359,7 +359,7 @@ public static class NetAdapterService
                 continue;
             d.TryGetValue("State", out var state);
             if (!string.Equals(state, "connected", StringComparison.OrdinalIgnoreCase))
-                return new NetWifiInfo(false, $"Interface state is '{state ?? "unknown"}' — connect to a network to see live Wi-Fi detail.",
+                return new NetWifiInfo(false, $"Interface state is '{state ?? "unknown"}' - connect to a network to see live Wi-Fi detail.",
                     "", "", "", "", "", "", "", "", "", "");
             string Get(string k) => d.TryGetValue(k, out var v) ? v : "";
             return new NetWifiInfo(true, "", Get("SSID"), Get("AP BSSID"), Get("Band"),

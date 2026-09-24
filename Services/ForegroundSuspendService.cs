@@ -16,7 +16,7 @@ namespace kaliteConfig.Services;
 /// Image-3 style game mode: when a listed game is in the foreground, all
 /// background noise (launchers, overlays, updaters) is SUSPENDED; when you
 /// switch back, everything resumes. Nothing is terminated, everything is
-/// reversible — including across an app crash, via the on-disk journal:
+/// reversible - including across an app crash, via the on-disk journal:
 /// any PID recorded as suspended is resumed on next launch when it still
 /// matches, and ResumeAll runs on app exit.
 /// </summary>
@@ -97,7 +97,7 @@ public sealed class ForegroundSuspendService : IDisposable
         _tuning = tuning;
         LoadSettings();
         // Crash orphans: a kill between suspend and resume leaves frozen apps.
-        // Resume anything still matching on a worker thread — never block startup.
+        // Resume anything still matching on a worker thread - never block startup.
         _ = Task.Run(async () =>
         {
             try { await ResumeJournalOrphansAsync().ConfigureAwait(false); }

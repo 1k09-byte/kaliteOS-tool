@@ -12,7 +12,7 @@ namespace kaliteConfig.GpuOverclock.Services
     ///
     /// Mechanism note (spec 4.3), CONFIRMED on real hardware (RTX 4070 SUPER,
     /// driver 616.92): the classic System.Diagnostics.EventLog Entries reader
-    /// silently returns nothing on .NET 10 even when matching events exist —
+    /// silently returns nothing on .NET 10 even when matching events exist -
     /// the phase-2 verification caught this. The working channel is the
     /// EventLogReader (System.Diagnostics.Eventing.Reader) with an XPath query
     /// for nvlddmkm Level-2 errors (driver fault events) and Display/4101
@@ -68,7 +68,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 var t = TryReadLastTdrTimeUtc();
                 if (t.HasValue && t.Value > _windowStartUtc)
                 {
-                    // New TDR after the window opened — fire once.
+                    // New TDR after the window opened - fire once.
                     if (!_resetDetected)
                     {
                         _resetDetected = true;
@@ -89,10 +89,10 @@ namespace kaliteConfig.GpuOverclock.Services
             var cutoff = DateTime.UtcNow - TimeSpan.FromHours(24);
             DateTime? best = null;
 
-            // nvlddmkm Level=2 (Error) — driver fault events. Query shape
+            // nvlddmkm Level=2 (Error) - driver fault events. Query shape
             // verified live against the System log on .NET 10 (the combined
             // or-ed query below this one threw and returned null before the
-            // split — the phase-2 harness caught it).
+            // split - the phase-2 harness caught it).
             var nv = QueryLatest("*[System[Provider[@Name='nvlddmkm'] and Level=2 and TimeCreated[timediff(@SystemTime) <= 86400000]]]");
             if (nv.HasValue && nv.Value > cutoff) best = nv;
 

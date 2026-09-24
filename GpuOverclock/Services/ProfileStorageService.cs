@@ -48,7 +48,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         {
                             if (p.SchemaVersion > OverclockProfile.CurrentSchemaVersion)
                             {
-                                // Written by a newer app version — load but don't
+                                // Written by a newer app version - load but don't
                                 // re-save, so we never destroy newer data.
                                 p.Name = $"[newer version] {p.Name}";
                             }
@@ -132,7 +132,7 @@ namespace kaliteConfig.GpuOverclock.Services
         // -------- per-game bindings (v2 Part B) --------
 
         // .bindings (NOT .json): LoadAll enumerates *.json and would try to
-        // parse a bindings document as a profile — then quarantine it as
+        // parse a bindings document as a profile - then quarantine it as
         // .corrupt. Same reason the default marker is .marker, not .json.
         private string BindingsPath => Path.Combine(_dir, "game-bindings.bindings");
 

@@ -29,7 +29,7 @@ public static class NetSpeedTest
 
     public static string FormatMbps(double mbps)
     {
-        if (double.IsNaN(mbps) || double.IsInfinity(mbps) || mbps < 0) return "—";
+        if (double.IsNaN(mbps) || double.IsInfinity(mbps) || mbps < 0) return "-";
         if (mbps >= 100) return $"{mbps:0} Mbps";
         if (mbps >= 10) return $"{mbps:0.#} Mbps";
         return $"{mbps:0.##} Mbps";
@@ -80,7 +80,7 @@ public static class NetSpeedTest
         if (total == 0)
         {
             if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
-            throw new InvalidOperationException("Download moved 0 bytes — check the connection.");
+            throw new InvalidOperationException("Download moved 0 bytes - check the connection.");
         }
         return total * 8.0 / secs / 1e6;
     }
@@ -133,7 +133,7 @@ public static class NetSpeedTest
         if (total == 0)
         {
             if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
-            throw new InvalidOperationException("Upload moved 0 bytes — check the connection.");
+            throw new InvalidOperationException("Upload moved 0 bytes - check the connection.");
         }
         return total * 8.0 / secs / 1e6;
     }

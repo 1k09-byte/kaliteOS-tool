@@ -14,7 +14,7 @@ namespace kaliteConfig.Services;
 /// already requires admin).
 ///
 /// Safety rules, enforced here rather than in the UI:
-/// - Only third-party (oem##.inf) packages are ever listed — pnputil
+/// - Only third-party (oem##.inf) packages are ever listed - pnputil
 ///   /enum-drivers reports nothing inbox, so system drivers can't be picked.
 /// - Removal is pnputil /delete-driver with /uninstall (devices using the
 ///   package are uninstalled too) and /force. The caller confirms with the
@@ -58,7 +58,7 @@ public sealed class DriverStoreService
         string inf = (item.PublishedName ?? "").Trim();
         if (inf.Length == 0 || !inf.EndsWith(".inf", StringComparison.OrdinalIgnoreCase))
             return $"Refusing to delete: unexpected published name '{item.PublishedName}'.";
-        // Published names are minted by the store itself (oem##.inf) — reject
+        // Published names are minted by the store itself (oem##.inf) - reject
         // anything else so a corrupt row can never turn into an arbitrary delete.
         string stem = Path.GetFileNameWithoutExtension(inf) ?? "";
         if (!stem.StartsWith("oem", StringComparison.OrdinalIgnoreCase)
@@ -172,7 +172,7 @@ public sealed class DriverStoreService
             string value = line.Substring(colon + 1).Trim();
             if (key.Length == 0) continue;
             if (key.Equals("Published Name", StringComparison.OrdinalIgnoreCase) && current.Count > 0)
-                Flush(); // missing blank separator — a new block starts anyway
+                Flush(); // missing blank separator - a new block starts anyway
             current[key] = value;
         }
         Flush();

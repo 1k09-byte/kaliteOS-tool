@@ -4,7 +4,7 @@ namespace kaliteConfig.PackageManager.Models;
 
 /// <summary>
 /// One package row, regardless of backend. Versions are raw vendor strings
-/// (winget emits oddities like "&lt; 3.14.7") — never parsed here.
+/// (winget emits oddities like "&lt; 3.14.7") - never parsed here.
 /// </summary>
 public sealed partial class PackageInfo : ObservableObject
 {
@@ -30,7 +30,7 @@ public sealed partial class PackageInfo : ObservableObject
 
     /// <summary>
     /// True when an update is known: an available version that differs from
-    /// installed. Deliberately string-based — no numeric parsing of vendor
+    /// installed. Deliberately string-based - no numeric parsing of vendor
     /// version soup.
     /// </summary>
     public bool HasUpdate =>
@@ -53,7 +53,7 @@ public sealed partial class PackageInfo : ObservableObject
                     : $"{InstalledVersion.Trim()} → {AvailableVersion.Trim()}";
             if (hasAvailable) return AvailableVersion.Trim();
             if (hasInstalled) return InstalledVersion.Trim();
-            return "—";
+            return "-";
         }
     }
 }

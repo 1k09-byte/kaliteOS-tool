@@ -21,15 +21,15 @@ namespace kaliteConfig.Models
 
         // Read-only layout placeholders until the tuning pass lands.
         [ObservableProperty]
-        public partial string IrqText { get; set; } = "—";
+        public partial string IrqText { get; set; } = "-";
 
         [ObservableProperty]
-        public partial string AffinityText { get; set; } = "—";
+        public partial string AffinityText { get; set; } = "-";
 
         [ObservableProperty]
         public partial bool IsVisible { get; set; } = true;
 
-        // Dialog state (bound two-way; stored only — writers land in the tuning pass).
+        // Dialog state (bound two-way; stored only - writers land in the tuning pass).
         // MsiLimit 0 means "Auto", matching the reference tool.
         [ObservableProperty]
         public partial bool MsiEnabled { get; set; }
@@ -46,10 +46,10 @@ namespace kaliteConfig.Models
         public string MaxMsiLimitText => MaxMsiLimit > 0 ? $"{MaxMsiLimit:0}" : string.Empty;
 
         [ObservableProperty]
-        public partial string MsiLimitText { get; set; } = "—";
+        public partial string MsiLimitText { get; set; } = "-";
 
         [ObservableProperty]
-        public partial string DevicePolicyShort { get; set; } = "—";
+        public partial string DevicePolicyShort { get; set; } = "-";
 
         [ObservableProperty]
         public partial string DevicePriorityShort { get; set; } = "Undefined";

@@ -23,13 +23,13 @@ public sealed class GamePreset
 /// builds: Unreal Engine has named its main threads "GameThread" and
 /// "RenderThread" for a decade (Fortnite UE5, Valorant UE4), so a
 /// description-exact match is build-independent. They get a mild +1
-/// (AboveNormal) — never TimeCritical — and a missing thread simply
+/// (AboveNormal) - never TimeCritical - and a missing thread simply
 /// reports 0 targets instead of touching anything.
 /// Thread rules for other engines are deliberately absent: their thread
 /// names vary per build and a blind guess would be worse than nothing.
 ///
 /// NEVER touches anti-cheat (Vanguard vgc/vgk, EasyAntiCheat, BattlEye) or
-/// Windows system processes — modifying those risks bans or instability.
+/// Windows system processes - modifying those risks bans or instability.
 /// </summary>
 public static class GamePresets
 {
@@ -172,7 +172,7 @@ public static class GamePresets
 
     /// <summary>
     /// Computes an affinity mask for a scope against live topology.
-    /// Returns null when the scope can't be honored — the caller then leaves
+    /// Returns null when the scope can't be honored - the caller then leaves
     /// affinity unset rather than applying a wrong mask. Cases:
     /// multi-group systems (&gt;64 logical CPUs, masks are per-group),
     /// homogeneous CPUs for P/E-core scopes, single-cache/single-thread

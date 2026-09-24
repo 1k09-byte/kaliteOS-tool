@@ -14,8 +14,8 @@ namespace kaliteConfig.Services
 {
     /// <summary>
     /// Read-only device inventory for the affinity page (layout pass: no system
-    /// changes). Walks HKLM\SYSTEM\CurrentControlSet\Enum\PCI — graphics, NIC,
-    /// USB and audio controllers are all PCI devices — and keeps entries whose
+    /// changes). Walks HKLM\SYSTEM\CurrentControlSet\Enum\PCI - graphics, NIC,
+    /// USB and audio controllers are all PCI devices - and keeps entries whose
     /// setup class is Display, Net, USB or MEDIA. IRQ/affinity policy writes
     /// land here in the tuning pass.
     /// </summary>
@@ -54,16 +54,16 @@ namespace kaliteConfig.Services
                                 using var key = deviceKey.OpenSubKey(instance);
                                 if (key is null) continue;
 
-                                // Skip phantom entries (hardware no longer present —
+                                // Skip phantom entries (hardware no longer present -
                                 // stale reinstall leftovers that inflate device counts).
                                 if (key.GetValue("Phantom") is int phantom && phantom == 1) continue;
 
                                 // DeviceInstanceId keeps the FULL path ("PCI\VEN_…\instance"),
-                                // exactly like the reference tool's PnpDeviceId — every
+                                // exactly like the reference tool's PnpDeviceId - every
                                 // registry read/write builds Enum\{id}\… straight from it.
                                 string busPrefix = root.Substring(root.LastIndexOf('\\') + 1);
                                 string instanceId = busPrefix + "\\" + device + "\\" + instance;
-                                // The 'Phantom' value is unreliable — a disabled iGPU
+                                // The 'Phantom' value is unreliable - a disabled iGPU
                                 // (e.g. AMD Radeon Graphics while a dGPU drives the
                                 // display) keeps its Enum key with no Phantom value but
                                 // isn't in the live devnode tree. Ask cfgmgr32 directly.
@@ -142,7 +142,7 @@ namespace kaliteConfig.Services
 
         // Identical adapters (e.g. four "USB xHCI Compliant Host Controller"
         // instances) are distinct tunable devices but indistinguishable by name,
-        // so later duplicates get a vendor suffix ("(AMD)") or a #N fallback —
+        // so later duplicates get a vendor suffix ("(AMD)") or a #N fallback -
         // the same convention Device Manager uses.
         private static void DisambiguateDuplicates(List<Models.AffinityDeviceItem> devices)
         {
@@ -174,7 +174,7 @@ namespace kaliteConfig.Services
 
         /// <summary>
         /// Read-only snapshot of a device's interrupt state (same keys MSI-utility
-        /// tools display). Missing keys yield nulls — the UI renders "—".
+        /// tools display). Missing keys yield nulls - the UI renders "-".
         /// Never writes; the tuning pass adds the writers.
         /// </summary>
         public sealed record InterruptInfo(
@@ -203,7 +203,7 @@ namespace kaliteConfig.Services
                 using var affKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(mgmt + @"\Affinity Policy");
                 if (affKey?.GetValue("DevicePolicy") is int dp) policy = dp;
                 if (affKey?.GetValue("DevicePriority") is int dpr) priority = dpr;
-                // The registry MaxMessageNumberLimit is usually absent — fall back
+                // The registry MaxMessageNumberLimit is usually absent - fall back
                 // to the SetupDi device property, exactly like the reference tool.
                 // That property is elevation-gated, so a last-known-good cache
                 // (written by elevated runs) covers non-elevated scans.
@@ -236,7 +236,7 @@ namespace kaliteConfig.Services
         // tool whose DeviceInfo initializes the policy to 0.
         /// <summary>
         /// Hardware maximum MSI messages via SetupDi + DEVPKEY_PciDevice_
-        /// InterruptMessageMaximum — the reference tool's exact mechanism.
+        /// InterruptMessageMaximum - the reference tool's exact mechanism.
         /// Null when the device has no such property (non-PCI or query failed).
         /// </summary>
         public static uint? GetSetupDiMaxMsiLimit(string fullInstanceId)
@@ -370,7 +370,7 @@ namespace kaliteConfig.Services
             3 => "IrqPolicyAllProcessorsInMachine",
             4 => "IrqPolicySpecifiedProcessors",
             5 => "IrqPolicySpreadMessagesAcrossAllProcessors",
-            _ => "—"
+            _ => "-"
         };
 
         public static string DevicePolicyShort(int? v) => (v ?? 0) switch
@@ -381,7 +381,7 @@ namespace kaliteConfig.Services
             3 => "All Proc in Machine",
             4 => "Specified Proc",
             5 => "Spread Messages Across All Proc",
-            _ => "—"
+            _ => "-"
         };
 
         public static string DevicePriorityName(int? v) => v switch
@@ -405,7 +405,7 @@ namespace kaliteConfig.Services
             return string.Join(", ", bits);
         }
 
-        // DeviceDesc is often "@oemNN.inf,%token%;Friendly Name" — keep the friendly tail.
+        // DeviceDesc is often "@oemNN.inf,%token%;Friendly Name" - keep the friendly tail.
         private static string FriendlyName(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
@@ -759,7 +759,7 @@ namespace kaliteConfig.Services
         /// True while the device is still enumerated. Restarting a GPU (or
         /// installing a driver) re-enumerates the adapter and can hand it a new
         /// instance suffix, which left the Affinity page holding rows whose
-        /// interrupt keys no longer existed — reads came back empty and writes
+        /// interrupt keys no longer existed - reads came back empty and writes
         /// silently landed nowhere.
         /// </summary>
         public bool DeviceExists(string deviceInstanceId)

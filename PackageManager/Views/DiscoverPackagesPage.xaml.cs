@@ -59,7 +59,7 @@ namespace kaliteConfig.PackageManager.Views
             _ = dialog.ShowAsync();
         }
 
-        private static string OrDash(string? s) => string.IsNullOrWhiteSpace(s) ? "—" : s.Trim();
+        private static string OrDash(string? s) => string.IsNullOrWhiteSpace(s) ? "-" : s.Trim();
 
         private void ResultsList_SelectionToggled(object sender, PackageInfo package)
         {

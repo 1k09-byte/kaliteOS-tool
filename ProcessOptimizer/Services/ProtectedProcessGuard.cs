@@ -27,7 +27,7 @@ public static class ProtectedProcessGuard
 
         // Callers are inconsistent about the extension: some pass
         // "proc.ProcessName" ("dwm") and some "proc.ProcessName + \".exe\""
-        // ("dwm.exe"). The denylist is spelled WITHOUT it, so normalise here —
+        // ("dwm.exe"). The denylist is spelled WITHOUT it, so normalise here -
         // otherwise any caller that appends ".exe" silently disables the entire
         // hard denylist and the processes it exists to protect become fair game.
         if (name.EndsWith(".exe", StringComparison.Ordinal)) name = name[..^4];

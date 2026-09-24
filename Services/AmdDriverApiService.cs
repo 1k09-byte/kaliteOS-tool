@@ -44,7 +44,7 @@ namespace kaliteConfig.Services
             /// <summary>Standard desktop Adrenalin package (default).</summary>
             Desktop = 0,
 
-            /// <summary>Desktop+notebook "combined" INFs — required by many laptop GPUs/APUs the desktop INF rejects.</summary>
+            /// <summary>Desktop+notebook "combined" INFs - required by many laptop GPUs/APUs the desktop INF rejects.</summary>
             Notebook = 1,
         }
 

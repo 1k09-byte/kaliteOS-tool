@@ -14,7 +14,7 @@ public enum StartupEntryKind
 /// <summary>
 /// One startup entry: a Run registry value, a user-mode service, or a
 /// non-Microsoft scheduled task. IsEnabled is two-way bound to the row
-/// checkbox — the ViewModel commits the flip through the service.
+/// checkbox - the ViewModel commits the flip through the service.
 /// </summary>
 public sealed partial class StartupEntry : ObservableObject
 {

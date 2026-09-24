@@ -11,7 +11,7 @@
 
     <!-- One package row in three densities. All bindings are to this
          control's own dependency properties (set by PackageListView in
-         ElementPrepared) plus the bound Package — no cross-template
+         ElementPrepared) plus the bound Package - no cross-template
          ElementName tricks, so nothing here can silently stop resolving. -->
     <Grid>
         <!-- ============ List (detailed) ============ -->

@@ -22,7 +22,7 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool SetPriorityClass(SafeProcessHandle process, uint priorityClass);
 
-        // NOTE: DisablePriorityBoost is inverted — TRUE means the boost is OFF.
+        // NOTE: DisablePriorityBoost is inverted - TRUE means the boost is OFF.
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool GetProcessPriorityBoost(SafeProcessHandle process, [MarshalAs(UnmanagedType.Bool)] out bool Svetlana);

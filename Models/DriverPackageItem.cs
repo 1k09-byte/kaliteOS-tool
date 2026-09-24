@@ -6,12 +6,12 @@ namespace kaliteConfig.Models;
 /// <summary>
 /// One third-party driver package from the Windows driver store
 /// (an oem##.inf published name, as listed by pnputil /enum-drivers).
-/// Inbox (Microsoft-shipped) drivers never appear — the store enumeration
+/// Inbox (Microsoft-shipped) drivers never appear - the store enumeration
 /// used here only reports third-party packages.
 /// </summary>
 public sealed partial class DriverPackageItem : ObservableObject
 {
-    /// <summary>Published name, e.g. oem42.inf — the delete-driver key.</summary>
+    /// <summary>Published name, e.g. oem42.inf - the delete-driver key.</summary>
     [ObservableProperty] public partial string PublishedName { get; set; } = string.Empty;
     [ObservableProperty] public partial string OriginalName { get; set; } = string.Empty;
     [ObservableProperty] public partial string Provider { get; set; } = string.Empty;

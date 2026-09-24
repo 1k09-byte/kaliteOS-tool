@@ -20,7 +20,7 @@ namespace BoostVerify;
 ///  - the game's affinity is untouched (no per-core clamp);
 ///  - the game is NOT confined to a CPU-set partition;
 ///  - no thread of the game is rewritten;
-///  - the background process KEEPS its priority class — the old build demanded
+///  - the background process KEEPS its priority class - the old build demanded
 ///    BelowNormal here, but a Light throttle deliberately never changed the
 ///    priority class, and that mismatch is what Docs/ProcessControl.md recorded
 ///    as BoostVerify's "known failure";
@@ -82,7 +82,7 @@ internal static class Program
         try { reserved = new kaliteConfig.Services.ReservedCpuSetsService().GetReservedCpuMask(); } catch { }
         Info($"{Environment.ProcessorCount} logical processors, {systemSets} system CPU sets");
         Info(reserved is > 0
-            ? $"kernel ReservedCpuSets = 0x{reserved.Value:X} — Game Mode must not pin anything onto these"
+            ? $"kernel ReservedCpuSets = 0x{reserved.Value:X} - Game Mode must not pin anything onto these"
             : "no kernel ReservedCpuSets mask set");
 
         // ── spawn the sacrificial children ──
@@ -107,7 +107,7 @@ internal static class Program
             ProcState bgAfter = Read(bg.Id);
 
             // ── the game ──
-            Console.WriteLine("— Game process —");
+            Console.WriteLine("- Game process -");
             Check("priority class == AboveNormal (0x8000)", gameAfter.PriorityClass == 0x8000,
                 $"read 0x{gameAfter.PriorityClass:X}");
             Check("never raised to High (0x80)", gameAfter.PriorityClass != 0x80,
@@ -123,7 +123,7 @@ internal static class Program
                 BoostSame(gameBefore, gameAfter) ? "left as the user had it" : "BOOST FLAG WAS REWRITTEN");
 
             // ── the background process ──
-            Console.WriteLine("\n— Background process (Light throttle) —");
+            Console.WriteLine("\n- Background process (Light throttle) -");
             Check("priority class still Normal (0x20)", bgAfter.PriorityClass == 0x20,
                 $"read 0x{bgAfter.PriorityClass:X} (the class is never demoted at any level)");
             Check("Efficiency mode ON", bgAfter.Eco, bgAfter.Eco ? "eco is on" : "eco was NOT set");
@@ -135,7 +135,7 @@ internal static class Program
                 BoostSame(bgBefore, bgAfter) ? "left as the user had it" : "BOOST FLAG WAS REWRITTEN");
 
             // ── restore what the real restore path would ──
-            Console.WriteLine("\n— Restore —");
+            Console.WriteLine("\n- Restore -");
             if (gameBefore.PriorityClass != 0) SetPriorityClass(game.Id, gameBefore.PriorityClass);
             SetEco(game.Id, gameBefore.Eco);
             SetEco(bg.Id, bgBefore.Eco);
@@ -169,7 +169,7 @@ internal static class Program
     /// </summary>
     private static void VerifyContentionSampler()
     {
-        Console.WriteLine("\n— Contention sampler (was: one handle per process, per tick) —");
+        Console.WriteLine("\n- Contention sampler (was: one handle per process, per tick) -");
 
         bool ok = SystemProcessCpuReader.TryRead(out var first);
         Check("one syscall returns every process's CPU time", ok && first.Count > 5,
@@ -180,8 +180,8 @@ internal static class Program
             $"pid {Environment.ProcessId}");
 
         // Burn CPU on purpose, then confirm this process's own figure moved. A wrong
-        // struct offset would still return a full PID list — with zero or garbage
-        // times — so this is what actually proves the field offsets are right.
+        // struct offset would still return a full PID list - with zero or garbage
+        // times - so this is what actually proves the field offsets are right.
         long before = first.TryGetValue(Environment.ProcessId, out long b) ? b : 0;
         var spin = Stopwatch.StartNew();
         double sink = 0;
@@ -199,7 +199,7 @@ internal static class Program
         Check("cheaper than a handle per process", newMs <= oldMs,
             $"{newMs:F2} ms per sample, vs {oldMs:F2} ms for "
             + $"{opened} OpenProcess/GetProcessTimes pairs (one Process object allocated and disposed each)"+
-            $" — {(oldMs > 0 ? oldMs / newMs : 0):F1}x cheaper");
+            $" - {(oldMs > 0 ? oldMs / newMs : 0):F1}x cheaper");
     }
 
     /// <summary>Wall time of one sample in the new shape, averaged.</summary>

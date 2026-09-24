@@ -62,9 +62,9 @@ namespace StartupVerify
                 @"<Task xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">" +
                 "<Triggers><BootTrigger /></Triggers><Actions /></Task>";
             Check(StartupManagerService.ParseTaskTriggers(bootXml) == "Boot", "BootTrigger mapped");
-            Check(StartupManagerService.ParseTaskTriggers("not xml") == "—", "garbage XML yields em-dash");
+            Check(StartupManagerService.ParseTaskTriggers("not xml") == "-", "garbage XML yields em-dash");
             Check(StartupManagerService.ParseTaskTriggers(
-                @"<Task xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task""><Triggers /></Task>") == "—",
+                @"<Task xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task""><Triggers /></Task>") == "-",
                 "triggerless task yields em-dash");
 
             // ---- toggle mappings ----
@@ -127,7 +127,7 @@ namespace StartupVerify
         /// <summary>
         /// Read-only live scan: exercises the real schtasks/WMI/registry path
         /// (including the async pipe-drained runner) without mutating anything.
-        /// Structural invariants only — counts vary by machine.
+        /// Structural invariants only - counts vary by machine.
         /// </summary>
         private static void LiveScan()
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Win32;
@@ -8,12 +9,15 @@ namespace kaliteConfig.Services;
 /// <summary>
 /// "Start with Windows" for both deployment modes. The rules engine lives
 /// in-process (WMI process-start watcher), so rules only apply while the app
-/// runs — this keeps it running across logons.
+/// runs - this keeps it running across logons.
 ///
-/// Unpackaged: HKCU\...\CurrentVersion\Run value (per the Run-keys doc —
+/// Login launches always pass --tray so the app starts hidden in the
+/// notification area instead of popping a window on every boot/logon.
+///
+/// Unpackaged: HKCU\...\CurrentVersion\Run value (per the Run-keys doc -
 /// command lines there run at user logon).
 /// Packaged (MSIX): the exe path is versioned under WindowsApps, so a static
-/// Run path would rot on every update — uses the windows.startupTask
+/// Run path would rot on every update - uses the windows.startupTask
 /// extension (TaskId below, declared in Package.appxmanifest) instead.
 /// </summary>
 public sealed class StartupService
@@ -22,6 +26,9 @@ public sealed class StartupService
     private const string RunValueName = "kaliteConfig";
     private const string StartupTaskId = "KaliteConfigStartup";
     private const int ErrorInsufficientBuffer = 122;
+
+    /// <summary>Login-launch flag: start hidden to the tray, no window.</summary>
+    public const string TrayArg = "--tray";
 
     public static bool IsPackaged
     {
@@ -52,11 +59,18 @@ public sealed class StartupService
             return false;
         }
 
-        // Self-heal: dev/unpackaged exe paths move between builds.
-        string exe = QuotedExePath();
-        if (!string.Equals(current, exe, StringComparison.OrdinalIgnoreCase))
+        // Self-heal: dev/unpackaged exe paths move between builds, and older
+        // installs lack the --tray login flag. Normalize either form.
+        string want = TrayCommandLine();
+        string bare = QuotedExePath();
+        if (!string.Equals(current, want, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(current, bare, StringComparison.OrdinalIgnoreCase))
         {
-            WriteRunValue(RunValueName, exe);
+            return false;
+        }
+        if (!string.Equals(current, want, StringComparison.OrdinalIgnoreCase))
+        {
+            WriteRunValue(RunValueName, want);
         }
         return true;
     }
@@ -72,7 +86,7 @@ public sealed class StartupService
         {
             if (enabled)
             {
-                WriteRunValue(RunValueName, QuotedExePath());
+                WriteRunValue(RunValueName, TrayCommandLine());
             }
             else
             {
@@ -134,6 +148,19 @@ public sealed class StartupService
             }
         }
         return $"\"{path}\"";
+    }
+
+    /// <summary>Login command line: exe plus the start-hidden-to-tray flag.</summary>
+    internal static string TrayCommandLine() => $"{QuotedExePath()} {TrayArg}";
+
+    /// <summary>True when this launch came from a login autostart (Run key flag or packaged startup task).</summary>
+    public static bool IsTrayLaunch(string? launchArguments)
+    {
+        var cmd = Environment.GetCommandLineArgs();
+        if (cmd.Contains(TrayArg, StringComparer.OrdinalIgnoreCase))
+            return true;
+        return !string.IsNullOrEmpty(launchArguments)
+            && launchArguments.Contains(StartupTaskId, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<bool> IsStartupTaskEnabledAsync()

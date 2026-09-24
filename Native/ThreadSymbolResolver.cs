@@ -151,7 +151,7 @@ internal sealed class ThreadSymbolResolver : IDisposable
         // EXPORT with a huge displacement (e.g. 380KB past
         // CompositionEngine_Uninitialize), so generic namespace keywords
         // ("compositionengine", bare "event"/"rpc"/"sensor") triple-label
-        // unrelated threads — observed 3x "DWM Compositor Thread" on one
+        // unrelated threads - observed 3x "DWM Compositor Thread" on one
         // machine. Only tight, role-specific evidence may label a thread;
         // anything else stays unnamed per spec.
         string value = symbol.ToLowerInvariant();

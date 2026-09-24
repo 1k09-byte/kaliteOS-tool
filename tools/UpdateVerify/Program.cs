@@ -7,7 +7,7 @@ namespace UpdateVerify
 {
     /// <summary>
     /// Offline checks for the auto-update loop guards: version comparison and
-    /// version-matched asset selection. No network, no GPU — runs anywhere.
+    /// version-matched asset selection. No network, no GPU - runs anywhere.
     /// </summary>
     internal static class Program
     {

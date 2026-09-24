@@ -2,7 +2,7 @@ namespace kaliteConfig.GpuOverclock.Models
 {
     /// <summary>
     /// Canonical control names. Used by the ViewModel when queueing writes and
-    /// by SafetyRevertService when reverting — the revert switch matches on
+    /// by SafetyRevertService when reverting - the revert switch matches on
     /// these, so both sides must stay in lockstep.
     /// </summary>
     public static class OcControlNames
@@ -15,7 +15,7 @@ namespace kaliteConfig.GpuOverclock.Models
 
         /// <summary>
         /// Per-point V/F curve offsets. The safety revert switch matches on
-        /// this — it restores the pre-batch boost-table deltas, not defaults.
+        /// this - it restores the pre-batch boost-table deltas, not defaults.
         /// </summary>
         public const string VoltageFrequencyCurve = "V/F curve";
 

@@ -6,7 +6,7 @@ namespace kaliteConfig.GpuOverclock.Models
     /// Binds a saved <see cref="OverclockProfile"/> to a game/app executable
     /// so the profile auto-applies when the process launches and the default
     /// profile returns when it exits. Persisted by ProfileStorageService in
-    /// game-bindings.json (separate file — bindings reference profiles by Id,
+    /// game-bindings.json (separate file - bindings reference profiles by Id,
     /// so renaming a profile never breaks its bindings; deleting one does,
     /// and stale bindings are skipped with a log entry).
     /// </summary>
@@ -17,7 +17,7 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>
         /// Executable file name, e.g. "Valorant.exe". Matched
         /// case-insensitively against running process names. This is the
-        /// primary match key — portable across install locations.
+        /// primary match key - portable across install locations.
         /// </summary>
         public string ExecutableName { get; set; } = "";
 

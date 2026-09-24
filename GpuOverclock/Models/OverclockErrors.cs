@@ -14,7 +14,7 @@ namespace kaliteConfig.GpuOverclock.Models
 
     /// <summary>
     /// Distinct failure modes the module recognizes. Each maps to a specific,
-    /// user-legible message — no raw exception text is surfaced in the UI.
+    /// user-legible message - no raw exception text is surfaced in the UI.
     /// The taxonomy deliberately mirrors NVIDIAApiException.Status cases we can
     /// actually see from NVAPI, plus module-level states.
     /// </summary>
@@ -23,7 +23,7 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>No NVIDIA discrete GPU present (or only WDDM 1.0-era adapters).</summary>
         GpuNotDetected,
 
-        /// <summary>GPU present but not NVIDIA — module is NVIDIA-only by spec.</summary>
+        /// <summary>GPU present but not NVIDIA - module is NVIDIA-only by spec.</summary>
         GpuNotNvidia,
 
         /// <summary>NvAPIWrapper initialize failed: nvapi library missing/mismatched, driver too old.</summary>
@@ -47,13 +47,13 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>Fan control unsupported / cooler is not controllable on this board.</summary>
         FanControlUnsupported,
 
-        /// <summary>Unexpected failure — details in the change log, message kept generic.</summary>
+        /// <summary>Unexpected failure - details in the change log, message kept generic.</summary>
         Unknown,
     }
 
     /// <summary>
     /// Result wrapper for controller operations. Expected failure modes are
-    /// returned as values — exceptions are reserved for genuinely exceptional
+    /// returned as values - exceptions are reserved for genuinely exceptional
     /// conditions (OOM, thread aborts).
     /// </summary>
     public class GpuResult
@@ -90,8 +90,8 @@ namespace kaliteConfig.GpuOverclock.Models
         public static string For(OverclockErrorKind kind) => kind switch
         {
             OverclockErrorKind.GpuNotDetected => "No NVIDIA GPU was detected on this system.",
-            OverclockErrorKind.GpuNotNvidia => "The detected GPU is not NVIDIA — this module supports NVIDIA GPUs only.",
-            OverclockErrorKind.NvApiInitFailed => "Could not start the NVIDIA control interface (nvapi). Your driver may be too old or damaged — reinstall the NVIDIA driver and try again.",
+            OverclockErrorKind.GpuNotNvidia => "The detected GPU is not NVIDIA - this module supports NVIDIA GPUs only.",
+            OverclockErrorKind.NvApiInitFailed => "Could not start the NVIDIA control interface (nvapi). Your driver may be too old or damaged - reinstall the NVIDIA driver and try again.",
             OverclockErrorKind.ControlUnsupported => "This control is not supported by your GPU or driver.",
             OverclockErrorKind.WriteRejected => "The driver refused the value even though it is within the supported range. Try a smaller step.",
             OverclockErrorKind.ReadbackMismatch => "The change was applied but the GPU is not reporting the new value. The change may not be in effect.",

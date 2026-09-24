@@ -25,8 +25,10 @@ namespace kaliteConfig.Pages
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
             bool packages = sender.SelectedItem == TabPackages;
+            bool uninstall = sender.SelectedItem == TabUninstall;
             PackagesPanel.Visibility = packages ? Visibility.Visible : Visibility.Collapsed;
-            InstallPanel.Visibility = packages ? Visibility.Collapsed : Visibility.Visible;
+            UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
+            InstallPanel.Visibility = (!packages && !uninstall) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private async void BrowserCard_Click(object sender, RoutedEventArgs e)

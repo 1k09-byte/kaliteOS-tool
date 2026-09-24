@@ -40,7 +40,7 @@ namespace kaliteConfig.Pages
                 }
                 if (current == null)
                 {
-                    Win32PSCard.Description = "Not set — Windows default behavior. Takes effect after a restart.";
+                    Win32PSCard.Description = "Not set - Windows default behavior. Takes effect after a restart.";
                 }
                 else if (selected < 0)
                 {
@@ -66,7 +66,7 @@ namespace kaliteConfig.Pages
             try
             {
                 _kernel.WriteWin32PS(value);
-                Win32PSCard.Description = $"Detected: {value} (0x{value:X}) — applied, takes effect after a restart.";
+                Win32PSCard.Description = $"Detected: {value} (0x{value:X}) - applied, takes effect after a restart.";
             }
             catch (Exception ex)
             {
@@ -137,7 +137,7 @@ namespace kaliteConfig.Pages
         }
 
         /// <summary>Right-click context menu on a kernel toggle: restore the
-        /// value that was present before the app first wrote it (exactly —
+        /// value that was present before the app first wrote it (exactly -
         /// including removing it again if Windows didn't have it set).</summary>
         private void KernelToggle_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
         {
@@ -181,7 +181,7 @@ namespace kaliteConfig.Pages
                 {
                     // Absent value = Windows default; select the (default) row.
                     selected = 0;
-                    SvcSplitCard.Description = "Not set — Windows default (380000 KB). Takes effect after a restart.";
+                    SvcSplitCard.Description = "Not set - Windows default (380000 KB). Takes effect after a restart.";
                 }
                 else if (selected < 0)
                 {

@@ -13,7 +13,7 @@ namespace kaliteConfig.GpuOverclock.Services
     ///
     /// THE SAFETY TENSION (resolved explicitly): the safety state machine's
     /// AwaitingConfirmation countdown assumes a user is present to confirm,
-    /// but game-launch switches fire unattended — the user may be in a
+    /// but game-launch switches fire unattended - the user may be in a
     /// full-screen game. Blocking on an unconfirmable countdown is unusable;
     /// silently skipping the safety layer is the anti-pattern this module
     /// was built to avoid. Resolution:
@@ -30,10 +30,10 @@ namespace kaliteConfig.GpuOverclock.Services
     /// - A driver reset shortly after auto-apply immediately reverts (the
     ///   machine does it) and we then apply the default profile + publish a
     ///   status the user sees after the game closes (plus log entries).
-    /// - A refused write falls back to the default profile immediately —
+    /// - A refused write falls back to the default profile immediately -
     ///   never a partially-applied, unconfirmed state while in-game.
     /// - If the machine is busy (user mid-confirmation), the auto-apply is
-    ///   SKIPPED, not queued — never stomp an interactive session.
+    ///   SKIPPED, not queued - never stomp an interactive session.
     ///
     /// Game-exit: the default profile returns only when no OTHER bound game
     /// is still running (multi-game edge case). When no default is
@@ -171,10 +171,10 @@ namespace kaliteConfig.GpuOverclock.Services
                     NewValue = profile.Name,
                     Source = OverclockChangeSource.GameAutoApply,
                     Result = OverclockChangeResult.Failed,
-                    FailureReason = "profile is not manually validated — apply it manually once to enable auto-switch",
+                    FailureReason = "profile is not manually validated - apply it manually once to enable auto-switch",
                 });
                 Publish(_activeProfile?.Name, _activeBinding?.ExecutableName,
-                    $"Ignored {info.ProcessName}: '{profile.Name}' is not yet validated — apply it manually once to enable auto-switch.");
+                    $"Ignored {info.ProcessName}: '{profile.Name}' is not yet validated - apply it manually once to enable auto-switch.");
                 return;
             }
 
@@ -202,7 +202,7 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             else if (outcome == ApplyOutcome.SkippedInFlight)
             {
-                // Our own earlier apply is still settling — retry once it
+                // Our own earlier apply is still settling - retry once it
                 // lands (bounded; background thread). The GPU was untouched.
                 lock (_gate)
                 {
@@ -230,7 +230,7 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             else if (outcome == ApplyOutcome.SkippedManualBusy)
             {
-                // A user confirmation window is open — GPU provably untouched.
+                // A user confirmation window is open - GPU provably untouched.
                 lock (_gate)
                 {
                     _activeBinding = prevBinding;
@@ -247,7 +247,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
             // An apply for the exiting game may still be settling (launched
             // seconds ago): decide on the RESOLVED state, not the mid-window
-            // one. Bounded wait on a background thread — never the UI thread.
+            // one. Bounded wait on a background thread - never the UI thread.
             WaitForApplySettle(TimeSpan.FromSeconds(45));
 
             GameProfileBinding? active;
@@ -269,7 +269,7 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 lock (_gate) _activePid = survivor.Value.pid;
                 Publish(activeProfile?.Name, survivor.Value.name,
-                    $"'{info.ProcessName}' exited — keeping '{activeProfile?.Name}' active for {survivor.Value.name}.");
+                    $"'{info.ProcessName}' exited - keeping '{activeProfile?.Name}' active for {survivor.Value.name}.");
                 return;
             }
 
@@ -320,11 +320,11 @@ namespace kaliteConfig.GpuOverclock.Services
         private enum ApplyOutcome
         {
             Applied,
-            /// <summary>A user confirmation window is open — GPU provably untouched.</summary>
+            /// <summary>A user confirmation window is open - GPU provably untouched.</summary>
             SkippedManualBusy,
-            /// <summary>Our own earlier apply still settling — GPU untouched by THIS call.</summary>
+            /// <summary>Our own earlier apply still settling - GPU untouched by THIS call.</summary>
             SkippedInFlight,
-            /// <summary>Write refused or TDR-reverted — the default/stock fallback already ran.</summary>
+            /// <summary>Write refused or TDR-reverted - the default/stock fallback already ran.</summary>
             Failed,
         }
 
@@ -375,7 +375,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         NewValue = profile.Name,
                         Source = OverclockChangeSource.GameAutoApply,
                         Result = OverclockChangeResult.Failed,
-                        FailureReason = "skipped — a manual confirmation window is in flight; leaving the GPU alone",
+                        FailureReason = "skipped - a manual confirmation window is in flight; leaving the GPU alone",
                     });
                     Publish(_activeProfile?.Name, _activeBinding?.ExecutableName,
                         $"Skipped auto-switch {reason}: you have a confirmation window open.");
@@ -443,10 +443,10 @@ namespace kaliteConfig.GpuOverclock.Services
                                 NewValue = "default",
                                 Source = OverclockChangeSource.GameAutoApply,
                                 Result = OverclockChangeResult.Reverted,
-                                FailureReason = "driver reset shortly after auto-apply — reverted, applying default",
+                                FailureReason = "driver reset shortly after auto-apply - reverted, applying default",
                             });
                             Publish(null, null,
-                                $"Driver reset after applying '{profile.Name}' — reverted and applied the default profile.");
+                                $"Driver reset after applying '{profile.Name}' - reverted and applied the default profile.");
                             FallbackToDefault("driver reset after auto-apply");
                             return ApplyOutcome.Failed;
                         }
@@ -464,7 +464,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 ApplyProfileFan(profile);
 
                 profile.LastAppliedAt = DateTime.Now;
-                _profiles.Save(profile); // timestamps only — validation flags untouched (never set here)
+                _profiles.Save(profile); // timestamps only - validation flags untouched (never set here)
                 return ApplyOutcome.Applied;
             }
             finally
@@ -541,7 +541,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         /// <summary>
         /// Default-or-stock revert. Single-level only (_inFallback): if the
-        /// fallback itself fails there is nothing safer to try unattended —
+        /// fallback itself fails there is nothing safer to try unattended -
         /// log it and surface it.
         /// </summary>
         private bool FallbackToDefault(string reason)
@@ -567,7 +567,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 bool ok = ApplyUnattendedNoFallback(fallback);
                 if (ok)
                 {
-                    // The GPU is on the fallback now — the active anchor must
+                    // The GPU is on the fallback now - the active anchor must
                     // follow it, so a later game-exit doesn't "revert" again.
                     lock (_gate)
                     {
@@ -575,7 +575,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         _activeProfile = fallback;
                         _activePid = 0;
                     }
-                    Publish(fallback.Name, null, $"{reason} — now on {(isStock ? "stock (no overclock)" : $"default '{fallback.Name}'")}.");
+                    Publish(fallback.Name, null, $"{reason} - now on {(isStock ? "stock (no overclock)" : $"default '{fallback.Name}'")}.");
                 }
                 return ok;
             }
@@ -640,7 +640,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         /// <summary>
         /// The designated default profile when trustworthy: manually
-        /// validated, or stock-like (no OC values — nothing risky to apply
+        /// validated, or stock-like (no OC values - nothing risky to apply
         /// blind). Otherwise null → the caller builds synthetic stock.
         /// </summary>
         private OverclockProfile? ResolveDefaultProfile()
@@ -652,7 +652,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 var profile = _profiles.LoadAll().FirstOrDefault(p => p.Name == name);
                 if (profile is null) return null;
                 if (profile.HasBeenManuallyValidated || IsStockLike(profile)) return profile;
-                _trace?.Invoke($"fallback: default '{name}' is not manually validated — using stock instead");
+                _trace?.Invoke($"fallback: default '{name}' is not manually validated - using stock instead");
                 return null;
             }
             catch { return null; }

@@ -104,7 +104,7 @@ public sealed partial class SysRowVm : ObservableObject
         Editable = editable;
     }
 
-    /// <summary>Raised on every user edit. These rows have no Apply button — the
+    /// <summary>Raised on every user edit. These rows have no Apply button - the
     /// owner writes the new value through as soon as it changes.</summary>
     public event Action<SysRowVm>? Edited;
 
@@ -323,8 +323,8 @@ public sealed partial class NetworkViewModel : ObservableObject
         KeepUIVisible ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     partial void OnKeepUIVisibleChanged(bool value) => OnPropertyChanged(nameof(KeepUIVisibility));
     [ObservableProperty] public partial string SpeedStatus { get; set; } = "Measures download and upload against Cloudflare's speed-test endpoint.";
-    [ObservableProperty] public partial string SpeedDown { get; set; } = "—";
-    [ObservableProperty] public partial string SpeedUp { get; set; } = "—";
+    [ObservableProperty] public partial string SpeedDown { get; set; } = "-";
+    [ObservableProperty] public partial string SpeedUp { get; set; } = "-";
     [ObservableProperty] public partial int SpeedProgress { get; set; }
     [ObservableProperty] public partial bool SpeedRunning { get; set; }
     [ObservableProperty] public partial NetAdapterInfo? CompareAdapter { get; set; }
@@ -510,7 +510,7 @@ finally { _selecting = false; }
             Add("Version", Get("DriverVersion"));
             Add("Date", Get("DriverDate"));
             var (years, old) = NetParsing.DriverAge(d.TryGetValue("DriverDate", out var dd) ? dd : "", DateTime.UtcNow);
-            Add("Driver age", old ? $"{years:0} years old — consider a vendor update if anything misbehaves." : (years <= 0 ? "Unknown" : $"{years:0.#} years old."));
+            Add("Driver age", old ? $"{years:0} years old - consider a vendor update if anything misbehaves." : (years <= 0 ? "Unknown" : $"{years:0.#} years old."));
             Add("INF", Get("InfPath"));
             Add("Matching device ID", Get("MatchingDeviceId"));
             Add("NDIS version", Get("NdisVersion"));
@@ -938,7 +938,7 @@ finally { _selecting = false; }
     }
 
     private void UpdateKeepText() =>
-        KeepCountdownText = $"Keep these changes? {_keepSecondsLeft}s — auto-revert if unconfirmed or the link drops.";
+        KeepCountdownText = $"Keep these changes? {_keepSecondsLeft}s - auto-revert if unconfirmed or the link drops.";
 
     [RelayCommand]
     public void KeepChanges()
@@ -1018,8 +1018,8 @@ finally { _selecting = false; }
         var ct = _speedCts.Token;
         SpeedRunning = true;
         SpeedProgress = 0;
-        SpeedDown = "—";
-        SpeedUp = "—";
+        SpeedDown = "-";
+        SpeedUp = "-";
         SpeedStatus = "Running: downloading…";
         var ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         try
@@ -1183,7 +1183,7 @@ finally { _selecting = false; }
     {
         var props = await NetAdapterService.GetAdvancedAsync(a.RegistryKey).ConfigureAwait(false);
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Network report — {a.Name} ({a.Description})");
+        sb.AppendLine($"Network report - {a.Name} ({a.Description})");
         sb.AppendLine($"Status: {a.Status}, link {NetParsing.FormatSpeed(a.LinkSpeedBps)}, MAC {a.Mac}");
         sb.AppendLine($"IPv4: {string.Join(", ", a.IPv4)}; Gateway: {string.Join(", ", a.Gateways)}; DNS: {string.Join(", ", a.Dns)}");
         sb.AppendLine("Advanced (keyword = current [default]):");

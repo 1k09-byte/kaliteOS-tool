@@ -62,7 +62,7 @@ namespace kaliteConfig.GpuOverclock.Services
         private string? _revertReason;
         private GpuResult? _lastWriteResult;
 
-        // The pre-batch anchors — the whole point of the machine.
+        // The pre-batch anchors - the whole point of the machine.
         private (int CoreMhz, int MemMhz)? _anchorOffsets;
         private (double PowerPct, int? TempC)? _anchorLimits;
         private bool _anchorFanWasAuto = true;
@@ -132,7 +132,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>
         /// Applies a batch of changes. Captures pre-batch anchors first; any
         /// failed write aborts the batch (partial writes stay but no
-        /// confirmation window is opened — the caller surfaces the error).
+        /// confirmation window is opened - the caller surfaces the error).
         /// </summary>
         public Task<bool> ApplyBatchAsync(IEnumerable<PendingChange> changes, OverclockChangeSource source)
         {
@@ -306,7 +306,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// Headless confirmation for STARTUP reapply only (spec 6): the user
         /// cannot see a confirmation prompt at login time, so the designated
         /// startup profile's window is allowed to expire naturally instead of
-        /// being force-confirmed — the countdown runs, the TDR watchdog is
+        /// being force-confirmed - the countdown runs, the TDR watchdog is
         /// armed the whole time, and only a real driver reset can trigger a
         /// revert before the window closes. This keeps the full safety
         /// mechanism (armed window + revert path) while not blocking a
@@ -324,7 +324,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private bool _silentWindow;
 
-        /// <summary>Manual "Revert now" — available during the whole window.</summary>
+        /// <summary>Manual "Revert now" - available during the whole window.</summary>
         public void RevertNow() => BeginRevert("manual revert");
 
         private void OnCountdownTick()
@@ -346,7 +346,7 @@ namespace kaliteConfig.GpuOverclock.Services
             if (silent)
             {
                 // Headless startup window expired with no TDR: the batch becomes
-                // the new last-known-good — no revert, no UI prompt was shown.
+                // the new last-known-good - no revert, no UI prompt was shown.
                 ConfirmInternal();
                 return;
             }
@@ -387,7 +387,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 anchorVb = _anchorVoltageBoostPercent;
             }
 
-            // Revert writes (outside the lock — controller has its own).
+            // Revert writes (outside the lock - controller has its own).
             var failures = new List<string>();
             foreach (var change in toUndo)
             {

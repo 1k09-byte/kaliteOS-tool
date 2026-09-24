@@ -18,7 +18,7 @@ namespace kaliteConfig.Services
     ///
     /// WMI/registry DriverVersion looks like "32.0.15.6614" while NVIDIA calls
     /// the same package "566.14". The mapping is the last 5 digits of the
-    /// Windows version split as XXX.YY — e.g. "32.0.15.6614" → "56614" →
+    /// Windows version split as XXX.YY - e.g. "32.0.15.6614" → "56614" →
     /// "566.14". This is the same translation NVCleanstall uses and is stable
     /// across DCH drivers.
     /// </summary>
@@ -66,7 +66,7 @@ namespace kaliteConfig.Services
 
         /// <summary>
         /// PnP device ID (PCI\VEN_…&DEV_…), when known. Lets the driver lookup
-        /// query by hardware device ID instead of the marketing name — the only
+        /// query by hardware device ID instead of the marketing name - the only
         /// reliable path for a driverless card Windows can't name.
         /// </summary>
         public string? PnpDeviceId { get; init; }
@@ -91,7 +91,7 @@ namespace kaliteConfig.Services
         /// <summary>
         /// Enumerates display adapters using robust WMI Win32_VideoController queries.
         /// Vendor comes from the PCI hardware ID (VEN_xxxx), never from the device
-        /// name string, and only present, problem-free adapters count — WMI also
+        /// name string, and only present, problem-free adapters count - WMI also
         /// reports disabled/phantom iGPUs (e.g. AMD Radeon Graphics next to an
         /// NVIDIA dGPU) which would otherwise show stale hardware.
         /// </summary>
@@ -131,7 +131,7 @@ namespace kaliteConfig.Services
 
                         // Keep the adapter visible when it has a problem code.
                         // Code 28 (drivers not installed) is exactly the state this
-                        // page exists to fix — a driverless GPU must still show up
+                        // page exists to fix - a driverless GPU must still show up
                         // so the user can install one. Same for code 31/43 (driver
                         // failed to load). Only skip genuinely absent hardware.
                         bool hasNoDriver = configError is 28 or 31 or 43;
@@ -173,7 +173,7 @@ namespace kaliteConfig.Services
                         // Cross-check: the display class key holds the same driver
                         // version the driver store actually loaded. A disagreement
                         // between WMI and the registry usually means a pending
-                        // update (installed but not yet active) — surface both.
+                        // update (installed but not yet active) - surface both.
                         string? registryVersion = vendor == "NVIDIA" && !string.IsNullOrEmpty(pnpId)
                             ? ReadRegistryDriverVersion(pnpId)
                             : null;
@@ -200,7 +200,7 @@ namespace kaliteConfig.Services
                 // Two-stage fallback:
                 //   1. Win32_PnPEntity where PNPClass='Display'
                 //   2. Win32_PnPEntity matched by PCI vendor ID (VEN_10DE/1002/
-                //      8086) — pure hardware identity, works with no driver at all.
+                //      8086) - pure hardware identity, works with no driver at all.
                 if (result.Count == 0)
                 {
                     try
@@ -294,7 +294,7 @@ namespace kaliteConfig.Services
 
                     // MatchingDeviceId is the enumerator-relative ID (e.g.
                     // "PCI\VEN_10DE&DEV_2704..."), the PNPDeviceID adds the instance
-                    // suffix — match by prefix.
+                    // suffix - match by prefix.
                     if (child.GetValue("MatchingDeviceId")?.ToString() is not string matching ||
                         !pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase))
                         continue;
@@ -327,7 +327,7 @@ namespace kaliteConfig.Services
         /// <summary>
         /// Reads DriverVersion from the adapter's display-class registry subkey
         /// (matched by MatchingDeviceId prefix, same trick as VRAM). This is the
-        /// value the currently-loaded driver store entry reports — the registry
+        /// value the currently-loaded driver store entry reports - the registry
         /// half of the WMI-vs-registry version cross-check.
         /// </summary>
         private static string? ReadRegistryDriverVersion(string pnpId)
@@ -385,7 +385,7 @@ namespace kaliteConfig.Services
         /// <summary>
         /// Latest NVIDIA Game Ready (WHQL/DCH) driver via the same lookup API
         /// tools like NVCleanstall use. Returns (version, directExeUrl) or nulls
-        /// when offline or when the response shape changes — callers fall back
+        /// when offline or when the response shape changes - callers fall back
         /// to the official download page.
         ///
         /// ACCURACY FLAG: gfwsl.geforce.com AjaxDriverService.php is an
@@ -556,7 +556,7 @@ namespace kaliteConfig.Services
                 }
                 else
                 {
-                    errorProgress.Report($"Installer exited with code {exit}. A reboot may be pending — check GeForce Experience.");
+                    errorProgress.Report($"Installer exited with code {exit}. A reboot may be pending - check GeForce Experience.");
                     progress.Report(GpuDriverStatus.Failed);
                 }
             }

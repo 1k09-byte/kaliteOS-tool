@@ -26,7 +26,7 @@ internal static partial class NativeMethods
         /// <summary>
         /// True when the device instance is present and problem-free (or present
         /// at all, per <paramref name="requireNoProblem"/>). Non-present
-        /// ("phantom") entries — GPUs removed, disabled iGPUs, stale reinstalls —
+        /// ("phantom") entries - GPUs removed, disabled iGPUs, stale reinstalls -
         /// return false.
         /// </summary>
         internal static bool IsDevicePresent(string deviceId, bool requireNoProblem = true)

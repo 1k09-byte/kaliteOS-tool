@@ -52,7 +52,7 @@ namespace kaliteConfig.PackageManager.Views
             try
             {
                 Vm.SetExecutableOverride(row.SourceId, pathBox.Text);
-                Vm.StatusLine = "Override saved — refreshing detection…";
+                Vm.StatusLine = "Override saved - refreshing detection…";
                 await Vm.RefreshCommand.ExecuteAsync(null);
             }
             catch (Exception ex)

@@ -319,7 +319,7 @@ public static class SnipGalleryService
 
     /// <summary>Outcome of a thumbnail load: the image, the ORIGINAL image size (for the card
     /// caption), the decoded tier/pixel size (for 1:1 decisions), whether the frame looks blank,
-    /// and on failure the real reason — never a silent blank card.</summary>
+    /// and on failure the real reason - never a silent blank card.</summary>
     public sealed record SnipThumbnailLoad(
         BitmapImage? Image, int Width, int Height, string? Error, string? CachePath,
         int Tier = 0, int PixelWidth = 0, int PixelHeight = 0, bool LooksBlank = false, bool Missing = false)
@@ -403,7 +403,7 @@ public static class SnipGalleryService
     /// received a pixel-less BitmapImage: the Image element had no natural size, collapsed to
     /// 0x0, and stayed invisible until something outside the app forced a fresh layout pass
     /// (taking a screenshot re-activating the window). Awaiting ImageOpened with the stream still
-    /// open means every caller gets a renderable image — or a real error, never a silent blank.
+    /// open means every caller gets a renderable image - or a real error, never a silent blank.
     /// </summary>
     private static async Task<BitmapImage> DecodeBitmapAsync(StorageFile file, CancellationToken ct)
     {

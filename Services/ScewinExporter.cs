@@ -71,7 +71,7 @@ public static class ScewinExporter
             {
                 int eq = content.IndexOf('=');
                 // Keep everything through the '=' (spacing and key spelling),
-                // then the new value token — preserving whether the original
+                // then the new value token - preserving whether the original
                 // had a space after '=' (AMISCE writes "Value\t=<550>").
                 bool hadSpace = eq >= 0 && eq + 1 < content.Length && content[eq + 1] == ' ';
                 sb.Append(eq >= 0 ? content[..(eq + 1)] : content);

@@ -200,7 +200,7 @@ public class OptimizationSessionOrchestrator : IDisposable
 
             // Release pass: SUSTAINED calm plus a minimum dwell. The old rule gave a
             // process back the moment it missed a single sample, so anything sitting
-            // near the threshold was demoted and restored over and over — and each
+            // near the threshold was demoted and restored over and over - and each
             // restore is a full priority/eco/memory/IO pass, which costs more than
             // the contention it was reacting to.
             DateTime now = DateTime.UtcNow;

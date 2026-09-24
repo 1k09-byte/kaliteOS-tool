@@ -5,7 +5,7 @@ namespace kaliteConfig.Services;
 
 /// <summary>
 /// Global benchmark hotkey on a dedicated hidden message window (same pattern
-/// as TrayIconService — never subclasses the WinUI window). Default Ctrl+F10.
+/// as TrayIconService - never subclasses the WinUI window). Default Ctrl+F10.
 /// Registration failure (key taken) surfaces as a message, never silently.
 /// </summary>
 public sealed class BenchmarkHotkeyService : IDisposable

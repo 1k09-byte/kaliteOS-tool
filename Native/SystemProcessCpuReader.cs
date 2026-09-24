@@ -14,7 +14,7 @@ namespace kaliteConfig.Native;
 /// The handle-based alternative (Process.GetProcesses + OpenProcess +
 /// GetProcessTimes per PID) costs a few hundred handle opens and closes per
 /// sample. That is what the session contention monitor used to do once a second
-/// for an entire game session — and the whole point of Game Mode is to cost less
+/// for an entire game session - and the whole point of Game Mode is to cost less
 /// than it saves.
 ///
 /// Offsets are the 64-bit layout, matching <see cref="NativeSnapshotService"/>'s

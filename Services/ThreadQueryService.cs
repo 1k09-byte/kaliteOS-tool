@@ -22,7 +22,7 @@ public sealed class LiveThreadInfo
 
 /// <summary>
 /// Enumerates live threads for the rule editor (description + start address +
-/// current priority). Uses OS thread names only — no DbgHelp, so it stays fast
+/// current priority). Uses OS thread names only - no DbgHelp, so it stays fast
 /// and never blocks on symbol downloads. Null when the process is gone.
 /// </summary>
 public sealed class ThreadQueryService
@@ -180,7 +180,7 @@ public sealed class ThreadQueryService
 
 /// <summary>Shared rule-pattern matching (supports * wildcards, with/without .exe).
 /// A pattern may list several processes separated by commas or semicolons
-/// ("dwm.exe, csrss.exe") — any token matching wins. Previously the raw string
+/// ("dwm.exe, csrss.exe") - any token matching wins. Previously the raw string
 /// was compared as one pattern, so list-style rules never matched anything and
 /// sat at "Waiting for process" even for always-running processes.</summary>
 public static class ProfileMatcher

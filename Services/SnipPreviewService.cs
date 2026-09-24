@@ -36,7 +36,7 @@ public static class SnipPreviewService
         return new SnipPreviewPlaceholder(result.Bgra, result.Width, result.Height, result.Tier, result.LooksBlank);
     }
 
-    /// <summary>Pixel size from the header (no pixel decode) — cheap enough to run on selection.</summary>
+    /// <summary>Pixel size from the header (no pixel decode) - cheap enough to run on selection.</summary>
     public static async Task<(int Width, int Height)> ReadSizeAsync(string filePath, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return (0, 0);

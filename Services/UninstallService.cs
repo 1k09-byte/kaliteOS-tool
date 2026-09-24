@@ -106,7 +106,7 @@ public sealed class UninstallService
 
     /// <summary>
     /// Package.IsStub needs Windows 10 2004+ (10.0.19041); the app supports
-    /// back to 17763, so guard the call — older systems treat every package
+    /// back to 17763, so guard the call - older systems treat every package
     /// as non-stub.
     /// </summary>
     private static bool IsStubPackage(Windows.ApplicationModel.Package package)
@@ -132,8 +132,12 @@ public sealed class UninstallService
                 try
                 {
                     var id = package.Id;
-                    var name = id.Name;
-                    var publisher = id.Publisher;
+                    // Id.Name is the package identity ("1527c705-..."), Id.Publisher
+                    // is the cert DN ("CN=...") - show the manifest display names instead.
+                    var name = package.DisplayName;
+                    if (string.IsNullOrWhiteSpace(name)) name = id.Name;
+                    var publisher = package.PublisherDisplayName;
+                    if (string.IsNullOrWhiteSpace(publisher)) publisher = FriendlyPublisher(id.Publisher);
                     var version = $"{id.Version.Major}.{id.Version.Minor}.{id.Version.Build}.{id.Version.Revision}";
                     string installPath = string.Empty;
                     try { installPath = package.InstalledLocation.Path; } catch { }
@@ -170,6 +174,19 @@ public sealed class UninstallService
         catch { } // Can fail if not packaged or SDK missing references, fallback gracefully
 
         return items;
+    }
+
+    /// <summary>Turns a cert DN ("CN=X, O=Y, ...") into its common name.</summary>
+    private static string FriendlyPublisher(string? publisherDn)
+    {
+        if (string.IsNullOrWhiteSpace(publisherDn)) return string.Empty;
+        foreach (var part in publisherDn.Split(','))
+        {
+            var t = part.Trim();
+            if (t.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                return t.Substring(3).Trim();
+        }
+        return publisherDn;
     }
 
     public Task<Dictionary<string, long>> ComputeRealSizesAsync(IEnumerable<UninstallerItem> items, CancellationToken ct)
@@ -222,12 +239,12 @@ public sealed class UninstallService
 
             string cmd = !string.IsNullOrEmpty(item.QuietUninstallString) ? item.QuietUninstallString : item.UninstallString;
             if (string.IsNullOrWhiteSpace(cmd))
-                return "No registered uninstaller — use Force Remove.";
+                return "No registered uninstaller - use Force Remove.";
 
             if (cmd.Contains("msiexec", StringComparison.OrdinalIgnoreCase))
             {
                 // /I (advertise/repair) combined with /passive is rejected by
-                // msiexec — silently. Real removal needs /X.
+                // msiexec - silently. Real removal needs /X.
                 cmd = System.Text.RegularExpressions.Regex.Replace(
                     cmd, @"/I\s*", "/X ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                 // Ensure passive mode for MSI to behave pseudo-headless if not deeply quiet

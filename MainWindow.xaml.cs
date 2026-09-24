@@ -24,6 +24,59 @@ namespace kaliteConfig
         private bool _allowExit;
         private bool _trayShown;
 
+        /// <summary>
+        /// Restores the main window from the tray (shared by the tray Open
+        /// action and the second-instance signal below).
+        /// </summary>
+        public void ShowMainWindow()
+        {
+            AppWindow.Show();
+            var hwnd = WindowNative.GetWindowHandle(this);
+            _ = kaliteConfig.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
+        }
+
+        /// <summary>
+        /// Best-effort (re)registration of the tray icon, so Close/Minimize
+        /// can always park there even if the startup registration failed.
+        /// </summary>
+        private void EnsureTrayShown()
+        {
+            if (_trayShown) return;
+            try
+            {
+                var trayIcon = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "kaliteConfig.ico");
+                _trayShown = _tray != null && System.IO.File.Exists(trayIcon) && _tray.Show(trayIcon, "kaliteConfig");
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Named signal a second instance (Start menu / desktop launch while
+        /// the tray instance runs) sets to ask this instance to show its
+        /// window instead of starting a duplicate.
+        /// </summary>
+        internal const string ShowWindowEventName = "kaliteConfig_ShowMainWindow";
+
+        private void StartShowWindowListener()
+        {
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    using var ev = new System.Threading.EventWaitHandle(
+                        false, System.Threading.EventResetMode.AutoReset, ShowWindowEventName);
+                    while (true)
+                    {
+                        ev.WaitOne();
+                        DispatcherQueue.TryEnqueue(ShowMainWindow);
+                    }
+                }
+                catch { }
+            });
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
         public void AllowExitAndClose()
         {
             PrepareForUpdateShutdown();
@@ -82,12 +135,7 @@ namespace kaliteConfig
             _tray = new kaliteConfig.Services.TrayIconService();
             _tray.OnOpen += () =>
             {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    AppWindow.Show();
-                    var hwnd = WindowNative.GetWindowHandle(this);
-                    _ = kaliteConfig.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
-                });
+                DispatcherQueue.TryEnqueue(ShowMainWindow);
             };
             _tray.OnExit += () =>
             {
@@ -138,8 +186,11 @@ namespace kaliteConfig
                 _trayShown = System.IO.File.Exists(trayIcon) && _tray.Show(trayIcon, "kaliteConfig");
             }
             catch { }
+            // Second-instance handoff: a Start menu / desktop launch while
+            // this tray instance runs signals us to show the window.
+            StartShowWindowListener();
             // Persistent active-game-profile indicator (overclock v2 Part B):
-            // the user is usually in-game — not looking at the app — when an
+            // the user is usually in-game - not looking at the app - when an
             // auto-switch fires, so the tray tooltip carries the active
             // profile name. The app already minimizes to this tray icon.
             try
@@ -160,15 +211,30 @@ namespace kaliteConfig
                 };
             }
             catch { } // cosmetic only; auto-switch works without the tooltip
-            AppWindow.Closing += (_, args) =>
+        AppWindow.Closing += (_, args) =>
+        {
+            // Close always parks to the tray (never exits): the rules engine
+            // lives in-process, so exiting would stop all rules. Exit only
+            // via the tray menu or Settings (AllowExitAndClose).
+            if (_allowExit) return;
+            args.Cancel = true;
+            EnsureTrayShown();
+            AppWindow.Hide();
+        };
+            // Minimize button also parks to the tray instead of the taskbar.
+            AppWindow.Changed += (_, args) =>
             {
-                // Only swallow the close when the tray is actually up — otherwise
-                // a dead tray would make the app unclosable.
-                if (!_allowExit && _trayShown)
+                if (!args.DidPresenterChange) return;
+                try
                 {
-                    args.Cancel = true;
-                    AppWindow.Hide();
+                    if (AppWindow.Presenter is OverlappedPresenter overlapped
+                        && overlapped.State == OverlappedPresenterState.Minimized)
+                    {
+                        EnsureTrayShown();
+                        AppWindow.Hide();
+                    }
                 }
+                catch { }
             };
             AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
             AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
@@ -179,7 +245,7 @@ namespace kaliteConfig
             // (and again on first layout) so it always lands.
             this.Activated += (_, _) => WatchMaterialChanges();
 
-            // Default to the Apps (installer/uninstaller) page on launch.
+            // Default to the Apps (installer/packages/uninstaller) page on launch.
             // Pill position is layout-driven (LayoutUpdated): event-driven updates
             // (SelectionChanged/SizeChanged) can compute against a stale layout
             // pass when maximizing/restoring, stranding the pill on the wrong item.
@@ -189,17 +255,19 @@ namespace kaliteConfig
             if (appsItem != null)
                 NavView.SelectedItem = appsItem; // fires SelectionChanged -> navigates to Apps (installer)
             else
-                ContentFrame.Navigate(typeof(UninstallerPage));
+                ContentFrame.Navigate(typeof(InstallerPage));
             NavView.Loaded += async (_, _) => 
             {
                 SuppressSidebarTooltips();
-                if (!App.IsAdmin)
+                // Silent login start (tray): never pop a modal over a hidden
+                // window - admin status is also surfaced in Settings.
+                if (!App.IsAdmin && !App.StartedToTray)
                 {
                     await ShowElevationDialogAsync();
                 }
                 await TryRunKaliteOSAutoSetupAsync();
             };
-            // Window has no Loaded event (WinUI 3) — also schedule via Activated so auto-setup
+            // Window has no Loaded event (WinUI 3) - also schedule via Activated so auto-setup
             // is not missed if NavView is already loaded before we subscribe.
             this.Activated += async (_, _) => await TryRunKaliteOSAutoSetupAsync();
             this.Activated += (_, _) => { if (!_versionToastShown) { _versionToastShown = true; ShowVersionToast(); } };
@@ -214,7 +282,7 @@ namespace kaliteConfig
         /// opaque theme background when Material = None (otherwise the raw
         /// black window surface shows through the transparent nav pane),
         /// transparent when a backdrop is active (backdrops render behind the
-        /// XAML content — an opaque root would cover them).
+        /// XAML content - an opaque root would cover them).
         ///
         /// NOTE: the ThemeService is created in App.OnLaunched AFTER this
         /// window's constructor runs, so an early subscribe attempt would see
@@ -232,7 +300,7 @@ namespace kaliteConfig
                 svc.BackdropChanged += (_, _) => DispatcherQueue.TryEnqueue(ApplyRootBackground);
                 svc.ThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(ApplyRootBackground);
                 _materialWatchAttached = true;
-                // Service appeared between our last apply and now — re-apply
+                // Service appeared between our last apply and now - re-apply
                 // so a persisted non-None material is honored at startup.
                 ApplyRootBackground();
             }
@@ -402,9 +470,6 @@ namespace kaliteConfig
                     case "PowerPlansPage":
                          ContentFrame.Navigate(typeof(PowerPlansPage));
                          break;
-                    case "UninstallerPage":
-                         ContentFrame.Navigate(typeof(UninstallerPage));
-                         break;
                     case "Settings":
                          ContentFrame.Navigate(typeof(SettingsPage));
                          break;
@@ -564,7 +629,7 @@ namespace kaliteConfig
                     DispatcherQueue.TryEnqueue(() =>
                     {
                         KaliteOSProgressBar.IsIndeterminate = false;
-                        KaliteOSProgressText.Text = "Administrator rights are required to install Windhawk (it installs a system service). Please restart as Administrator — auto-setup will retry on next elevated launch.";
+                        KaliteOSProgressText.Text = "Administrator rights are required to install Windhawk (it installs a system service). Please restart as Administrator - auto-setup will retry on next elevated launch.";
                         KaliteOSProgressBar.Value = 0;
                     });
                     // Keep registry at 0 so next elevated launch retries; auto-hide after delay
@@ -593,7 +658,7 @@ namespace kaliteConfig
                     {
                         KaliteOSProgressBar.IsIndeterminate = false;
                         KaliteOSProgressBar.Value = 100;
-                        KaliteOSProgressText.Text = "Done — Windhawk installed and KaliteOS mods imported.";
+                        KaliteOSProgressText.Text = "Done - Windhawk installed and KaliteOS mods imported.";
                         KaliteOSPercentText.Text = "100%";
                         KaliteOSPercentText.Visibility = Visibility.Visible;
                     });
@@ -602,7 +667,7 @@ namespace kaliteConfig
                 }
                 else
                 {
-                    // Import may have succeeded partially but verification failed — keep overlay with error
+                    // Import may have succeeded partially but verification failed - keep overlay with error
                     DispatcherQueue.TryEnqueue(() =>
                     {
                         KaliteOSProgressBar.IsIndeterminate = false;
@@ -618,7 +683,7 @@ namespace kaliteConfig
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     KaliteOSProgressBar.IsIndeterminate = false;
-                    KaliteOSProgressText.Text = $"Auto-setup failed: {ex.Message} — will retry on next launch.";
+                    KaliteOSProgressText.Text = $"Auto-setup failed: {ex.Message} - will retry on next launch.";
                     KaliteOSPercentText.Visibility = Visibility.Collapsed;
                 });
                 await Task.Delay(6000);

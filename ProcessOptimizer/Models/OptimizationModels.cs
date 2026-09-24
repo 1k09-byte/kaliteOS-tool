@@ -10,7 +10,7 @@ namespace kaliteConfig.ProcessOptimizer.Models;
 /// <see cref="Services.BackgroundThrottleService.ApplyThrottle"/>.
 ///
 /// There is no Aggressive level. It used to add a per-process Job Object CPU
-/// rate cap (which cannot be lifted off a process mid-session — jobs are not
+/// rate cap (which cannot be lifted off a process mid-session - jobs are not
 /// escapable, so the cap outlived the session) and an affinity fallback that
 /// pinned the process to the highest logical processor, which on a machine
 /// with kernel-reserved CPU Sets is a processor the kernel never schedules user
@@ -30,15 +30,15 @@ public class ProcessBaselineSnapshot
     public DateTime ProcessStartTime { get; set; }
     public int OriginalPriorityClass { get; set; }
     public bool OriginalEcoQos { get; set; }
-    /// <summary>Null when unreadable — restore skips instead of guessing.</summary>
+    /// <summary>Null when unreadable - restore skips instead of guessing.</summary>
     public int? OriginalMemoryPriority { get; set; }
-    /// <summary>Null when unreadable — restore skips instead of guessing.</summary>
+    /// <summary>Null when unreadable - restore skips instead of guessing.</summary>
     public int? OriginalIoPriority { get; set; }
-    /// <summary>Null when unreadable (e.g. boost never applied) — restore skips.</summary>
+    /// <summary>Null when unreadable (e.g. boost never applied) - restore skips.</summary>
     public bool? OriginalBoostDisabled { get; set; }
     public IntPtr OriginalProcessorAffinity { get; set; }
     /// <summary>
-    /// Default CPU Sets at capture. Empty/null means "was unrestricted" — the
+    /// Default CPU Sets at capture. Empty/null means "was unrestricted" - the
     /// restore path then re-applies the full system set list.
     /// </summary>
     public uint[] OriginalCpuSets { get; set; } = Array.Empty<uint>();
@@ -70,7 +70,7 @@ public class ManagedProcessEntry
 
     /// <summary>
     /// Consecutive samples this process has been calm for. Reset the instant it is
-    /// flagged hot again, and the input that decides when it is released — see
+    /// flagged hot again, and the input that decides when it is released - see
     /// <see cref="Services.ContentionPolicy.ShouldRelease"/>. Without it a miss on
     /// a single sample was enough to restore, which is what made a process sitting
     /// near the threshold thrash between demoted and restored.
@@ -82,7 +82,7 @@ public class ManagedProcessEntry
 /// One contention tick. Carries the hot processes AND the full alive set, because
 /// the hysteresis counters are keyed by PID: without the alive set a process that
 /// exits leaves its count behind, and a later process reusing that PID would
-/// inherit it and be demoted on its first busy sample — exactly the "never punish
+/// inherit it and be demoted on its first busy sample - exactly the "never punish
 /// the first sample" guarantee the counters exist to provide.
 /// </summary>
 public sealed class ContentionSample

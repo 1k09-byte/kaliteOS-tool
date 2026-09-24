@@ -257,7 +257,7 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
 
         var rows = await ThreadQueryService.ListThreadsAsync(pid);
         // Pin named threads to the top (stable: TID order within each group),
-        // mirroring the threads window — otherwise the actionable rows drown
+        // mirroring the threads window - otherwise the actionable rows drown
         // below dozens of (unnamed) driver threads.
         _allLiveThreads.AddRange(rows
             .OrderBy(t => string.IsNullOrWhiteSpace(t.Description) || t.Description == "(unnamed)" ? 1 : 0)
@@ -409,7 +409,7 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         bool isChecked = sender is CheckBox cb && cb.IsChecked == true;
         if (isChecked && !rule.AffinityMask.HasValue)
         {
-            // Ticked with no pin yet — open the picker to choose cores.
+            // Ticked with no pin yet - open the picker to choose cores.
             _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
                 anchor,
                 _cpuCount,

@@ -79,7 +79,7 @@ namespace kaliteConfig.Pages
                 DeviceDetailsDialog.Hide();
                 await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
                 await ShowMessageAsync("Device not present",
-                    $"{goneName} is no longer present, so nothing was written. The device list has been rescanned — this is expected after a GPU restart or driver install.");
+                    $"{goneName} is no longer present, so nothing was written. The device list has been rescanned - this is expected after a GPU restart or driver install.");
                 return;
             }
 
@@ -114,7 +114,7 @@ namespace kaliteConfig.Pages
 
         private void DialogCancel_Click(object sender, RoutedEventArgs e)
         {
-            // The dialog edits the row item in place — throw those staged
+            // The dialog edits the row item in place - throw those staged
             // edits away so Cancel truly cancels.
             ViewModel.DiscardDialogChanges();
             DeviceDetailsDialog.Hide();
@@ -164,15 +164,15 @@ namespace kaliteConfig.Pages
 
         private static string FormatValue(string propertyName, object? value)
         {
-            if (value is null) return "—";
+            if (value is null) return "-";
             return propertyName switch
             {
                 "MsiEnabled" => (bool)value ? "On" : "Off",
-                "MessageNumberLimit" => value is int i ? (i == 0 ? "Auto" : i.ToString()) : "—",
+                "MessageNumberLimit" => value is int i ? (i == 0 ? "Auto" : i.ToString()) : "-",
                 "DevicePolicy" => Services.AffinityService.DevicePolicyShort((int?)value),
                 "DevicePriority" => Services.AffinityService.DevicePriorityName((int?)value),
                 "AffinityMask" => Services.AffinityService.AffinityMaskText((ulong?)value),
-                _ => value.ToString() ?? "—"
+                _ => value.ToString() ?? "-"
             };
         }
 

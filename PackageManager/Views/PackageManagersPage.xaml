@@ -28,7 +28,7 @@
                     Command="{x:Bind Vm.RefreshCommand}" />
             <TextBlock FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Text="Backends land one at a time — WinGet first. Unbuilt rows are honest placeholders, never fake sources." />
+                       Text="Backends land one at a time - WinGet first. Unbuilt rows are honest placeholders, never fake sources." />
         </StackPanel>
 
         <ListView Grid.Row="2" ItemsSource="{x:Bind Vm.Rows, Mode=OneWay}" SelectionMode="None">

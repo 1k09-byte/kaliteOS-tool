@@ -828,7 +828,7 @@ namespace kaliteConfig.Services
 
         public async Task InstallBrowserAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
         {
-            // 1. Check if already installed — still deploy extensions even if browser exists
+            // 1. Check if already installed - still deploy extensions even if browser exists
             if (IsBrowserInstalled(item))
             {
                 DeployExtensions(item);
@@ -1122,7 +1122,7 @@ namespace kaliteConfig.Services
                 // Extract over the top so re-installs refresh the binaries.
                 using (var archive = ZipFile.OpenRead(tempPath))
                 {
-                    // Only extract the plain .exe tools — skip vendor extra files we don't need,
+                    // Only extract the plain .exe tools - skip vendor extra files we don't need,
                     // but keep everything when the archive doesn't follow that pattern.
                     bool hasExeEntries = archive.Entries.Any(e => e.FullName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
                     foreach (var entry in archive.Entries)

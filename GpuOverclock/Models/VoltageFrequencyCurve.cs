@@ -8,7 +8,7 @@ namespace kaliteConfig.GpuOverclock.Models
     /// One editable point of the GPU voltage/frequency curve.
     ///
     /// HONESTY NOTE (Ampere/Ada, RTX 30/40): raw millivolt override is locked
-    /// at the vBIOS level — there is no NVAPI call that sets true voltage.
+    /// at the vBIOS level - there is no NVAPI call that sets true voltage.
     /// What this point edits is the per-point CLOCK OFFSET applied along the
     /// GPU's existing voltage/frequency table: the boost curve shifted within
     /// its factory-defined envelope, never voltage set directly. VoltageMv and
@@ -17,10 +17,10 @@ namespace kaliteConfig.GpuOverclock.Models
     /// </summary>
     public sealed class VfCurvePoint
     {
-        /// <summary>Voltage of this curve point in mV — read-only, from the driver.</summary>
+        /// <summary>Voltage of this curve point in mV - read-only, from the driver.</summary>
         public int VoltageMv { get; set; }
 
-        /// <summary>Stock boost frequency at this point in MHz — read-only, from the driver.</summary>
+        /// <summary>Stock boost frequency at this point in MHz - read-only, from the driver.</summary>
         public int BaseFrequencyMHz { get; set; }
 
         /// <summary>User-editable clock delta at this point, in MHz.</summary>
@@ -38,7 +38,7 @@ namespace kaliteConfig.GpuOverclock.Models
 
     /// <summary>
     /// The GPU's base V/F curve (queried from NVAPI at session start) plus the
-    /// user's current edited offsets. Base and edits are kept separate — the
+    /// user's current edited offsets. Base and edits are kept separate - the
     /// queried base is never mutated in place, so "reset to stock curve" is
     /// always trivially available.
     ///
@@ -52,7 +52,7 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>
         /// True when the driver answered the voltage-boost-percent query
         /// (GetCoreVoltageBoostPercent). False on Ampere/Ada where the vBIOS
-        /// locks it — the UI must not render the control then, and must never
+        /// locks it - the UI must not render the control then, and must never
         /// imply true overvolting.
         /// </summary>
         public bool VoltageBoostSupported { get; set; }
@@ -62,7 +62,7 @@ namespace kaliteConfig.GpuOverclock.Models
 
         public int Count => Points.Count;
 
-        /// <summary>Offsets only, in point order — the shape persisted on profiles.</summary>
+        /// <summary>Offsets only, in point order - the shape persisted on profiles.</summary>
         public IReadOnlyList<int> GetOffsets() => Points.Select(p => p.OffsetMHz).ToList();
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace kaliteConfig.GpuOverclock.Models
 
         /// <summary>
         /// Simple-mode convenience: one flat offset across all points (clamped
-        /// per-point). UI-only shorthand — the write path still commits the
+        /// per-point). UI-only shorthand - the write path still commits the
         /// full per-point offset table, uniformly.
         /// </summary>
         public List<int> ExpandFlatOffset(int offsetMhz)

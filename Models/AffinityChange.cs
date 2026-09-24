@@ -3,7 +3,7 @@ using System;
 namespace kaliteConfig.Models
 {
     /// <summary>
-    /// Single tracked registry modification — used by the undo/redo stack
+    /// Single tracked registry modification - used by the undo/redo stack
     /// and the "View Changes" dialog.
     /// </summary>
     public sealed record AffinityChange(

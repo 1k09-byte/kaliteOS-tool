@@ -357,7 +357,7 @@
                         <TextBlock x:Name="StatStutter" FontSize="16" FontWeight="SemiBold" />
                     </StackPanel>
                 </Grid>
-                <TextBlock Text="Frametime (ms) — min/max buckets, hover for values" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Text="Frametime (ms) - min/max buckets, hover for values" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
                            Text="Lows exclude the first 2 s + last 1 s (attach/tab artifacts). Mid-run stalls stay in and list as stutter events below." />
                 <TextBlock Text="{x:Bind ViewModel.SensorSummaryText, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />

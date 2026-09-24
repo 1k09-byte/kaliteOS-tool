@@ -9,7 +9,7 @@ namespace kaliteConfig.Services
 {
     /// <summary>
     /// Detects physical core count and hybrid (P-core / E-core) topology via
-    /// GetLogicalProcessorInformationEx.  Result is cached — hardware topology
+    /// GetLogicalProcessorInformationEx.  Result is cached - hardware topology
     /// does not change at runtime.
     /// </summary>
     public static class TopologyService
@@ -46,8 +46,8 @@ namespace kaliteConfig.Services
         // https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-processor_relationship
         //
         // Layout (64-bit):
-        //   BYTE  Flags           — 1 if SMT-capable core
-        //   BYTE  EfficiencyClass — 0 = Performance, 1+ = Efficiency (non-hybrid CPUs: all 0)
+        //   BYTE  Flags           - 1 if SMT-capable core
+        //   BYTE  EfficiencyClass - 0 = Performance, 1+ = Efficiency (non-hybrid CPUs: all 0)
         //   BYTE  Reserved[20]
         //   WORD  GroupCount
         //   GROUP_AFFINITY[ANYSIZE_ARRAY]
@@ -163,7 +163,9 @@ namespace kaliteConfig.Services
                 coreComplexMasks.Add((1UL << logicalCount) - 1);
             }
 
-            // Remove reserved core 0 from the assignable performance list.
+            // Remove reserved core 0 from the assignable performance list
+            // (AllPerformanceCoreMasks keeps the full set for Optimize).
+            var allPerfCoreMasks = perfCoreMasks.ToList();
             if (perfCoreMasks.Count > 0)
                 perfCoreMasks.RemoveAt(0);
 
@@ -173,6 +175,7 @@ namespace kaliteConfig.Services
                 PhysicalCores = physicalCoreCount,
                 ReservedCore = 0, // OS uses Core 0
                 PerformanceCoreMasks = perfCoreMasks,
+                AllPerformanceCoreMasks = allPerfCoreMasks,
                 EfficiencyCoreMasks = effCoreMasks,
                 NumaNodeMasks = numaNodeMasks.ToList(),
                 CoreComplexMasks = coreComplexMasks.ToList()

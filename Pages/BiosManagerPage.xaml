@@ -214,7 +214,7 @@
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 TextWrapping="Wrap" />
 
-                            <!-- Metadata: muted, small — must not compete with the editor -->
+                            <!-- Metadata: muted, small - must not compete with the editor -->
                             <Grid ColumnSpacing="10" RowSpacing="3" Margin="0,6,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="96" />

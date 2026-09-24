@@ -18,7 +18,7 @@
 
         <CheckBox x:Name="CleanInstallCheck"
                   Content="Clean install (remove previous driver settings first)"
-                  ToolTipService.ToolTip="Uses the NVIDIA installer's own clean-install flag — the safe way to reset driver state." />
+                  ToolTipService.ToolTip="Uses the NVIDIA installer's own clean-install flag - the safe way to reset driver state." />
 
         <ListView x:Name="ComponentsList"
                   SelectionMode="None"

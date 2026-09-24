@@ -13,7 +13,7 @@ public sealed record WindhawkInstallationInfo
 {
     public bool IsInstalled { get; init; }
     public string? Version { get; init; }
-    /// <summary>Directory holding windhawk.exe (Program Files install) — null for portable.</summary>
+    /// <summary>Directory holding windhawk.exe (Program Files install) - null for portable.</summary>
     public string? InstallDirectory { get; init; }
     /// <summary>windhawk-cli.exe path when present (Windhawk 2.0+ ships the CLI).</summary>
     public string? CliPath { get; init; }

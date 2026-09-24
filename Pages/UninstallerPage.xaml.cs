@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml.Controls;
+﻿using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
@@ -55,11 +55,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        private void BackToHub_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            Frame.Navigate(typeof(WindowsSettingsHubPage));
-        }
-
         private void FilterChip_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton clicked) return;
@@ -75,7 +70,7 @@ namespace kaliteConfig.Pages
         {
             int n = AppList.SelectedItems.Count;
             SelectionText.Text = n == 0 ? string.Empty : $"{n} selected";
-            // Batch commands run off IsSelected — mirror the ListView selection into it.
+            // Batch commands run off IsSelected - mirror the ListView selection into it.
             foreach (var removed in e.RemovedItems.OfType<UninstallerItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<UninstallerItem>())
@@ -120,7 +115,7 @@ namespace kaliteConfig.Pages
 
         private void DriverList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
-            // Batch removal runs off IsSelected — mirror the ListView selection into it.
+            // Batch removal runs off IsSelected - mirror the ListView selection into it.
             foreach (var removed in e.RemovedItems.OfType<DriverPackageItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<DriverPackageItem>())
@@ -152,7 +147,7 @@ namespace kaliteConfig.Pages
         private void MainPivot_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
             if (sender is not Microsoft.UI.Xaml.Controls.Pivot pivot) return;
-            // The applications toolbar describes apps only — hide it on the
+            // The applications toolbar describes apps only - hide it on the
             // Remover/Startup tabs.
             ViewModel.IsUninstallerTabActive = pivot.SelectedIndex == 0;
             // Lazy-load the startup scan on first open: WMI + schtasks take

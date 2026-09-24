@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace kaliteConfig.Services;
 
 /// <summary>
-/// Persistent per-PROCESS Priority-boost preference — the process-wide twin of
+/// Persistent per-PROCESS Priority-boost preference - the process-wide twin of
 /// <see cref="BoostPreferenceService"/> (which covers single threads).
 ///
 /// Unticking the boost box in the Processes list writes
@@ -18,7 +18,7 @@ namespace kaliteConfig.Services;
 /// again and by the keeper sweep, which is what makes the tick box permanent
 /// instead of a one-shot that Windows forgets on the next restart.
 ///
-/// Only priority boost is touched — never priority class, affinity or EcoQoS.
+/// Only priority boost is touched - never priority class, affinity or EcoQoS.
 /// </summary>
 public sealed class ProcessBoostPreferenceService
 {
@@ -49,7 +49,7 @@ public sealed class ProcessBoostPreferenceService
     /// Writes the process-wide boost flag for one PID. Assigned by the app at
     /// startup (see <c>App.InitializeWatcherAsync</c>); left null here on
     /// purpose so this service compiles and tests without the WinUI application
-    /// object — with no applier the preference is still recorded, it simply has
+    /// object - with no applier the preference is still recorded, it simply has
     /// no live process to write to.
     /// </summary>
     public static Func<int, bool, Task>? Applier { get; set; }

@@ -419,7 +419,7 @@
                                                                     <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8E5;" FontSize="12"
                                                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                                                               Visibility="{x:Bind HasPendingVis, Mode=OneWay}"
-                                                                              ToolTipService.ToolTip="Pending change — not applied yet"/>
+                                                                              ToolTipService.ToolTip="Pending change - not applied yet"/>
                                                                     <TextBlock Text="{x:Bind Def.Label}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                                                 </StackPanel>
                                                                 <TextBlock Text="{x:Bind Def.Key}" FontSize="11"
@@ -461,7 +461,7 @@
                                                 </ItemsControl.ItemsPanel>
                                             </ItemsControl>
 
-                                                    <TextBlock Text="Nothing to show — every row of this section is hidden by 'Changed only'."
+                                                    <TextBlock Text="Nothing to show - every row of this section is hidden by 'Changed only'."
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                Visibility="{x:Bind ViewModel.SysEmptyVis, Mode=OneWay}"
                                                                TextWrapping="Wrap"/>
@@ -474,7 +474,7 @@
                 <TabViewItem IsClosable="False" Header="Doctor">
                     <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="Findings computed from live data. Fixes stage a value for review — nothing writes directly from here."
+                            <TextBlock Text="Findings computed from live data. Fixes stage a value for review - nothing writes directly from here."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.Findings, Mode=OneWay}">
                                 <ItemsControl.ItemTemplate>

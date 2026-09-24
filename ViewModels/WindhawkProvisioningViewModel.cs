@@ -42,7 +42,7 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
     public partial InfoBarSeverity MessageSeverity { get; set; } = InfoBarSeverity.Informational;
 
     /// <summary>
-    /// KaliteOS bundled file — always from Assets/Windhawk/KaliteOS.json (copied to mods-bundled.json).
+    /// KaliteOS bundled file - always from Assets/Windhawk/KaliteOS.json (copied to mods-bundled.json).
     /// No backup-file picker; the AutoOS remote is never used.
     /// </summary>
     public string? EffectiveBackupFilePath => WindhawkModCatalog.EnsureBundledBackupOnDisk();
@@ -120,7 +120,7 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
         {
             ShowMessage($"Windhawk {Installation.Version ?? ""} detected.".Trim() + (Installation.CliPath is not null
                 ? " Settings import will use its built-in CLI."
-                : " Running the flow upgrades to Windhawk 2.0 (alpha 5) — its CLI is required for settings import."),
+                : " Running the flow upgrades to Windhawk 2.0 (alpha 5) - its CLI is required for settings import."),
                 InfoBarSeverity.Informational);
         }
         else
@@ -228,7 +228,7 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Test-only import — does NOT reinstall Windhawk, just runs the settings import.
+    /// Test-only import - does NOT reinstall Windhawk, just runs the settings import.
     /// Copied flow from AutoOS AppsStage.cs:
     ///   await DownloadHelper.Download(jsonUrl, Path.GetTempPath(), "windhawk.json");
     ///   await Process.Start(windhawk-cli.exe, $"data import \"{json}\" --confirm-app-restart --yes", WorkingDir=Windhawk).WaitForExitAsync();
@@ -250,7 +250,7 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
 
         if (!Installation.IsInstalled)
         {
-            ShowMessage("Windhawk is not installed — install it first before testing import.", InfoBarSeverity.Warning);
+            ShowMessage("Windhawk is not installed - install it first before testing import.", InfoBarSeverity.Warning);
             return;
         }
 

@@ -79,40 +79,40 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public partial string TelemetryErrorText { get; private set; } = "";
 
         [ObservableProperty]
-        public partial string CoreClockText { get; private set; } = "—";
+        public partial string CoreClockText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MemClockText { get; private set; } = "—";
+        public partial string MemClockText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string TempText { get; private set; } = "—";
+        public partial string TempText { get; private set; } = "-";
 
         [ObservableProperty]
         public partial string HotspotText { get; private set; } = "";
 
         [ObservableProperty]
-        public partial string PowerText { get; private set; } = "—";
+        public partial string PowerText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string FanText { get; private set; } = "—";
+        public partial string FanText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string UsageText { get; private set; } = "—";
+        public partial string UsageText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string VramText { get; private set; } = "—";
+        public partial string VramText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string PcieText { get; private set; } = "—";
+        public partial string PcieText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MemTempText { get; private set; } = "—";
+        public partial string MemTempText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string VoltageText { get; private set; } = "—";
+        public partial string VoltageText { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string PcieTputText { get; private set; } = "—";
+        public partial string PcieTputText { get; private set; } = "-";
 
         /// <summary>Tile rows for the responsive telemetry grid (rebuilt every tick).</summary>
         public ObservableCollection<TelemetryTileRow> TelemetryTiles { get; } = new();
@@ -123,10 +123,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 if (update.Health == TelemetryHealth.Unavailable)
                 {
-                    // Distinct unavailable state — never show stale/zeroed values as fact.
+                    // Distinct unavailable state - never show stale/zeroed values as fact.
                     TelemetryAvailable = false;
                     TelemetryErrorText = string.IsNullOrEmpty(update.ErrorDetail)
-                        ? "Telemetry unavailable — the GPU or driver is not responding."
+                        ? "Telemetry unavailable - the GPU or driver is not responding."
                         : $"Telemetry unavailable ({update.ErrorDetail}).";
                     return;
                 }
@@ -135,20 +135,20 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 _latestTempC = s.GpuTempC; // feeds the fan-curve loop
                 TelemetryAvailable = true;
                 TelemetryErrorText = "";
-                CoreClockText = s.CoreClockMHz is null ? "—" : $"{s.CoreClockMHz.Value:0} MHz";
-                MemClockText = s.MemClockMHz is null ? "—" : $"{s.MemClockMHz.Value:0} MHz";
-                TempText = s.GpuTempC is null ? "—" : $"{s.GpuTempC.Value} °C";
+                CoreClockText = s.CoreClockMHz is null ? "-" : $"{s.CoreClockMHz.Value:0} MHz";
+                MemClockText = s.MemClockMHz is null ? "-" : $"{s.MemClockMHz.Value:0} MHz";
+                TempText = s.GpuTempC is null ? "-" : $"{s.GpuTempC.Value} °C";
                 HotspotText = s.HotspotTempC is null ? "" : $"hotspot {s.HotspotTempC.Value} °C";
                 PowerText = FormatPower(s);
-                FanText = s.FanPercent is null ? "—"
+                FanText = s.FanPercent is null ? "-"
                     : $"{s.FanPercent.Value}%{(s.FanRpm is null ? "" : $" ({s.FanRpm.Value} RPM)")}";
-                UsageText = s.GpuUsagePercent is null ? "—" : $"{s.GpuUsagePercent.Value}%";
-                VramText = s.VramUsageMb is null ? "—" : $"{s.VramUsageMb.Value:0} MB";
-                PcieText = s.PcieGen is null ? "—" : $"Gen {s.PcieGen.Value} x{s.PcieWidth ?? 0}";
-                MemTempText = s.MemTempC is null ? "—" : $"{s.MemTempC.Value} °C";
-                VoltageText = s.VoltageMv is null ? "—" : $"{s.VoltageMv.Value:0} mV";
+                UsageText = s.GpuUsagePercent is null ? "-" : $"{s.GpuUsagePercent.Value}%";
+                VramText = s.VramUsageMb is null ? "-" : $"{s.VramUsageMb.Value:0} MB";
+                PcieText = s.PcieGen is null ? "-" : $"Gen {s.PcieGen.Value} x{s.PcieWidth ?? 0}";
+                MemTempText = s.MemTempC is null ? "-" : $"{s.MemTempC.Value} °C";
+                VoltageText = s.VoltageMv is null ? "-" : $"{s.VoltageMv.Value:0} mV";
                 PcieTputText = s.PcieTxKBs is null || s.PcieRxKBs is null
-                    ? "—" : $"TX {FormatRate(s.PcieTxKBs.Value)} · RX {FormatRate(s.PcieRxKBs.Value)}";
+                    ? "-" : $"TX {FormatRate(s.PcieTxKBs.Value)} · RX {FormatRate(s.PcieRxKBs.Value)}";
                 RebuildTelemetryTiles(s);
                 PushMonitorSample(s);
             });
@@ -162,7 +162,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         /// <summary>
         /// Rebuilds the responsive tile grid in the brief's two-row order.
         /// Conditional tiles (hotspot, memory temp, PCIe throughput) are
-        /// omitted when the GPU doesn't report them — never shown as zeros.
+        /// omitted when the GPU doesn't report them - never shown as zeros.
         /// </summary>
         private void RebuildTelemetryTiles(GpuTelemetrySnapshot s)
         {
@@ -194,25 +194,25 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public IReadOnlyList<MonitorSample> GetMonitorHistory() => _history.ToList();
 
         [ObservableProperty]
-        public partial string MonGpuTemp { get; private set; } = "—";
+        public partial string MonGpuTemp { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MonHotspotTemp { get; private set; } = "—";
+        public partial string MonHotspotTemp { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MonMemTemp { get; private set; } = "—";
+        public partial string MonMemTemp { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MonCoreClock { get; private set; } = "—";
+        public partial string MonCoreClock { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MonMemClock { get; private set; } = "—";
+        public partial string MonMemClock { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MonPower { get; private set; } = "—";
+        public partial string MonPower { get; private set; } = "-";
 
         [ObservableProperty]
-        public partial string MonFan { get; private set; } = "—";
+        public partial string MonFan { get; private set; } = "-";
 
         private void PushMonitorSample(GpuTelemetrySnapshot s)
         {
@@ -221,13 +221,13 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 s.CoreClockMHz, s.MemClockMHz, s.PowerDrawW, s.FanPercent));
             while (_history.Count > HistoryLimit) _history.Dequeue();
 
-            MonGpuTemp = s.GpuTempC is null ? "—" : $"{s.GpuTempC}°C";
-            MonHotspotTemp = s.HotspotTempC is null ? "—" : $"{s.HotspotTempC}°C";
-            MonMemTemp = s.MemTempC is null ? "—" : $"{s.MemTempC}°C";
-            MonCoreClock = s.CoreClockMHz is null ? "—" : $"{s.CoreClockMHz.Value:0} MHz";
-            MonMemClock = s.MemClockMHz is null ? "—" : $"{s.MemClockMHz.Value:0} MHz";
-            MonPower = s.PowerDrawW is null ? "—" : $"{s.PowerDrawW.Value:0.#} W";
-            MonFan = s.FanPercent is null ? "—" : $"{s.FanPercent}%";
+            MonGpuTemp = s.GpuTempC is null ? "-" : $"{s.GpuTempC}°C";
+            MonHotspotTemp = s.HotspotTempC is null ? "-" : $"{s.HotspotTempC}°C";
+            MonMemTemp = s.MemTempC is null ? "-" : $"{s.MemTempC}°C";
+            MonCoreClock = s.CoreClockMHz is null ? "-" : $"{s.CoreClockMHz.Value:0} MHz";
+            MonMemClock = s.MemClockMHz is null ? "-" : $"{s.MemClockMHz.Value:0} MHz";
+            MonPower = s.PowerDrawW is null ? "-" : $"{s.PowerDrawW.Value:0.#} W";
+            MonFan = s.FanPercent is null ? "-" : $"{s.FanPercent}%";
             MonitorUpdated?.Invoke();
         }
 
@@ -236,7 +236,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             // Prefer absolute watts (NVML); fall back to %-of-limit (NVAPI native).
             if (s.PowerDrawW is not null) return $"{s.PowerDrawW.Value:0.#} W";
             if (s.PowerDrawPercentOfLimit is not null) return $"{s.PowerDrawPercentOfLimit.Value:0}% of limit";
-            return "—";
+            return "-";
         }
 
         // ---------------- capabilities + control values ----------------
@@ -345,10 +345,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 }
 
                 await LoadCapabilitiesAsync();
-                // Phase 6: populate the viewer immediately — startup-path entries
+                // Phase 6: populate the viewer immediately - startup-path entries
                 // (orphan recovery, startup reapply) are logged before this.
                 RefreshLog();
-                // v2 Part B: the game watcher lives as long as the app — start
+                // v2 Part B: the game watcher lives as long as the app - start
                 // it here (idempotent) so bindings work even if the user never
                 // opens the profiles expander.
                 _module.GameAutoApply.Start();
@@ -361,7 +361,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         }
 
         /// <summary>
-        /// Called on GPU re-detect: stops the fan curve loop (spec §5 — the loop
+        /// Called on GPU re-detect: stops the fan curve loop (spec §5 - the loop
         /// must hand back to Auto when the GPU is re-detected; after a re-detect
         /// the controller may resolve a different adapter, and a blind loop
         /// would force fan speeds on it), forgets the cached handle and re-reads
@@ -371,7 +371,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         {
             if (FanMode == GpuFanMode.Curve)
             {
-                await _module.FanCurve.StopAsync("GPU re-detected — fan restored to auto");
+                await _module.FanCurve.StopAsync("GPU re-detected - fan restored to auto");
                 FanMode = GpuFanMode.Auto;
             }
 
@@ -503,13 +503,13 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial bool VfOffsetsMixed { get; private set; }
 
-        /// <summary>Client-side validation error (e.g. non-monotonic) — blocks commit while set.</summary>
+        /// <summary>Client-side validation error (e.g. non-monotonic) - blocks commit while set.</summary>
         [ObservableProperty]
         public partial string VfCurveError { get; private set; } = "";
 
         /// <summary>
         /// True only when the driver actually answers the voltage-boost-percent
-        /// query. Usually false on Ampere/Ada (vBIOS-locked) — the control
+        /// query. Usually false on Ampere/Ada (vBIOS-locked) - the control
         /// stays hidden then and nothing implies true overvolting.
         /// </summary>
         [ObservableProperty]
@@ -577,7 +577,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             VfFlatValue = uniform ? first : 0;
         }
 
-        /// <summary>Simple mode: one flat offset across all points (UI shorthand — writes the full table).</summary>
+        /// <summary>Simple mode: one flat offset across all points (UI shorthand - writes the full table).</summary>
         public void OnVfFlatCommitted(double value)
         {
             if (_liveCurve is null || !HasVfCurve) return;
@@ -714,7 +714,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             if (_dirty.Count == 0) return;
 
             // A confirmation window/revert is still in flight: defer the flush
-            // rather than failing — this is NOT a driver refusal.
+            // rather than failing - this is NOT a driver refusal.
             if (_module.Safety.CurrentState != SafetyState.Idle)
             {
                 _debounceTimer?.Start();
@@ -819,7 +819,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         /// <summary>
         /// Session-scoped: the extreme-caution gate covers the whole overclock
-        /// card until explicitly accepted. Deliberately NOT persisted — every
+        /// card until explicitly accepted. Deliberately NOT persisted - every
         /// app start re-arms the gate so the risk acknowledgment is never
         /// "set and forgotten".
         /// </summary>
@@ -1003,7 +1003,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshBindings();
         }
 
-        /// <summary>Designated startup profile (or null) — shown by the UI.</summary>
+        /// <summary>Designated startup profile (or null) - shown by the UI.</summary>
         public string? StartupDefaultName => _module.Profiles.GetDefaultProfileName();
 
         /// <summary>
@@ -1023,7 +1023,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 _module.Profiles.SetDefaultProfile(profile.Name);
             }
-            // Rebuild rows so every toggle/badge reflects storage truth —
+            // Rebuild rows so every toggle/badge reflects storage truth -
             // without this the previously-default row keeps showing On.
             RefreshProfiles();
         }
@@ -1066,7 +1066,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         }
 
         /// <summary>
-        /// Applies a profile as one batch through the same safety state machine —
+        /// Applies a profile as one batch through the same safety state machine -
         /// profile loads are never exempt (spec 6). Uses the shared
         /// ProfileBatchBuilder so interactive, startup, and game auto-switch
         /// applies are byte-identical.
@@ -1077,7 +1077,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             if (profile is null || Safety.CurrentState != SafetyState.Idle) return;
             if (_caps is null)
             {
-                StatusText = "The GPU hasn't been detected yet — try again in a moment.";
+                StatusText = "The GPU hasn't been detected yet - try again in a moment.";
                 return;
             }
 
@@ -1105,7 +1105,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 }
                 // Give the confirmation window a moment: a revert inside it must
                 // NOT mark the profile pre-boot validated. Curve batches run a
-                // longer window — wait for the batch's actual window.
+                // longer window - wait for the batch's actual window.
                 int window = _module.Safety.GetConfirmationSecondsFor(batch.Select(b => b.ControlName));
                 var closedCleanly = await WaitForSafetyIdleAsync(TimeSpan.FromSeconds(window + 5));
                 _windowWasReverted = !closedCleanly || _lastRevertWasRecent;
@@ -1131,9 +1131,9 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
             profile.LastAppliedAt = DateTime.Now;
             // A profile whose interactive batch survived its confirmation window
-            // becomes "pre-boot validated" — eligible for startup reapply.
+            // becomes "pre-boot validated" - eligible for startup reapply.
             // The same clean interactive confirm ALSO marks it manually
-            // validated — eligible for per-game auto-switch. Only this
+            // validated - eligible for per-game auto-switch. Only this
             // desktop interactive path sets the manual flag: startup reapply
             // and game auto-apply never do.
             if (Safety.CurrentState == SafetyState.Idle && !_windowWasReverted)
@@ -1171,7 +1171,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             else
             {
                 // Registering the task without a designated profile would run
-                // the reapply argument against nothing — require the default
+                // the reapply argument against nothing - require the default
                 // first so registration state never silently diverges from
                 // what the startup path will actually do.
                 if (_module.Profiles.GetDefaultProfileName() is null)
@@ -1193,11 +1193,11 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial string ActiveGameProfileText { get; private set; } = "No game profile active.";
 
-        /// <summary>Last auto-switch event, timestamped — visible next time the app opens.</summary>
+        /// <summary>Last auto-switch event, timestamped - visible next time the app opens.</summary>
         [ObservableProperty]
         public partial string LastAutoSwitchText { get; private set; } = "";
 
-        /// <summary>Watcher mechanism (event-driven WMI vs polling fallback) — never silently degraded.</summary>
+        /// <summary>Watcher mechanism (event-driven WMI vs polling fallback) - never silently degraded.</summary>
         [ObservableProperty]
         public partial string GameWatcherStatusText { get; private set; } = "";
 
@@ -1210,7 +1210,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     : $"Currently active: {status.ActiveProfileName}" +
                       (string.IsNullOrWhiteSpace(status.ActiveExecutable) ? "" : $" (for {status.ActiveExecutable})");
                 LastAutoSwitchText = string.IsNullOrWhiteSpace(status.LastMessage)
-                    ? "" : $"{status.LastMessageAt:HH:mm:ss} — {status.LastMessage}";
+                    ? "" : $"{status.LastMessageAt:HH:mm:ss} - {status.LastMessage}";
                 GameWatcherStatusText = $"Watcher: {status.WatcherMode}";
             });
         }
@@ -1234,7 +1234,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         /// <summary>
         /// Binds a profile to a game executable (file picker). Portable by
-        /// default (executable-name match) — the row offers exact-path
+        /// default (executable-name match) - the row offers exact-path
         /// locking for generically-named executables.
         /// </summary>
         [RelayCommand]
@@ -1252,8 +1252,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             _module.Profiles.SaveBinding(binding);
             RefreshBindings();
             StatusText = profile.HasBeenManuallyValidated
-                ? $"Bound '{profile.Name}' to {binding.NormalizedExecutableName} — auto-switch is live."
-                : $"Bound '{profile.Name}' to {binding.NormalizedExecutableName} — apply it manually once to enable auto-switch.";
+                ? $"Bound '{profile.Name}' to {binding.NormalizedExecutableName} - auto-switch is live."
+                : $"Bound '{profile.Name}' to {binding.NormalizedExecutableName} - apply it manually once to enable auto-switch.";
         }
 
         [RelayCommand]
@@ -1297,7 +1297,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         /// <summary>
         /// Game-executable picker. The brokered WinUI picker throws in
-        /// elevated processes, so the Win32 common dialog is the fallback —
+        /// elevated processes, so the Win32 common dialog is the fallback -
         /// the same pattern the verification-record export uses.
         /// </summary>
         private async Task<string?> PickGameExecutableAsync()
@@ -1333,13 +1333,13 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         // ---------------- change log ----------------
 
         /// <summary>ComboBox index of the result filter: 0 = all results,
-        /// 1..n follow the OverclockChangeResult declaration order — mapped in
+        /// 1..n follow the OverclockChangeResult declaration order - mapped in
         /// OverclockLogFilter so the mapping itself stays unit-testable.</summary>
         [ObservableProperty]
         public partial int LogResultFilterIndex { get; set; }
 
         /// <summary>ComboBox index of the source filter: 0 = all sources,
-        /// 1..n follow the OverclockChangeSource declaration order — mapped in
+        /// 1..n follow the OverclockChangeSource declaration order - mapped in
         /// OverclockLogFilter.</summary>
         [ObservableProperty]
         public partial int LogSourceFilterIndex { get; set; }
@@ -1370,7 +1370,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         /// Exports the in-memory change-log tail as a Markdown verification
         /// record (same shape as Docs/OverclockVerification.md). The brokered
         /// WinUI save picker throws in elevated processes, so the Win32 common
-        /// dialog is the fallback — the same pattern BiosManager uses.
+        /// dialog is the fallback - the same pattern BiosManager uses.
         /// </summary>
         [RelayCommand]
         public async Task ExportVerificationRecordAsync()
@@ -1514,10 +1514,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             : "executable-name match (portable across install locations)";
 
         public string ValidationDisplay => ProfileMissing
-            ? "profile deleted — re-bind or remove"
+            ? "profile deleted - re-bind or remove"
             : ProfileValidated
                 ? "auto-switch ready ✓"
-                : "not yet validated — apply manually once to enable auto-switch";
+                : "not yet validated - apply manually once to enable auto-switch";
 
         private bool _enabled;
 
@@ -1531,7 +1531,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
     /// <summary>One responsive telemetry tile (value + label, rebuilt every tick).</summary>
     public sealed class TelemetryTileRow : ObservableObject
     {
-        private string _value = "—";
+        private string _value = "-";
 
         public TelemetryTileRow(string label, string value)
         {

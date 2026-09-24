@@ -10,7 +10,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// <summary>
     /// Maps the change-log viewer's ComboBox filter indexes to the enum filters
     /// (index 0 = "all", 1..n = enum declaration order). Kept here so the
-    /// mapping is pure logic — unit-testable without the WinUI ViewModel.
+    /// mapping is pure logic - unit-testable without the WinUI ViewModel.
     /// </summary>
     public static class OverclockLogFilter
     {
@@ -32,7 +32,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// Builds the GPU overclock verification record (Markdown) from the change
     /// log: a human-readable audit document in the same shape as
     /// Docs/OverclockVerification.md, exportable from the in-app viewer.
-    /// Pure string building — no filesystem, no UI — so it round-trips in tests.
+    /// Pure string building - no filesystem, no UI - so it round-trips in tests.
     /// </summary>
     public static class OverclockVerificationExporter
     {
@@ -53,7 +53,7 @@ namespace kaliteConfig.GpuOverclock.Services
             var at = (generatedAt ?? DateTime.Now).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
             var sb = new StringBuilder();
 
-            sb.AppendLine("# GPU Overclock Module — Verification Record");
+            sb.AppendLine("# GPU Overclock Module - Verification Record");
             sb.AppendLine();
             sb.Append("Generated: ").Append(at);
             if (!string.IsNullOrWhiteSpace(gpuName)) sb.Append(" · GPU: ").Append(gpuName);

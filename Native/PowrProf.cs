@@ -193,7 +193,7 @@ namespace kaliteConfig.Native
             uint DcValueIndex);
 
         // NOTE: PowerReadPossibleValue / PowerReadPossibleFriendlyName take a SchemeGuid
-        // parameter (may be NULL) between RootPowerKey and the subgroup GUID — omitting it
+        // parameter (may be NULL) between RootPowerKey and the subgroup GUID - omitting it
         // shifts every argument and made the call read garbage (phantom dropdown entries,
         // empty lists). See https://learn.microsoft.com/windows/win32/api/powersetting/
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]

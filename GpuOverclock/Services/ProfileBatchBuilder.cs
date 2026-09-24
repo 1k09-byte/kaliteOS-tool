@@ -9,14 +9,14 @@ namespace kaliteConfig.GpuOverclock.Services
     /// every apply path (interactive ViewModel apply, headless startup
     /// reapply, unattended game auto-switch). One shared builder means a
     /// manually-validated profile applies byte-identically when a game
-    /// triggers it later — profile trustworthiness (Part B's foundation)
+    /// triggers it later - profile trustworthiness (Part B's foundation)
     /// never depends on which path applied it.
     ///
     /// V/F curve handling: the profile stores offsets against the base curve
     /// of the GPU it was saved on. Against the LIVE curve they are clamped to
     /// the live per-point ranges; a point-count mismatch or a monotonicity
     /// violation skips ONLY the curve portion (reported via
-    /// <paramref name="curveSkippedReason"/>) — the rest of the profile still
+    /// <paramref name="curveSkippedReason"/>) - the rest of the profile still
     /// applies. The per-point table wins over the flat simple-mode value
     /// when both are present.
     /// </summary>
@@ -79,7 +79,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>
         /// Resolves a profile's stored curve settings against the live curve.
         /// Null when the profile doesn't touch the curve OR the stored table
-        /// can't be mapped (count mismatch — <paramref name="skipReason"/>
+        /// can't be mapped (count mismatch - <paramref name="skipReason"/>
         /// explains, so callers can log it instead of failing silently).
         /// </summary>
         public static List<int>? ResolveCurveOffsets(
@@ -91,7 +91,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (table.Count != live.Count)
                 {
                     skipReason = $"V/F curve skipped: profile stores {table.Count} points " +
-                                 $"but this GPU exposes {live.Count} — re-save the profile on this GPU.";
+                                 $"but this GPU exposes {live.Count} - re-save the profile on this GPU.";
                     return null;
                 }
                 return live.ClampOffsets(table);

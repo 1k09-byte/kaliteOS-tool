@@ -8,7 +8,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// <summary>
     /// Registers/unregisters an elevated Task Scheduler task ("kaliteConfig GPU
     /// Overclock") that reapplies the designated startup profile shortly after
-    /// login — NVAPI state does not survive reboots or driver reloads.
+    /// login - NVAPI state does not survive reboots or driver reloads.
     /// The UI must always show IsRegistered, so registration state never drifts
     /// silently out of sync with the system.
     /// </summary>

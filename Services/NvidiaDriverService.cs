@@ -204,7 +204,7 @@ namespace kaliteConfig.Services
         /// <summary>
         /// Lookup by PCI device ID (the DEV_XXXX hex from the PnP DeviceID).
         /// VERIFIED LIVE: deviceID=2783 returns the correct Game Ready driver
-        /// for the RTX 4070 (DEV_2783) — works even when no driver is installed
+        /// for the RTX 4070 (DEV_2783) - works even when no driver is installed
         /// and Windows can't name the card. Same undocumented endpoint; see the
         /// accuracy flag on the name-based overload.
         /// </summary>
@@ -251,7 +251,7 @@ namespace kaliteConfig.Services
             return results;
         }
 
-        /// <summary>Older JSON-query implementation — superseded by the channel-aware overload above.</summary>
+        /// <summary>Older JSON-query implementation - superseded by the channel-aware overload above.</summary>
         private static IEnumerable<string> FindNvidiaDisplayInfs(string extractedDir)
         {
             if (!System.IO.Directory.Exists(extractedDir)) return Array.Empty<string>();

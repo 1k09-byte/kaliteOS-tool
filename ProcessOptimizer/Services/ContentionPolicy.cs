@@ -14,7 +14,7 @@ namespace kaliteConfig.ProcessOptimizer.Services;
 ///
 /// The shape of the policy is deliberately asymmetric. It takes SUSTAINED heat
 /// to apply anything (never punish the first busy sample) and SUSTAINED calm
-/// plus a minimum dwell to give it back — because a demotion is a handful of
+/// plus a minimum dwell to give it back - because a demotion is a handful of
 /// writes, but a restore is a full priority/eco/memory/IO pass, and doing that
 /// repeatedly costs more than the contention being reacted to.
 /// </summary>
@@ -66,7 +66,7 @@ public static class ContentionPolicy
     ///
     /// Crucially it ALWAYS returns a sample, even an empty one. The session's
     /// release pass lives in the tick handler, and the previous monitor only raised
-    /// the event when something was contended — so once every throttled process
+    /// the event when something was contended - so once every throttled process
     /// went quiet, no tick arrived, the release pass never ran, and those processes
     /// stayed demoted for the rest of the session. An empty hot set is a valid,
     /// expected tick: it is exactly the "everything is calm now" signal.
@@ -90,7 +90,7 @@ public static class ContentionPolicy
             if (kvp.Key <= 4) continue;
 
             // No prior reading means this process started inside the window, so its
-            // lifetime CPU time would be counted as this tick's usage — a fresh
+            // lifetime CPU time would be counted as this tick's usage - a fresh
             // process would look like it had been burning a core since boot.
             if (!previous.TryGetValue(kvp.Key, out long before)) continue;
 

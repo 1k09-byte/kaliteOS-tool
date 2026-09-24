@@ -116,6 +116,7 @@
                      SelectionChanged="MainSelectorBar_SelectionChanged">
             <SelectorBarItem x:Name="TabInstall" Text="Install" IsSelected="True" />
             <SelectorBarItem x:Name="TabPackages" Text="Packages" />
+            <SelectorBarItem x:Name="TabUninstall" Text="Uninstall" />
         </SelectorBar>
 
         <Grid x:Name="InstallPanel" Grid.Row="2">
@@ -133,7 +134,7 @@
                     <ToggleSwitch IsOn="{x:Bind ViewModel.ShowInstalled, Mode=TwoWay}" VerticalAlignment="Center"
                                   ToolTipService.ToolTip="Reveal installed apps (with uninstall option)." />
                 </StackPanel>
-                <InfoBar Message="Everything here is already installed — nothing left to install."
+                <InfoBar Message="Everything here is already installed - nothing left to install."
                          Severity="Informational" IsOpen="True" IsClosable="False"
                          Visibility="{x:Bind ViewModel.NothingToInstall, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 <!-- Web Browsers Section -->
@@ -212,6 +213,7 @@
         </ScrollViewer>
         </Grid>
         <pm:PackageManagerPage x:Name="PackagesPanel" Grid.Row="2" Visibility="Collapsed" />
+        <local:UninstallerPage x:Name="UninstallPanel" Grid.Row="2" Visibility="Collapsed" />
         
         <!-- ContentDialog moved inside the visual tree to resolve XamlRoot / Binding cycle crashes -->
         <ContentDialog x:Name="BrowserDetailsDialog"

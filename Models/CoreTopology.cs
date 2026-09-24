@@ -9,7 +9,7 @@ namespace kaliteConfig.Models
         public int TotalLogicalCores { get; init; }
         public int PhysicalCores { get; init; }
 
-        /// <summary>Always 0 — the OS scheduler's own core is never assigned to devices.</summary>
+        /// <summary>Always 0 - the OS scheduler's own core is never assigned to devices.</summary>
         public int ReservedCore { get; init; } = 0;
 
         /// <summary>
@@ -17,6 +17,13 @@ namespace kaliteConfig.Models
         /// On non-hybrid CPUs this contains every physical core's mask except the reserved one.
         /// </summary>
         public System.Collections.Generic.List<ulong> PerformanceCoreMasks { get; init; } = new();
+
+        /// <summary>
+        /// Every performance-core mask INCLUDING the reserved core 0, in
+        /// enumeration order. Used by Optimize, which follows the AutoOS
+        /// layout that counts core 0 (its 4-core branch pins audio to it).
+        /// </summary>
+        public System.Collections.Generic.List<ulong> AllPerformanceCoreMasks { get; init; } = new();
 
         /// <summary>
         /// Group Affinity bitmasks representing full Efficiency cores (EfficiencyClass > 0).

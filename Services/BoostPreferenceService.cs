@@ -17,7 +17,7 @@ namespace kaliteConfig.Services;
 ///
 /// Identity: threads have no stable TID across restarts, so a preference is
 /// keyed by process name + thread identity (description or start address).
-/// Only boost is touched — never priority, affinity or anything else.
+/// Only boost is touched - never priority, affinity or anything else.
 /// Storage lives beside the rules file and is independent of TunerProfile.
 /// </summary>
 public sealed class BoostPreferenceService

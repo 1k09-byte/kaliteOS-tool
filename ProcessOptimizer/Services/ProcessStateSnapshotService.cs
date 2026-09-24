@@ -14,7 +14,7 @@ public static class ProcessStateSnapshotService
     /// Snapshots everything game mode / the booster / the throttle can change
     /// on a process: priority, boost flag, EcoQoS, memory priority, IO
     /// priority, affinity, and default CPU Sets. Reads are best-effort and
-    /// individually nullable — restore skips what could not be read instead
+    /// individually nullable - restore skips what could not be read instead
     /// of writing assumed defaults. Excludes protected processes.
     /// </summary>
     public static ProcessBaselineSnapshot CaptureSnapshot(int pid, IEnumerable<string> customExclusions = null)
@@ -92,7 +92,7 @@ public static class ProcessStateSnapshotService
             catch { }
 
             // Default CPU Sets. Nothing in Game Mode writes these any more (the
-            // automatic partition is gone — Docs/GameMode.md); they are still
+            // automatic partition is gone - Docs/GameMode.md); they are still
             // captured and restored because a per-rule CPU-set change lives on
             // the same process and must survive a session either way.
             try
@@ -207,7 +207,7 @@ public static class ProcessStateSnapshotService
     /// Snapshots live threads of the game process BEFORE the booster rewrites
     /// them (priority, boost, Eco, memory priority, ideal processor, selected
     /// CPU Sets). Threads born mid-session have no baseline and are left alone
-    /// on restore — they die with the game anyway.
+    /// on restore - they die with the game anyway.
     /// </summary>
     public static (long StartTicks, List<GameThreadSnapshot> Threads) CaptureThreadSnapshots(int pid)
     {

@@ -33,7 +33,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     /// captured no SynchronizationContext inside the async RelayCommand, so its
     /// callback fired on a worker thread and the cross-thread PropertyChanged
     /// crashed the app (COMException 0x8001010E). The DispatcherQueue is
-    /// captured at construction — always on the UI thread — because
+    /// captured at construction - always on the UI thread - because
     /// GetForCurrentThread() from a worker returns null.</summary>
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _uiDispatcher;
 
@@ -174,7 +174,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     /// identity. Returns the new id, or null on failure (ErrorMessage is set).</summary>
     public async Task<Guid?> CreatePlanAsync(Guid baseId, string name, string description)
     {
-        // Windows has no "empty plan" API — a new plan is a duplicate of a base.
+        // Windows has no "empty plan" API - a new plan is a duplicate of a base.
         if (string.IsNullOrWhiteSpace(name)) name = "Custom plan";
         IsLoading = true;
         LoadingStatus = $"Creating \"{name}\"…";
@@ -186,7 +186,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
                 _service.WritePlanName(newId, name);
                 _service.WritePlanDescription(newId, description ?? string.Empty);
             });
-            IsLoading = false; // LoadSchemesAsync guards on IsLoading — release first
+            IsLoading = false; // LoadSchemesAsync guards on IsLoading - release first
             await LoadSchemesAsync();
             SelectedScheme = Schemes.FirstOrDefault(s => s.Id == newId);
             return newId;

@@ -25,13 +25,13 @@ namespace kaliteConfig.GpuOverclock.Models
 
         /// <summary>
         /// Hotspot temperature in °C when the driver exposes a second GPU-target
-        /// sensor. Classic NVAPI often does not expose hotspot on Ada — null then.
+        /// sensor. Classic NVAPI often does not expose hotspot on Ada - null then.
         /// </summary>
         public int? HotspotTempC { get; init; }
 
         /// <summary>
         /// Memory (VRAM) temperature in °C when the driver exposes a
-        /// Memory-target thermal sensor. Often absent on consumer cards — null then.
+        /// Memory-target thermal sensor. Often absent on consumer cards - null then.
         /// </summary>
         public int? MemTempC { get; init; }
 

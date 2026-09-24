@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using kaliteConfig.GpuOverclock;
 using kaliteConfig.GpuOverclock.Services;
@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace kaliteConfig.ViewModels
@@ -96,17 +97,17 @@ namespace kaliteConfig.ViewModels
             // dialog full of empty values that writes interrupt settings nowhere.
             if (!_affinityService.DeviceExists(item.DeviceInstanceId))
             {
-                StatusText = $"{item.Name} is no longer present — the device was restarted or re-enumerated. Rescanning…";
+                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning…";
                 _ = RefreshDevicesCommand.ExecuteAsync(null);
                 throw new InvalidOperationException(
                     $"{item.Name} is no longer present. It was restarted or re-enumerated (this happens after a GPU restart or driver install). " +
-                    "The device list has been rescanned — pick the device again.");
+                    "The device list has been rescanned - pick the device again.");
             }
 
             SelectedDevice = item;
             var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.MsiEnabled = info.MsiSupported ?? false;
-            // MSI Limit shows only the explicit value (Auto when absent) — the
+            // MSI Limit shows only the explicit value (Auto when absent) - the
             // hardware max lives in MaxMsiLimit and is only the edit cap.
             item.MsiLimit = info.MsiLimit ?? 0;
             item.MsiLimitText = info.MsiLimit?.ToString() ?? "Auto";
@@ -123,7 +124,7 @@ namespace kaliteConfig.ViewModels
             item.CoreGroups.Clear();
 
             // No explicit override in the registry means the device runs on
-            // every logical processor — pre-check everything so the dialog
+            // every logical processor - pre-check everything so the dialog
             // shows the EFFECTIVE affinity instead of "0 of N selected".
             ulong fullMask = logical >= 64 ? ulong.MaxValue : ((1UL << logical) - 1);
             ulong effectiveMask = info.AffinityMask ?? fullMask;
@@ -202,7 +203,7 @@ namespace kaliteConfig.ViewModels
         }
 
         // The dialog binds two-way straight into the row item, so Cancel must
-        // restore the values captured when the dialog opened — otherwise the
+        // restore the values captured when the dialog opened - otherwise the
         // table keeps showing edits that were never written.
         private AffinityDeviceItem? _dialogItem;
         private bool _dialogMsi;
@@ -308,7 +309,7 @@ namespace kaliteConfig.ViewModels
                 var devices = await _affinityService.EnumerateDevicesAsync();
 
                 // Keep the selected device across a rescan when it is still
-                // present — a GPU restart must not silently drop the dialog's
+                // present - a GPU restart must not silently drop the dialog's
                 // device (or leave it pointing at a list the user can no longer
                 // see). The row objects are new after every scan, so match by
                 // instance id.
@@ -330,7 +331,7 @@ namespace kaliteConfig.ViewModels
                     device.DevicePolicyShort = AffinityService.DevicePolicyShort(info.DevicePolicy);
                     device.DevicePriorityShort = AffinityService.DevicePriorityName(info.DevicePriority);
                     device.AffinityText = AffinityService.AffinityMaskText(info.AffinityMask);
-                    device.IrqText = info.MsiSupported == true ? "MSI" : info.MsiSupported == false ? "Line" : "—";
+                    device.IrqText = info.MsiSupported == true ? "MSI" : info.MsiSupported == false ? "Line" : "-";
 
                     switch (device.Category)
                     {
@@ -389,7 +390,7 @@ namespace kaliteConfig.ViewModels
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "MsiEnabled", oldMsi, item.MsiEnabled, DateTime.Now));
             }
 
-            // MSI Limit — 0 (Auto) deletes the value, like the reference tool.
+            // MSI Limit - 0 (Auto) deletes the value, like the reference tool.
             int oldLimit = (int)(info.MsiLimit ?? 0);
             int newLimit = (int)item.MsiLimit;
             if (newLimit != oldLimit)
@@ -416,12 +417,12 @@ namespace kaliteConfig.ViewModels
                 }
             }
 
-            // A non-Specified policy must not keep a stale override behind —
+            // A non-Specified policy must not keep a stale override behind -
             // the reference tool deletes it in that case.
             if (policyTouched && newPolicy != 4)
                 _affinityService.ClearAffinityPolicy(item.DeviceInstanceId, "AssignmentSetOverride");
 
-            // Device Priority — Undefined (0) deletes the value, like the reference.
+            // Device Priority - Undefined (0) deletes the value, like the reference.
             int newPriority = PriorityNameToInt(item.SelectedPriority);
             int oldPriority = info.DevicePriority ?? 0;
             if (newPriority != oldPriority)
@@ -438,7 +439,7 @@ namespace kaliteConfig.ViewModels
             ulong newMask = BuildMaskFromGroups(item);
             ulong oldMask = info.AffinityMask ?? 0;
             // No explicit override + everything still checked = "system
-            // default", not a change — don't write a redundant full mask.
+            // default", not a change - don't write a redundant full mask.
             bool isDefaultUnchanged = info.AffinityMask is null && newMask == RenderedMask(item);
             bool maskTouched = false;
             if (!isDefaultUnchanged && newMask != oldMask)
@@ -457,9 +458,9 @@ namespace kaliteConfig.ViewModels
             // Update the table columns live
             var refreshed = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.DevicePolicyShort = AffinityService.DevicePolicyShort(refreshed.DevicePolicy);
-            item.DevicePriorityShort = refreshed.DevicePriority is null ? "—" : AffinityService.DevicePriorityName(refreshed.DevicePriority);
+            item.DevicePriorityShort = refreshed.DevicePriority is null ? "-" : AffinityService.DevicePriorityName(refreshed.DevicePriority);
             item.AffinityText = AffinityService.AffinityMaskText(refreshed.AffinityMask);
-            item.IrqText = refreshed.MsiSupported == true ? "MSI" : refreshed.MsiSupported == false ? "Line" : "—";
+            item.IrqText = refreshed.MsiSupported == true ? "MSI" : refreshed.MsiSupported == false ? "Line" : "-";
 
             // Resync the dialog checkboxes from readback so a partial/failed
             // write can never leave them lying about the applied affinity.
@@ -526,7 +527,7 @@ namespace kaliteConfig.ViewModels
         /// <summary>
         /// Restarts devices with all native GPU access held off: a telemetry
         /// or fan tick landing mid-restart can fault INSIDE nvapi64/nvml
-        /// (0xc0000005) where no managed catch can contain it — the exact
+        /// (0xc0000005) where no managed catch can contain it - the exact
         /// crash seen after Optimize restarts the GPU. Settles PnP, then
         /// forces fresh native handles before anyone calls in again.
         /// </summary>
@@ -554,6 +555,12 @@ namespace kaliteConfig.ViewModels
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
 
+        /// <summary>Isolates the lowest set bit (first thread of a core mask).</summary>
+        private static ulong LowestSetBit(ulong mask) => mask & (ulong)(-(long)mask);
+
+        /// <summary>Isolates the highest set bit (last thread of a core mask).</summary>
+        private static ulong HighestSetBit(ulong mask) => 1UL << BitOperations.Log2(mask);
+
         [RelayCommand]
         private async Task OptimizeAsync()
         {
@@ -574,15 +581,12 @@ namespace kaliteConfig.ViewModels
 
                 Debug.WriteLine($"[Topology] TotalLogical={topology.TotalLogicalCores}, Physical={topology.PhysicalCores}, Reserved={topology.ReservedCore}");
                 
-                // Available cores (Performance only) are already stripped of the OS core 0 in TopologyService
-                var rawCores = new List<ulong>(topology.PerformanceCoreMasks);
-
-                // Classify into tiers. Graphics and Network get SEPARATE physical
-                // cores — NIC interrupts are frequent (especially Wi-Fi 7 under
-                // load) and sharing a core with the GPU's DPCs hurts both.
+                // Group devices by type for the AutoOS affinity layout below.
+                // "Other" / unknown - never touched.
                 var graphicsTier = new List<AffinityDeviceItem>();
                 var networkTier = new List<AffinityDeviceItem>();
-                var normalTier = new List<AffinityDeviceItem>();
+                var usbTier = new List<AffinityDeviceItem>();
+                var audioTier = new List<AffinityDeviceItem>();
 
                 foreach (var dev in allDevices)
                 {
@@ -592,18 +596,42 @@ namespace kaliteConfig.ViewModels
                             graphicsTier.Add(dev);
                             break;
                         case "Network":
-                            // Prefer a dedicated core when we can afford it.
-                            if (topology.PhysicalCores > 4)
-                                networkTier.Add(dev);
-                            else
-                                normalTier.Add(dev);
+                            networkTier.Add(dev);
                             break;
                         case "Usb":
-                        case "Audio":
-                            normalTier.Add(dev);
+                            usbTier.Add(dev);
                             break;
-                        // "Other" / unknown — never touched
+                        case "Audio":
+                            audioTier.Add(dev);
+                            break;
                     }
+                }
+
+                // AutoOS affinity layout over ALL P-cores (core 0 included,
+                // exactly like AutoOS). Last P-core -> NIC, second-last -> USB,
+                // third + fourth-last -> GPU, fifth-last -> audio. With exactly
+                // 4 P-cores the last core is split by thread.
+                var pCores = new List<ulong>(topology.AllPerformanceCoreMasks);
+                if (pCores.Count < 4)
+                {
+                    StatusText = "Optimization needs at least 4 performance cores - no changes made.";
+                    return;
+                }
+
+                ulong nicMask, xhciMask, gpuMask, audioMask;
+                if (pCores.Count == 4)
+                {
+                    audioMask = pCores[0];
+                    gpuMask = pCores[1] | pCores[2];
+                    xhciMask = LowestSetBit(pCores[3]);
+                    nicMask = HighestSetBit(pCores[3]);
+                }
+                else
+                {
+                    nicMask = pCores[^1];
+                    xhciMask = pCores[^2];
+                    gpuMask = pCores[^3] | pCores[^4];
+                    audioMask = pCores[^5];
                 }
 
                 // ─ Step 1: Enable MSI for EVERY device that reports support.
@@ -631,80 +659,6 @@ namespace kaliteConfig.ViewModels
                         }
                     }
                 }
-
-                // ─ Step 2: Topology-Aware Affinity assignment ─
-                
-                // Group available performance cores by their Core Complex (CCX / L3 Cache)
-                var ccxGroups = new Dictionary<ulong, List<ulong>>();
-                foreach (var ccxMask in topology.CoreComplexMasks)
-                    ccxGroups[ccxMask] = new List<ulong>();
-
-                foreach (var coreMask in rawCores)
-                {
-                    bool mapped = false;
-                    foreach (var ccxMask in topology.CoreComplexMasks)
-                    {
-                        if ((coreMask & ccxMask) == coreMask)
-                        {
-                            ccxGroups[ccxMask].Add(coreMask);
-                            mapped = true;
-                            break;
-                        }
-                    }
-                    if (!mapped)
-                    {
-                        // Fallback grouping if CCX masking failed for this core
-                        if (!ccxGroups.ContainsKey(0)) ccxGroups[0] = new List<ulong>();
-                        ccxGroups[0].Add(coreMask);
-                    }
-                }
-                
-                // Sort CCX groups by size descending
-                var validCcxs = ccxGroups.Values.Where(g => g.Count > 0).OrderByDescending(g => g.Count).ToList();
-                if (validCcxs.Count == 0) validCcxs.Add(rawCores); // Fallback
-
-                ulong gpuMask = 0;
-                ulong nicMask = 0;
-                ulong peripheralMask = 0;
-
-                int coresPerGroup = topology.PhysicalCores > 8 ? 2 : 1;
-
-                ulong BuildMask(List<ulong> pool, int requestedCores)
-                {
-                    ulong m = 0;
-                    for (int i = 0; i < requestedCores && pool.Count > 0; i++)
-                    {
-                        m |= pool[^1];
-                        pool.RemoveAt(pool.Count - 1);
-                    }
-                    return m;
-                }
-
-                if (validCcxs.Count >= 2)
-                {
-                    // Multi-CCX (e.g. Ryzen 9, Threadripper, multi-socket)
-                    // GPU on the largest CCX; NIC and peripherals on the next CCX
-                    // but on DIFFERENT physical cores.
-                    gpuMask = BuildMask(validCcxs[0], coresPerGroup);
-                    nicMask = BuildMask(validCcxs[1], coresPerGroup);
-                    peripheralMask = BuildMask(validCcxs[1], coresPerGroup);
-                }
-                else
-                {
-                    // Single CCX / unified L3: each tier gets its own physical
-                    // core (or pair of threads), taken from opposite ends of the
-                    // pool so GPU/NIC/peripherals never share a physical core.
-                    var pool = validCcxs[0];
-                    gpuMask = BuildMask(pool, coresPerGroup);
-                    nicMask = BuildMask(pool, coresPerGroup);
-                    peripheralMask = BuildMask(pool, coresPerGroup);
-                }
-
-                // If any mask failed to build because we ran out of cores, fallback to just spreading
-                if (gpuMask == 0 && rawCores.Count > 0) gpuMask = rawCores[^1];
-                if (nicMask == 0 && rawCores.Count > 0) nicMask = rawCores[0];
-                if (peripheralMask == 0 && rawCores.Count > 0) peripheralMask = rawCores[0];
-
                 void ApplyTier(IEnumerable<AffinityDeviceItem> devices, ulong mask, int priority)
                 {
                     foreach (var dev in devices)
@@ -727,7 +681,7 @@ namespace kaliteConfig.ViewModels
                             modifiedIds.Add(dev.DeviceInstanceId);
                         }
 
-                        // Set priority — Undefined (0) deletes the value, like
+                        // Set priority - Undefined (0) deletes the value, like
                         // the reference tool.
                         int oldPrio = info.DevicePriority ?? 0;
                         if (oldPrio != priority)
@@ -748,9 +702,10 @@ namespace kaliteConfig.ViewModels
                             _affinityService.SetRSS(dev.DeviceInstanceId, mask);
                     }
                 }
-                ApplyTier(graphicsTier, gpuMask, 0);        // GPU alone on its core(s)
-                ApplyTier(networkTier, nicMask, 0);         // NICs on a different core
-                ApplyTier(normalTier, peripheralMask, 0);   // USB/audio on a third
+                ApplyTier(graphicsTier, gpuMask, 0);   // GPU on its own core(s)
+                ApplyTier(networkTier, nicMask, 0);    // NIC on the last P-core
+                ApplyTier(usbTier, xhciMask, 0);       // USB on the second-last P-core
+                ApplyTier(audioTier, audioMask, 0);    // Audio on the fifth-last P-core
 
                 if (modifiedIds.Count > 0)
                 {
@@ -759,7 +714,7 @@ namespace kaliteConfig.ViewModels
                 }
 
                 await RefreshDevicesAsync();
-                StatusText = $"Optimization complete — {_undoStack.Count} change(s) applied and restarted.";
+                StatusText = $"Optimization complete - {_undoStack.Count} change(s) applied and restarted.";
             }
             catch (Exception ex)
             {

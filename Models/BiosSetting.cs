@@ -98,7 +98,7 @@ public sealed class BiosSetting
         return null;
     }
 
-    private const string NotANumber = "Not a valid number — use 0x-prefixed hex or plain decimal.";
+    private const string NotANumber = "Not a valid number - use 0x-prefixed hex or plain decimal.";
 
     /// <summary>Parses "0x2C" (hex) or "44" (decimal); tolerates a trailing annotation.</summary>
     public static bool TryParseNumber(string? text, out long value)

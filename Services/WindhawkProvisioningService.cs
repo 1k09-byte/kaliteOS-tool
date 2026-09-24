@@ -32,7 +32,7 @@ public sealed class WindhawkProvisioningService
 {
     private static readonly HttpClient _httpClient = new();
 
-    // Direct pinned URL — replaces GitHub API lookup (per user request).
+    // Direct pinned URL - replaces GitHub API lookup (per user request).
     // Keep OfficialSiteUrl for error messages / verification fallback.
     public const string DirectDownloadUrl = "https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.5/windhawk_setup.exe";
     public const string DirectVersion = "2.0.0-alpha.5";
@@ -87,7 +87,7 @@ public sealed class WindhawkProvisioningService
             return existing;
         }
         // 1.7.x (no windhawk-cli.exe) or not installed: run the pinned
-        // 2.0.0-alpha.5 installer — the CLI it ships is required for
+        // 2.0.0-alpha.5 installer - the CLI it ships is required for
         // settings import, so an existing legacy install is UPGRADED,
         // not skipped. NSIS /S over the top handles the upgrade in place.
 
@@ -124,7 +124,7 @@ public sealed class WindhawkProvisioningService
         if (result.CliPath is null)
         {
             throw new InvalidOperationException(
-                "Windhawk was installed but windhawk-cli.exe is missing — settings import requires the 2.0 CLI. " +
+                "Windhawk was installed but windhawk-cli.exe is missing - settings import requires the 2.0 CLI. " +
                 "The pinned installer may have been superseded: check " + OfficialSiteUrl);
         }
 
@@ -149,7 +149,7 @@ public sealed class WindhawkProvisioningService
         IProgress<ProvisionProgress> progress,
         CancellationToken ct)
     {
-        // 1. Resolve — direct pinned URL, no GitHub API (mirrors AutoOS AppsStage.cs).
+        // 1. Resolve - direct pinned URL, no GitHub API (mirrors AutoOS AppsStage.cs).
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Resolving,
             $"Using Windhawk {DirectVersion} direct download...", null));
 
@@ -166,7 +166,7 @@ public sealed class WindhawkProvisioningService
         await DownloadFileAsync(downloadUrl, installerPath, 0, progress, ct);
 
         // Always use the provided jsonPath which must be the KaliteOS bundled file (Assets/Windhawk/KaliteOS.json).
-        // If missing, resolve the bundled asset directly — never use AutoOS remote.
+        // If missing, resolve the bundled asset directly - never use AutoOS remote.
         string effectiveJsonPath = jsonPath;
         if (string.IsNullOrWhiteSpace(effectiveJsonPath) || !File.Exists(effectiveJsonPath))
         {
@@ -177,13 +177,13 @@ public sealed class WindhawkProvisioningService
 
         try
         {
-            // 3. Silent install — AutoOS: Process.Start(windhawk_setup_offline.exe, "/S", hidden).WaitForExitAsync()
+            // 3. Silent install - AutoOS: Process.Start(windhawk_setup_offline.exe, "/S", hidden).WaitForExitAsync()
             progress.Report(new ProvisionProgress(WindhawkProvisionStage.Installing,
                 "Installing Windhawk (silent)...", null));
 
             await RunInstallerSilentlyAsync(installerPath, ct);
 
-            // 4. Import settings via CLI — AutoOS: windhawk-cli.exe data import "windhawk.json" --confirm-app-restart --yes
+            // 4. Import settings via CLI - AutoOS: windhawk-cli.exe data import "windhawk.json" --confirm-app-restart --yes
             progress.Report(new ProvisionProgress(WindhawkProvisionStage.Installing,
                 "Importing Windhawk settings...", null));
 
@@ -253,7 +253,7 @@ public sealed class WindhawkProvisioningService
             if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
-                    "Downloaded Windhawk installer failed SHA256 verification — download may be corrupted or tampered with. Aborting.");
+                    "Downloaded Windhawk installer failed SHA256 verification - download may be corrupted or tampered with. Aborting.");
             }
         }, ct);
     }

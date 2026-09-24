@@ -10,7 +10,7 @@ namespace kaliteConfig.Services;
 ///
 /// Callback correctness: the callback message MUST come from
 /// RegisterWindowMessage, not a raw WM_APP constant. WM_APP-range values are
-/// per-window private conventions — every other tray icon on the system uses
+/// per-window private conventions - every other tray icon on the system uses
 /// one too, so a hardcoded WM_APP+1 made this window receive (and misread as
 /// clicks) every tray message in the shell, flooding WndProc hundreds of
 /// times per second and drowning the real right-click. A registered message
@@ -230,7 +230,7 @@ public sealed class TrayIconService : IDisposable
             }
             // A hidden-but-VISIBLE popup parked off-screen (NOT a message-only
             // window): tray callbacks arrive and the window CAN take the
-            // foreground — which TrackPopupMenu requires, or the menu closes
+            // foreground - which TrackPopupMenu requires, or the menu closes
             // the instant it opens (observed: picked=0 two ms after enter).
             // WS_EX_NOACTIVATE was removed for exactly that reason: a
             // NOACTIVATE window cannot become foreground, so SetForegroundWindow
@@ -276,7 +276,7 @@ public sealed class TrayIconService : IDisposable
 
     /// <summary>
     /// Updates the hover tooltip (NIM_MODIFY). Used for the persistent
-    /// "currently active game profile" indicator — the user is usually not
+    /// "currently active game profile" indicator - the user is usually not
     /// looking at the main window when an auto-switch fires, but the tray
     /// is always one hover away. No-op when the icon isn't up.
     /// </summary>
@@ -305,7 +305,7 @@ public sealed class TrayIconService : IDisposable
             if (msg == CallbackMsg)
             {
                 // Identity check: registered messages are unique, but stay
-                // defensive — only treat it as ours when the sender says uID 1.
+                // defensive - only treat it as ours when the sender says uID 1.
                 if (wParam != (IntPtr)1) return DefWindowProcW(hWnd, msg, wParam, lParam);
 
                 uint mouse = (uint)(lParam.ToInt64() & 0xFFFF);

@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 namespace kaliteConfig.GpuOverclock.Services
 {
     /// <summary>
-    /// Minimal dynamic bridge to nvml.dll — the same driver-shipped library
-    /// nvidia-smi itself links against — used only for fields classic NVAPI
+    /// Minimal dynamic bridge to nvml.dll - the same driver-shipped library
+    /// nvidia-smi itself links against - used only for fields classic NVAPI
     /// does not expose: absolute power draw in milliwatts and the absolute
     /// power limit. Loaded lazily with LoadLibrary; if the library or any
     /// entry point is missing, every read returns false and the module simply

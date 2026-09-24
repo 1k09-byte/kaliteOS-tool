@@ -34,7 +34,7 @@ public sealed class ScewinParseException : Exception
 ///    missing optional fields and unknown keys are all accepted.
 ///  - Round-trip faithful: every line lands in exactly one segment whose text
 ///    is preserved verbatim; the exporter only rewrites the item's value line.
-///  - Pure: text in, model out — no file I/O, no UI dependencies.
+///  - Pure: text in, model out - no file I/O, no UI dependencies.
 /// </summary>
 public static class ScewinParser
 {
@@ -50,7 +50,7 @@ public static class ScewinParser
     private static readonly Regex HeaderRegex = new(@"^-{2,}\s*(?<body>.*?)\s*-{2,}$", RegexOptions.Compiled);
     private static readonly Regex DashRuns = new(@"-{2,}", RegexOptions.Compiled);
     private static readonly Regex OptionRange = new(
-        @"^(?<low>0x[0-9A-Fa-f]+|\d+)\s*(?:\.\.|\.\.|—|–|-)\s*(?<high>0x[0-9A-Fa-f]+|\d+)$",
+        @"^(?<low>0x[0-9A-Fa-f]+|\d+)\s*(?:\.\.|\.\.|-|–|-)\s*(?<high>0x[0-9A-Fa-f]+|\d+)$",
         RegexOptions.Compiled);
     /// <summary>Bracketed option entry, e.g. "[00]Auto" or " *[01]Enabled".</summary>
     private static readonly Regex BracketOption = new(@"^\*?\[[0-9A-Fa-f]+\]", RegexOptions.Compiled);
@@ -72,7 +72,7 @@ public static class ScewinParser
             var raw = lines[i].Content + lines[i].Ending;
             var trimmed = lines[i].Content.Trim();
 
-            // A new "Setup Question" ALWAYS starts a new record — flush any
+            // A new "Setup Question" ALWAYS starts a new record - flush any
             // open item first. This is the record separator for dumps without
             // blank lines or dashed rules.
             int eq = lines[i].Content.IndexOf('=');
@@ -109,7 +109,7 @@ public static class ScewinParser
                 continue;
             }
 
-            // Comments, banners, blanks, orphan lines — kept verbatim.
+            // Comments, banners, blanks, orphan lines - kept verbatim.
             segments.Add(new OtherSegment { Raw = raw });
         }
         builder.FlushInto(items, segments, path);
@@ -117,17 +117,17 @@ public static class ScewinParser
 
         if (items.Count == 0)
             throw new ScewinParseException(
-                "No 'Setup Question' entries were found — this doesn't look like a SCEWIN dump.");
+                "No 'Setup Question' entries were found - this doesn't look like a SCEWIN dump.");
 
         // Self-check: every "Setup Question" marker line must have produced
         // exactly one item. A mismatch means the record-splitting logic lost
-        // records — fail loudly rather than silently showing a partial list.
+        // records - fail loudly rather than silently showing a partial list.
         int markerCount = CountSetupQuestionMarkers(lines);
         if (markerCount != items.Count)
         {
             throw new ScewinParseException(
                 $"Parser self-check failed: found {markerCount} 'Setup Question' records " +
-                $"but produced {items.Count} settings. The record separator logic is broken — " +
+                $"but produced {items.Count} settings. The record separator logic is broken - " +
                 "please report this with the dump file.");
         }
 
@@ -283,7 +283,7 @@ public static class ScewinParser
         {
             _raw.Add(raw);
             _optionContinuations.Add(trimmed);
-            // Track the starred continuation too — the star can appear on any line.
+            // Track the starred continuation too - the star can appear on any line.
             if (trimmed.StartsWith('*'))
                 _currentMarkerToken = ExtractRawToken(trimmed) ?? _currentMarkerToken;
         }
@@ -304,7 +304,7 @@ public static class ScewinParser
             }
             else if (_raw.Count > 0)
             {
-                // Key/value text outside any item (shouldn't happen) — keep verbatim.
+                // Key/value text outside any item (shouldn't happen) - keep verbatim.
                 segments.Add(new OtherSegment { Raw = string.Concat(_raw) });
             }
 

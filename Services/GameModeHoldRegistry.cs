@@ -60,7 +60,7 @@ public readonly record struct GameModeReleaseResult(bool HadHold, bool SessionEn
 /// Why this exists: the session used to be a bare boolean. Any caller could
 /// activate (the second one silently re-demoted everything into its own restore
 /// map while the shared orchestrator session no-op'd), and ANY caller could
-/// deactivate — so whichever finished first tore down the session for the
+/// deactivate - so whichever finished first tore down the session for the
 /// others and stranded their changes. Now the session lives exactly as long as
 /// somebody holds it, and it is torn down by the LAST release, not the first.
 ///
@@ -113,7 +113,7 @@ public sealed class GameModeHoldRegistry
     /// <summary>
     /// Takes (or refreshes) this owner's hold and reports what should happen to
     /// the session. <paramref name="isAlive"/> decides whether the running
-    /// session's target may be replaced — injected so the policy is testable.
+    /// session's target may be replaced - injected so the policy is testable.
     /// </summary>
     public GameModeAcquireResult Acquire(
         GameModeOwner owner,

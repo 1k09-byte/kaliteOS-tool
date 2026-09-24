@@ -6,7 +6,7 @@ namespace kaliteConfig.Models;
 public abstract class ScewinSegment { }
 
 /// <summary>
-/// Any line that is neither a section header nor part of a setup item —
+/// Any line that is neither a section header nor part of a setup item -
 /// comments, "!BIOS ..." banners, dashed separators, blank lines. Preserved
 /// verbatim (content + original line ending) so export round-trips exactly.
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class ItemSegment : ScewinSegment
 }
 
 /// <summary>
-/// A full SCEWIN dump. The segment stream covers the ENTIRE file in order —
+/// A full SCEWIN dump. The segment stream covers the ENTIRE file in order -
 /// exporting concatenates the segments back, substituting edited items'
 /// "Value" lines, which yields a byte-identical file when nothing changed.
 /// </summary>

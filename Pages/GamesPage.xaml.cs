@@ -62,9 +62,9 @@ public sealed partial class GamesPage : Page
     private void CoverImage_ImageFailed(object sender, ExceptionRoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not GameModel game) return;
-        GameLibraryService.Log($"[ImageFail] Cover URL failed for '{game.Title}': {game.CoverImageUrl} — {e.ErrorMessage}");
+        GameLibraryService.Log($"[ImageFail] Cover URL failed for '{game.Title}': {game.CoverImageUrl} - {e.ErrorMessage}");
 
-        // Retry as a direct file stream — WinUI's Image sometimes throws
+        // Retry as a direct file stream - WinUI's Image sometimes throws
         // E_NETWORK_ERROR on file:// URIs even when the file is readable.
         if (TryLoadLocalFileAsync(sender, game).GetAwaiter().GetResult())
         {
@@ -82,7 +82,7 @@ public sealed partial class GamesPage : Page
             return;
         }
 
-        // Fallback 3: brand-color block with wordmark — never a bare gray box.
+        // Fallback 3: brand-color block with wordmark - never a bare gray box.
         GameLibraryService.Log($"[ImageFail] Wordmark fallback applied for '{game.Title}'");
         if ((sender as FrameworkElement)?.Parent is Grid grid)
         {

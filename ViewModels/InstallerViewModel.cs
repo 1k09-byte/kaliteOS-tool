@@ -33,7 +33,7 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool ShowInstalled { get; set; } = false;
 
-        /// <summary>True when every section is empty — drives the empty-state message.</summary>
+        /// <summary>True when every section is empty - drives the empty-state message.</summary>
         [ObservableProperty]
         public partial bool NothingToInstall { get; set; } = false;
 
@@ -170,7 +170,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Location Guard",
                 ChromiumExtensionId = "cfohepagpmnodfdmjliccbbigdkfcgia",
-                Description = "Hides your precise geographic location from websites by adding noise to it. (Unavailable — MV2 delisted from CWS)",
+                Description = "Hides your precise geographic location from websites by adding noise to it. (Unavailable - MV2 delisted from CWS)",
                 IsAvailable = false,
                 IsSelected = false
             });
@@ -196,7 +196,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "ClearURLs",
                 ChromiumExtensionId = "lckanjgmijmafbedllaakclkaicjfmnk",
-                Description = "Automatically removes tracking parameters from URLs. (Unavailable — MV2 delisted from CWS)",
+                Description = "Automatically removes tracking parameters from URLs. (Unavailable - MV2 delisted from CWS)",
                 IsAvailable = false,
                 IsSelected = false
             });
@@ -245,7 +245,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Location Guard",
                 ChromiumExtensionId = "cfohepagpmnodfdmjliccbbigdkfcgia",
-                Description = "Hides your precise geographic location from websites by adding noise to it. (Unavailable — MV2 delisted from CWS)",
+                Description = "Hides your precise geographic location from websites by adding noise to it. (Unavailable - MV2 delisted from CWS)",
                 IsAvailable = false,
                 IsSelected = false
             });
@@ -271,7 +271,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "ClearURLs",
                 ChromiumExtensionId = "lckanjgmijmafbedllaakclkaicjfmnk",
-                Description = "Automatically removes tracking parameters from URLs. (Unavailable — MV2 delisted from CWS)",
+                Description = "Automatically removes tracking parameters from URLs. (Unavailable - MV2 delisted from CWS)",
                 IsAvailable = false,
                 IsSelected = false
             });
@@ -293,7 +293,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Location Guard",
                 ChromiumExtensionId = "cfohepagpmnodfdmjliccbbigdkfcgia",
-                Description = "Hides your precise geographic location from websites by adding noise to it. (Unavailable — MV2 delisted from CWS)",
+                Description = "Hides your precise geographic location from websites by adding noise to it. (Unavailable - MV2 delisted from CWS)",
                 IsAvailable = false,
                 IsSelected = false
             });
@@ -319,7 +319,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "ClearURLs",
                 ChromiumExtensionId = "lckanjgmijmafbedllaakclkaicjfmnk",
-                Description = "Automatically removes tracking parameters from URLs. (Unavailable — MV2 delisted from CWS)",
+                Description = "Automatically removes tracking parameters from URLs. (Unavailable - MV2 delisted from CWS)",
                 IsAvailable = false,
                 IsSelected = false
             });

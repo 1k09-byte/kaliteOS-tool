@@ -34,7 +34,7 @@ namespace OcVerify
 
             // Child mode: acts as the "app running curve mode" that the orphan
             // test hard-kills. Runs its own fan-hold loop and exits by being
-            // killed — never cleans up, exactly like a crashed app.
+            // killed - never cleans up, exactly like a crashed app.
             if (args.FirstOrDefault() == "fan-hold")
             {
                 RunFanHoldChild(args.Length > 1 ? int.Parse(args[1]) : 12);
@@ -135,8 +135,8 @@ namespace OcVerify
                 // Idle clocks bounce between P-states; sample-to-sample deltas are
                 // expected. Tolerances cover P-state transitions during the window.
                 Check(worstTempDelta is null || worstTempDelta <= 3, $"GPU temp within 3C of nvidia-smi (worst delta {worstTempDelta}C)");
-                Check(worstCoreDelta <= 400, $"core clock within 400MHz of nvidia-smi (worst delta {worstCoreDelta:0}MHz — P-state bounce)");
-                Check(worstMemDelta <= 400, $"mem clock within 400MHz of nvidia-smi (worst delta {worstMemDelta:0}MHz — P-state bounce)");
+                Check(worstCoreDelta <= 400, $"core clock within 400MHz of nvidia-smi (worst delta {worstCoreDelta:0}MHz - P-state bounce)");
+                Check(worstMemDelta <= 400, $"mem clock within 400MHz of nvidia-smi (worst delta {worstMemDelta:0}MHz - P-state bounce)");
             }
 
             // Capabilities: ranges must be driver-queried, never hardcoded.
@@ -200,7 +200,7 @@ namespace OcVerify
 
         // ---------------------------------------------------------------
         // Step 2 (spec 9): the section-4 safety machine, end to end, on
-        // the real GPU — apply/confirm, apply/expire-revert, manual revert.
+        // the real GPU - apply/confirm, apply/expire-revert, manual revert.
         // ---------------------------------------------------------------
         private static void VerifySafetyCycle()
         {
@@ -261,7 +261,7 @@ namespace OcVerify
                 Check(b, "B: batch applied (driver accepted -15 MHz core)");
                 Check(controller.ReadCurrentOffsets().Value.CoreOffsetMHz == core0 - 15, "B: -15 visible during window");
 
-                // The anchor is Test A's CONFIRMED +15 — last known good, not
+                // The anchor is Test A's CONFIRMED +15 - last known good, not
                 // factory 0 (spec 4.2: revert restores prior working config).
                 bool revertedB = SpinUntil(() => safety.CurrentState == SafetyState.Idle &&
                                                 controller.ReadCurrentOffsets().Value.CoreOffsetMHz == core0 + 15, 8000);
@@ -289,7 +289,7 @@ namespace OcVerify
                 var oorRead = controller.ReadCurrentOffsets().Value.CoreOffsetMHz;
                 Check(oor.IsSuccess && oorRead <= rangeMax,
                     $"D: out-of-range write clamped to queried range (wrote +10000, applied {oorRead:+0;-0;0}, max {rangeMax:+0;-0;0})");
-                controller.SetCoreOffsetMhz(core0); // restore immediately — do not hold the clamped max offset
+                controller.SetCoreOffsetMhz(core0); // restore immediately - do not hold the clamped max offset
 
                 // ---- Test E: revert-to-prior-config (not defaults) ------------
                 // Apply + confirm a +10 working config, then a second batch that
@@ -327,14 +327,14 @@ namespace OcVerify
             Console.WriteLine();
             Console.WriteLine("Change-log entries written this run:");
             foreach (var e in logger.Tail().TakeLast(12))
-                Console.WriteLine("  " + e.Result + "  " + e.ControlName + ": " + e.OldValue + " -> " + e.NewValue + "  (" + e.Source + ")" + (e.FailureReason is null ? "" : " — " + e.FailureReason));
+                Console.WriteLine("  " + e.Result + "  " + e.ControlName + ": " + e.OldValue + " -> " + e.NewValue + "  (" + e.Source + ")" + (e.FailureReason is null ? "" : " - " + e.FailureReason));
         }
 
         // ---------------------------------------------------------------
         // Step 5 (spec 9): fan Curve mode tracks a real thermal change. No
         // load tools exist on this machine, so the load is induced with a
         // driver clock lock (nvidia-smi -lgc), which holds the GPU at boost
-        // clock and roughly doubles idle power draw — a genuine thermal event
+        // clock and roughly doubles idle power draw - a genuine thermal event
         // the curve must react to. Fully revertible with -rgc.
         // ---------------------------------------------------------------
         private static void VerifyFanCurveUnderLoad()
@@ -347,7 +347,7 @@ namespace OcVerify
             // Never fight a live curve loop from the real app.
             if (System.IO.File.Exists(FanCurveExecutionService.GetMarkerPath(null)))
             {
-                Console.WriteLine("  active curve marker present — aborting to avoid fighting a live session");
+                Console.WriteLine("  active curve marker present - aborting to avoid fighting a live session");
                 Check(false, "fan test precondition (no live curve)");
                 return;
             }
@@ -407,7 +407,7 @@ namespace OcVerify
                 if (!stopped) safety.StopAsync("harness teardown").GetAwaiter().GetResult();
 
                 // RestoreFanAuto returns before the driver's auto loop ramps the
-                // physical fan down from the last forced level — give it a
+                // physical fan down from the last forced level - give it a
                 // settle window rather than sampling a single instant.
                 var fanFree = SpinUntil(() =>
                 {
@@ -462,7 +462,7 @@ namespace OcVerify
 
             if (System.IO.File.Exists(FanCurveExecutionService.GetMarkerPath(null)))
             {
-                Console.WriteLine("  active curve marker present — aborting to avoid fighting a live session");
+                Console.WriteLine("  active curve marker present - aborting to avoid fighting a live session");
                 Check(false, "orphan test precondition (no live curve)");
                 return;
             }
@@ -489,7 +489,7 @@ namespace OcVerify
             }
             Thread.Sleep(1500); // first forced write lands (interval 500ms)
 
-            child.Kill(entireProcessTree: true); // THE hard kill — no Dispose possible
+            child.Kill(entireProcessTree: true); // THE hard kill - no Dispose possible
             child.WaitForExit(5000);
             Check(child.HasExited, "child process killed mid-Curve (no cleanup ran)");
 
@@ -499,7 +499,7 @@ namespace OcVerify
             var stuck = controller.ReadTelemetry();
             Console.WriteLine($"  fan while orphaned: {Fmt(stuck.Value.FanPercent)}% (forced 100%)");
 
-            // Recovery — the path a fresh app start takes.
+            // Recovery - the path a fresh app start takes.
             bool recovered = FanCurveExecutionService.EnsureNoOrphanedFanControl(controller);
             Check(recovered, "startup recovery detected the orphan and restored driver control");
             Check(!System.IO.File.Exists(markerPath), "marker cleared after recovery");
@@ -516,8 +516,8 @@ namespace OcVerify
         }
 
         // ---------------------------------------------------------------
-        // Phase 3 (spec process step 3): the REMAINING controls — power limit
-        // and temp limit — through the same safety machine, with driver
+        // Phase 3 (spec process step 3): the REMAINING controls - power limit
+        // and temp limit - through the same safety machine, with driver
         // readback confirmation (taxonomy: "write succeeded but readback does
         // not confirm the change" must surface, not silently pass).
         // ---------------------------------------------------------------
@@ -548,7 +548,7 @@ namespace OcVerify
                 if (powerRange is null) { Check(false, "power limit control exposed by driver"); return; }
 
                 // Values stay modest and inside the queried range: +10% power
-                // (idle card draws ~17W — no thermal risk in a 3s window) and
+                // (idle card draws ~17W - no thermal risk in a 3s window) and
                 // temp limit +2C. The controller clamps regardless.
                 double powerNew = Math.Min(powerRange!.Maximum, power0 + 10);
 
@@ -591,7 +591,7 @@ namespace OcVerify
                 }
                 else
                 {
-                    Console.WriteLine("  (temp limit not exposed by this driver — control correctly hidden in UI)");
+                    Console.WriteLine("  (temp limit not exposed by this driver - control correctly hidden in UI)");
                 }
 
                 // ---- Test PW: power batch expiry reverts to confirmed anchor --
@@ -632,7 +632,7 @@ namespace OcVerify
             Console.WriteLine($"  pre-existing registration: {wasRegistered}");
             if (wasRegistered)
             {
-                Console.WriteLine("  task already registered — verifying query only (not unregistering a real user setting)");
+                Console.WriteLine("  task already registered - verifying query only (not unregistering a real user setting)");
                 Check(true, "startup task: registration state queryable");
                 return;
             }
@@ -646,7 +646,7 @@ namespace OcVerify
 
         // ---------------------------------------------------------------
         // Phase 5 end-to-end: the headless startup reapply through the REAL
-        // safety machine — designated + validated profile, shortened silent
+        // safety machine - designated + validated profile, shortened silent
         // window, expiry-confirms, ConfirmedAt stamped, baseline restored.
         // Uses an isolated profile directory (never touches the real app's
         // default designation).
@@ -707,7 +707,7 @@ namespace OcVerify
 
         /// <summary>
         /// Child mode: forces 100% fan through the REAL curve service (real
-        /// marker path), announces READY, then blocks. The parent kills it —
+        /// marker path), announces READY, then blocks. The parent kills it -
         /// simulating an app crash with a forced fan. Never cleans up.
         /// </summary>
         private static void RunFanHoldChild(int seconds)
@@ -720,7 +720,7 @@ namespace OcVerify
             Console.WriteLine("READY");
             Console.Out.Flush();
             Thread.Sleep(seconds * 1000);
-            // Intentionally NO StopAsync/Dispose — the kill simulates a crash.
+            // Intentionally NO StopAsync/Dispose - the kill simulates a crash.
         }
 
         // ---------------------------------------------------------------
@@ -775,7 +775,7 @@ namespace OcVerify
             try
             {
                 // Open a real safety batch so the watchdog signal must drive a
-                // genuine revert — same integration a real TDR would exercise.
+                // genuine revert - same integration a real TDR would exercise.
                 var applied = safety.ApplyBatchAsync(new[]
                 {
                     new PendingChange(OcControlNames.MemoryClockOffset, () => controller.SetMemoryOffsetMhz(mem0 + 100), "baseline", "+100 MHz"),
@@ -784,7 +784,7 @@ namespace OcVerify
 
                 Thread.Sleep(3500); // let the watchdog baseline settle past the window start
                 System.Diagnostics.EventLog.WriteEntry("nvlddmkm",
-                    "kaliteConfig OcVerify self-test event (synthetic — not a real driver fault)",
+                    "kaliteConfig OcVerify self-test event (synthetic - not a real driver fault)",
                     System.Diagnostics.EventLogEntryType.Error, 14);
                 Console.WriteLine("  injected synthetic nvlddmkm Error event");
 
@@ -808,7 +808,7 @@ namespace OcVerify
         // ---------------------------------------------------------------
         // v2 Part A hardware gate (spec process step 1): the V/F curve path
         // on the REAL GPU. Run on the target RTX machine BEFORE Part B work
-        // begins — Part B trusts profiles, and profiles now carry curve data.
+        // begins - Part B trusts profiles, and profiles now carry curve data.
         // Read-only first (base labels, ranges, index-alignment shape), then
         // one flat +15 MHz write through the safety machine with readback,
         // one per-point nudge, revert-to-anchor, and baseline restore.
@@ -922,11 +922,11 @@ namespace OcVerify
 
         // ---------------------------------------------------------------
         // Step 3 (spec 9): a REAL triggered TDR. Applies the queried maximum
-        // core offset (+1000 MHz on this card — far beyond silicon stability),
+        // core offset (+1000 MHz on this card - far beyond silicon stability),
         // which destabilizes the driver within seconds. The safety machine is
         // set to a 90s window so ONLY the watchdog's driver-reset detection can
         // trigger the revert. If no TDR occurs within 25s the test aborts and
-        // reverts manually — it never escalates past the slider-max offset.
+        // reverts manually - it never escalates past the slider-max offset.
         // ---------------------------------------------------------------
         private static void VerifyTdrWatchdog()
         {
@@ -977,8 +977,8 @@ namespace OcVerify
 
                 if (!reverted)
                 {
-                    // Card survived — do NOT go higher; abort cleanly.
-                    Console.WriteLine("  no TDR within 25s — aborting probe (card survived slider-max; not escalating)");
+                    // Card survived - do NOT go higher; abort cleanly.
+                    Console.WriteLine("  no TDR within 25s - aborting probe (card survived slider-max; not escalating)");
                     safety.RevertNow();
                     SpinUntil(() => safety.CurrentState == SafetyState.Idle, 5000);
                     Check(false, "TDR: driver did NOT reset at slider-max offset (test inconclusive, safely reverted)");

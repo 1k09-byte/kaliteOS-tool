@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="kaliteConfig.Pages.UninstallerPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -70,39 +70,21 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header: a single command-center card instead of a loose title row. -->
-        <Border Grid.Row="0" Margin="28,20,28,0" Style="{StaticResource RemoverCard}" Padding="20,16">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Button CornerRadius="12" Grid.Column="0" Click="BackToHub_Click" VerticalAlignment="Top" Margin="0,2,14,0"
-                        Style="{StaticResource SubtleButtonStyle}" ToolTipService.ToolTip="Back to Windows Settings">
-                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
-                </Button>
-                <StackPanel Grid.Column="1" Spacing="4">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <FontIcon Glyph="&#xE74D;" FontSize="20" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
-                        <TextBlock Text="Uninstaller &amp; Remover" FontSize="24" FontWeight="SemiBold" />
-                    </StackPanel>
-                    <TextBlock Text="Remove applications, clean driver packages, and control what starts with Windows." Style="{StaticResource RemoverCaption}" />
-                    <TextBlock Text="{Binding SummaryText}" Style="{StaticResource RemoverCaption}" Margin="0,4,0,0" />
-                </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="12,8">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="SAFETY FIRST" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Text="Confirm before removal" FontSize="13" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Border>
-                    <Button CornerRadius="12" Content="Refresh" Command="{Binding LoadAppsCommand}" />
-                </StackPanel>
-            </Grid>
-        </Border>
+        <!-- Header: hosted inside the Apps tab (no back button - outer Apps title owns navigation) -->
+        <Grid Grid.Row="0" Margin="36,8,36,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Uninstall" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,2,0,0"
+                           ToolTipService.ToolTip="Uninstaller &amp; remover - applications, driver packages, startup entries" />
+                <TextBlock Text="{Binding SummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadAppsCommand}" VerticalAlignment="Bottom" />
+        </Grid>
 
-        <!-- Toolbar: search + sort + filter chips (applications only —
+        <!-- Toolbar: search + sort + filter chips (applications only -
              hidden on the Remover/Startup tabs) -->
         <Border Grid.Row="1" Margin="28,14,28,0" Style="{StaticResource RemoverCard}" Padding="12,10"
                 Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -131,7 +113,7 @@
         </Border>
 
         <!-- Command bar: batch actions live in the details pane; this row keeps
-             view-level actions only. Applications only — hidden elsewhere. -->
+             view-level actions only. Applications only - hidden elsewhere. -->
         <Border Grid.Row="2" Margin="28,12,28,12" Style="{StaticResource RemoverCard}" Padding="12,8"
                 Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -247,7 +229,7 @@
                                         <Border Background="#FFD700" CornerRadius="4" Padding="8,3"
                                                 Visibility="{Binding HasUninstaller, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
                                             <TextBlock Text="!" FontSize="10" FontWeight="Bold" Foreground="Black"
-                                                       ToolTipService.ToolTip="No registered uninstaller — use Force Remove" />
+                                                       ToolTipService.ToolTip="No registered uninstaller - use Force Remove" />
                                         </Border>
                                     </StackPanel>
                                 </Grid>
@@ -752,7 +734,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <TextBlock Text="Nothing to show — this source has no entries, or the search hides them all." FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="Nothing to show - this source has no entries, or the search hides them all." FontSize="12" TextWrapping="Wrap"
                                        Visibility="{Binding EmptyVis}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Text="{Binding StartupStatusText}" FontSize="12" TextWrapping="Wrap"

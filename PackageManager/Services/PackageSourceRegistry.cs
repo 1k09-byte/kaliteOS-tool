@@ -191,7 +191,7 @@ public sealed class PackageSourceRegistry
                 SourceId = SourceId,
                 DisplayName = DisplayName,
                 Description = present
-                    ? Description + $" (tool detected{(version.Length > 0 ? $", {version}" : "")} — backend not built yet)"
+                    ? Description + $" (tool detected{(version.Length > 0 ? $", {version}" : "")} - backend not built yet)"
                     : Description,
                 IsImplemented = false,
                 IsEnabled = false,
