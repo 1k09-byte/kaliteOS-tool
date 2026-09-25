@@ -1,0 +1,235 @@
+<Page
+    x:Class="kaliteConfig.Pages.PriorityBoostsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:kaliteConfig.Pages"
+    xmlns:models="using:kaliteConfig.Models"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Page.Resources>
+        <!-- Rule Row Template -->
+        <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
+            <Border Margin="12,4" Padding="14,10" CornerRadius="8"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    ToolTipService.ToolTip="{x:Bind Pattern}" DoubleTapped="RuleRow_DoubleTapped">
+                <Border.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Edit" Click="RuleEdit_Click" />
+                        <MenuFlyoutItem Text="Enable / disable" Click="RuleToggle_Click" />
+                        <MenuFlyoutItem Text="Apply now" Click="RuleApplyNow_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Delete" Click="RuleDelete_Click" />
+                    </MenuFlyout>
+                </Border.ContextFlyout>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="2.2*" />
+                        <ColumnDefinition Width="1.6*" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="13" Text="{x:Bind Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{x:Bind Pattern, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ProcessActionsSummary, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ThreadRulesSummary, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                        <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                Visibility="{x:Bind EnabledPillVis, Mode=OneWay}">
+                            <TextBlock Text="Enabled" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                        </Border>
+                        <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                Visibility="{x:Bind DisabledPillVis, Mode=OneWay}">
+                            <TextBlock Text="Disabled" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                        <TextBlock FontSize="12" Text="{x:Bind LastResult, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                   Visibility="{x:Bind AppliedResultVis, Mode=OneWay}" />
+                        <TextBlock FontSize="12" Text="{x:Bind LastResult, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                   Visibility="{x:Bind WaitingResultVis, Mode=OneWay}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid x:Name="RootGrid" UseLayoutRounding="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
+            <TextBlock Text="Threads &amp; Boosts" Style="{StaticResource TitleTextBlockStyle}" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="36,12,36,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <SelectorBar x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                <SelectorBarItem x:Name="TabThreads" Text="Threads" />
+                <SelectorBarItem x:Name="TabRules" Text="Rules" />
+            </SelectorBar>
+        </Grid>
+
+        <!-- Threads Panel -->
+        <Grid x:Name="ThreadsPanel" Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Info bar -->
+            <Grid Grid.Row="0" Margin="12,4,12,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <TextBlock Text="Thread Tune" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Untick the checkbox to disable priority boost for a thread permanently."
+                               Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBox x:Name="ThreadsSearchBox" Grid.Column="1" MaxWidth="240" HorizontalAlignment="Right" PlaceholderText="Search threads" VerticalAlignment="Center"
+                         Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+
+            <!-- Column headers -->
+            <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
+                    Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="2.5*" />
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="100" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Boost" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="TID" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="2" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="3" Text="Description" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="4" Text="PID" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <!-- Thread list -->
+            <ListView x:Name="ThreadTuneList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedThreadBoostRows, Mode=OneWay}"
+                      SelectionMode="None" ShowsScrollingPlaceholders="False">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ThreadBoostRow">
+                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1">
+                            <Grid Padding="4,6" ColumnSpacing="12" Background="Transparent">
+                                <Grid.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="Create rule..." Click="ThreadAction_CreateRule" />
+                                        <MenuFlyoutItem Text="Toggle Priority Boost" Click="ThreadAction_ToggleBoost" IsEnabled="{x:Bind local:PriorityBoostsPage.NotProtected(IsProtected), Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </Grid.ContextFlyout>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="2.5*" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="100" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="{x:Bind local:PriorityBoostsPage.BoostText(BoostEnabled), Mode=OneWay}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Tid}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind ProcessName, Mode=OneWay}" VerticalAlignment="Center" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="3" Text="{x:Bind Description, Mode=OneWay}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="4" Text="{x:Bind Pid}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsThreadTuneLoading, Mode=OneWay}" Spacing="12">
+                <ProgressRing IsActive="{x:Bind ViewModel.IsThreadTuneLoading, Mode=OneWay}" Width="48" Height="48" />
+                <TextBlock Text="{x:Bind ViewModel.ThreadTuneLoadingText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" />
+            </StackPanel>
+
+            <Grid Grid.Row="3" Margin="12,8,12,12">
+                <TextBlock x:Name="ThreadTuneCountText" Text="0 threads" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+
+        <!-- Rules Panel -->
+    <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Rules toolbar -->
+        <Grid Grid.Row="0" Margin="12,4,12,10" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <TextBox Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
+                     Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <Button Content="Edit" VerticalAlignment="Center" Click="RuleEdit_Click" />
+                <Button Content="Enable / disable" VerticalAlignment="Center" Click="RuleToggle_Click" />
+                <Button Content="Delete" VerticalAlignment="Center" Click="RuleDelete_Click" />
+            </StackPanel>
+            <Button Grid.Column="3" Content="Add rule" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center" Click="RuleAdd_Click" />
+        </Grid>
+
+        <!-- Rules column headers -->
+        <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="2.2*" />
+                    <ColumnDefinition Width="1.6*" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Process" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Grid.Column="1" Text="Process actions" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Grid.Column="2" Text="Thread rules" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Grid.Column="3" Text="Status" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Grid.Column="4" Text="Last result" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
+        </Border>
+
+        <!-- Rules list -->
+        <ListView x:Name="RulesList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedThreadProfiles, Mode=OneWay}"
+                  SelectedItem="{x:Bind ViewModel.SelectedProfile, Mode=TwoWay}"
+                  ItemTemplate="{StaticResource RuleRowTemplate}"
+                  SelectionMode="Single" ShowsScrollingPlaceholders="False" />
+
+        <!-- Rules footer -->
+        <Grid Grid.Row="3" Margin="12,8,12,12">
+            <StackPanel Orientation="Horizontal" Spacing="24">
+                <TextBlock x:Name="RulesCountText" Text="0 rules" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="Each action is applied and verified independently" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="Double-click to edit" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</Grid>
+</Page>

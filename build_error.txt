@@ -1,0 +1,13 @@
+C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\Pages\SnipPage.xaml.cs(1298,27): error CS0103: The name 'DelayPicker' does not exist in the current context [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\Controls\NvidiaComponentPickerDialog.xaml(28,18): XamlCompiler error WMC0909: Cannot resolve DataType local:NvidiaComponentVm [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+Controls\NvidiaComponentPickerDialog.xaml(35,26): XamlCompiler error WMC1111: DataTemplates containing x:Bind need a DataType to be specified using 'x:DataType' [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\Controls\RuleEditorDialog.xaml(244,26): XamlCompiler error WMC0909: Cannot resolve DataType models:TunerThreadRule [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\Controls\RuleEditorDialog.xaml(213,34): XamlCompiler error WMC0909: Cannot resolve DataType services:LiveThreadInfo [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+Controls\RuleEditorDialog.xaml(285,42): XamlCompiler error WMC1111: DataTemplates containing x:Bind need a DataType to be specified using 'x:DataType' [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+C:\Users\Administrator\.nuget\packages\microsoft.windowsappsdk.winui\2.3.6\buildTransitive\Microsoft.UI.Xaml.Markup.Compiler.interop.targets(864,9): Xaml Internal Error error WMC9999: Object reference not set to an instance of an object. [C:\Users\Administrator\source\repos\kaliteconfig\src\kaliteConfig\kaliteConfig.csproj]
+
+Build FAILED.
+    18 Warning(s)
+    7 Error(s)
+
+Time Elapsed 00:00:07.69

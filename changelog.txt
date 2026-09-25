@@ -1,0 +1,16 @@
+# 🚀 kaliteConfig Release v0.3.0.21 
+
+This release focuses on heavily expanding the application UI with Quality of Life features, polishing the screen capturing workflow, and enforcing strong native UI aesthetic choices.
+
+## ✨ New Features & Changes
+### ✂ Snipping Tool Overhaul
+- **Complete Built-In Snipping Tool Purge**: Added a new "Remove Built-in App" button to the Snip settings page that executes an elevated script taking ownership of, renaming, and completely purging the bundled Windows Snipping Tool via both Registry blocks and `Remove-AppxPackage`.
+- **System Tray Precision**: Sprawling system tray Snipping submenu options ('Region', 'Window', etc.) have been removed and streamlined into a single, clean `Take Screenshot` button.
+- **Improved DPI UI Rendering**: Fixed a bug where >100% Windows display scaling distorted the pointer selection coordinates because of a redundant internal DPI multiplier.
+
+### ⚡ Thread & Process Optimization
+- **WinUI Native Details Integration**: Removed the old tick-boxes from the process list UI! `Priority Boost` behavior is now elegantly toggled inside the dedicated "Thread Details" inspection panel.
+- **Snappy Dynamic Search**: UI hanging when typing rapidly in the process search box has been resolved. Input filtering is now debounced (300ms) for snappy real-time lookups.
+
+### 🛡 Core App Stability
+- Various under-the-hood stability tweaks. Memory access faults when applying threads via P/Invoke to system processes have been safely handled.

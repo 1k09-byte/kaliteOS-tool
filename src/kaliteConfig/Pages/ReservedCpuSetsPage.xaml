@@ -1,0 +1,76 @@
+<Page
+    x:Class="kaliteConfig.Pages.ReservedCpuSetsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:kaliteConfig.Pages"
+    xmlns:models="using:kaliteConfig.ViewModels">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Reserve CPU Sets"
+                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+        <StackPanel Grid.Row="1" Spacing="8">
+            <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     Severity="Error"
+                     Title="Error"
+                     Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+                     IsClosable="True" />
+
+            <InfoBar IsOpen="{x:Bind ViewModel.HasSuccess, Mode=OneWay}"
+                     Severity="Success"
+                     Title="Success"
+                     Message="{x:Bind ViewModel.SuccessText, Mode=OneWay}"
+                     IsClosable="True" />
+
+            <InfoBar IsOpen="{x:Bind ViewModel.IsNotElevated, Mode=OneWay}"
+                     Severity="Warning"
+                     Title="Elevation Required"
+                     Message="You must run kaliteConfig as Administrator to save reserved CPU sets."
+                     IsClosable="False" />
+        </StackPanel>
+
+        <!-- Cores lay out left-to-right in an even grid; ticking a chip only
+             stages the change - nothing is written until Apply is clicked.
+             Apply sits bottom-right on the same line as the chips. -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ItemsControl Grid.Column="0" ItemsSource="{x:Bind ViewModel.Cores}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VariableSizedWrapGrid Orientation="Horizontal"
+                                               ItemWidth="104"
+                                               ItemHeight="44" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:CpuCoreItem">
+                        <ToggleButton Content="{x:Bind Name}"
+                                      IsChecked="{x:Bind IsReserved, Mode=TwoWay}"
+                                      MinWidth="96"
+                                      Margin="0,0,8,8" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Grid.Column="1"
+                    Content="Apply"
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    IsEnabled="{x:Bind ViewModel.HasPendingChanges, Mode=OneWay}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    MinWidth="120"
+                    Height="36"
+                    Margin="8,0,0,8"
+                    VerticalAlignment="Bottom" />
+        </Grid>
+
+    </Grid>
+</Page>

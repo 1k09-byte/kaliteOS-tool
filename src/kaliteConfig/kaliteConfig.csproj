@@ -1,0 +1,217 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Structure mirrors the WinUI 3 Gallery standalone project (WinUIGallery.csproj),
+       on the latest stack: WASDK 2.4.0 + net10.0 + Windows SDK 22621 projections.
+       Package versions verified from gallery sources (@b1730cb / DevWinUI @30a7bbb). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>kaliteConfig</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\kaliteConfig.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <Nullable>enable</Nullable>
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- WinUI-Gallery pattern: packaged and unpackaged configurations side by side.
+         A post-install toolkit wants unpackaged runs (elevated helpers, no MSIX identity). -->
+    <Configurations>Debug;Release</Configurations>
+    <Packaged>false</Packaged>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSdkIncludeVersionInfo>true</WindowsAppSdkIncludeVersionInfo>
+    <!-- The gallery ships untrimmed (PublishAot=false, no PublishTrimmed); trimming
+         WinUI/XAML apps breaks runtime type resolution. R2R stays on for Release. -->
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug' or '$(Configuration)' == 'Debug-Unpackaged'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Release' or '$(Configuration)' == 'Release-Unpackaged'">True</PublishReadyToRun>
+    <PublishTrimmed>False</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**\*">
+       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Scratch/vendor drops (e.g. Assets\_temp\node_modules) must never be
+         indexed as PRI resources (PRI249 bogus-qualifier warnings) nor
+         shipped inside the installer. -->
+    <Content Remove="Assets\_temp\**\*" />
+    <!-- Dev tools live in-repo but must never join the app build. -->
+    <Compile Remove="tools\**\*" />
+    <EmbeddedResource Remove="tools\**\*" />
+    <None Remove="tools\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DevWinUI" Version="10.4.1" />
+    <PackageReference Include="LLT.NvAPIWrapper.Net" Version="1.1.28-pre.42" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.11" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageReference Include="System.Management" Version="10.0.11" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+  </ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!--  Single flavor: the full/dev app with the built-in updater. There is
+        no separate consumer build anymore — one exe, one installer, one
+        update channel. The updater compiles unconditionally. -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);CONSUMER</DefineConstants>
+  </PropertyGroup>
+
+  <!--  The bundled SCEWIN tool (Assets\scewin\SCEWIN_64.exe + driver .sys
+        files) must land next to the exe — the app runs it to auto-export
+        BIOS settings. The WASDK content targets drop CopyToOutputDirectory
+        metadata, so copy explicitly.
+        NOTE: as content, .sys/.exe files are PRI-indexed on unpackaged
+        builds; skipping PRI indexing for them avoids build breakage. -->
+  <ItemGroup>
+    <Content Update="Assets\scewin\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <Target Name="DeployScewinTool" BeforeTargets="Build">
+    <ItemGroup>
+      <ScewinToolFiles Include="Assets\scewin\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ScewinToolFiles)" DestinationFiles="@(ScewinToolFiles -> '$(OutDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="DeployScewinToolToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <ScewinToolFiles Include="Assets\scewin\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ScewinToolFiles)" DestinationFiles="@(ScewinToolFiles -> '$(PublishDir)scewin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+  </Target>
+
+  <!--  Bundled PresentMon console build (Assets\PresentMon\PresentMon.exe,
+        pinned 2.5.1, see VERSION.txt). Same treatment as the SCEWIN tool:
+        must land next to the exe and skip PRI indexing for .exe files. -->
+  <ItemGroup>
+    <Content Update="Assets\PresentMon\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <Target Name="DeployPresentMonTool" BeforeTargets="Build">
+    <ItemGroup>
+      <PresentMonToolFiles Include="Assets\PresentMon\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PresentMonToolFiles)" DestinationFiles="@(PresentMonToolFiles -> '$(OutDir)PresentMon\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="DeployPresentMonToolToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <PresentMonToolFiles Include="Assets\PresentMon\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PresentMonToolFiles)" DestinationFiles="@(PresentMonToolFiles -> '$(PublishDir)PresentMon\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+  </Target>
+
+  <!--  Unpackaged publish otherwise ships without the app's own .pri
+        (only framework PRIs are publish assets), and the app then dies
+        silently at startup (0xC000027B). Top it up after publish. -->
+  <Target Name="EnsureAppPriInPublishDir" AfterTargets="Publish">
+    <Copy SourceFiles="$(ProjectPriFullPath)" DestinationFolder="$(PublishDir)" Condition="Exists('$(ProjectPriFullPath)')" SkipUnchangedFiles="false" />
+  </Target>
+
+  <!--  Self-heal a half-written XAML incremental state. When a build dies
+        mid-pass (killed process, out-of-disk, VS and a CLI build racing) or
+        markup is edited while the markup compiler is working, it can leave
+        generated code that no longer matches the markup: a stale Pages\X.g.cs
+        still implementing the IX_Bindings interface its regenerated X.g.i.cs no
+        longer declares, and no Pass1 assembly for Pass2 to bind against. Every
+        later build then fails with a CS0246 for the missing IX_Bindings plus a
+        wall of "WMC1509: No LocalAssembly parameter given during
+        MarkupCompilePass2" for each local type any page binds. Clean does not
+        run on a plain Build, so that state sticks until obj\ is deleted by hand.
+        Dropping the generated pair and the compiler's save-state file whenever
+        the markup is newer than them forces the next Pass1 to regenerate both
+        from scratch - the state Clean+Rebuild would have produced. A healthy
+        build leaves its generated files newer than the markup, so this stays
+        inert and XAML compilation stays incremental. -->
+
+  <!--  Resolve the markup files and the generated code the markup compiler is
+        expected to own for each of them. Runs before the heal target so
+        IntermediateOutputPath is the real one, not the empty value MSBuild has
+        while the project body is still being evaluated. -->
+  <Target Name="CollectXamlHealInputs">
+    <ItemGroup>
+      <_HealXamlSource Remove="@(_HealXamlSource)" />
+      <_HealXamlSource Include="**\*.xaml" Exclude="obj\**;bin\**" />
+      <!--Deliberately unfiltered by Exists(): a generated file that is simply
+          missing is as much of a reason to regenerate as a stale one, and the
+          build would otherwise fail with "could not find file" on the Compile
+          item the compiler never wrote. -->
+      <_HealXamlGenerated Remove="@(_HealXamlGenerated)" />
+      <_HealXamlGenerated Include="@(_HealXamlSource->'$(IntermediateOutputPath)%(RecursiveDir)%(Filename).g.i.cs')" />
+      <_HealXamlGenerated Include="@(_HealXamlSource->'$(IntermediateOutputPath)%(RecursiveDir)%(Filename).g.cs')" />
+    </ItemGroup>
+  </Target>
+
+  <!--Declared as inputs/outputs rather than compared with a property function:
+      MSBuild only allows a whitelisted set of static methods, and file
+      timestamps are not on it. Missing or older-than-markup outputs make the
+      target run; a healthy build skips it and keeps XAML compilation
+      incremental. -->
+  <Target Name="HealStaleXamlGeneratedCode"
+          BeforeTargets="BeforeBuild"
+          DependsOnTargets="CollectXamlHealInputs"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="@(_HealXamlSource)"
+          Outputs="@(_HealXamlGenerated)">
+    <Delete Files="@(_HealXamlGenerated)" />
+    <Delete Files="$(XamlSavedStateFilePath)" />
+    <Message Importance="high"
+             Text="HealStaleXamlGeneratedCode: generated XAML code was missing or older than the markup - dropping @(_HealXamlGenerated->Count()) files so Pass1 regenerates them from scratch." />
+  </Target>
+
+  <!--  The running app locks its own exe, which fails the build with
+        MSB3027/MSB3021. Stop any running instance before every build so
+        rebuild-while-running just works. Remove this target if you would
+        rather stop the app yourself (Shift+F5). -->
+  <Target Name="KillRunningAppBeforeBuild" BeforeTargets="BeforeBuild">
+    <Exec Command="taskkill /F /IM kaliteConfig.exe 2&gt;nul &amp; taskkill /F /IM kaliteConfig-Consumer.exe 2&gt;nul &amp; exit 0" StandardOutputImportance="low" />
+  </Target>
+
+  <!--  App Version and Assembly Info. Static, release-based: bump
+        <Version> once per release and the assembly version, About card
+        ("Version 0.3.0" from Major.Minor.Build) and the installer
+        filename (from Build.ps1) all pick it up. -->
+  <PropertyGroup>
+    <Version>0.3.0.21</Version>
+    <AssemblyTitle>kaliteConfig</AssemblyTitle>
+    <AssemblyProduct>kaliteConfig</AssemblyProduct>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <AssemblyFileVersion>$(Version)</AssemblyFileVersion>
+  </PropertyGroup>
+</Project>

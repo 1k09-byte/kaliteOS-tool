@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="kaliteConfig.PackageManager.Views.PackageManagersPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:kaliteConfig.PackageManager.Models"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Grid RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="2">
+            <TextBlock Text="Package Managers" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+            <Button Content="Refresh detection" Style="{StaticResource AccentButtonStyle}"
+                    Command="{x:Bind Vm.RefreshCommand}" />
+            <TextBlock FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Text="Backends land one at a time - WinGet first. Unbuilt rows are honest placeholders, never fake sources." />
+        </StackPanel>
+
+        <ListView Grid.Row="2" ItemsSource="{x:Bind Vm.Rows, Mode=OneWay}" SelectionMode="None">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,0,8" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="models:PackageSourceStatus">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="16,12">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold" FontSize="14" />
+                                <TextBlock Text="{x:Bind Description}" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{x:Bind StatusText}" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" OnContent="Enabled" OffContent="Enabled"
+                                          IsOn="{x:Bind IsEnabled, Mode=OneWay}"
+                                          Toggled="EnabledToggle_Toggled" Tag="{x:Bind}"
+                                          VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Content="Executable…" Click="Executable_Click" Tag="{x:Bind}"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Override the executable path when auto-detection fails" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</Page>

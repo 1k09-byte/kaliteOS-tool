@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="kaliteConfig.Pages.NetworkPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:kaliteConfig.ViewModels"
+    xmlns:svc="using:kaliteConfig.Services"
+    xmlns:local="using:kaliteConfig.Pages"
+    NavigationCacheMode="Enabled">
+
+    <Page.DataContext>
+        <vm:NetworkViewModel />
+    </Page.DataContext>
+
+    <Page.Resources>
+        <!-- Flat container: the rounded card is the only visible surface, so
+             the default ListView selection bar and square chrome never paint. -->
+        <Style x:Key="NetFlatListItemStyle" TargetType="ListViewItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
+            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="SelectionBorder" Margin="4,2" BorderThickness="1.5" CornerRadius="10" BorderBrush="Transparent"
+                                Background="Transparent">
+                            <ContentPresenter
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              Padding="{TemplateBinding Padding}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Selected">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="BorderBrush">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="PropGroupTemplate" x:DataType="vm:NetPropGroup">
+            <StackPanel Spacing="8" Margin="0,0,0,16">
+                <TextBlock Text="{x:Bind Category}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <ItemsControl ItemsSource="{x:Bind Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NetPropEdit">
+                            <Grid Padding="12" Margin="0,0,0,8" CornerRadius="8"
+                                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{x:Bind Prop.DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                    <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="4" Padding="6,1"
+                                            Visibility="{x:Bind ChangedVis, Mode=OneWay}">
+                                        <TextBlock Text="Changed" FontSize="11" Foreground="White"/>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Grid.Row="1" Text="{x:Bind Prop.Keyword}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <ComboBox Grid.Row="2" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                                          ItemsSource="{x:Bind Prop.Options}" DisplayMemberPath="Description"
+                                          SelectedValuePath="Value" SelectedValue="{x:Bind Proposed, Mode=TwoWay}"
+                                          Visibility="{x:Bind EnumVis, Mode=OneWay}"
+                                          IsEnabled="{x:Bind IsEditable, Mode=OneWay}"
+                                          ToolTipService.ToolTip="{x:Bind Prop.DisplayName}"/>
+                                <NumberBox Grid.Row="2" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                                           Minimum="{x:Bind PropMinD, Mode=OneWay}" Maximum="{x:Bind PropMaxD, Mode=OneWay}"
+                                           Value="{x:Bind ProposedNumber, Mode=TwoWay}"
+                                           Visibility="{x:Bind IntVis, Mode=OneWay}"
+                                           IsEnabled="{x:Bind IsEditable, Mode=OneWay}"
+                                           ToolTipService.ToolTip="{x:Bind Prop.DisplayName}"/>
+                                <TextBox Grid.Row="2" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                                         Text="{x:Bind Proposed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{x:Bind TextVis, Mode=OneWay}"
+                                         IsEnabled="{x:Bind IsEditable, Mode=OneWay}"
+                                         ToolTipService.ToolTip="{x:Bind Prop.DisplayName}"/>
+                                <TextBlock Grid.Row="3" Text="{x:Bind ValidationError, Mode=OneWay}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           TextWrapping="Wrap" Visibility="{x:Bind ValidationVis, Mode=OneWay}"/>
+                                <StackPanel Grid.Row="4" Spacing="4" Margin="0,8,0,0">
+                                    <TextBlock Text="{x:Bind PendingText, Mode=OneWay}" FontStyle="Italic" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                    <TextBlock Text="{x:Bind Prop.Explanation}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock Text="{x:Bind Prop.Default, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LabelValueTemplate" x:DataType="vm:NetLabelValue">
+            <Grid Margin="0,0,0,8" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{x:Bind Label}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6,2"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Click="SensitiveValue_Click" ToolTipService.ToolTip="Tap to reveal / hide sensitive values">
+                    <TextBlock Text="{x:Bind DisplayValue, Mode=OneWay}" TextWrapping="Wrap"
+                               ToolTipService.ToolTip="{x:Bind DisplayValue, Mode=OneWay}"/>
+                </Button>
+                <Button Grid.Column="2" Content="Copy" Click="CopyRow_Click" Padding="8,2"
+                        ToolTipService.ToolTip="Copy this value"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="DiffTemplate" x:DataType="svc:NetSettingDiff">
+            <Grid Margin="0,0,0,4" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock TextWrapping="Wrap">
+                    <Run Text="{x:Bind Keyword}"/> <Run Text=": "/>
+                    <Run Text="{x:Bind From}"/> <Run Text=" → "/><Run Text="{x:Bind To}"/>
+                </TextBlock>
+                <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid Padding="28,20,28,24" ColumnSpacing="18" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="16">
+        <StackPanel Spacing="14">
+            <TextBlock Text="Network" Style="{ThemeResource TitleTextBlockStyle}"/>
+            <TextBox x:Name="AdapterSearch" Header="Search adapters" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
+            <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
+            <ListView x:Name="AdapterList" ItemsSource="{x:Bind ViewModel.FilteredAdapters, Mode=OneWay}"
+                      ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                      SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
+                      SelectionChanged="AdapterList_SelectionChanged" SelectionMode="Single" MaxHeight="480"
+                      ItemContainerStyle="{StaticResource NetFlatListItemStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="svc:NetAdapterInfo">
+                        <Border Padding="10,8" CornerRadius="10" BorderThickness="1"
+                                Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="Transparent"
+                                PointerEntered="NetworkCard_PointerEntered" PointerExited="NetworkCard_PointerExited"><StackPanel Spacing="2">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                                         Fill="{x:Bind local:NetworkPage.DotBrush(IsUp)}"/>
+                                <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind Description}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Description}"/>
+                            <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                <Run Text="{x:Bind Status}"/><Run Text=" · "/><Run Text="{x:Bind Kind}"/>
+                            </TextBlock>
+                        </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <Button Content="Refresh" Click="Refresh_Click" HorizontalAlignment="Stretch"/>
+            <TextBlock Text="{x:Bind ViewModel.ElevationText, Mode=OneWay}" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+        </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="18">
+        <Grid RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+            <InfoBar Grid.Row="1" x:Name="NetInfoBar" IsOpen="False" IsClosable="True" Severity="Informational" Margin="0,0,0,8">
+                <InfoBar.ActionButton>
+                    <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8"
+                    Padding="12,8" Visibility="{x:Bind ViewModel.KeepUIVisibility, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.KeepCountdownText, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button Content="Keep" Click="Keep_Click"/>
+                    <Button Content="Revert now" Click="RevertNow_Click"/>
+                </StackPanel>
+            </Border>
+
+            <TabView Grid.Row="3" x:Name="NetTabs" SelectionChanged="NetTabs_SelectionChanged"
+                     IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="SizeToContent">
+                <TabViewItem IsClosable="False" Header="Overview">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.OverviewRows, Mode=OneWay}" ItemTemplate="{StaticResource LabelValueTemplate}"/>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Driver">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.DriverRows, Mode=OneWay}" ItemTemplate="{StaticResource LabelValueTemplate}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Open Device Manager for this adapter" Click="DeviceManager_Click"/>
+                                <Button Content="Copy driver info" Click="CopyDriver_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Advanced">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Every setting the driver exposes, matched by RegistryKeyword. Editing needs elevation; changes apply after preview + restart."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.PropGroups, Mode=OneWay}" ItemTemplate="{StaticResource PropGroupTemplate}"/>
+                            <TextBlock Text="Pending changes (preview)" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.PendingDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
+                            <CheckBox Content="I understand: virtual, VPN or disabled adapters, and this restarts the adapter (brief disconnect)." IsChecked="{x:Bind ViewModel.ConfirmRiskyEdit, Mode=TwoWay}"
+                                      Visibility="{x:Bind ViewModel.IsRiskyTarget, Mode=OneWay}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Apply" Click="Apply_Click" Style="{ThemeResource AccentButtonStyle}"/>
+                                <Button Content="Reset to driver defaults" Click="ResetDefaults_Click"/>
+                            </StackPanel>
+                            <TextBlock Text="Applied / failed per setting" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.ApplyResults, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
+                            <TextBlock Text="Snapshots" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ComboBox x:Name="SnapshotPicker" MinWidth="260"
+                                          ItemsSource="{x:Bind ViewModel.Snapshots, Mode=OneWay}"
+                                          DisplayMemberPath="Text" SelectedValuePath="Path"/>
+                                <Button Content="Rollback to snapshot" Click="Rollback_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Offloads">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="RSS, checksum, LSO and buffer settings. Read-only view with editing where the driver allows it."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.OffloadGroups, Mode=OneWay}" ItemTemplate="{StaticResource PropGroupTemplate}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Power">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Power saving can cause dropouts: if the link flaps at idle, turn these off. The 'Allow the computer to turn off this device' checkbox itself lives in Device Manager."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.PowerGroups, Mode=OneWay}" ItemTemplate="{StaticResource PropGroupTemplate}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Hardware">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.HardwareRows, Mode=OneWay}" ItemTemplate="{StaticResource LabelValueTemplate}"/>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Wi-Fi">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.WifiRows, Mode=OneWay}" ItemTemplate="{StaticResource LabelValueTemplate}"/>
+                            <TextBlock Text="Roaming and band preferences live on the Advanced tab (Wi-Fi/Roaming category)."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Stats" x:Name="StatsTab">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <Canvas x:Name="StatsCanvas" Height="220" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                            <TextBlock x:Name="StatsLine1" FontSize="12" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="StatsLine2" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="Updates about once per second while this tab is visible." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="SysW" ToolTipService.ToolTip="System-wide network settings">
+                    <Grid Padding="0,12,12,12" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="248" MinWidth="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Section picker: one group of system settings on screen at a
+                             time instead of four expanders stacked on one page. -->
+                        <Border Grid.Column="0" CornerRadius="8" Padding="8,12" VerticalAlignment="Stretch"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                            <Grid RowSpacing="8">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Margin="8,0,0,0" Text="Sections" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.SysSections, Mode=OneWay}"
+                                          SelectedIndex="{x:Bind ViewModel.SysSectionIndex, Mode=TwoWay}"
+                                          SelectionMode="Single" Background="Transparent" BorderThickness="0"
+                                          HorizontalAlignment="Stretch"
+                                          ItemContainerStyle="{StaticResource NetFlatListItemStyle}">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SysSectionVm">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" FontSize="11"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="1" Padding="6,1" VerticalAlignment="Center"
+                                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                                                    <TextBlock Text="{x:Bind RowCount, Mode=OneWay}" FontSize="11"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                                <TextBlock Grid.Row="2" Margin="8,4,8,0" FontSize="11" TextWrapping="Wrap"
+                                           Text="Picking a value writes it straight away through a verified setter (elevated only) and reads it back; the result appears under the row."
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="18">
+        <Grid RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{x:Bind ViewModel.CurrentSysSection.Title, Mode=OneWay}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.CurrentSysSection.Hint, Mode=OneWay}" FontSize="12"
+                                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" Padding="8,2" VerticalAlignment="Top"
+                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                        CornerRadius="{ThemeResource ControlCornerRadius}"
+                                        Visibility="{x:Bind ViewModel.CurrentSysSection.StatusVis, Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind ViewModel.CurrentSysSection.StatusText, Mode=OneWay}" FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </Border>
+                            </Grid>
+
+                            <CommandBar Grid.Row="1" HorizontalAlignment="Left" DefaultLabelPosition="Right" IsOpen="False">
+                                <AppBarToggleButton x:Name="SysChangedOnlyToggle" Label="Changed only"
+                                                    Checked="SysChangedOnly_Changed" Unchecked="SysChangedOnly_Changed"
+                                                    ToolTipService.ToolTip="Show only rows with an unapplied change"/>
+                                <AppBarButton Label="Re-read values" Icon="Refresh" Click="SysReRead_Click"
+                                              ToolTipService.ToolTip="Ask Windows for the current values again; anything still staged is discarded"/>
+                            </CommandBar>
+
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Spacing="8">
+                                                    <ItemsControl ItemsSource="{x:Bind ViewModel.CurrentSysSection.Rows, Mode=OneWay}">
+                                                    <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:SysRowVm">
+                                                        <Grid Margin="0,0,0,8" Padding="12,10" CornerRadius="{ThemeResource ControlCornerRadius}" ColumnSpacing="12" RowSpacing="6"
+                                                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                                              Visibility="{x:Bind RowVisible, Mode=OneWay}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8E5;" FontSize="12"
+                                                                              Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                              Visibility="{x:Bind HasPendingVis, Mode=OneWay}"
+                                                                              ToolTipService.ToolTip="Pending change - not applied yet"/>
+                                                                    <TextBlock Text="{x:Bind Def.Label}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                                                </StackPanel>
+                                                                <TextBlock Text="{x:Bind Def.Key}" FontSize="11"
+                                                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                           TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                                <ComboBox Width="220"
+                                                                          ItemsSource="{x:Bind Def.Options}" SelectedValue="{x:Bind Proposed, Mode=TwoWay}"
+                                                                          Visibility="{x:Bind EnumVis, Mode=OneWay}"
+                                                                          IsEnabled="{x:Bind Editable, Mode=OneWay}"/>
+                                                                <!-- ValidationMode Disabled: the row validates before writing, so a
+                                                                     half-typed number is never clamped into an out-of-range write. -->
+                                                                <NumberBox Width="220"
+                                                                           Minimum="{x:Bind MinD, Mode=OneWay}" Maximum="{x:Bind MaxD, Mode=OneWay}"
+                                                                           Value="{x:Bind ProposedNumber, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                           ValidationMode="Disabled"
+                                                                           Visibility="{x:Bind NumVis, Mode=OneWay}"
+                                                                           IsEnabled="{x:Bind Editable, Mode=OneWay}"
+                                                                           PlaceholderText="Value"/>
+                                                            </StackPanel>
+
+                                                            <Grid Grid.Row="1" Grid.ColumnSpan="2" Visibility="{x:Bind ErrorVis, Mode=OneWay}">
+                                                                <InfoBar Severity="Error" IsClosable="False" IsOpen="True"
+                                                                         Message="{x:Bind ValidationError, Mode=OneWay}"
+                                                                         Title="Invalid value" Margin="0,4,0,0"/>
+                                                            </Grid>
+                                                            <Grid Grid.Row="2" Grid.ColumnSpan="2" Visibility="{x:Bind ApplyStateVisibility, Mode=OneWay}">
+                                                                <TextBlock Text="{x:Bind ApplyState, Mode=OneWay}" FontSize="12" TextWrapping="Wrap"
+                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0"/>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Spacing="0"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                            </ItemsControl>
+
+                                                    <TextBlock Text="Nothing to show - every row of this section is hidden by 'Changed only'."
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                               Visibility="{x:Bind ViewModel.SysEmptyVis, Mode=OneWay}"
+                                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                        </Border>
+                    </Grid>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Doctor">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Findings computed from live data. Fixes stage a value for review - nothing writes directly from here."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Findings, Mode=OneWay}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="svc:NetDoctorFinding">
+                                        <Grid Padding="12" Margin="0,0,0,8" CornerRadius="8"
+                                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Width="12" Height="12" VerticalAlignment="Top" Margin="0,4,0,0"
+                                                     Fill="{x:Bind local:NetworkPage.SeverityBrush(Severity)}"/>
+                                            <StackPanel Grid.Column="1" Spacing="4" Margin="12,0,0,0">
+                                                <TextBlock Text="{x:Bind Title}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{x:Bind Reason}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                <TextBlock Text="{x:Bind FixDescription}" TextWrapping="Wrap" FontStyle="Italic" FontSize="12"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Content="Stage fix" Click="StageFix_Click" VerticalAlignment="Top"
+                                                    IsEnabled="{x:Bind HasFix, Mode=OneWay}" ToolTipService.ToolTip="Stages the fix for review on the Advanced tab"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+                <TabViewItem IsClosable="False" Header="Tools">
+                    <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Start" Click="SpeedStart_Click" VerticalAlignment="Bottom"/>
+                                <Button Content="Cancel" Click="SpeedCancel_Click" VerticalAlignment="Bottom"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
+                                <TextBlock Text="/" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
+                            </StackPanel>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind ViewModel.SpeedProgress, Mode=OneWay}"/>
+                            <TextBlock Text="{x:Bind ViewModel.SpeedStatus, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="Export" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ComboBox x:Name="ExportFormatBox" SelectedIndex="0" MinWidth="120">
+                                    <ComboBoxItem Content="JSON"/>
+                                    <ComboBoxItem Content="CSV"/>
+                                    <ComboBoxItem Content="Text"/>
+                                </ComboBox>
+                                <CheckBox x:Name="ExportAllBox" Content="All adapters"/>
+                                <Button Content="Export..." Click="Export_Click"/>
+                                <Button Content="Copy as text" Click="CopyText_Click"/>
+                            </StackPanel>
+                            <TextBlock Text="Import profile" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Pick JSON..." Click="Import_Click"/>
+                                <Button Content="Stage import" Click="StageImport_Click"/>
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.ImportDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
+                            <TextBlock Text="Compare adapters" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ComboBox x:Name="CompareABox" MinWidth="200" DisplayMemberPath="Name"
+                                          ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=OneWay}"/>
+                                <ComboBox x:Name="CompareBBox" MinWidth="200" DisplayMemberPath="Name"
+                                          ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"
+                                          SelectedItem="{x:Bind ViewModel.CompareAdapter, Mode=TwoWay}"/>
+                                <Button Content="Compare" Click="Compare_Click"/>
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.CompareDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+            </TabView>
+        </Grid>
+        </Border>
+    </Grid>
+</Page>
+

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="kaliteConfig.Pages.PowerPlansPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:converters="using:kaliteConfig.Converters"
+    xmlns:vm="using:kaliteConfig.ViewModels"
+    xmlns:models="using:kaliteConfig.Models"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Page.Resources>
+        <Style x:Key="PowerCard" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+        </Style>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+        <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    </Page.Resources>
+    
+    <Page.DataContext>
+        <vm:PowerPlansViewModel x:Name="ViewModel" />
+    </Page.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- BreadcrumbBar header -->
+        <Border Margin="28,20,28,12" Padding="16,12" Style="{StaticResource PowerCard}"><Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Click="BackToHub_Click" VerticalAlignment="Center"
+                    Style="{StaticResource SubtleButtonStyle}" ToolTipService.ToolTip="Back to Windows Settings">
+                <FontIcon Glyph="&#xE72B;" FontSize="14" />
+            </Button>
+            <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                    <Run Text="Windows Settings" /><Run Text="  ›  Power Plans" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Text="Power Plans" Style="{StaticResource TitleTextBlockStyle}" />
+            </StackPanel>
+        </Grid></Border>
+
+        <!-- Main Layout -->
+        <Grid Grid.Row="1" ColumnSpacing="18" Padding="28,0,28,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" /> <!-- Master -->
+                <ColumnDefinition Width="*" />   <!-- Details -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Loading overlay -->
+            <Grid Grid.ColumnSpan="2" Canvas.ZIndex="10" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.85" />
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="360">
+                    <ProgressRing IsActive="{Binding IsLoading}" Width="48" Height="48" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding LoadingStatus}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Master List (Schemes) -->
+            <Border Grid.Column="0" Style="{StaticResource PowerCard}" Padding="14"><Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                
+                <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,12">
+                    <TextBlock Text="Power Schemes" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <Button Content="New Plan" Click="NewPlan_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                            ToolTipService.ToolTip="Create a new plan from a base, with your own name and description" />
+                    <Button Content="Refresh" Command="{Binding LoadSchemesCommand}" HorizontalAlignment="Stretch" />
+                    <Button Content="Import Plan (.pow)" Command="{Binding ImportSchemeCommand}" HorizontalAlignment="Stretch" />
+                    <Button Content="Unhide all settings" Command="{Binding UnhideAllSettingsCommand}" HorizontalAlignment="Stretch"
+                            ToolTipService.ToolTip="Clears only the hidden flag on power settings (needs admin). Laptop-safe: OEM overlay bits are preserved. Re-lists the schemes afterwards." />
+                    <Button Content="Repair Control Panel plans" Command="{Binding RestoreDefaultSchemesCommand}" HorizontalAlignment="Stretch"
+                            ToolTipService.ToolTip="Fixes 'power plan information isn't available' (powercfg /restoredefaultschemes). Use if Advanced settings shows empty. Needs admin." />
+                    <InfoBar Message="{Binding ErrorMessage}" Severity="Warning" IsOpen="True" Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" IsClosable="False" />
+                </StackPanel>
+
+                        <ListView Grid.Row="1" 
+                          ItemsSource="{Binding Schemes}" 
+                          SelectedItem="{Binding SelectedScheme, Mode=TwoWay}"
+                          SelectionMode="Single"
+                          Background="{ThemeResource LayerFillColorDefaultBrush}"
+                          BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                          BorderThickness="1"
+                          CornerRadius="10"
+                          Padding="6">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:PowerScheme">
+                            <!-- Leave the background transparent and let the native WinUI ListView handle the rounded hover/selection states! -->
+                            <StackPanel Padding="8,4">
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="Currently applied" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid></Border>
+
+            <!-- Details View (Subgroups & Settings) -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,16,0">
+                <StackPanel Spacing="16" Visibility="{Binding SelectedScheme, Converter={StaticResource NullToVisibilityConverter}}">
+                    
+                    <!-- Selected Scheme Header -->
+                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" 
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" 
+                            BorderThickness="1" 
+                            CornerRadius="8" 
+                            Padding="20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,16,0">
+                                <TextBox Text="{Binding SelectedScheme.Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" FontSize="24" FontWeight="SemiBold" BorderThickness="0" Background="Transparent" />
+                                <TextBox Text="{Binding SelectedScheme.Description, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0" Background="Transparent" />
+                                <TextBlock Text="{Binding SelectedScheme.Id}" FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" Margin="8,8,0,0" />
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
+                                <Button Content="Set as Active" 
+                                        Command="{Binding SetActiveSchemeCommand}" 
+                                        CommandParameter="{Binding SelectedScheme}" 
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        IsEnabled="{Binding SelectedScheme.IsActive, Converter={StaticResource InvertedBoolConverter}}" 
+                                        HorizontalAlignment="Stretch" />
+                                <Button Content="Export Scheme (.pow)" 
+                                        Command="{Binding ExportSchemeCommand}" 
+                                        CommandParameter="{Binding SelectedScheme}" 
+                                        HorizontalAlignment="Stretch" />
+                                <Button Content="Duplicate Scheme" 
+                                        Command="{Binding DuplicateSchemeCommand}" 
+                                        CommandParameter="{Binding SelectedScheme}" 
+                                        HorizontalAlignment="Stretch" />
+                                <Button Content="Delete Scheme" 
+                                        Command="{Binding DeleteSchemeCommand}" 
+                                        CommandParameter="{Binding SelectedScheme}"
+                                        IsEnabled="{Binding SelectedScheme.IsActive, Converter={StaticResource InvertedBoolConverter}}"
+                                        HorizontalAlignment="Stretch" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Settings Hierarchy -->
+                    <ItemsRepeater ItemsSource="{Binding SelectedScheme.Subgroups}">
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="models:PowerSubgroup">
+                                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,12">
+                                    <Expander.Header>
+                                        <Grid>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                                <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Expander.Header>
+                                    
+                                    <ItemsRepeater ItemsSource="{Binding Settings}">
+                                        <ItemsRepeater.ItemTemplate>
+                                            <DataTemplate x:DataType="models:PowerSetting">
+                                                <toolkit:SettingsCard Header="{Binding Name}" Description="{Binding Description}" Margin="0,0,0,4">
+
+                                                    <!-- Type-aware editors: beginners never see raw numbers.
+                                                         Enum settings → friendly ComboBox; boolean → On/Off toggle;
+                                                         true range settings → NumberBox with the friendly unit caption. -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="16">
+                                                        <StackPanel
+                                                            Visibility="{Binding IsChoiceType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      SelectedItem="{Binding SelectedAcChoice, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsChoiceType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      SelectedItem="{Binding SelectedDcChoice, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBooleanType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ToggleSwitch OnContent="On" OffContent="Off"
+                                                                          IsOn="{Binding AcBoolValue, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBooleanType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ToggleSwitch OnContent="On" OffContent="Off"
+                                                                          IsOn="{Binding DcBoolValue, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding HasRangeChoices, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedItem="{Binding SelectedAcChoice, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding HasRangeChoices, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedItem="{Binding SelectedDcChoice, Mode=TwoWay}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBareRange, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <NumberBox Value="{Binding UiAcValue, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" />
+                                                            <TextBlock Text="{Binding AcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsBareRange, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <NumberBox Value="{Binding UiDcValue, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" />
+                                                            <TextBlock Text="{Binding DcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    
+                                                </toolkit:SettingsCard>
+                                            </DataTemplate>
+                                        </ItemsRepeater.ItemTemplate>
+                                    </ItemsRepeater>
+                                </Expander>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Page>
+

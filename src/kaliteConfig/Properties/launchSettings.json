@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "kaliteConfig (Package)": {
+      "commandName": "Project"
+    },
+    "kaliteConfig (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

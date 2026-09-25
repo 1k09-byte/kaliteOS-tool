@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="kaliteConfig.Views.SnipViewerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:kaliteConfig.Controls"
+    Title="Snip viewer">
+
+    <Grid x:Name="RootGrid" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="Escape" Invoked="Escape_Invoked"/>
+            <KeyboardAccelerator Key="Number0" Modifiers="Control" Invoked="Fit_Invoked"/>
+            <KeyboardAccelerator Key="Number1" Modifiers="Control" Invoked="ActualSize_Invoked"/>
+            <KeyboardAccelerator Key="Add" Modifiers="Control" Invoked="ZoomIn_Invoked"/>
+            <KeyboardAccelerator Key="Subtract" Modifiers="Control" Invoked="ZoomOut_Invoked"/>
+        </Grid.KeyboardAccelerators>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Grid Grid.Row="0" Padding="12,8" BorderThickness="0,0,0,1"
+              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock x:Name="FileNameText" Style="{ThemeResource BodyStrongTextBlockStyle}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                <TextBlock x:Name="ImageSizeText" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center" FontSize="12"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Click="Copy_Click" ToolTipService.ToolTip="Copy the image to the clipboard">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8C8;" FontSize="14"/>
+                        <TextBlock Text="Copy"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="Edit_Click" ToolTipService.ToolTip="Annotate in the Snip editor">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE70F;" FontSize="14"/>
+                        <TextBlock Text="Edit"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="Folder_Click" ToolTipService.ToolTip="Show the file in Explorer">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8B7;" FontSize="14"/>
+                        <TextBlock Text="Show in folder"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="Pin_Click" ToolTipService.ToolTip="Pin the snip to the screen">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE718;" FontSize="14"/>
+                        <TextBlock Text="Pin"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="Close_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE711;" FontSize="14"/>
+                        <TextBlock Text="Close"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <controls:SnipPreviewView x:Name="Preview" Grid.Row="1" WheelZoomEnabled="True"/>
+
+        <Border Grid.Row="2" Padding="12,6" BorderThickness="0,1,0,0"
+                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="Wheel or Ctrl +/- zooms • drag pans • double-tap toggles Fit / 100% • Esc closes"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
