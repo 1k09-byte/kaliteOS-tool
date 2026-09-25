@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = "Stop"
 $projectDir = Split-Path -Parent $PSScriptRoot
 $publishDir = Join-Path $projectDir "publish\win-x64"
-$issFile    = Join-Path $PSScriptRoot "kaliteConfig.iss"
+$issFile = Join-Path $PSScriptRoot "kaliteConfig.iss"
 
 if ($Clean) {
     Write-Host "--> clean: wiping publish output and obj/ intermediates..."
@@ -38,17 +38,33 @@ if ($Clean) {
     }
 }
 
+# Auto-bump the last digit of the version in the csproj before building
+$csprojPath = Join-Path $projectDir "src\kaliteConfig\kaliteConfig.csproj"
+if (Test-Path -LiteralPath $csprojPath) {
+    $content = Get-Content -Path $csprojPath -Raw
+    if ($content -match "<Version>(.*?)</Version>") {
+        $oldVersion = $matches[1]
+        $parts = $oldVersion.Split('.')
+        $lastIndex = $parts.Length - 1
+        $parts[$lastIndex] = ([int]$parts[$lastIndex] + 1).ToString()
+        $newVersion = $parts -join '.'
+        $content = $content -replace "<Version>.*?</Version>", "<Version>$newVersion</Version>"
+        Set-Content -Path $csprojPath -Value $content -NoNewline
+        Write-Host "--> Auto-bumped version from $oldVersion to $newVersion in csproj."
+    }
+}
+
 # Version straight from the evaluated csproj so installer + app never
 # drift (the csproj computes Version with a date-based expression, so ask
 # MSBuild for the evaluated value, not the raw XML text).
-$version = & dotnet msbuild (Join-Path $projectDir "kaliteConfig.csproj") -getProperty:Version
+$version = & dotnet msbuild $csprojPath -getProperty:Version
 $version = ($version | Select-Object -First 1)
 if (-not $version) { $version = "0.1.0" }
 $version = ($version -split '\.')[0..3] -join '.'
 Write-Host "Full build v$version ($Configuration/$Runtime)..."
 
 Write-Host "--> dotnet publish (full flavor)..."
-& dotnet publish (Join-Path $projectDir "kaliteConfig.csproj") `
+& dotnet publish $csprojPath `
     -c $Configuration -r $Runtime --self-contained true `
     -p:Platform=$Platform `
     -o $publishDir
@@ -69,7 +85,7 @@ Write-Host "--> PresentMon bundled OK ($(Split-Path -Leaf $presentMon))"
 $isccCmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 $iscc = if ($isccCmd) { $isccCmd.Source } else { $null }
 foreach ($candidate in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-                         "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
     if (-not $iscc -and (Test-Path -LiteralPath $candidate)) { $iscc = $candidate; break }
 }
 if (-not $iscc) {

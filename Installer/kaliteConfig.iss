@@ -38,6 +38,10 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
+DisableFinishedPage=yes
+DisableWelcomePage=yes
 ; The app minimizes to tray and swallows WM_CLOSE, so Restart Manager
 ; cannot shut it down during PrepareToInstall — that aborts the upgrade
 ; with "Some applications could not be shut down" and rolls files back.
@@ -52,14 +56,11 @@ RestartApplications=no
 ; fallback), and this directive covers those runs too.
 SetupLogging=yes
 UninstallDisplayName={#MyAppName}
-SetupIconFile=..\\Assets\\kaliteConfig.ico
+SetupIconFile=..\src\kaliteConfig\Assets\kaliteConfig.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 
 [Files]
 Source: "{#PublishDir}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-[Tasks]
-Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
 
 [Registry]
 ; KaliteOS first-launch flag: 0 = needs Windhawk auto-provisioning, 1 = already done.
@@ -69,7 +70,7 @@ Root: HKLM; Subkey: "SOFTWARE\KaliteOS"; ValueType: string; ValueName: "InstallP
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 
 [Run]
 ; shellexec is required: the app manifest is requireAdministrator, and plain
@@ -79,9 +80,20 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 ; so Setup can replace the files) as well as offering the Finish-page
 ; checkbox on interactive installs. The app requires admin anyway, so no
 ; runasoriginaluser demotion.
-Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
+Filename: "{app}\{#MyAppExe}"; Parameters: "--tray"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
 
 [Code]
+const
+  BM_CLICK = $00F5;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpWelcome) or (CurPageID = wpReady) then
+  begin
+    PostMessage(WizardForm.NextButton.Handle, BM_CLICK, 0, 0);
+  end;
+end;
+
 procedure KillRunningAppInstances;
 var
   ResultCode: Integer;
