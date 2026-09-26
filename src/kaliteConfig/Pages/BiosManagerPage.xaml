@@ -50,8 +50,10 @@
         <!-- Sticky action bar: load/export/revert always visible -->
         <CommandBar Grid.Row="1" DefaultLabelPosition="Right" Background="Transparent" Margin="0,0,0,4">
             <CommandBar.PrimaryCommands>
-                <AppBarButton Icon="OpenFile" Label="Import" Click="LoadDump_Click" />
-                <AppBarButton Icon="Save" Label="Export…" Click="Export_Click" IsEnabled="{x:Bind ViewModel.HasDocument, Mode=OneWay}" />
+                <AppBarButton Icon="Save" Label="Apply to BIOS" Click="ApplyToBios_Click" IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
+                <AppBarSeparator />
+                <AppBarButton Icon="OpenFile" Label="Load profile…" Click="LoadDump_Click" />
+                <AppBarButton Icon="SaveLocal" Label="Save profile…" Click="Export_Click" IsEnabled="{x:Bind ViewModel.HasDocument, Mode=OneWay}" />
                 <AppBarSeparator />
                 <AppBarButton Icon="Undo" Label="Revert all" Command="{x:Bind ViewModel.ResetAllCommand}" IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
             </CommandBar.PrimaryCommands>

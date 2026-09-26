@@ -97,4 +97,46 @@ public sealed class ScewinExportService
         File.Copy(produced, DumpPath, overwrite: true);
         return DumpPath;
     }
+
+    /// <summary>
+    /// Applies a text-format settings file directly to the BIOS using SCEWIN_64.exe /I /S.
+    /// Re-uses the scratch directory to avoid dumping logs in the source file's directory.
+    /// </summary>
+    public async Task ImportAsync(string pathToFile, CancellationToken cancellationToken = default)
+    {
+        var exePath = Path.Combine(ToolDirectory, ExeName);
+        if (!File.Exists(exePath))
+        {
+            throw new FileNotFoundException($"SCEWIN_64.exe was not found next to the app.");
+        }
+
+        var working = Path.Combine(Path.GetDirectoryName(DumpPath)!, ToolDirName);
+        Directory.CreateDirectory(working);
+
+        // Copy the target file to the working directory for safe execution
+        var targetFile = Path.Combine(working, "BIOS_Import.txt");
+        File.Copy(pathToFile, targetFile, overwrite: true);
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = exePath,
+            Arguments = $"/I /S BIOS_Import.txt",
+            WorkingDirectory = working,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        using var process = new Process { StartInfo = psi };
+        if (!process.Start())
+        {
+            throw new InvalidOperationException("Failed to start SCEWIN_64.exe for import.");
+        }
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        if (process.ExitCode != 0 && process.ExitCode != 4) // Exit code 4 means success with warnings (e.g., read-only skip)
+        {
+            throw new InvalidOperationException($"SCEWIN_64.exe exited with code {process.ExitCode} during import.");
+        }
+    }
 }

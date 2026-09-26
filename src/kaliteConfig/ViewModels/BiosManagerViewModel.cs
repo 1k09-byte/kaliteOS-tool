@@ -286,6 +286,41 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         }
     }
 
+    /// <summary>Apply changes directly to the BIOS via SCEWIN.</summary>
+    [RelayCommand]
+    private async Task ApplyToBiosAsync()
+    {
+        if (_document is null || !HasChanges) return;
+        
+        IsLoading = true;
+        ShowError(null);
+        try
+        {
+            LoadingText = "Writing changes to BIOS…";
+            var text = ScewinExporter.Export(_document);
+            var tempPath = Path.Combine(Path.GetTempPath(), "kaliteConfig_BIOS_Changes.txt");
+            await File.WriteAllTextAsync(tempPath, text);
+
+            var service = new ScewinExportService();
+            await Task.Run(() => service.ImportAsync(tempPath));
+            
+            try { File.Delete(tempPath); } catch { }
+            
+            StatusText = $"Successfully applied {ModifiedCount} change(s) to BIOS.";
+            
+            // Re-export from BIOS to refresh the UI and confirm changes actually stuck
+            await ExportAndLoadCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Failed to apply changes to BIOS: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
     /// <summary>Debounced search filter (runs the match off the UI thread).</summary>
     [RelayCommand]
     private Task FilterAsync(string? text)

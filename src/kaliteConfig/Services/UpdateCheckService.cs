@@ -572,7 +572,7 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
             string tag = root.TryGetProperty("tag_name", out var t) && t.ValueKind == JsonValueKind.String
                 ? t.GetString() ?? "" : "";
             string notes = root.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String
-                ? FirstParagraph(b.GetString()) : "";
+                ? (b.GetString() ?? "") : "";
 
             if (!IsNewer(tag, CurrentVersion))
             {

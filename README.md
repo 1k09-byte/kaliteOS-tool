@@ -1,6 +1,6 @@
 # kaliteConfig
 
-kaliteConfig is an advanced system tuning and optimization utility for Windows. Built with a modern WinUI 3 interface, it offers unprecedented control over Windows services, process optimizations, hardware scheduling, and BIOS parameters.
+kaliteConfig is a comprehensive system configuration and management application for Windows. Built with a modern WinUI 3 interface, it offers unprecedented control over Windows services, process orchestration, hardware scheduling, and BIOS parameters.
 
 ## Core Features
 - **Intelligent Process Optimizer**: Live core affinity mapping, advanced thread priority control (Eco-mode, dynamic priority boosting), and efficiency tuning for high-performance workloads.

@@ -184,7 +184,13 @@ namespace kaliteConfig
                     Visibility = Microsoft.UI.Xaml.Visibility.Collapsed,
                     Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
                 };
-                ((Microsoft.UI.Xaml.Controls.StackPanel)dialog.Content).Children.Add(notes);
+                var scrollViewer = new Microsoft.UI.Xaml.Controls.ScrollViewer
+                {
+                    Content = notes,
+                    MaxHeight = 250,
+                    Padding = new Microsoft.UI.Xaml.Thickness(0, 0, 12, 0)
+                };
+                ((Microsoft.UI.Xaml.Controls.StackPanel)dialog.Content).Children.Add(scrollViewer);
                 ((Microsoft.UI.Xaml.Controls.StackPanel)dialog.Content).Children.Add(progress);
                 ((Microsoft.UI.Xaml.Controls.StackPanel)dialog.Content).Children.Add(status);
 

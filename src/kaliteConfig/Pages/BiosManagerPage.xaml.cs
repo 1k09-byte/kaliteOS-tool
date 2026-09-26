@@ -38,17 +38,17 @@ namespace kaliteConfig.Pages
         }
 
         /// <summary>
-        /// Export flow with review: build the Name → Old → New change list and
-        /// validation warnings in a dialog; only then open the save picker.
+        /// Apply flow with review: build the Name → Old → New change list and
+        /// validation warnings in a dialog; only then flash to BIOS.
         /// </summary>
-        private async void Export_Click(object sender, RoutedEventArgs e)
+        private async void ApplyToBios_Click(object sender, RoutedEventArgs e)
         {
             if (!ViewModel.HasDocument) return;
 
             var changes = ViewModel.GetChanges();
             if (changes.Count == 0)
             {
-                await ShowMessageAsync("Nothing to export", "No settings have been modified. Change a value first, then export.");
+                await ShowMessageAsync("Nothing to apply", "No settings have been modified. Change a value first.");
                 return;
             }
 
@@ -62,14 +62,14 @@ namespace kaliteConfig.Pages
                     IsOpen = true,
                     Severity = InfoBarSeverity.Error,
                     Title = $"{problems.Count} value(s) would be invalid",
-                    Message = "Revert or fix the highlighted values before exporting.",
+                    Message = "Revert or fix the highlighted values before applying.",
                     IsClosable = false,
                 });
             }
 
             panel.Children.Add(new TextBlock
             {
-                Text = $"{changes.Count} setting(s) will be written:",
+                Text = $"{changes.Count} setting(s) will be written directly to the BIOS:",
                 Style = (Style)Application.Current.Resources["BodyTextBlockStyle"],
             });
             panel.Children.Add(new ListView
@@ -84,7 +84,7 @@ namespace kaliteConfig.Pages
             {
                 Title = "Review changes",
                 Content = panel,
-                PrimaryButtonText = $"Export {changes.Count}…",
+                PrimaryButtonText = $"Apply {changes.Count}…",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Primary,
                 IsPrimaryButtonEnabled = problems.Count == 0,
@@ -93,9 +93,15 @@ namespace kaliteConfig.Pages
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                await ViewModel.SaveFileCommand.ExecuteAsync(null);
+                await ViewModel.ApplyToBiosCommand.ExecuteAsync(null);
             }
         }
+
+        private void Export_Click(object sender, RoutedEventArgs e)
+        {
+            ViewModel.SaveFileCommand.Execute(null);
+        }
+
 
         // ---- list / tree / search events ----
 
