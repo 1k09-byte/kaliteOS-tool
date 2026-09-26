@@ -39,6 +39,17 @@
 - **Dependency Automation**: Installs required runtimes (Visual C++, DirectX) in the background with zero user interruption.
 - **Self-Updating Shell**: Built-in GitHub release integration ensures `kaliteConfig` can detect, stream, and overwrite itself with newer versions.
 
+## 🌟 Credits & Acknowledgments
+
+A massive thank you to the following individuals who helped make this project possible:
+
+- **tinodin** - Inspired the core WinUI 3 architecture and the vision to build this tool! 🔥 
+  [GitHub (AutoOS)](https://github.com/tinodin/AutoOS) | [Discord Community](https://discord.gg/prmaYcsDwy)
+- **jackpot71** - Provided phenomenal ideas, ongoing guidance, and is the creator of the brilliant Hypertune! 🚀
+  [GitHub (Hypertune)](https://github.com/JACKPOT71/Hypertune) | [Discord Community](https://discord.gg/XhtSQBE4jS)
+- **herothefoxking.** - An incredibly educated mind who helped endlessly with deep OS implementations and strict logic! 🧠 🦊
+  [Discord Community](https://discord.gg/vTYNb8re9g)
+
 ## License
 
 This software is strictly proprietary. All rights reserved. 
