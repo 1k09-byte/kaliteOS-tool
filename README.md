@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Docs/kaliteConfig_icon.png" width="300" height="300">
+</p>
+
 # kaliteConfig
 
 `kaliteConfig` is the official post-install utility and core orchestration dashboard for **kaliteOS**. Leveraging a modern WinUI 3 interface, it bridges the gap between low-level system tweaking scripts and consumer-grade UIs, allowing users to safely manage, integrate, and configure the underlying kaliteOS features (services, processes, hardware pipelines, network interfaces, and raw BIOS parameters) immediately after OS installation.
