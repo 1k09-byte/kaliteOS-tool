@@ -1,3 +1,12 @@
+// ==============================================================================
+// Copyright (c) 2026 kaliteConfig
+// All rights reserved.
+//
+// This software and associated documentation files are proprietary.
+// You may not use, copy, reproduce, modify, merge, publish, distribute, sublicense,
+// reverse-engineer, or sell copies of the software in any form, in whole or in part,
+// without the express written permission of the copyright holder.
+// ==============================================================================
 // App settings page (persisted via ThemeService).
 // Written in the Windows App SDK C# dialect. See docs/GALLERY-REFERENCE.md section 2.
 

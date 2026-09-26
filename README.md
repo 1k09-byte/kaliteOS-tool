@@ -1,6 +1,6 @@
 # kaliteConfig
 
-`kaliteConfig` is a comprehensive, advanced system configuration and management application built exclusively for Windows. Leveraging a modern WinUI 3 interface, it bridges the gap between low-level system tweaking scripts and consumer-grade UIs, offering unprecedented orchestration over Windows services, processes, hardware pipelines, network interfaces, and raw BIOS parameters.
+`kaliteConfig` is the official post-install utility and core orchestration dashboard for **kaliteOS**. Leveraging a modern WinUI 3 interface, it bridges the gap between low-level system tweaking scripts and consumer-grade UIs, allowing users to safely manage, integrate, and configure the underlying kaliteOS features (services, processes, hardware pipelines, network interfaces, and raw BIOS parameters) immediately after OS installation.
 
 ---
 

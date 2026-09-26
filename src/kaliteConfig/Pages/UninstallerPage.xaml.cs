@@ -1,4 +1,13 @@
-ï»¿using Microsoft.UI.Xaml.Controls;
+// ==============================================================================
+// Copyright (c) 2026 kaliteConfig
+// All rights reserved.
+//
+// This software and associated documentation files are proprietary.
+// You may not use, copy, reproduce, modify, merge, publish, distribute, sublicense,
+// reverse-engineer, or sell copies of the software in any form, in whole or in part,
+// without the express written permission of the copyright holder.
+// ==============================================================================
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
@@ -82,8 +91,8 @@ namespace kaliteConfig.Pages
             var targets = ViewModel.Apps.Where(a => a.IsSelected).ToList();
             if (ViewModel.SelectedApp != null && targets.Count == 0) targets.Add(ViewModel.SelectedApp);
             if (targets.Count == 0) return;
-            var lines = string.Join("\n", targets.Take(8).Select(a => $"â€¢ {a.Name}"));
-            if (targets.Count > 8) lines += $"\nâ€¦ and {targets.Count - 8} more";
+            var lines = string.Join("\n", targets.Take(8).Select(a => $"• {a.Name}"));
+            if (targets.Count > 8) lines += $"\n… and {targets.Count - 8} more";
             var dialog = new ContentDialog
             {
                 Title = $"Uninstall {targets.Count} application{(targets.Count == 1 ? "" : "s")}?",
@@ -127,8 +136,8 @@ namespace kaliteConfig.Pages
             var targets = ViewModel.DriverPackages.Where(d => d.IsSelected).ToList();
             if (ViewModel.SelectedDriver != null && targets.Count == 0) targets.Add(ViewModel.SelectedDriver);
             if (targets.Count == 0) return;
-            var lines = string.Join("\n", targets.Take(8).Select(d => $"â€¢ {d.FriendlyKind} ({d.PublishedName})"));
-            if (targets.Count > 8) lines += $"\nâ€¦ and {targets.Count - 8} more";
+            var lines = string.Join("\n", targets.Take(8).Select(d => $"• {d.FriendlyKind} ({d.PublishedName})"));
+            if (targets.Count > 8) lines += $"\n… and {targets.Count - 8} more";
             var dialog = new ContentDialog
             {
                 Title = $"Remove {targets.Count} driver package{(targets.Count == 1 ? "" : "s")}?",

@@ -1,4 +1,13 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+// ==============================================================================
+// Copyright (c) 2026 kaliteConfig
+// All rights reserved.
+//
+// This software and associated documentation files are proprietary.
+// You may not use, copy, reproduce, modify, merge, publish, distribute, sublicense,
+// reverse-engineer, or sell copies of the software in any form, in whole or in part,
+// without the express written permission of the copyright holder.
+// ==============================================================================
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using kaliteConfig.GpuOverclock;
 using kaliteConfig.GpuOverclock.Services;
@@ -47,7 +56,7 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool IsAudioExpanded { get; set; } = true;
 
-        // ── Change tracking ─────────────────────────────────────────────────
+        // -- Change tracking -------------------------------------------------
 
         private readonly List<AffinityChange> _undoStack = new();
         private readonly List<AffinityChange> _redoStack = new();
@@ -83,7 +92,7 @@ namespace kaliteConfig.ViewModels
             RefreshChangeState();
         }
 
-        // ── Dialog state ────────────────────────────────────────────────────
+        // -- Dialog state ----------------------------------------------------
 
         /// <summary>
         /// Fills a device's dialog state from live read-only interrupt data and
@@ -97,7 +106,7 @@ namespace kaliteConfig.ViewModels
             // dialog full of empty values that writes interrupt settings nowhere.
             if (!_affinityService.DeviceExists(item.DeviceInstanceId))
             {
-                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning…";
+                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning�";
                 _ = RefreshDevicesCommand.ExecuteAsync(null);
                 throw new InvalidOperationException(
                     $"{item.Name} is no longer present. It was restarted or re-enumerated (this happens after a GPU restart or driver install). " +
@@ -296,7 +305,7 @@ namespace kaliteConfig.ViewModels
                 new PolicyOption("IrqPolicySpreadMessagesAcrossAllProcessors", "IrqPolicySpreadMessagesAcrossAllProcessors")
             };
 
-        // ── Device enumeration ──────────────────────────────────────────────
+        // -- Device enumeration ----------------------------------------------
 
         [RelayCommand]
         private async Task RefreshDevicesAsync()
@@ -372,7 +381,7 @@ namespace kaliteConfig.ViewModels
         public bool IsDevicePresent(AffinityDeviceItem? item)
             => item is not null && _affinityService.DeviceExists(item.DeviceInstanceId);
 
-        // ── Per-device Apply (dialog) ───────────────────────────────────────
+        // -- Per-device Apply (dialog) ---------------------------------------
 
         /// <summary>
         /// Writes the dialog's staged values (MSI, policy, priority, mask) to the
@@ -503,7 +512,7 @@ namespace kaliteConfig.ViewModels
                 item.SelectedThreadCountText += " (system default)";
         }
 
-        // ── Optimize command ────────────────────────────────────────────────
+        // -- Optimize command ------------------------------------------------
 
         [ObservableProperty]
         public partial bool IsOptimizing { get; set; }
@@ -634,7 +643,7 @@ namespace kaliteConfig.ViewModels
                     audioMask = pCores[^5];
                 }
 
-                // ─ Step 1: Enable MSI for EVERY device that reports support.
+                // - Step 1: Enable MSI for EVERY device that reports support.
                 // Like the reference, enabling MSI also pins the limit to the
                 // device maximum (Auto became meaningless once MSI is forced on).
                 foreach (var dev in allDevices)
@@ -725,7 +734,7 @@ namespace kaliteConfig.ViewModels
                 IsOptimizing = false;
             }
         }
-        // ── Undo / Redo / Restore commands ──────────────────────────────────
+        // -- Undo / Redo / Restore commands ----------------------------------
 
         [RelayCommand]
         private async Task UndoAsync()
@@ -796,11 +805,11 @@ namespace kaliteConfig.ViewModels
             StatusText = "All changes restored. Restart required.";
         }
 
-        // ── View Changes ────────────────────────────────────────────────────
+        // -- View Changes ----------------------------------------------------
 
         public ObservableCollection<AffinityChange> TrackedChanges { get; } = new();
 
-        // ── Helpers ─────────────────────────────────────────────────────────
+        // -- Helpers ---------------------------------------------------------
 
         private void RevertChange(AffinityChange change)
         {
