@@ -65,15 +65,22 @@
             </CommandBar.Content>
         </CommandBar>
 
-        <InfoBar
-            Grid.Row="2"
-            x:Name="ErrorBar"
-            IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
-            Severity="Error"
-            Title="Couldn't load dump"
-            Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
-            IsClosable="True"
-            Margin="12,0,12,4" />
+        <StackPanel Grid.Row="2" Spacing="4" Margin="12,0,12,4">
+            <InfoBar
+                IsOpen="True"
+                Severity="Warning"
+                Title="Proceed With Caution"
+                Message="Any modifications made to your BIOS settings are strictly at your own risk. We are not responsible for any damage, instability, or bricked motherboards resulting from these changes. You are fully responsible for any actions taken here. If you need guidance, ask our community in Discord for help before hitting apply."
+                IsClosable="False" />
+
+            <InfoBar
+                x:Name="ErrorBar"
+                IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                Severity="Error"
+                Title="Couldn't load dump"
+                Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+                IsClosable="True" />
+        </StackPanel>
 
         <!-- Search pinned above the list, always visible without scrolling -->
         <AutoSuggestBox

@@ -23,7 +23,7 @@ namespace kaliteConfig.PackageManager.ViewModels;
 /// <summary>Package Managers preferences: detection status, enable toggles, exe overrides.</summary>
 public sealed partial class PackageManagerPreferencesViewModel : ObservableObject
 {
-    protected readonly PackageManagerModule Module = PackageManagerModule.Instance;
+    private readonly PackageManagerModule Module = PackageManagerModule.Instance;
 
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcher;
 

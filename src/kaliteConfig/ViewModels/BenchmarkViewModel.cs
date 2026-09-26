@@ -878,7 +878,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
                 var onStats = StatsFor(onRun);
                 var offStats = offRun != null ? StatsFor(offRun) : null;
                 if (onStats == null || offStats == null) continue;
-                pairs.Add((ShortLabelFor(onRun), ShortLabelFor(offRun),
+                pairs.Add((ShortLabelFor(onRun), ShortLabelFor(offRun!),
                     Pct(onStats.AverageFps, offStats.AverageFps),
                     Pct(onStats.Low1TimeFps, offStats.Low1TimeFps)));
             }

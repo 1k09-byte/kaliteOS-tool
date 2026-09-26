@@ -619,7 +619,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
                     // Build the table from the driver's CURRENT state so the
                     // other domain's offsets are preserved untouched.
-                    var table = GPUApi.GetClockBoostTable(_gpu.Handle, 1);
+                    var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
                     var src = table.GPUDeltas;
                     var deltas = new PrivateClockBoostTableV1.GPUDelta[src.Length];
                     int deltaKhz = offsetMhz * 1000;
@@ -1027,7 +1027,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     var pointRanges = QueryPointRangesMhz(PublicClockDomain.Graphics, first, last);
                     if (pointRanges is null) return GpuResult.Fail(OverclockErrorKind.ControlUnsupported);
 
-                    var table = GPUApi.GetClockBoostTable(_gpu.Handle, 1);
+                    var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
                     var src = table.GPUDeltas;
                     var deltas = new PrivateClockBoostTableV1.GPUDelta[src.Length];
                     for (int i = 0; i < src.Length; i++)

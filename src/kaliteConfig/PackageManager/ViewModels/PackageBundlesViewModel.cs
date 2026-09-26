@@ -39,7 +39,7 @@ public sealed partial class BundleRow : ObservableObject
 /// <summary>Package bundles: list, create, export/import JSON, diff, bulk-install missing.</summary>
 public sealed partial class PackageBundlesViewModel : ObservableObject
 {
-    protected readonly PackageManagerModule Module = PackageManagerModule.Instance;
+    private readonly PackageManagerModule Module = PackageManagerModule.Instance;
 
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcher;
 

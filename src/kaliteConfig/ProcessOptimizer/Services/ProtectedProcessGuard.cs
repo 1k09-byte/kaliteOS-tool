@@ -29,7 +29,7 @@ public static class ProtectedProcessGuard
         "kaliteconfig"
     };
 
-    public static bool IsProcessProtected(string processName, IEnumerable<string> customExclusions = null)
+    public static bool IsProcessProtected(string processName, IEnumerable<string>? customExclusions = null)
     {
         if (string.IsNullOrWhiteSpace(processName)) return true; // Err on side of caution
 

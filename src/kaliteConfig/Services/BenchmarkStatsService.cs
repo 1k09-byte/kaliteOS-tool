@@ -235,7 +235,7 @@ public static class BenchmarkStatsService
         var out_ = new List<double>();
         if (frames == null || frames.Count == 0) return out_;
         bool timed = stamps != null && stamps.Count == frames.Count && frames.Count > 1;
-        double t0 = timed ? stamps[0] : 0;
+        double t0 = timed ? stamps![0] : 0;
         int start = 0;
         double acc = 0;
         for (int i = 0; i < frames.Count; i++)
@@ -243,7 +243,7 @@ public static class BenchmarkStatsService
             acc += frames[i];
             if (timed)
             {
-                double t = stamps[i] - t0;
+                double t = stamps![i] - t0;
                 while (start < i && (t - (stamps[start] - t0)) > windowMs)
                 {
                     acc -= frames[start];

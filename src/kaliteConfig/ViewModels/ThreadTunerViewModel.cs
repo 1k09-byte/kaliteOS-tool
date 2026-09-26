@@ -41,7 +41,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private DispatcherQueueTimer? _searchTimer;
 
     private readonly string _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "threadtuner-settings.json");
-    private bool _settingsLoaded;
 
     private class ThreadTunerSettings
     {
@@ -203,7 +202,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             }
         }
         catch { }
-        finally { _settingsLoaded = true; }
     }
 
     private async Task SaveSettingsAsync()

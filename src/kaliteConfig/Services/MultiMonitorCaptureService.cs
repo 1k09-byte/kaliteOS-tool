@@ -61,7 +61,7 @@ public sealed class MultiMonitorCaptureService : IDisposable
 
                 return new CapturedMonitor
                 {
-                    DisplayId = area.DisplayId.ToString(),
+                    DisplayId = area.DisplayId.Value.ToString(),
                     X = (int)bounds.X,
                     Y = (int)bounds.Y,
                     Width = (int)bounds.Width,
@@ -78,7 +78,7 @@ public sealed class MultiMonitorCaptureService : IDisposable
         }).ToList();
 
         var results = await Task.WhenAll(captureTasks);
-        monitors.AddRange(results.Where(r => r != null));
+        monitors.AddRange(results.Where(r => r != null)!);
 
         return monitors;
     }

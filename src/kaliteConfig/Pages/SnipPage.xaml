@@ -705,9 +705,9 @@
                                                      <RowDefinition Height="Auto"/>
                                                  </Grid.RowDefinitions>
                                                  <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                                     <Image Source="{x:Bind FilePath, Mode=OneWay}" Stretch="Uniform" Margin="8"/>
+                                                     <Image Source="{x:Bind FilePath, Mode=OneTime}" Stretch="Uniform" Margin="8"/>
                                                  </Border>
-                                                 <TextBlock Grid.Row="1" Text="{x:Bind Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" MaxLines="1"
+                                                 <TextBlock Grid.Row="1" Text="{x:Bind Name, Mode=OneTime}" TextTrimming="CharacterEllipsis" MaxLines="1"
                                                             HorizontalAlignment="Center" Margin="0,4,0,0" FontSize="12"/>
                                              </Grid>
                                          </DataTemplate>

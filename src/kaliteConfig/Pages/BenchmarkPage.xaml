@@ -304,7 +304,7 @@
                             <StackPanel Spacing="1">
                             <TextBlock FontSize="12" FontWeight="SemiBold" Text="{x:Bind Game}" />
                             <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                                <Run Text="{x:Bind Date}" /><Run Text="  ·  " /><Run Text="{x:Bind Comment, Mode=OneWay}" />
+                                <Run Text="{x:Bind Date}" /><Run Text="  ·  " /><Run Text="{x:Bind Comment, Mode=OneTime}" />
                             </TextBlock>
                         </StackPanel>
                         </Border>

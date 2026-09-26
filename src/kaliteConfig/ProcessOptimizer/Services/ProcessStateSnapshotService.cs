@@ -27,7 +27,7 @@ public static class ProcessStateSnapshotService
     /// individually nullable - restore skips what could not be read instead
     /// of writing assumed defaults. Excludes protected processes.
     /// </summary>
-    public static ProcessBaselineSnapshot CaptureSnapshot(int pid, IEnumerable<string> customExclusions = null)
+    public static ProcessBaselineSnapshot? CaptureSnapshot(int pid, IEnumerable<string>? customExclusions = null)
     {
         try
         {

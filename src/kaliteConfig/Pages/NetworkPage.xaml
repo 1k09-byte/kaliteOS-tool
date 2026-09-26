@@ -495,7 +495,7 @@
                                                 <TextBlock Text="{x:Bind FixDescription}" TextWrapping="Wrap" FontStyle="Italic" FontSize="12"/>
                                             </StackPanel>
                                             <Button Grid.Column="2" Content="Stage fix" Click="StageFix_Click" VerticalAlignment="Top"
-                                                    IsEnabled="{x:Bind HasFix, Mode=OneWay}" ToolTipService.ToolTip="Stages the fix for review on the Advanced tab"/>
+                                                    IsEnabled="{x:Bind HasFix, Mode=OneTime}" ToolTipService.ToolTip="Stages the fix for review on the Advanced tab"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

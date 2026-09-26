@@ -163,7 +163,7 @@ public sealed partial class SnipTrayWindow : Window
                     ShowErrorOverlay("Drag failed: Elevation mismatch");
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 ShowErrorOverlay("Drag failed");
             }

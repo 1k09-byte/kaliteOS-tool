@@ -58,7 +58,7 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" OnContent="Enabled" OffContent="Enabled"
-                                          IsOn="{x:Bind IsEnabled, Mode=OneWay}"
+                                          IsOn="{x:Bind IsEnabled, Mode=OneTime}"
                                           Toggled="EnabledToggle_Toggled" Tag="{x:Bind}"
                                           VerticalAlignment="Center" />
                             <Button Grid.Column="2" Content="Executable…" Click="Executable_Click" Tag="{x:Bind}"

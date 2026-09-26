@@ -208,7 +208,7 @@
         ("Version 0.3.0" from Major.Minor.Build) and the installer
         filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.3.0.21</Version>
+    <Version>0.3.0.23</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

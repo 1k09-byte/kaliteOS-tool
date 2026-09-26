@@ -119,7 +119,7 @@
                                                 <DataTemplate x:DataType="x:String">
                                                     <Border Width="60" Height="60" Margin="4" CornerRadius="4" 
                                                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                                        <Image Source="{x:Bind Mode=OneWay}" Stretch="Uniform" Margin="4"/>
+                                                        <Image Source="{x:Bind Mode=OneTime}" Stretch="Uniform" Margin="4"/>
                                                     </Border>
                                                 </DataTemplate>
                                             </GridView.ItemTemplate>
