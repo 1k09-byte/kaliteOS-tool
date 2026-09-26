@@ -47,7 +47,7 @@ A massive thank you to the following individuals who helped make this project po
   [GitHub (AutoOS)](https://github.com/tinodin/AutoOS) | [Discord Community](https://discord.gg/prmaYcsDwy)
 - **jackpot71** - Provided phenomenal ideas, ongoing guidance, and is the creator of the brilliant Hypertune! 🚀
   [GitHub (Hypertune)](https://github.com/JACKPOT71/Hypertune) | [Discord Community](https://discord.gg/XhtSQBE4jS)
-- **herothefoxking.** - An incredibly educated mind who helped endlessly with deep OS implementations and strict logic! 🧠 🦊
+- **herothefoxking.** - An incredibly educated mind who helped endlessly with strict logic! 🧠 🦊
   [Discord Community](https://discord.gg/vTYNb8re9g)
 
 ## License
