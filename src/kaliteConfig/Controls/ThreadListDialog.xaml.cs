@@ -111,10 +111,11 @@ public sealed partial class ThreadListDialog : ContentDialog
                     CurrentText = t.RelativeText,
                     IsNamed = named,
                     ProcessName = _processName,
-                    // Seeded from the live boost state below; the tick box is
-                    // the single source of truth once loaded.
-                    BoostAllowed = true,
                 };
+                
+                try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)t.Tid); } catch { row.BoostAllowed = true; }
+                if (Services.BoostPreferenceService.Instance.IsSuppressed(_processName, t.Tid, t.Description, t.StartAddress))
+                    row.BoostAllowed = false;
                 try
                 {
                     using var h = NativeMethods.Handles.OpenThread(

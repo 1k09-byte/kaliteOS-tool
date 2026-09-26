@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Docs/kaliteConfig_banner.png" width="100%">
+  <img src="Docs/kaliteConfig_banner_rounded.png" width="100%">
 </p>
 
 # kaliteConfig
