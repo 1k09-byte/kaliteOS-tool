@@ -442,6 +442,19 @@ public sealed partial class ThreadListDialog : ContentDialog
         catch (Exception ex) { EditorStatus($"Save rule: {Short(ex)}", true); }
     }
 
+    private async void BoostBox_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loadingEditor || sender is not CheckBox cb || cb.DataContext is not ThreadRow row) return;
+        try { await Services.BoostPreferenceService.Instance.RestoreAsync(_processName, row.Tid, row.Description, row.StartAddress); } catch { }
+        if (_selected == row) BoostToggle.IsOn = true;
+    }
+
+    private async void BoostBox_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_loadingEditor || sender is not CheckBox cb || cb.DataContext is not ThreadRow row) return;
+        try { await Services.BoostPreferenceService.Instance.SuppressAsync(_processName, row.Tid, row.Description, row.StartAddress); } catch { }
+        if (_selected == row) BoostToggle.IsOn = false;
+    }
     private async void BoostToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_loadingEditor || _selected == null) return;

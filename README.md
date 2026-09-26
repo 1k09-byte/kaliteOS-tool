@@ -24,7 +24,6 @@
 
 ### ⚡ Power & Scheduling Configurator
 - **Visual Scheme Designer**: Break out of standard control panels. Unveil, edit, and navigate an exhaustive list of hidden Windows `powercfg` GUID parameters dynamically mapped into the application interface.
-- **Worded Value Translations**: Effortlessly manage complex hex-string properties like deep PCIe ASPM controls and ACPI sleep bindings translated dynamically into readable drop-down English configurations. 
 - **Template Synthesis**: Export, inject, and backup `.pow` payload power schemes cleanly.
 
 ### 🎮 GPU Optimization Hub
@@ -53,7 +52,6 @@
 ### ⚙️ OS Subsystem Toggles
 - **Reserved CPU Sets**: Restrict Windows OS telemetry and baseline threads to specific, poorly performing E-Cores so main gaming P-Cores remain utterly untouched (`ReservedCpuSetsPage`).
 - **Hardware Interrupt Tuning (MSI/IRQs)**: Force distinct PCIE device processing queues onto unburdened logical processors via `AffinityPage`.
-- **Centralized OS Hub**: Toggle classic Windows privacy tools, notification handlers, and visual telemetry rules cleanly in `WindowsSettingsHubPage`.
 - **Automated OTA Updating**: Intelligent Github Release pipeline fetcher that tracks, evaluates, downloads, and seamlessly self-updates the `kaliteConfig` application framework through our proprietary Markdown parser mechanics.
 
 ## 🌟 Credits & Acknowledgments
