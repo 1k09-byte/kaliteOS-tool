@@ -447,16 +447,14 @@ namespace kaliteConfig
                     case "AppsPage":
                          ContentFrame.Navigate(typeof(InstallerPage));
                          break;
-                    case "GamesPage":
-                         ContentFrame.Navigate(typeof(GamesPage));
+                    case "GraphicsPage":
+                         ContentFrame.Navigate(typeof(GraphicsHubPage));
                          break;
-                    case "DriversPage":
-                         ContentFrame.Navigate(typeof(GpuDriversPage));
-                         break;
-                     case "GamingPage":
+
+                    case "GamingPage":
                          ContentFrame.Navigate(typeof(AffinityPage));
                          break;
-                     case "PriorityBoostsPage":
+                    case "PriorityBoostsPage":
                          ContentFrame.Navigate(typeof(PriorityBoostsPage));
                          break;
                       case "ThreadTunerPage":
@@ -471,6 +469,7 @@ namespace kaliteConfig
                     case "BenchmarkPage":
                          ContentFrame.Navigate(typeof(BenchmarkPage));
                          break;
+
                     case "WindowsSettingsPage":
                          ContentFrame.Navigate(typeof(WindowsSettingsHubPage));
                          break;

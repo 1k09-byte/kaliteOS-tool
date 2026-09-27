@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using kaliteConfig.GpuOverclock.Models;
+using kaliteConfig.Services;
 using NvAPIWrapper;
 using NvAPIWrapper.Native;
 using NvAPIWrapper.Native.Exceptions;
@@ -24,25 +25,25 @@ using NvAPIWrapper.GPU;
 namespace kaliteConfig.GpuOverclock.Services
 {
     /// <summary>
-    /// Real INvidiaGpuController over NvAPIWrapper (LLT.NvAPIWrapper.Net fork).
-    /// All NVAPI access is serialized behind a lock (NVAPI is not thread-safe).
+    /// Real IGpuTuningController over NvAPIWrapper (LLT.NvAPIWrapper.Net fork).
+    /// All NVAPI access is serialized behind the process-wide NvApiSession.Gate
+    /// (NVAPI is not thread-safe, and the display panel shares the same driver session).
     /// Expected failures come back as GpuResult values; only truly exceptional
     /// conditions throw.
     /// </summary>
-    public sealed class NvApiGpuController : INvidiaGpuController
+    public sealed class NvidiaGpuTuningController : IGpuTuningController
     {
-        private readonly object _gate = new();
         private bool _initialized;
         private PhysicalGPU? _gpu;
 
         public bool IsInitialized
         {
-            get { lock (_gate) return _initialized; }
+            get { lock (NvApiSession.Gate) return _initialized; }
         }
 
         public GpuResult Initialize()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (_initialized) return GpuResult.Ok();
                 try
@@ -67,7 +68,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult<GpuIdentity> GetIdentity()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<GpuIdentity>.Fail(fail.ErrorKind, fail.Detail);
                 try
@@ -100,7 +101,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult<GpuTelemetrySnapshot> ReadTelemetry()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<GpuTelemetrySnapshot>.Fail(fail.ErrorKind, fail.Detail);
                 try
@@ -293,7 +294,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult<GpuCapabilities> ReadCapabilities()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<GpuCapabilities>.Fail(fail.ErrorKind, fail.Detail);
                 try
@@ -421,6 +422,12 @@ namespace kaliteConfig.GpuOverclock.Services
                         CurrentPowerLimitPercent = powerPctCur,
                         CurrentTempLimitC = tempCur,
                         FanControlSupported = fanSupported,
+                        // No Zero RPM on this side: the NVAPI wrapper exposes no
+                        // zero-fan entry point, so the honest answer is "not
+                        // available" and the toggle stays hidden rather than
+                        // appearing and doing nothing. See the interface's
+                        // default implementations.
+                        ZeroRpmSupported = false,
                         VfCurveSupported = vfSupported,
                         VfCurvePointCount = vfCount,
                         VoltageBoostSupported = vbSupported,
@@ -446,7 +453,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult<(int CoreOffsetMHz, int MemOffsetMHz)> ReadCurrentOffsets()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<(int, int)>.Fail(fail.ErrorKind, fail.Detail);
 
@@ -512,7 +519,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult<(double PowerLimitPercent, int? TempLimitC)> ReadCurrentLimits()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<(double, int?)>.Fail(fail.ErrorKind, fail.Detail);
                 try
@@ -605,7 +612,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// </summary>
         private GpuResult SetClockOffset(PublicClockDomain domain, int offsetMhz)
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
                 try
@@ -645,7 +652,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult SetPowerLimitPercent(double percent)
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
                 try
@@ -683,7 +690,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult SetTempLimitC(int tempLimitC)
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
                 try
@@ -719,7 +726,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult SetFanStaticPercent(int percent)
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
                 percent = Math.Clamp(percent, 0, 100);
@@ -767,9 +774,23 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
+        /// <summary>
+        /// NVAPI's zero-fan calls are not in the wrapper we build against, so
+        /// this declines with the reason rather than inheriting the generic one.
+        /// </summary>
+        public GpuResult<bool> IsZeroRpmEnabled()
+            => GpuResult<bool>.Fail(
+                OverclockErrorKind.ControlUnsupported,
+                "Zero RPM needs NVAPI zero-fan support, which this build's NVAPI wrapper does not expose.");
+
+        public GpuResult SetZeroRpmEnabled(bool enabled)
+            => GpuResult.Fail(
+                OverclockErrorKind.ControlUnsupported,
+                "Zero RPM needs NVAPI zero-fan support, which this build's NVAPI wrapper does not expose.");
+
         public GpuResult RestoreFanAuto()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
 
@@ -833,7 +854,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// </summary>
         public GpuResult<GpuVoltageFrequencyCurve> ReadVoltageFrequencyCurve()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<GpuVoltageFrequencyCurve>.Fail(fail.ErrorKind, fail.Detail);
                 try
@@ -1011,7 +1032,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// </summary>
         public GpuResult SetVoltageFrequencyCurveOffsets(IReadOnlyList<int> offsetsMhz)
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
                 try
@@ -1065,7 +1086,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// </summary>
         public GpuResult<int[]> ReadVfCurveOffsets()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 try
                 {
@@ -1092,7 +1113,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult<uint> ReadVoltageBoostPercent()
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<uint>.Fail(fail.ErrorKind, fail.Detail);
                 try
@@ -1112,7 +1133,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult SetVoltageBoostPercent(uint percent)
         {
-            lock (_gate)
+            lock (NvApiSession.Gate)
             {
                 if (!EnsureGpu(out var fail)) return fail;
                 try
@@ -1166,7 +1187,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>Called when the GPU may have changed (re-detect) - forgets the cached handle.</summary>
         public void InvalidateGpu()
         {
-            lock (_gate) _gpu = null;
+            lock (NvApiSession.Gate) _gpu = null;
         }
 
         private GpuResult InitializeNoLock()

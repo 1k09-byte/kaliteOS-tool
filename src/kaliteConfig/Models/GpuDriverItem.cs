@@ -135,6 +135,22 @@ namespace kaliteConfig.Models
 
         public bool IsCheckEnabled => Status is not (
             GpuDriverStatus.UpToDate or GpuDriverStatus.Downloading or GpuDriverStatus.Installing);
+
+        // Radeon Software Slimmer. This is a per-machine tool, but it lives on the
+        // card because that is the binding root for the card template, the same
+        // place the other per-card UI state above sits.
+
+        /// <summary>True while the tool is being fetched or started.</summary>
+        [ObservableProperty]
+        public partial bool IsSlimmerBusy { get; set; }
+
+        /// <summary>True once the tool has been fetched, so the button can say "Open".</summary>
+        [ObservableProperty]
+        public partial bool IsSlimmerInstalled { get; set; }
+
+        /// <summary>Fetch progress 0-100. -1 means idle, which must not read as a full bar.</summary>
+        [ObservableProperty]
+        public partial double SlimmerProgress { get; set; } = -1;
     }
 
     public enum GpuDriverStatus

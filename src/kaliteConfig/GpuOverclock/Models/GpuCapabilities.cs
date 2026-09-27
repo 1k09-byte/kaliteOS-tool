@@ -55,6 +55,14 @@ namespace kaliteConfig.GpuOverclock.Models
         public bool FanControlSupported { get; init; }
 
         /// <summary>
+        /// True when the card can stop its fan at idle. Separate from
+        /// <see cref="FanControlSupported"/>: plenty of cards let you force a
+        /// fixed speed but offer no Zero RPM (and the reverse), so the toggle
+        /// renders only when the driver actually answers the query.
+        /// </summary>
+        public bool ZeroRpmSupported { get; init; }
+
+        /// <summary>
         /// True when the driver exposed a readable graphics-domain V/F curve
         /// (base voltages + frequencies + per-point offset ranges). False when
         /// the curve queries are refused - the V/F UI must stay hidden then.
@@ -75,6 +83,7 @@ namespace kaliteConfig.GpuOverclock.Models
         public bool AnyControlSupported
             => CoreOffsetRangeMHz is not null || MemOffsetRangeMHz is not null
                || PowerLimitRangePercent is not null || TempLimitRangeC is not null
-               || FanControlSupported || VfCurveSupported || VoltageBoostSupported;
+               || FanControlSupported || ZeroRpmSupported
+               || VfCurveSupported || VoltageBoostSupported;
     }
 }

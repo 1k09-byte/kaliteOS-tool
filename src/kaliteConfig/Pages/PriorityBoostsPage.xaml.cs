@@ -192,11 +192,14 @@ namespace kaliteConfig.Pages
                 bool targetState = !row.BoostEnabled; // We want to toggle it to the opposite
                 try
                 {
+                    // Both directions are recorded, so a thread re-enabled here
+                    // survives the process-wide preference being re-applied by
+                    // the keeper sweep. See BoostPreferenceService.
                     if (targetState)
                         await Services.BoostPreferenceService.Instance.RestoreAsync(row.ProcessName, row.Tid, row.Description, string.Empty);
                     else
                         await Services.BoostPreferenceService.Instance.SuppressAsync(row.ProcessName, row.Tid, row.Description, string.Empty);
-                    
+
                     row.BoostEnabled = targetState;
                 }
                 catch (Exception ex)

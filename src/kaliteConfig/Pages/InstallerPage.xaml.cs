@@ -30,6 +30,50 @@ namespace kaliteConfig.Pages
             // and indexed against unfiltered counts). Page entrance is covered by
             // the NavigationThemeTransition in InstallerPage.xaml, so cards render
             // immediately at full opacity with their resolved states.
+
+            // Restore the saved layout after InitializeComponent, so the initial
+            // pass below paints the right mode on the very first frame rather
+            // than flashing cards and then swapping.
+            ViewModel.LoadViewMode();
+            ApplyViewMode();
+        }
+
+        /// <summary>
+        /// Shows exactly one of the two layouts per section.
+        ///
+        /// Each section has two ItemsRepeaters over the SAME collection, so
+        /// switching is a visibility flip rather than a re-query: the filter
+        /// state, install progress and selection all live on the shared
+        /// BrowserInstallItem instances and stay intact.
+        /// </summary>
+        private void ApplyViewMode()
+        {
+            var mode = ViewModel.ViewMode;
+
+            foreach (var (grid, list) in new (FrameworkElement, FrameworkElement)[]
+            {
+                (BrowserGrid, BrowserList),
+                (LauncherGrid, LauncherList),
+                (SocialGrid, SocialList),
+                (UtilityGrid, UtilityList),
+            })
+            {
+                grid.Visibility = mode == AppViewMode.Card ? Visibility.Visible : Visibility.Collapsed;
+                list.Visibility = mode == AppViewMode.Compact ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Keep the radio buttons in step when the mode is set from code
+            // (on load) rather than by a click.
+            ViewCardBtn.IsChecked = mode == AppViewMode.Card;
+            ViewCompactBtn.IsChecked = mode == AppViewMode.Compact;
+        }
+
+        private void ViewMode_Click(object sender, RoutedEventArgs e)
+        {
+            // A RadioButton in a group is already mutually exclusive, so the
+            // sender's identity is enough to decide the mode.
+            ViewModel.ViewMode = sender == ViewCardBtn ? AppViewMode.Card : AppViewMode.Compact;
+            ApplyViewMode();
         }
 
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
@@ -39,6 +83,12 @@ namespace kaliteConfig.Pages
             PackagesPanel.Visibility = packages ? Visibility.Visible : Visibility.Collapsed;
             UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
             InstallPanel.Visibility = (!packages && !uninstall) ? Visibility.Visible : Visibility.Collapsed;
+
+            // The Cards/Compact switcher only re-lays-out the Install tab's app
+            // grid, so it is shown there and nowhere else.
+            ViewModePanel.Visibility = (!packages && !uninstall)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
 
         private async void BrowserCard_Click(object sender, RoutedEventArgs e)
@@ -58,19 +108,37 @@ namespace kaliteConfig.Pages
             await BrowserDetailsDialog.ShowAsync();
         }
 
+        // async void: anything that escapes is an unhandled UI exception and
+        // kills the app. An install/uninstall that fails (network drop, refused
+        // file lock, missing winget) has to surface as a status line instead.
         private async void DialogProgressBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (ViewModel.SelectedBrowser != null)
-            {
-                await ViewModel.InstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
-            }
+            if (ViewModel.SelectedBrowser == null) return;
+            try { await ViewModel.InstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser); }
+            catch (Exception ex) { ShowStatus("Install failed", ex.Message); }
         }
 
-        private async void DialogUninstallBtn_Click(object sender, RoutedEventArgs e)
+        // DialogUninstallBtn_Click was removed with the dialog's Uninstall
+        // button. Uninstalling an installed app now happens only on the
+        // Uninstall tab (UninstallerPage), so the Apps details dialog is
+        // install-only and UninstallBrowserCommand is reached from elsewhere.
+
+        /// <summary>Reports a failed install/uninstall inside the open dialog,
+        /// so the reason is visible instead of lost to an unhandled exception.</summary>
+        private void ShowStatus(string title, string message)
         {
-            if (ViewModel.SelectedBrowser != null)
+            try
             {
-                await ViewModel.UninstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
+                BrowserDetailsDialog.Content = new TextBlock
+                {
+                    Text = $"{title}: {message}",
+                    TextWrapping = TextWrapping.Wrap,
+                };
+                BrowserDetailsDialog.CloseButtonText = "Close";
+            }
+            catch
+            {
+                // Never let the error path throw as well.
             }
         }
 

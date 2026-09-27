@@ -42,7 +42,7 @@
                                       VerticalAlignment="Center" Visibility="{x:Bind IsNamed, Mode=OneWay}"
                                       ToolTipService.ToolTip="Named thread - pinned to top" />
                             <CheckBox Grid.Column="1" IsChecked="{x:Bind BoostAllowed, Mode=TwoWay}"
-                                      ToolTipService.ToolTip="Priority boost" VerticalAlignment="Center" MinWidth="32" Checked="BoostBox_Checked" Unchecked="BoostBox_Unchecked" />
+                                      ToolTipService.ToolTip="Priority boost" VerticalAlignment="Center" MinWidth="32" Click="BoostBox_Click" />
                             <StackPanel Grid.Column="2" Spacing="1">
                             <TextBlock FontSize="13" FontWeight="SemiBold">
                                 <Run Text="TID " /><Run Text="{x:Bind Tid}" />

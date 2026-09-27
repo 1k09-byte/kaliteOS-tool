@@ -27,23 +27,22 @@ namespace kaliteConfig.Services
     {
         private static readonly HttpClient _httpClient = new();
 
+        /// <summary>
+        /// Maps an Apps-tab entry to the product it really is.
+        ///
+        /// This used to be a chain of substring tests over the display name,
+        /// which silently mis-routed real products: "Steam".Contains("EA",
+        /// OrdinalIgnoreCase) is TRUE ("st-ea-m") and the EA test came first,
+        /// so uninstalling Steam looked for - and wiped residue of - the EA
+        /// app. "Epic Games Launcher" similarly matched the "Epic" test, and
+        /// any future rename silently re-routed again. Entries now carry an
+        /// explicit id and the name is only a fallback.
+        /// </summary>
         public async Task UninstallBrowserAsync(BrowserInstallItem item, CancellationToken ct)
         {
+            string searchKeyword = InstallerProductRouter.Resolve(item?.Name, item?.ProductId);
             await Task.Run(() =>
             {
-                string searchKeyword = item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase) ? "Zen" :
-                                       item.Name.Contains("Brave", StringComparison.OrdinalIgnoreCase) ? "Brave" :
-                                       item.Name.Contains("Vivaldi", StringComparison.OrdinalIgnoreCase) ? "Vivaldi" :
-                                       item.Name.Contains("Helium", StringComparison.OrdinalIgnoreCase) ? "Helium" :
-                                       item.Name.Contains("Epic", StringComparison.OrdinalIgnoreCase) ? "Epic Games Launcher" :
-                                       item.Name.Contains("Minecraft", StringComparison.OrdinalIgnoreCase) ? "Minecraft Launcher" :
-                                       item.Name.Contains("EA", StringComparison.OrdinalIgnoreCase) ? "EA app" :
-                                       item.Name.Contains("Ubisoft", StringComparison.OrdinalIgnoreCase) ? "Ubisoft Connect" :
-                                       item.Name.Contains("Steam", StringComparison.OrdinalIgnoreCase) ? "Steam" :
-                                       item.Name.Contains("Riot", StringComparison.OrdinalIgnoreCase) ? "Riot" :
-                                       item.Name.Contains("Discord", StringComparison.OrdinalIgnoreCase) ? "Discord" :
-                                       item.Name.Contains("Telegram", StringComparison.OrdinalIgnoreCase) ? "Telegram" :
-                                       item.Name.Contains("WhatsApp", StringComparison.OrdinalIgnoreCase) ? "WhatsApp" : "Unknown";
 
                 string[] hives = new[]
                 {
@@ -159,7 +158,6 @@ namespace kaliteConfig.Services
                         "Ubisoft Connect" => new[] { "upc", "UbisoftConnect" },
                         "Minecraft Launcher" => new[] { "MinecraftLauncher" },
                         "Steam" => new[] { "steam", "SteamService" },
-                        "Riot" => new[] { "RiotClientServices" },
                         "Discord" => new[] { "Discord" },
                         "Telegram" => new[] { "Telegram" },
                         "WhatsApp" => new[] { "WhatsApp" },

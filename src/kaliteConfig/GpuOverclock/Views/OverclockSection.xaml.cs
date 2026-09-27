@@ -14,6 +14,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using kaliteConfig.GpuOverclock.Models;
 using kaliteConfig.GpuOverclock.ViewModels;
 using Microsoft.UI;
@@ -44,6 +45,7 @@ namespace kaliteConfig.GpuOverclock.Views
             foreach (var r in Vm.CurvePoints)
                 r.PropertyChanged += FanCurveRow_PropertyChanged;
             Vm.MonitorUpdated += RedrawMonitor;
+            Vm.PropertyChanged += Vm_PropertyChanged;
             this.Loaded += async (_, _) => await Vm.InitializeAsync();
             this.Unloaded += (_, _) => Vm.Teardown();
         }
@@ -114,6 +116,61 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             if (sender is Slider s && Vm.FanStaticPercent != s.Value)
                 Vm.FanStaticPercent = (int)s.Value;
+        }
+
+        /// <summary>
+        /// Keeps the Zero RPM switch in step with the view model when the state
+        /// changes somewhere other than the switch itself - a re-detect, or the
+        /// driver-reset handler turning it off.
+        /// </summary>
+        private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(OverclockViewModel.ZeroRpmEnabled)) return;
+            if (_syncingZeroRpm) return;
+
+            _syncingZeroRpm = true;
+            try
+            {
+                ZeroRpmToggle.IsOn = Vm.ZeroRpmEnabled;
+            }
+            finally
+            {
+                _syncingZeroRpm = false;
+            }
+        }
+
+        // ---------------- Zero RPM ----------------
+        //
+        // The toggle is pushed from the driver's state, not from the click: the
+        // write can be refused (fan forced to a mode, driver says no), and a
+        // switch left visually on after a refusal is worse than no switch. So
+        // every path ends in a resync back onto the toggle's IsOn.
+
+        private bool _syncingZeroRpm;
+
+        private void ZeroRpmToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ToggleSwitch t) return;
+            if (_syncingZeroRpm) return;
+
+            bool requested = t.IsOn;
+            _ = ApplyZeroRpmAsync(requested, t);
+        }
+
+        private async Task ApplyZeroRpmAsync(bool enabled, ToggleSwitch toggle)
+        {
+            await Vm.SetZeroRpmAsync(enabled);
+
+            // Snap the switch back to whatever the driver actually says.
+            _syncingZeroRpm = true;
+            try
+            {
+                toggle.IsOn = Vm.ZeroRpmEnabled;
+            }
+            finally
+            {
+                _syncingZeroRpm = false;
+            }
         }
 
         // ---------------- numeric text boxes (layout pass): validated at the

@@ -196,23 +196,31 @@ public sealed class PowerService
         // Fallback for known settings where the OS fails to report possible values via API
         if (!anyChoice)
         {
-            var lowerName = (setting.Name ?? "").ToLowerInvariant();
+            // The catalog first: it supplies real words for the settings
+            // Windows deliberately refuses to name (measured here: the OS
+            // returned no friendly name for ANY of the 174 settings it
+            // enumerates, so without this every hidden setting was a bare
+            // number). GUID-keyed, so it survives a language change.
+            if (PowerSettingCatalog.TryGet(setting.Id, setting.Name, out var entry))
+            {
+                if (entry.IsEnum)
+                {
+                    for (uint i = 0; i < entry.Labels.Length; i++)
+                        setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = i, Name = entry.Labels[i] });
+                    anyChoice = true;
+                }
+                else if (entry.Presets.Length > 0)
+                {
+                    foreach (var p in entry.Presets)
+                        setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = p.ValueIndex, Name = p.Label });
+                    // Presets are named values for a CONTINUOUS setting. The
+                    // raw number box has to stay reachable, so this is flagged
+                    // as a preset list rather than a true enumeration.
+                    setting.IsPresetList = true;
+                    anyChoice = true;
+                }
+            }
 
-            if (lowerName.Contains("hipm/dipm"))
-            {
-                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = 0, Name = "Active" });
-                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = 1, Name = "HIPM" });
-                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = 2, Name = "DIPM" });
-                anyChoice = true;
-            }
-            else if (lowerName.Contains("usb 3 link"))
-            {
-                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = 0, Name = "Off" });
-                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = 1, Name = "Minimum power savings" });
-                setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = 2, Name = "Maximum power savings" });
-                anyChoice = true;
-            }
-            
             if (!anyChoice)
             {
                 try
@@ -234,20 +242,35 @@ public sealed class PowerService
 
             if (anyChoice)
             {
-                // Ensure current active values are in the combobox if not present in presets!
+                // A value the current scheme already uses but the word list
+                // does not cover must still be selectable, or reading the
+                // setting back would silently snap it to the nearest option.
+                // Prefixed so it reads as a custom state, not a real option.
                 var curAc = (uint)setting.AcValueIndex;
                 var curDc = (uint)setting.DcValueIndex;
-                
+
                 if (!System.Linq.Enumerable.Any(setting.PossibleChoices, c => c.ValueIndex == curAc))
-                    setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = curAc, Name = $"Custom ({curAc})" });
-                
+                    setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = curAc, Name = DescribeCustom(curAc) });
+
                 if (curDc != curAc && !System.Linq.Enumerable.Any(setting.PossibleChoices, c => c.ValueIndex == curDc))
-                    setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = curDc, Name = $"Custom ({curDc})" });
+                    setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = curDc, Name = DescribeCustom(curDc) });
             }
         }
 
         setting.Type = anyChoice ? 2u : 0u;
     }
+
+    /// <summary>
+    /// Label for a value the word list does not cover. 0 and 0xFFFFFFFF are
+    /// the "never" sentinels in timeout settings - naming them is the whole
+    /// point, since 4294967295 seconds means "never", not "136 years".
+    /// </summary>
+    private static string DescribeCustom(uint value) => value switch
+    {
+        0 => "Never",
+        PowerSettingCatalog.NeverTimeout => "Never",
+        _ => $"Custom value ({value:N0})",
+    };
 
     private delegate uint ReadFn(IntPtr buf, ref uint size);
     private static string AllocRead(ref uint size, ReadFn read)

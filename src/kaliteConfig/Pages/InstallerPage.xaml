@@ -98,6 +98,39 @@
             </Button>
         </DataTemplate>
 
+        <!-- COMPACT VIEW: one single-line row per app - 24px icon, name, status
+             right-aligned. Many more entries fit on screen than the card grid,
+             which is the point when scanning for one specific app. -->
+        <DataTemplate x:Key="InstallerCompactTemplate" x:DataType="models:BrowserInstallItem">
+            <Button Height="40"
+                    Margin="0,0,0,2"
+                    Padding="10,0"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Center"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    CornerRadius="8"
+                    Click="BrowserCard_Click"
+                    Tag="{x:Bind}"
+                    Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Width="24" Height="24" VerticalAlignment="Center"
+                           Source="{x:Bind ImagePath, Converter={StaticResource AssetPathConverter}}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="{x:Bind StatusText, Mode=OneWay}" />
+                </Grid>
+            </Button>
+        </DataTemplate>
+
     </Page.Resources>
 
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
@@ -107,9 +140,26 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
+        <Grid Grid.Row="0" Margin="36,24,36,0" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <TextBlock Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
-        </StackPanel>
+            <!-- Layout switcher for the Install tab. It only affects the app
+                 install grid, so it is hidden on the Packages and Uninstall
+                 tabs by MainSelectorBar_SelectionChanged - a control that
+                 silently does nothing on the tab you are looking at is worse
+                 than no control at all. -->
+            <StackPanel x:Name="ViewModePanel" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <RadioButton x:Name="ViewCardBtn" GroupName="AppViewMode" Content="Cards"
+                             IsChecked="True" Click="ViewMode_Click"
+                             ToolTipService.ToolTip="Big icon tiles" />
+                <RadioButton x:Name="ViewCompactBtn" GroupName="AppViewMode" Content="Compact"
+                             Click="ViewMode_Click"
+                             ToolTipService.ToolTip="Single-line rows, more apps at once" />
+            </StackPanel>
+        </Grid>
 
         <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="36,12,36,8"
                      HorizontalAlignment="Left"
@@ -153,6 +203,9 @@
                                              ItemsStretch="None" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
+                    <ItemsRepeater x:Name="BrowserList" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
+                                   ItemTemplate="{StaticResource InstallerCompactTemplate}"
+                                   HorizontalAlignment="Stretch" Visibility="Collapsed" />
                 </StackPanel>
 
                 <!-- Game Launchers Section -->
@@ -171,6 +224,9 @@
                                              ItemsStretch="None" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
+                    <ItemsRepeater x:Name="LauncherList" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
+                                   ItemTemplate="{StaticResource InstallerCompactTemplate}"
+                                   HorizontalAlignment="Stretch" Visibility="Collapsed" />
                 </StackPanel>
 
                 <!-- Socials & Communication Section -->
@@ -189,6 +245,9 @@
                                              ItemsStretch="None" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
+                    <ItemsRepeater x:Name="SocialList" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
+                                   ItemTemplate="{StaticResource InstallerCompactTemplate}"
+                                   HorizontalAlignment="Stretch" Visibility="Collapsed" />
                 </StackPanel>
 
                 <!-- Utilities Section -->
@@ -207,6 +266,9 @@
                                              ItemsStretch="None" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
+                    <ItemsRepeater x:Name="UtilityList" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
+                                   ItemTemplate="{StaticResource InstallerCompactTemplate}"
+                                   HorizontalAlignment="Stretch" Visibility="Collapsed" />
                 </StackPanel>
 
             </StackPanel>
@@ -254,15 +316,12 @@
                     <TextBlock Text="{x:Bind ViewModel.SelectedBrowser.StatusText, Mode=OneWay}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
                 </StackPanel>
 
-                <!-- Action Button at bottom (aligned right, mimicking dialog button) -->
+                <!-- Action Button at bottom (aligned right, mimicking dialog button).
+                     The Uninstall button was removed at the user's request: it was
+                     the only route to UninstallBrowserCommand, so removing it
+                     means installed apps are read-only here. Uninstalling still
+                     happens on the Uninstall tab. -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <Button x:Name="DialogUninstallBtn"
-                            Content="Uninstall"
-                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                            Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
-                            IsEnabled="{x:Bind local:InstallerPage.Not(ViewModel.IsInstalling), Mode=OneWay}"
-                            Click="DialogUninstallBtn_Click"/>
-
                     <dev:ProgressButton x:Name="DialogProgressBtn"
                                         Content="Install"
                                         CheckedContent="{x:Bind ViewModel.InstallStatusText, Mode=OneWay}"

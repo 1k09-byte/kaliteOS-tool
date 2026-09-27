@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="kaliteConfig.GpuOverclock.Views.AmdGpuSection"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:converters="using:kaliteConfig.Converters"
+    xmlns:vm="using:kaliteConfig.GpuOverclock.ViewModels"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="AmdCard" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+        </Style>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <UserControl.DataContext>
+        <vm:AmdOverclockViewModel x:Name="Vm" />
+    </UserControl.DataContext>
+
+    <StackPanel Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Border Width="36" Height="36" CornerRadius="8"
+                    Background="{ThemeResource SubtleFillColorSecondaryBrush}" Padding="8">
+                <FontIcon Glyph="&#xE950;" FontSize="16" />
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="AMD GPUs" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="Detected through ADLX, the AMD driver interface" />
+            </StackPanel>
+            <Button Command="{Binding RefreshCommand}" VerticalAlignment="Center" Margin="8,0,0,0"
+                    Content="Re-detect AMD"
+                    ToolTipService.ToolTip="Ask the AMD driver again which adapters are present and what they support" />
+        </StackPanel>
+
+        <InfoBar Message="{Binding ErrorMessage}" Severity="Error" IsOpen="True" IsClosable="False"
+                 Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+        <InfoBar Message="{Binding InfoNote}" Severity="Informational" IsOpen="True" IsClosable="False"
+                 Visibility="{Binding InfoNote, Converter={StaticResource NullToVisibilityConverter}}" />
+        <InfoBar Message="{Binding WriteNote}" Severity="Informational" IsOpen="True" IsClosable="False"
+                 Visibility="{Binding WriteNote, Converter={StaticResource NullToVisibilityConverter}}" />
+
+        <!-- ADLX status line -->
+        <Border Style="{StaticResource AmdCard}" Padding="16,12">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <FontIcon Grid.Column="0" Glyph="&#xE945;" FontSize="16"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="ADLX (AMD device library)" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="{Binding StatusText}" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="{Binding DriverVersionText}" />
+            </Grid>
+        </Border>
+
+        <!-- Detected adapters -->
+        <ListView ItemsSource="{Binding Cards}"
+                  Background="{ThemeResource LayerFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                  BorderThickness="1"
+                  CornerRadius="10"
+                  Padding="6"
+                  SelectionMode="None"
+                  Visibility="{Binding HasCards, Converter={StaticResource BoolToVisibilityConverter}}">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Padding="8,6" Spacing="3">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="{Binding SubtitleText}" />
+                        <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="{Binding CapabilityText}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- ADLX present but nothing to show: explain instead of an empty room -->
+        <Border Style="{StaticResource AmdCard}" Padding="24"
+                Visibility="{Binding HasCards, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+            <StackPanel Spacing="6">
+                <TextBlock Text="No AMD adapter reported" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="ADLX initialized, but the installed AMD driver did not report any adapters. If this machine has an AMD card, install its display driver from the Drivers tab." />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

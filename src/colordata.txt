@@ -1,0 +1,303 @@
+
+--- IColorData ---
+ColorDepth
+DynamicRange
+ColorFormat
+Colorimetry
+SelectionPolicy
+DesktopColorDepth
+
+--- IDisplayColorData ---
+FirstColorCoordinate
+SecondColorCoordinate
+ThirdColorCoordinate
+WhiteColorCoordinate
+
+--- IHDRColorData ---
+ColorDepth
+ColorFormat
+DynamicRange
+HDRMode
+MasteringDisplayData
+
+--- IlluminationZoneControlDataFixedColor ---
+
+--- IlluminationZoneControlDataFixedColorParameters ---
+BrightnessInPercentage
+
+--- IlluminationZoneControlDataManualFixedColor ---
+
+--- IlluminationZoneControlDataPiecewiseLinearFixedColor ---
+PiecewiseLinearData
+EndPoints
+
+--- ColorDataColorimetry ---
+value__
+RGB
+YCC601
+YCC709
+XVYCC601
+XVYCC709
+SYCC601
+ADOBEYCC601
+ADOBERGB
+BT2020RGB
+BT2020YCC
+BT2020cYCC
+Default
+Auto
+
+--- ColorDataCommand ---
+value__
+Get
+Set
+IsSupportedColor
+GetDefault
+
+--- ColorDataDepth ---
+value__
+Default
+BPC6
+BPC8
+BPC10
+BPC12
+BPC16
+
+--- ColorDataDesktopDepth ---
+value__
+Default
+BPC8
+BPC10
+BPC16Float
+BPC16FloatWcg
+BPC16FloatHDR
+
+--- ColorDataDynamicRange ---
+value__
+VESA
+CEA
+Auto
+
+--- ColorDataFormat ---
+value__
+RGB
+YUV422
+YUV444
+YUV420
+Default
+Auto
+
+--- ColorDataHDRCommand ---
+value__
+Get
+Set
+
+--- ColorDataHDRMode ---
+value__
+Off
+UHDA
+EDR
+SDR
+UHDAPassthrough
+UHDANB
+DolbyVision
+
+--- ColorDataSelectionPolicy ---
+value__
+User
+BestQuality
+Default
+Unknown
+
+--- ColorFormat ---
+value__
+Unknown
+P8
+R5G6B5
+A8R8G8B8
+A16B16G16R16F
+
+--- DisplayPortColorDepth ---
+value__
+Default
+BPC6
+BPC8
+BPC10
+BPC12
+BPC16
+
+--- DisplayPortColorFormat ---
+value__
+RGB
+YCbCr422
+YCbCr444
+
+--- InfoFrameVideoColorFormat ---
+value__
+RGB
+YCbCr422
+YCbCr444
+Auto
+
+--- InfoFrameVideoColorimetry ---
+value__
+NoData
+SMPTE170M
+ITURBT709
+UseExtendedColorimetry
+Auto
+
+--- InfoFrameVideoExtendedColorimetry ---
+value__
+xvYCC601
+xvYCC709
+sYCC601
+AdobeYCC601
+AdobeRGB
+Auto
+
+--- ColorDataColorCoordinate ---
+X
+Y
+
+--- ColorDataV1 ---
+ColorFormat
+Colorimetry
+DynamicRange
+ColorDepth
+SelectionPolicy
+DesktopColorDepth
+
+--- ColorDataV2 ---
+ColorFormat
+Colorimetry
+DynamicRange
+ColorDepth
+SelectionPolicy
+DesktopColorDepth
+
+--- ColorDataV3 ---
+ColorFormat
+Colorimetry
+DynamicRange
+ColorDepth
+SelectionPolicy
+DesktopColorDepth
+
+--- ColorDataV4 ---
+ColorFormat
+Colorimetry
+DynamicRange
+ColorDepth
+SelectionPolicy
+DesktopColorDepth
+
+--- ColorDataV5 ---
+ColorFormat
+Colorimetry
+DynamicRange
+ColorDepth
+SelectionPolicy
+DesktopColorDepth
+
+--- DisplayColorData ---
+FirstColorCoordinate
+SecondColorCoordinate
+ThirdColorCoordinate
+WhiteColorCoordinate
+MaximumDesiredContentLuminance
+MaximumDesiredContentFrameAverageLightLevel
+MinimumDesiredContentLuminance
+
+--- HDRColorDataV1 ---
+ColorDepth
+ColorFormat
+Command
+DynamicRange
+HDRMode
+MasteringDisplayData
+
+--- HDRColorDataV2 ---
+Command
+HDRMode
+MasteringDisplayData
+ColorFormat
+DynamicRange
+ColorDepth
+
+--- MasteringDisplayColorData ---
+FirstColorCoordinate
+SecondColorCoordinate
+ThirdColorCoordinate
+WhiteColorCoordinate
+MaximumMasteringLuminance
+MaximumFrameAverageLightLevel
+MaximumContentLightLevel
+MinimumMasteringLuminance
+
+--- MonitorColorData ---
+ColorFormat
+ColorDepth
+
+--- OpenGLDeepColorScanOut ---
+value__
+Disable
+Enable
+Default
+
+--- ColorData ---
+ColorDepth
+ColorFormat
+Colorimetry
+DesktopColorDepth
+DynamicRange
+SelectionPolicy
+
+--- HDRColorData ---
+ColorDepth
+ColorFormat
+DynamicRange
+HDRMode
+MasteringDisplayData
+
+--- ColorDataBag ---
+ColorFormat
+Colorimetry
+
+--- ColorDataBag ---
+ColorFormat
+Colorimetry
+ColorDynamicRange
+
+--- ColorDataBag ---
+ColorFormat
+Colorimetry
+ColorDynamicRange
+ColorDepth
+
+--- ColorDataBag ---
+ColorFormat
+Colorimetry
+ColorDynamicRange
+ColorDepth
+ColorSelectionPolicy
+
+--- ColorDataBag ---
+ColorFormat
+Colorimetry
+ColorDynamicRange
+ColorDepth
+ColorSelectionPolicy
+DesktopColorDepth
+
+--- NvAPI_Disp_ColorControl ---
+Target
+Method
+
+--- NvAPI_DISP_GetMonitorColorCapabilities ---
+Target
+Method
+
+--- NvAPI_Disp_HdrColorControl ---
+Target
+Method

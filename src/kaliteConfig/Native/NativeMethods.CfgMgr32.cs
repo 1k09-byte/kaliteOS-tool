@@ -33,6 +33,12 @@ internal static partial class NativeMethods
         [LibraryImport("cfgmgr32.dll")]
         internal static partial int CM_Get_DevNode_Status(out uint status, out uint problem, uint devInst, uint flags);
 
+        [LibraryImport("cfgmgr32.dll")]
+        internal static partial int CM_Disable_DevNode(uint devInst, uint flags);
+
+        [LibraryImport("cfgmgr32.dll")]
+        internal static partial int CM_Enable_DevNode(uint devInst, uint flags);
+
         /// <summary>
         /// True when the device instance is present and problem-free (or present
         /// at all, per <paramref name="requireNoProblem"/>). Non-present

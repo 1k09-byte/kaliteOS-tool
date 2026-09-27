@@ -74,6 +74,16 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial string GpuTitle { get; private set; } = "";
 
+        /// <summary>
+        /// True when the page is showing a fabricated AMD card. Set once at
+        /// construction because the module's vendor choice cannot change while
+        /// the page is alive, and the banner must not blink.
+        /// </summary>
+        public bool IsSimulation => _module.IsSimulation;
+
+        /// <summary>Which simulated card is on screen.</summary>
+        public string SimulationLabel => _module.SimulationLabel;
+
         [ObservableProperty]
         public partial bool IsBusy { get; private set; }
 
@@ -310,12 +320,25 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         partial void OnPowerLimitValueChanged(double value) => OnPropertyChanged(nameof(PowerLimitDisplay));
         partial void OnTempLimitValueChanged(double value) => OnPropertyChanged(nameof(TempLimitDisplay));
 
+        /// <summary>
+        /// True when this AMD card yields at least one control we can actually
+        /// drive. Asked of the capabilities rather than of the support flags:
+        /// a domain the driver advertises can still come back with no range, and
+        /// "supports manual tuning" is not the same as "we can set something",
+        /// which is the question the unsupported page is trying to answer.
+        /// </summary>
+        private static bool HasAnyControl(AmdGpuTuningController amd)
+        {
+            var caps = amd.ReadCapabilities();
+            return caps is { IsSuccess: true, Value: { AnyControlSupported: true } };
+        }
+
         [RelayCommand]
         public async Task InitializeAsync()
         {
             if (IsBusy) return;
             IsBusy = true;
-            StatusText = "Detecting NVIDIA GPU…";
+            StatusText = "Detecting GPU…";
             try
             {
                 var init = await Task.Run(_module.Controller.Initialize);
@@ -329,6 +352,18 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 if (!id.IsSuccess)
                 {
                     SetUnsupported(OverclockErrorMessages.For(id.ErrorKind));
+                    return;
+                }
+
+                // An AMD card that reports no tunable controls is a real answer,
+                // not an error. Say which card and why, instead of leaving the
+                // page looking broken.
+                if (_module.Controller is AmdGpuTuningController amd && !HasAnyControl(amd))
+                {
+                    SetUnsupported(
+                        $"Found {id.Value.FullName}. This GPU does not expose any overclocking controls " +
+                        "to the driver - integrated adapters share system memory and have no fan to tune. " +
+                        "AMD tuning becomes available on a supported discrete Radeon card.");
                     return;
                 }
 
@@ -469,6 +504,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             IsSupported = c.AnyControlSupported || c.FanControlSupported;
             UnsupportedMessage = IsSupported ? "" : "This GPU exposes no supported overclock controls.";
             FanControlAvailable = c.FanControlSupported;
+            ZeroRpmAvailable = c.ZeroRpmSupported;
+            if (c.ZeroRpmSupported) _ = SyncZeroRpmAsync();
 
             // Pick up a persisted-by-session fan loop setup (new VM, same process).
             FanIntervalMs = _module.FanCurve.Interval.TotalMilliseconds;
@@ -813,6 +850,25 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     StatusText = e.RevertReason == "driver reset detected"
                         ? "Your last change caused a driver reset and was automatically reverted."
                         : "Changes were reverted.";
+
+                    // A card that just reset with its fan stopped stays stopped
+                    // until someone touches the machine, so Zero RPM goes off
+                    // here rather than waiting to be noticed. Best effort: if the
+                    // driver is gone there is nothing left to write to.
+                    if (e.RevertReason == "driver reset detected" && ZeroRpmEnabled)
+                    {
+                        ZeroRpmEnabled = false;
+                        _ = Task.Run(() => _module.Controller.SetZeroRpmEnabled(false))
+                            .ContinueWith(t =>
+                            {
+                                if (!t.Result.IsSuccess) return;
+                                // Back on the UI thread: Progress<T>/Task.Run
+                                // captured no SynchronizationContext, and a
+                                // cross-thread PropertyChanged is a hard crash.
+                                _dispatcher.TryEnqueue(() => StatusText += " Zero RPM was turned off.");
+                            });
+                    }
+
                     // Sliders must show restored hardware values, not the user's
                     // attempted values. Fire-and-forget resync.
                     _ = ResyncControlsFromHardwareAsync();
@@ -891,6 +947,60 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         [ObservableProperty]
         public partial bool FanControlAvailable { get; private set; }
+
+        // ---------------- Zero RPM ----------------
+
+        /// <summary>
+        /// True when the driver answers the Zero RPM query. Separate from
+        /// <see cref="FanControlAvailable"/>: many cards can force a fixed fan
+        /// speed but cannot stop the fan at idle, and vice versa.
+        /// </summary>
+        [ObservableProperty]
+        public partial bool ZeroRpmAvailable { get; private set; }
+
+        [ObservableProperty]
+        public partial bool ZeroRpmEnabled { get; private set; }
+
+        /// <summary>
+        /// Turns Zero RPM on or off, with the two rules that keep it from
+        /// fighting the rest of the panel or stranding a card with a stopped fan.
+        ///
+        /// The toggle is a raw driver write rather than a batched profile change,
+        /// because it has no revert anchor: the safety machine reverts clock,
+        /// power and fan values it read beforehand, and there is nothing to read
+        /// here that would be safe to restore. So it is gated instead - refused
+        /// while a fan mode is forcing the fan, and turned back off the moment
+        /// the driver resets (see the safety-state handler).
+        /// </summary>
+        public async Task SetZeroRpmAsync(bool enabled)
+        {
+            if (Safety.CurrentState != SafetyState.Idle) return;
+
+            if (enabled && FanMode != GpuFanMode.Auto)
+            {
+                StatusText = "Set the fan to Auto before enabling Zero RPM - the two fight each other.";
+                ZeroRpmEnabled = false;
+                return;
+            }
+
+            var result = await Task.Run(() => _module.Controller.SetZeroRpmEnabled(enabled));
+            if (!result.IsSuccess)
+            {
+                StatusText = OverclockErrorMessages.For(result.ErrorKind);
+                ZeroRpmEnabled = false;
+                return;
+            }
+
+            ZeroRpmEnabled = enabled;
+            RefreshLog();
+        }
+
+        /// <summary>Re-reads Zero RPM from the driver, so the toggle tells the truth.</summary>
+        public async Task SyncZeroRpmAsync()
+        {
+            var read = await Task.Run(() => _module.Controller.IsZeroRpmEnabled());
+            ZeroRpmEnabled = read.IsSuccess && read.Value;
+        }
 
         // Radio-button state; the setters funnel into the same guarded commands
         // the buttons would call, so unchecking fires nothing.

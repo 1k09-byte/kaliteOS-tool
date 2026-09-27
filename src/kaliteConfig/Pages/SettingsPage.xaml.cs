@@ -12,6 +12,7 @@
 // Written in the Windows App SDK C# dialect. See docs/GALLERY-REFERENCE.md section 2.
 
 using System;
+using kaliteConfig.Services;
 using Microsoft.UI.Xaml.Controls;
 
 namespace kaliteConfig.Pages
@@ -46,7 +47,16 @@ namespace kaliteConfig.Pages
             }
             catch { }
             Loaded += SettingsPage_Loaded;
+
+            // Once a material has been picked here, the app's Mica Alt default must stop
+            // overriding it on the next launch. DevWinUI persists the material itself but
+            // offers no way to tell a deliberate "None" from an unset value, so the
+            // decision is recorded separately.
+            backdropMode.SelectionChanged += BackdropMode_SelectionChanged;
         }
+
+        private void BackdropMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+            => BackdropPreference.MaterialChosen = true;
 
         private async void SettingsPage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {

@@ -8,6 +8,7 @@
 // sublicense, or sell copies of the source code in any form, in whole or in part,
 // without the express written permission of the copyright holder.
 // ==============================================================================
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -92,8 +93,8 @@ namespace kaliteConfig.Pages
             var targets = ViewModel.Apps.Where(a => a.IsSelected).ToList();
             if (ViewModel.SelectedApp != null && targets.Count == 0) targets.Add(ViewModel.SelectedApp);
             if (targets.Count == 0) return;
-            var lines = string.Join("\n", targets.Take(8).Select(a => $"• {a.Name}"));
-            if (targets.Count > 8) lines += $"\n… and {targets.Count - 8} more";
+            var lines = string.Join("\n", targets.Take(8).Select(a => $"ï¿½ {a.Name}"));
+            if (targets.Count > 8) lines += $"\nï¿½ and {targets.Count - 8} more";
             var dialog = new ContentDialog
             {
                 Title = $"Uninstall {targets.Count} application{(targets.Count == 1 ? "" : "s")}?",
@@ -137,8 +138,8 @@ namespace kaliteConfig.Pages
             var targets = ViewModel.DriverPackages.Where(d => d.IsSelected).ToList();
             if (ViewModel.SelectedDriver != null && targets.Count == 0) targets.Add(ViewModel.SelectedDriver);
             if (targets.Count == 0) return;
-            var lines = string.Join("\n", targets.Take(8).Select(d => $"• {d.FriendlyKind} ({d.PublishedName})"));
-            if (targets.Count > 8) lines += $"\n… and {targets.Count - 8} more";
+            var lines = string.Join("\n", targets.Take(8).Select(d => $"ï¿½ {d.FriendlyKind} ({d.PublishedName})"));
+            if (targets.Count > 8) lines += $"\nï¿½ and {targets.Count - 8} more";
             var dialog = new ContentDialog
             {
                 Title = $"Remove {targets.Count} driver package{(targets.Count == 1 ? "" : "s")}?",
@@ -154,17 +155,23 @@ namespace kaliteConfig.Pages
 
         private bool _startupAutoloaded;
 
-        private void MainPivot_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
+        private void MainPivot_SelectionChanged(object sender, SelectorBarSelectionChangedEventArgs e)
         {
-            if (sender is not Microsoft.UI.Xaml.Controls.Pivot pivot) return;
+            if (sender is not SelectorBar bar) return;
+            bool uninstaller = bar.SelectedItem == TabUninstaller;
+            bool startup = bar.SelectedItem == TabStartup;
+
+            UninstallerPanel.Visibility = uninstaller ? Visibility.Visible : Visibility.Collapsed;
+            RemoverPanel.Visibility = bar.SelectedItem == TabRemover ? Visibility.Visible : Visibility.Collapsed;
+            StartupPanel.Visibility = startup ? Visibility.Visible : Visibility.Collapsed;
+
             // The applications toolbar describes apps only - hide it on the
             // Remover/Startup tabs.
-            ViewModel.IsUninstallerTabActive = pivot.SelectedIndex == 0;
+            ViewModel.IsUninstallerTabActive = uninstaller;
+
             // Lazy-load the startup scan on first open: WMI + schtasks take
             // seconds, so the Uninstaller tab stays fast.
-            if (pivot.SelectedIndex == 2
-                && !_startupAutoloaded
-                && !ViewModel.IsLoadingStartup)
+            if (startup && !_startupAutoloaded && !ViewModel.IsLoadingStartup)
             {
                 _startupAutoloaded = true;
                 _ = ViewModel.LoadStartupCommand.ExecuteAsync(null);

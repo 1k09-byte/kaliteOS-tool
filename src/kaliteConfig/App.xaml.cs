@@ -39,6 +39,28 @@ namespace kaliteConfig
         public IThemeService? ThemeService { get; set; }
 
         /// <summary>
+        /// Mica Alt is the app's default material, applied only while the user has never
+        /// picked one in Settings. DevWinUI owns the material and its persistence, and it
+        /// cannot distinguish "the user chose None" from "nothing was chosen yet", so
+        /// applying this unconditionally would silently undo a deliberate None on every
+        /// launch. <see cref="BackdropPreference"/> tracks the choice instead.
+        /// </summary>
+        private void ApplyDefaultBackdropMaterial()
+        {
+            try
+            {
+                var theme = ThemeService;
+                if (theme is null || BackdropPreference.MaterialChosen) return;
+
+                theme.ConfigureBackdrop(DevWinUI.BackdropType.MicaAlt, true);
+            }
+            catch
+            {
+                // A missing system backdrop must never stop the app from starting.
+            }
+        }
+
+        /// <summary>
         /// The app's main window. Needed by file pickers and dialogs in pages
         /// that don't hold a window reference (WinUI 3 unpackaged pattern).
         /// </summary>
@@ -80,9 +102,6 @@ namespace kaliteConfig
             // a full stack trace so a crash can be diagnosed after the fact.
             this.UnhandledException += (_, e) =>
             {
-                // Keep a Games-specific copy as well as the legacy crash log so
-                // XAML binding/scan failures can be diagnosed without a debugger.
-                Services.GameLibraryService.Log("Unhandled application exception", e.Exception);
                 try
                 {
                     System.IO.File.AppendAllText("crash.log",
@@ -300,6 +319,7 @@ namespace kaliteConfig
                 };
 
                 ThemeService = new ThemeService().Initialize(_window);
+                ApplyDefaultBackdropMaterial();
                 StartedToTray = StartupService.IsTrayLaunch(args.Arguments);
                 if (StartedToTray)
                 {

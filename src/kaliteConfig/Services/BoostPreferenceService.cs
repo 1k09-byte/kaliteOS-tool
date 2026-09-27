@@ -19,11 +19,20 @@ using System.Threading.Tasks;
 namespace kaliteConfig.Services;
 
 /// <summary>
-/// Persistent per-thread Priority-boost preferences. NOT rules: an unticked
-/// boost checkbox on a thread row records "this thread must never have
-/// priority boost" and the preference is re-applied automatically whenever
-/// the owning process launches (or the tuner starts mid-run). Ticking it
-/// again removes the preference and re-enables boost immediately.
+/// Persistent per-thread Priority-boost preferences. NOT rules: a boost tick on
+/// a thread row records the state that thread must keep ("boost on" or "boost
+/// off") and it is re-applied automatically whenever the owning process
+/// launches, whenever the list is rebuilt, and by the keeper sweep.
+///
+/// Both directions are persisted, not just "off". That matters because
+/// <c>SetProcessPriorityBoost(process, disable: true)</c> silently applies
+/// "disabled" to EVERY existing thread of that process (verified on this
+/// build), and the process-level preference is re-applied on a 20 s cadence.
+/// A thread the user explicitly re-enabled therefore used to be stomped back
+/// off by the next sweep, with nothing on record to restore it - the toggle
+/// flipped on for a moment and then reverted forever. Recording the enabled
+/// state too makes the keeper re-assert it after the process-level write, so
+/// per-thread choices win over the process-wide default.
 ///
 /// Identity: threads have no stable TID across restarts, so a preference is
 /// keyed by process name + thread identity (description or start address).
@@ -37,6 +46,11 @@ public sealed class BoostPreferenceService
         public string Process { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string StartAddress { get; set; } = string.Empty;
+        /// <summary>The state this thread must keep. False = boost forced
+        /// off; True = boost forced back on even if the process-wide default
+        /// says off. Records written by older builds only ever meant "off",
+        /// which is exactly what the default of false preserves.</summary>
+        public bool Enabled { get; set; }
         /// <summary>Sticky TID for the session the pref was created in, so
         /// unnamed threads (no description/address) can still be matched
         /// while the process instance is alive.</summary>
@@ -95,6 +109,13 @@ public sealed class BoostPreferenceService
 
     /// <summary>True when boost is suppressed for this thread identity.</summary>
     public bool IsSuppressed(string processName, int tid, string description, string startAddress)
+        => GetPreference(processName, tid, description, startAddress) == false;
+
+    /// <summary>
+    /// The recorded state for this thread identity: true = boost must stay on,
+    /// false = boost must stay off, null = never chosen (follow Windows).
+    /// </summary>
+    public bool? GetPreference(string processName, int tid, string description, string startAddress)
     {
         lock (_lock)
         {
@@ -102,25 +123,18 @@ public sealed class BoostPreferenceService
             {
                 if (!string.Equals(p.Process, processName, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (p.Tid == tid && p.CreatorPid == Environment.ProcessId && p.Description == description && p.StartAddress == startAddress)
-                    return true;
+                if (p.Tid == tid && p.CreatorPid == Environment.ProcessId
+                    && p.Description == description && p.StartAddress == startAddress)
+                    return p.Enabled;
                 if (IdentityMatches(p, description, startAddress))
-                    return true;
+                    return p.Enabled;
             }
-            return false;
+            return null;
         }
     }
 
     private static bool IdentityMatches(BoostPref p, string description, string startAddress)
-    {
-        bool HasText(string s) => !string.IsNullOrWhiteSpace(s);
-        if (HasText(p.Description) && string.Equals(p.Description, description, StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (HasText(p.StartAddress) && HasText(startAddress) &&
-            string.Equals(p.StartAddress, startAddress, StringComparison.OrdinalIgnoreCase))
-            return true;
-        return false;
-    }
+        => BoostPreferenceRules.IdentityMatches(p.Description, p.StartAddress, description, startAddress);
 
     /// <summary>Records "boost OFF for this thread, forever" and applies it immediately.</summary>
     public async Task SuppressAsync(string processName, int tid, string description, string startAddress)
@@ -129,34 +143,57 @@ public sealed class BoostPreferenceService
 
         lock (_lock)
         {
-            _prefs.RemoveAll(p =>
-                string.Equals(p.Process, processName, StringComparison.OrdinalIgnoreCase)
-                && (p.Tid == tid || IdentityMatches(p, description, startAddress)));
-            _prefs.Add(new BoostPref
-            {
-                Process = processName,
-                Description = description ?? string.Empty,
-                StartAddress = startAddress ?? string.Empty,
-                Tid = tid,
-                CreatorPid = Environment.ProcessId,
-            });
+            RemoveMatching(processName, tid, description, startAddress);
+            _prefs.Add(MakePref(processName, tid, description, startAddress, enabled: false));
         }
         await SaveAsync();
     }
 
-    /// <summary>Removes the suppression and re-enables boost immediately.</summary>
+    /// <summary>
+    /// Records "boost ON for this thread" and applies it immediately. The
+    /// record is kept (rather than deleted) so the keeper sweep can re-assert
+    /// it after the process-wide preference is re-applied - that re-apply
+    /// turns boost off on every existing thread of the process.
+    /// </summary>
     public async Task RestoreAsync(string processName, int tid, string description, string startAddress)
     {
         await App.Current.ThreadTuning.SetBoostAsync((uint)tid, enabled: true);
 
         lock (_lock)
         {
-            _prefs.RemoveAll(p =>
-                string.Equals(p.Process, processName, StringComparison.OrdinalIgnoreCase)
-                && (p.Tid == tid || IdentityMatches(p, description, startAddress)));
+            RemoveMatching(processName, tid, description, startAddress);
+            _prefs.Add(MakePref(processName, tid, description, startAddress, enabled: true));
         }
         await SaveAsync();
     }
+
+    /// <summary>Drops the recorded state so the thread follows Windows again.</summary>
+    public async Task ClearAsync(string processName, int tid, string description, string startAddress)
+    {
+        bool removed;
+        lock (_lock)
+        {
+            removed = RemoveMatching(processName, tid, description, startAddress);
+        }
+        if (removed) await SaveAsync();
+    }
+
+    private BoostPref MakePref(string processName, int tid, string description, string startAddress, bool enabled)
+        => new()
+        {
+            Process = processName,
+            Description = description ?? string.Empty,
+            StartAddress = startAddress ?? string.Empty,
+            Enabled = enabled,
+            Tid = tid,
+            CreatorPid = Environment.ProcessId,
+        };
+
+    /// <summary>Caller holds <see cref="_lock"/>. Returns true when anything went.</summary>
+    private bool RemoveMatching(string processName, int tid, string description, string startAddress)
+        => _prefs.RemoveAll(p =>
+            string.Equals(p.Process, processName, StringComparison.OrdinalIgnoreCase)
+            && (p.Tid == tid || IdentityMatches(p, description, startAddress))) > 0;
 
     /// <summary>Re-applies every stored suppression that matches threads of one
     /// live process instance. Called from the watcher on process start and on
@@ -175,10 +212,11 @@ public sealed class BoostPreferenceService
     }
 
     /// <summary>
-    /// Re-applies every stored suppression to the running processes that own
-    /// them. Called from the keeper sweep: a thread Windows re-enabled, or one
-    /// created after the process-start event, goes back to boost-disabled
-    /// instead of silently drifting away from what the user set.
+    /// Re-applies every stored per-thread state to the running processes that
+    /// own them. Called from the keeper sweep: a thread Windows re-enabled (or
+    /// that a process-wide disable just switched off), or one created after the
+    /// process-start event, goes back to what the user chose instead of
+    /// silently drifting away from it.
     /// </summary>
     public async Task<int> ApplyToRunningProcessesAsync()
     {
@@ -217,12 +255,17 @@ public sealed class BoostPreferenceService
         int applied = 0;
         foreach (var t in threads)
         {
-            bool hit = mine.Any(p =>
-                IdentityMatches(p, t.Description, t.StartAddress));
-            if (!hit) continue;
+            // Re-assert the RECORDED state, not a hardcoded "off": a thread the
+            // user switched back on must be re-enabled here, because the
+            // process-wide preference applied just before this sweep turned
+            // boost off on every thread of the process.
+            bool? wanted = BoostPreferenceRules.ResolveDesiredState(
+                mine.Select(p => (p.Description, p.StartAddress, p.Enabled)),
+                t.Description, t.StartAddress);
+            if (!wanted.HasValue) continue;
             try
             {
-                await App.Current.ThreadTuning.SetBoostAsync((uint)t.Tid, enabled: false);
+                await App.Current.ThreadTuning.SetBoostAsync((uint)t.Tid, enabled: wanted.Value);
                 applied++;
             }
             catch

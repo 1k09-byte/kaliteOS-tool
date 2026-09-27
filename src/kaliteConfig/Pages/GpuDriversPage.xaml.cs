@@ -38,14 +38,7 @@ namespace kaliteConfig.Pages
             };
         }
 
-        // The overclock section re-detects with the rest of the page: a fresh
-        // GPU handle invalidates the controller's cached adapter, so the curve
-        // loop must hand fan control back to the driver first (spec §5).
-        private async void RedetectBtn_Click(object sender, RoutedEventArgs e)
-        {
-            try { await OverclockPanel.Vm.RefreshAsync(); }
-            catch { /* re-detect must never break the drivers page */ }
-        }
+
 
         private async void CheckForUpdatesBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -74,8 +67,26 @@ namespace kaliteConfig.Pages
                 ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        public static Visibility CheckBtnVis(GpuDriverStatus status)
+        /// <summary>
+        /// AMD cards get no driver action buttons at all - neither install/update
+        /// nor the secondary "Check for updates". Downloading an Adrenalin package
+        /// is ~890 MB and only leads to AMD's own installer being opened, so the
+        /// button is a large, expensive way to reach a vendor's UI, and it crowded
+        /// out the AMD tools below it. The card still reports the installed
+        /// version; the AMD tools section is the only action on it.
+        /// </summary>
+        public static Visibility InstallBtnVis(GpuDriverStatus status, string vendor)
         {
+            if (IsAmd(vendor)) return Visibility.Collapsed;
+            return InstallBtnVis(status);
+        }
+
+        private static bool IsAmd(string vendor)
+            => !string.IsNullOrEmpty(vendor) && vendor.Contains("AMD", StringComparison.OrdinalIgnoreCase);
+
+        public static Visibility CheckBtnVis(GpuDriverStatus status, string vendor)
+        {
+            if (IsAmd(vendor)) return Visibility.Collapsed;
             return InstallBtnVis(status) == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         }
 
@@ -115,6 +126,29 @@ namespace kaliteConfig.Pages
         {
             if (string.IsNullOrEmpty(vendor)) return Visibility.Collapsed;
             return vendor.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public static Visibility AmdToolsVis(string vendor)
+        {
+            if (string.IsNullOrEmpty(vendor)) return Visibility.Collapsed;
+            return IsAmd(vendor) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>Say whether the button will fetch the tool or just start it.</summary>
+        public static string SlimmerButtonText(bool installed)
+            => installed ? "Open Radeon Software Slimmer" : "Get Radeon Software Slimmer";
+
+        public static bool SlimmerEnabled(bool busy) => !busy;
+
+        /// <summary>-1 means "not downloading", which would otherwise read as a full bar.</summary>
+        public static Visibility SlimmerProgressVis(double progress)
+            => progress is >= 0 and < 100 ? Visibility.Visible : Visibility.Collapsed;
+
+        private async void OpenRadeonSlimmer_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not GpuDriversViewModel vm) return;
+            if (sender is FrameworkElement { Tag: Models.GpuDriverItem item })
+                await vm.OpenRadeonSlimmerCommand.ExecuteAsync(item);
         }
 
         private void OpenNvidiaInspector_Click(object sender, RoutedEventArgs e)

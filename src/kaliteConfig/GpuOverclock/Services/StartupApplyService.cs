@@ -32,7 +32,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// </summary>
     public sealed class StartupApplyService
     {
-        private readonly INvidiaGpuController _controller;
+        private readonly IGpuTuningController _controller;
         private readonly SafetyRevertService _safety;
         private readonly ProfileStorageService _profiles;
         private readonly OverclockChangeLogger _changeLog;
@@ -42,7 +42,7 @@ namespace kaliteConfig.GpuOverclock.Services
         public int StartupConfirmationSeconds { get; set; } = 5;
 
         public StartupApplyService(
-            INvidiaGpuController controller,
+            IGpuTuningController controller,
             SafetyRevertService safety,
             ProfileStorageService profiles,
             OverclockChangeLogger changeLog,

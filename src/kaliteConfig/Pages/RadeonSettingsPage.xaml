@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="kaliteConfig.Pages.RadeonSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:kaliteConfig.GpuOverclock.ViewModels"
+    xmlns:converters="using:kaliteConfig.Converters"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Required">
+
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+
+        <Style x:Key="FeatureCard" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16,12" />
+        </Style>
+
+        <Style x:Key="FeatureTitle" TargetType="TextBlock">
+            <Setter Property="Style" Value="{StaticResource BodyStrongTextBlockStyle}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="FeatureSummary" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style x:Key="ParameterLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+        </Style>
+
+        <Style x:Key="ParameterBox" TargetType="NumberBox">
+            <Setter Property="Minimum" Value="0" />
+            <Setter Property="SpinButtonPlacementMode" Value="Compact" />
+            <!-- ValidationMode is left at its default (InvalidInput) so a value
+                 outside Minimum/Maximum is still accepted while typing and clamped
+                 on commit by RadeonRange.Clamp, rather than the box refusing the
+                 keystroke and leaving the driver with a value the user cannot see. -->
+            <Setter Property="Width" Value="130" />
+        </Style>
+    </Page.Resources>
+
+    <Page.DataContext>
+        <vm:Radeon3DViewModel x:Name="Vm" />
+    </Page.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ══ Command bar ══ -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" IsOpen="False">
+            <AppBarButton Icon="Refresh" Label="Re-read from driver" Command="{x:Bind Vm.RefreshCommand}" />
+        </CommandBar>
+
+        <ScrollViewer Grid.Row="1" Padding="28,0,28,24">
+            <StackPanel Spacing="12">
+
+                <!-- ══ Header ══ -->
+                <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <Border Width="44" Height="44" CornerRadius="10"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}" Padding="10">
+                        <FontIcon Glyph="&#xE950;" FontSize="20" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="Radeon 3D Settings" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="The AMD driver's own Adrenalin controls, read and written through ADLX." />
+                    </StackPanel>
+                </StackPanel>
+
+                <InfoBar IsOpen="True" IsClosable="False" Severity="Error"
+                         Title="{x:Bind Vm.StatusText, Mode=OneWay}"
+                         Message="{x:Bind Vm.ErrorMessage, Mode=OneWay}"
+                         Visibility="{x:Bind Vm.ErrorMessage, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
+                <InfoBar IsOpen="True" IsClosable="False" Severity="Informational"
+                         Message="{x:Bind Vm.InfoNote, Mode=OneWay}"
+                         Visibility="{x:Bind Vm.InfoNote, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
+                <InfoBar IsOpen="True" IsClosable="False" Severity="Informational"
+                         Message="{x:Bind Vm.WriteNote, Mode=OneWay}"
+                         Visibility="{x:Bind Vm.WriteNote, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
+
+                <!-- ══ Active renderer: is any of this going to matter? ══ -->
+                <Border Style="{StaticResource FeatureCard}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE7E8;" FontSize="16"
+                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="Active renderer" Style="{StaticResource FeatureTitle}" />
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource FeatureSummary}"
+                                   Text="These are AMD driver controls. They only affect a program that is actually drawing on the AMD adapter." />
+
+                        <Grid ColumnSpacing="10" RowSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBox Grid.Row="0" Grid.Column="0" MinWidth="340"
+                                     PlaceholderText="Program to check, e.g. game.exe or a full path"
+                                     Text="{x:Bind Vm.RendererApp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Row="0" Grid.Column="1" Content="Check" HorizontalAlignment="Left"
+                                    Command="{x:Bind Vm.CheckRendererCommand}" />
+
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource FeatureSummary}"
+                                       FontWeight="SemiBold" Text="{x:Bind Vm.RendererTitle, Mode=OneWay}" />
+                            <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource FeatureSummary}"
+                                       Text="{x:Bind Vm.RendererDetail, Mode=OneWay}" />
+                        </Grid>
+
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning"
+                                 Message="{x:Bind Vm.MixedVendorWarning, Mode=OneWay}"
+                                 Visibility="{x:Bind Vm.MixedVendorWarning, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
+
+                        <TextBlock Style="{StaticResource FeatureSummary}"
+                                   Text="{x:Bind Vm.VendorSummary, Mode=OneWay}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ══ Adapter picker (only when there is more than one AMD GPU) ══ -->
+                <StackPanel Spacing="6"
+                            Visibility="{x:Bind Vm.HasMultipleAdapters, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ComboBox MinWidth="420" HorizontalAlignment="Left" Header="AMD adapter"
+                              DisplayMemberPath="DisplayLabel"
+                              ItemsSource="{x:Bind Vm.Adapters, Mode=OneWay}"
+                              SelectedItem="{x:Bind Vm.SelectedAdapter, Mode=TwoWay}" />
+                    <TextBlock Style="{StaticResource FeatureSummary}"
+                               Text="Radeon Super Resolution is a display-level setting and is the same on every adapter listed here." />
+                </StackPanel>
+
+                <!-- ══ Driver status ══ -->
+                <Border Style="{StaticResource FeatureCard}">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Grid.Column="0" Glyph="&#xE945;" FontSize="16"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="ADLX (AMD device library)" Style="{StaticResource FeatureTitle}" />
+                            <TextBlock Style="{StaticResource FeatureSummary}" Text="{x:Bind Vm.StatusText, Mode=OneWay}" />
+                            <TextBlock Style="{StaticResource FeatureSummary}" Text="{x:Bind Vm.WatchNote, Mode=OneWay}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="{x:Bind Vm.DriverVersionText, Mode=OneWay}" />
+                    </Grid>
+                </Border>
+
+                <!-- ══ Mutual exclusivity ══ -->
+                <Border Style="{StaticResource FeatureCard}"
+                        BorderBrush="{ThemeResource SystemFillColorCautionBrush}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="How these interact" Style="{StaticResource FeatureTitle}" />
+                        <TextBlock Style="{StaticResource FeatureSummary}"
+                                   Text="{x:Bind Vm.ExclusionNote, Mode=OneWay}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ══ The features ══ -->
+                <ItemsControl ItemsSource="{x:Bind Vm.Items, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:Radeon3DSettingItem">
+                            <Border Style="{StaticResource FeatureCard}" Margin="0,0,0,10">
+                                <StackPanel Spacing="10">
+
+                                    <!-- title + toggle -->
+                                    <Grid ColumnSpacing="14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <FontIcon Grid.Column="0" Glyph="{x:Bind Glyph}" FontSize="18"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                  VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource FeatureTitle}" Text="{x:Bind Title}" />
+                                            <TextBlock Style="{StaticResource FeatureSummary}" Text="{x:Bind Summary}" />
+                                            <TextBlock Style="{StaticResource FeatureSummary}" Text="{x:Bind SupportText}" />
+                                            <TextBlock Style="{StaticResource FeatureSummary}" TextWrapping="Wrap"
+                                                       Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                       Text="Applies to the whole display, not to this adapter."
+                                                       Visibility="{x:Bind IsDisplayLevel, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        </StackPanel>
+
+                                        <ToggleSwitch Grid.Column="2" VerticalAlignment="Center"
+                                                      OnContent="On" OffContent="Off"
+                                                      IsEnabled="{x:Bind IsRowEnabled, Mode=OneWay}"
+                                                      IsOn="{x:Bind IsEnabled, Mode=OneWay}"
+                                                      Toggled="FeatureToggle_Toggled" />
+                                    </Grid>
+
+                                    <!-- parameters, straight from the driver's own range -->
+                                    <Grid ColumnSpacing="12" RowSpacing="8" Padding="38,0,0,0"
+                                          Visibility="{x:Bind HasParameters, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Chill floor -->
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource ParameterLabel}"
+                                                   Text="Minimum FPS"
+                                                   Visibility="{x:Bind HasFpsPair, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        <NumberBox Grid.Row="0" Grid.Column="1" Style="{StaticResource ParameterBox}"
+                                                   HorizontalAlignment="Left"
+                                                   IsEnabled="{x:Bind AreParametersEnabled, Mode=OneWay}"
+                                                   Minimum="{x:Bind RangeMinimum, Mode=OneWay}"
+                                                   Maximum="{x:Bind RangeMaximum, Mode=OneWay}"
+                                                   SmallChange="{x:Bind RangeStep, Mode=OneWay}"
+                                                   Value="{x:Bind MinFps, Mode=TwoWay}"
+                                                   LostFocus="Parameter_Committed" KeyDown="Parameter_KeyDown"
+                                                   Visibility="{x:Bind HasFpsPair, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                        <!-- Chill ceiling -->
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource ParameterLabel}"
+                                                   Text="Maximum FPS"
+                                                   Visibility="{x:Bind HasFpsPair, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        <NumberBox Grid.Row="1" Grid.Column="1" Style="{StaticResource ParameterBox}"
+                                                   HorizontalAlignment="Left"
+                                                   IsEnabled="{x:Bind AreParametersEnabled, Mode=OneWay}"
+                                                   Minimum="{x:Bind RangeMinimum, Mode=OneWay}"
+                                                   Maximum="{x:Bind RangeMaximum, Mode=OneWay}"
+                                                   SmallChange="{x:Bind RangeStep, Mode=OneWay}"
+                                                   Value="{x:Bind MaxFps, Mode=TwoWay}"
+                                                   LostFocus="Parameter_Committed" KeyDown="Parameter_KeyDown"
+                                                   Visibility="{x:Bind HasFpsPair, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                        <!-- everything else's one value -->
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource ParameterLabel}"
+                                                   Text="{x:Bind ParameterLabel}"
+                                                   Visibility="{x:Bind HasSingleValue, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        <NumberBox Grid.Row="2" Grid.Column="1" Style="{StaticResource ParameterBox}"
+                                                   HorizontalAlignment="Left"
+                                                   IsEnabled="{x:Bind AreParametersEnabled, Mode=OneWay}"
+                                                   Minimum="{x:Bind RangeMinimum, Mode=OneWay}"
+                                                   Maximum="{x:Bind RangeMaximum, Mode=OneWay}"
+                                                   SmallChange="{x:Bind RangeStep, Mode=OneWay}"
+                                                   Value="{x:Bind SingleValue, Mode=TwoWay}"
+                                                   LostFocus="Parameter_Committed" KeyDown="Parameter_KeyDown"
+                                                   Visibility="{x:Bind HasSingleValue, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ProgressRing IsActive="{x:Bind Vm.IsLoading, Mode=OneWay}" Width="28" Height="28"
+                              HorizontalAlignment="Center" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

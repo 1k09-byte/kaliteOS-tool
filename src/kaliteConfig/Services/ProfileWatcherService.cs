@@ -818,14 +818,15 @@ public sealed class ProfileWatcherService : IDisposable
             {
                 // Even with no rule match, persisted boost preferences must
                 // still re-arm on every launch of the owning process (they are
-                // independent of rules) - per thread and per process.
-                _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
-                _ = ProcessBoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
+                // independent of rules) - per process first, then per thread:
+                // the process-wide write switches boost off on every existing
+                // thread, so the per-thread choices must be re-asserted after
+                // it. See KeepAppliedAsync for the same ordering rationale.
+                _ = ReapplyBoostPreferencesAsync(pid, name);
                 return;
             }
 
-            _ = BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
-            _ = ProcessBoostPreferenceService.Instance.ApplyToProcessAsync(pid, name);
+            _ = ReapplyBoostPreferencesAsync(pid, name);
 
             foreach (var profile in matched)
             {
@@ -844,6 +845,26 @@ public sealed class ProfileWatcherService : IDisposable
         catch
         {
             // Avoid failing WMI background pump due to process protection access denies
+        }
+    }
+
+    /// <summary>
+    /// Re-arms the persisted boost preferences for one freshly started process.
+    /// Process-wide first, then per-thread, and awaited in that order - firing
+    /// both off concurrently let the process-wide "disable" land after the
+    /// per-thread "enable" and silently undo it.
+    /// </summary>
+    private static async Task ReapplyBoostPreferencesAsync(int pid, string name)
+    {
+        try
+        {
+            await BoostPreferenceRules.ApplyBoostLayersInOrderAsync(
+                () => ProcessBoostPreferenceService.Instance.ApplyToProcessAsync(pid, name),
+                () => BoostPreferenceService.Instance.ApplyToProcessAsync(pid, name));
+        }
+        catch
+        {
+            // A process that exits mid-apply is not an error.
         }
     }
 
@@ -933,6 +954,13 @@ public sealed class ProfileWatcherService : IDisposable
     /// <summary>
     /// One keeper pass: rules first, then the boost preferences. Re-entrancy
     /// guarded so a slow pass can never stack on top of the previous one.
+    ///
+    /// ORDER MATTERS. The process-wide write comes BEFORE the per-thread one on
+    /// purpose: SetProcessPriorityBoost(disable: true) turns priority boost off
+    /// for every thread that already exists in the process (verified on this
+    /// build), so a per-thread "boost on" has to be re-asserted after it. The
+    /// other order silently reverted every thread the user had switched back on
+    /// and, with nothing recorded for the enabled side, never came back.
     /// </summary>
     public async Task KeepAppliedAsync()
     {
@@ -940,8 +968,9 @@ public sealed class ProfileWatcherService : IDisposable
         try
         {
             await ApplyAllRulesToRunningProcessesAsync();
-            await BoostPreferenceService.Instance.ApplyToRunningProcessesAsync();
-            await ProcessBoostPreferenceService.Instance.ApplyToRunningProcessesAsync();
+            await BoostPreferenceRules.ApplyBoostLayersInOrderAsync(
+                static () => ProcessBoostPreferenceService.Instance.ApplyToRunningProcessesAsync(),
+                static () => BoostPreferenceService.Instance.ApplyToRunningProcessesAsync());
         }
         catch (Exception ex)
         {

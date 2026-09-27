@@ -362,8 +362,17 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         ApplyFilterNow();
     }
 
+    // Rows is swapped wholesale by every filter change. The two visibilities
+    // are what the page actually binds (BiosManagerPage.xaml), so they have to
+    // be raised too - announcing only HasNoResults left the "no results"
+    // overlay stuck on screen with an empty list underneath it, and ListVisibility
+    // stuck showing nothing.
     partial void OnRowsChanged(ObservableCollection<BiosSettingRow> value)
-        => OnPropertyChanged(nameof(HasNoResults));
+    {
+        OnPropertyChanged(nameof(HasNoResults));
+        OnPropertyChanged(nameof(NoResultsVisibility));
+        OnPropertyChanged(nameof(ListVisibility));
+    }
 
     /// <summary>Per-item reset to the BIOS default value.</summary>
     [RelayCommand]

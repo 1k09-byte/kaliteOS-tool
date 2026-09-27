@@ -74,12 +74,18 @@ public sealed class WindowsSettingsService
             "Forces timer serialization on (1) instead of letting the kernel decide. Read by the kernel at boot - takes effect after a restart. Can reduce timer coalescing jitter at the cost of throughput.",
             @"SYSTEM\CurrentControlSet\Control\Session Manager\Kernel",
             "SerializeTimerExpiration", 1, 0, false, true),
+        // MMCSS: the toggle represents the SERVICE, not the "disable" action.
+        // Service Start 2 = automatic (running, the Windows default, and what
+        // a stock machine reports), Start 4 = disabled. The card is headed
+        // "Multimedia Class Scheduler (MMCSS)", so ON has to mean "MMCSS is
+        // running" - the previous polarity (On=4) made a healthy machine read
+        // as "Currently: OFF" and made the label say the opposite of the state.
         new TweakDef(
             "MmcssStatus",
-            "Disable Multimedia Class Scheduler (MMCSS)",
-            "Disabling MMCSS (turning this ON) can reduce scheduling noise and DPC latency, but may break some audio drivers. Turning it OFF restores the default behavior of boosting multimedia thread priorities. Takes effect after a restart.",
+            "Multimedia Class Scheduler (MMCSS)",
+            "MMCSS boosts the scheduling priority of audio and video threads. Turning it OFF stops the service, which can reduce scheduling noise and DPC latency but may break some audio drivers. Turning it back ON restores the Windows default. Takes effect after a restart.",
             @"SYSTEM\CurrentControlSet\Services\MMCSS",
-            "Start", 4, 2, false, true),
+            "Start", 2, 4, false, true),
     };
 
     public static TweakDef? Find(string id)

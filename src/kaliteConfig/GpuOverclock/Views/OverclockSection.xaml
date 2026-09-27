@@ -23,6 +23,29 @@
 
     <StackPanel Spacing="8">
 
+        <!-- ============ Simulation banner ============
+             Loud on purpose. In simulation mode every number on this page is
+             fabricated, so it has to be impossible to mistake a screenshot of
+             it for a measurement - and impossible to forget that no driver was
+             written. Remove the env var and the banner goes with it. -->
+        <Border Style="{StaticResource OcCardStyle}"
+                BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                BorderThickness="2"
+                Padding="16"
+                Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.IsSimulation), Mode=OneWay}">
+            <StackPanel Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE7BA;" FontSize="18" Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                    <TextBlock Text="Simulation mode - nothing here touches your GPU" FontWeight="SemiBold" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind Vm.SimulationLabel, Mode=OneWay}" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock FontSize="12" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="A fabricated Radeon stands in for a real one so this page can be reviewed without the hardware. Ranges, clamping and refusals are computed exactly as they would be for a real card; only the final driver write is skipped." />
+            </StackPanel>
+        </Border>
+
         <!-- ============ Safety countdown banner (safety-critical: impossible to miss) ============ -->
         <Border Style="{StaticResource OcCardStyle}"
                 BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
@@ -330,6 +353,12 @@
                         <RadioButton Content="Curve" GroupName="fanMode"
                                      IsChecked="{x:Bind Vm.FanCurveChecked, Mode=TwoWay}" />
                     </StackPanel>
+                    <ToggleSwitch x:Name="ZeroRpmToggle" Header="Zero RPM (stop fan at idle)"
+                                  OnContent="On" OffContent="Off"
+                                  IsEnabled="{x:Bind Vm.ZeroRpmAvailable, Mode=OneWay}"
+                                  Toggled="ZeroRpmToggle_Toggled"
+                                  ToolTipService.ToolTip="Stops the fan while the card is idle. Turned off automatically if the driver resets."
+                                  Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.ZeroRpmAvailable), Mode=OneWay}" />
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.FanStaticVis(Vm.FanMode), Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>

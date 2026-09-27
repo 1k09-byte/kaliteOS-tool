@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:kaliteConfig.Pages"
     xmlns:models="using:kaliteConfig.Models"
+    xmlns:converters="using:kaliteConfig.Converters"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     NavigationCacheMode="Enabled">
     <Page.Transitions>
@@ -18,6 +19,7 @@
     </Page.Transitions>
 
     <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="ProcessCard" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />

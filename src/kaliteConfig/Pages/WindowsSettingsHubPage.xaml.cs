@@ -44,7 +44,7 @@ namespace kaliteConfig.Pages
                 LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard,
                     "Serializes timer expiration (active scheme).");
                 LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
-                    "Boosts multimedia thread priorities (needs restart).");
+                    "Boosts multimedia thread priorities (needs restart). OFF stops the MMCSS service.");
             }
             finally { _loadingKernelToggles = false; }
         }

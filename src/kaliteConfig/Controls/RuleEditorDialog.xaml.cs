@@ -292,7 +292,13 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
-    private async void ThreadsRefresh_Click(object sender, RoutedEventArgs e) => await LoadLiveThreadsAsync();
+    private async void ThreadsRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        // async void: an escaping exception here is an unhandled UI exception
+        // and takes the whole app down, not just the dialog.
+        try { await LoadLiveThreadsAsync(); }
+        catch (Exception ex) { LiveSelectedText.Text = "Could not read threads: " + ex.Message; }
+    }
 
     private void LiveThreads_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {

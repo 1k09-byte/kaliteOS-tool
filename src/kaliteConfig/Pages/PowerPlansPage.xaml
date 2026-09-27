@@ -243,6 +243,34 @@
                                                                        SmallChange="1" />
                                                             <TextBlock Text="{Binding DcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
                                                         </StackPanel>
+
+                                                        <!-- Named presets for a continuous setting: the worded
+                                                             choice comes FIRST so nobody has to guess a
+                                                             number, and the raw box stays underneath for
+                                                             values the presets do not cover. -->
+                                                        <StackPanel
+                                                            Visibility="{Binding IsPresetList, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedItem="{Binding SelectedAcChoice, Mode=TwoWay}" />
+                                                            <NumberBox Value="{Binding UiAcValue, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" Margin="0,6,0,0" />
+                                                            <TextBlock Text="{Binding AcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Visibility="{Binding IsPresetList, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="On battery (DC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />
+                                                            <ComboBox MinWidth="220"
+                                                                      ItemsSource="{Binding PossibleChoices}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedItem="{Binding SelectedDcChoice, Mode=TwoWay}" />
+                                                            <NumberBox Value="{Binding UiDcValue, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
+                                                                       SmallChange="1" Margin="0,6,0,0" />
+                                                            <TextBlock Text="{Binding DcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
+                                                        </StackPanel>
                                                     </StackPanel>
                                                     
                                                 </toolkit:SettingsCard>

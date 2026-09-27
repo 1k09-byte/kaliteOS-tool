@@ -56,7 +56,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// </summary>
     public sealed class SafetyRevertService : IAsyncDisposable
     {
-        private readonly INvidiaGpuController _controller;
+        private readonly IGpuTuningController _controller;
         private readonly ITdrWatchdog _watchdog;
         private readonly Action<AppliedChangeLogEntry> _log;
         private readonly object _gate = new();
@@ -114,7 +114,7 @@ namespace kaliteConfig.GpuOverclock.Services
         public event EventHandler<SafetyStateChangedEventArgs>? StateChanged;
         public event Action<SafetyState, string?>? Reverted; // (state reached Idle with reason, detail)
 
-        public SafetyRevertService(INvidiaGpuController controller, ITdrWatchdog watchdog, Action<AppliedChangeLogEntry> log)
+        public SafetyRevertService(IGpuTuningController controller, ITdrWatchdog watchdog, Action<AppliedChangeLogEntry> log)
         {
             _controller = controller;
             _watchdog = watchdog;

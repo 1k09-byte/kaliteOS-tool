@@ -67,7 +67,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>Extra slack past the window end before giving up the wait (tests shrink this).</summary>
         public int UnattendedWaitSlackSeconds { get; set; } = 10;
 
-        private readonly INvidiaGpuController _controller;
+        private readonly IGpuTuningController _controller;
         private readonly SafetyRevertService _safety;
         private readonly ProfileStorageService _profiles;
         private readonly OverclockChangeLogger _log;
@@ -93,7 +93,7 @@ namespace kaliteConfig.GpuOverclock.Services
         public AutoApplyStatus Current { get { lock (_gate) return _current; } }
 
         public GameProfileAutoApplyService(
-            INvidiaGpuController controller,
+            IGpuTuningController controller,
             SafetyRevertService safety,
             ProfileStorageService profiles,
             OverclockChangeLogger log,

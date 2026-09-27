@@ -33,7 +33,7 @@ namespace kaliteConfig.GpuOverclock.Services
     public static class ProfileBatchBuilder
     {
         public static List<PendingChange> Build(
-            INvidiaGpuController controller,
+            IGpuTuningController controller,
             GpuCapabilities caps,
             OverclockProfile profile,
             Func<string, string> oldDisplay,

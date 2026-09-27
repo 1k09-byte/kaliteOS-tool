@@ -13,58 +13,6 @@
     </Page.DataContext>
 
     <Page.Resources>
-        <!-- Flat container: the rounded card is the only visible surface, so
-             the default ListView selection bar and square chrome never paint. -->
-        <Style x:Key="NetFlatListItemStyle" TargetType="ListViewItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,4" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />
-            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
-            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="SelectionBorder" Margin="4,2" BorderThickness="1.5" CornerRadius="10" BorderBrush="Transparent"
-                                Background="Transparent">
-                            <ContentPresenter
-                                              Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              ContentTransitions="{TemplateBinding ContentTransitions}"
-                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Padding="{TemplateBinding Padding}"
-                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Selected">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="BorderBrush">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource AccentFillColorDefaultBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBorder" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <DataTemplate x:Key="PropGroupTemplate" x:DataType="vm:NetPropGroup">
             <StackPanel Spacing="8" Margin="0,0,0,16">
                 <TextBlock Text="{x:Bind Category}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -160,22 +108,25 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="16">
+        <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="16">
         <StackPanel Spacing="14">
             <TextBlock Text="Network" Style="{ThemeResource TitleTextBlockStyle}"/>
-            <TextBox x:Name="AdapterSearch" Header="Search adapters" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="12" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
             <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
+            <!-- Same picker chrome as the Startup page's "Sources" list: the
+                 default ListViewItem template draws the rounded selection pill
+                 with the accent bar, so no ItemContainerStyle is applied here.
+                 An ItemContainerStyle is what removed it before. -->
             <ListView x:Name="AdapterList" ItemsSource="{x:Bind ViewModel.FilteredAdapters, Mode=OneWay}"
                       ScrollViewer.VerticalScrollBarVisibility="Hidden"
                       SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
                       SelectionChanged="AdapterList_SelectionChanged" SelectionMode="Single" MaxHeight="480"
-                      ItemContainerStyle="{StaticResource NetFlatListItemStyle}">
+                      CornerRadius="12" Background="Transparent" BorderThickness="0"
+                      HorizontalAlignment="Stretch">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="svc:NetAdapterInfo">
-                        <Border Padding="10,8" CornerRadius="10" BorderThickness="1"
-                                Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="Transparent"
-                                PointerEntered="NetworkCard_PointerEntered" PointerExited="NetworkCard_PointerExited"><StackPanel Spacing="2">
+                        <StackPanel Spacing="2" Padding="10,8">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Ellipse Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind local:NetworkPage.DotBrush(IsUp)}"/>
@@ -187,18 +138,17 @@
                                 <Run Text="{x:Bind Status}"/><Run Text=" · "/><Run Text="{x:Bind Kind}"/>
                             </TextBlock>
                         </StackPanel>
-                        </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <Button Content="Refresh" Click="Refresh_Click" HorizontalAlignment="Stretch"/>
+            <Button Content="Refresh" Click="Refresh_Click" CornerRadius="12" HorizontalAlignment="Stretch"/>
             <TextBlock Text="{x:Bind ViewModel.ElevationText, Mode=OneWay}" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
             <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
         </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="18">
+        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="18">
         <Grid RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -212,7 +162,7 @@
                     <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
                 </InfoBar.ActionButton>
             </InfoBar>
-            <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8"
+            <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="12"
                     Padding="12,8" Visibility="{x:Bind ViewModel.KeepUIVisibility, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <TextBlock Text="{x:Bind ViewModel.KeepCountdownText, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap"/>
@@ -316,7 +266,7 @@
 
                         <!-- Section picker: one group of system settings on screen at a
                              time instead of four expanders stacked on one page. -->
-                        <Border Grid.Column="0" CornerRadius="8" Padding="8,12" VerticalAlignment="Stretch"
+                        <Border Grid.Column="0" CornerRadius="12" Padding="8,12" VerticalAlignment="Stretch"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                             <Grid RowSpacing="8">
@@ -330,8 +280,7 @@
                                 <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.SysSections, Mode=OneWay}"
                                           SelectedIndex="{x:Bind ViewModel.SysSectionIndex, Mode=TwoWay}"
                                           SelectionMode="Single" Background="Transparent" BorderThickness="0"
-                                          HorizontalAlignment="Stretch"
-                                          ItemContainerStyle="{StaticResource NetFlatListItemStyle}">
+                                          CornerRadius="12" HorizontalAlignment="Stretch">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SysSectionVm">
                                             <Grid ColumnSpacing="8">
@@ -360,7 +309,7 @@
                             </Grid>
                         </Border>
 
-                        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="18">
+                        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="18">
         <Grid RowSpacing="8">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>

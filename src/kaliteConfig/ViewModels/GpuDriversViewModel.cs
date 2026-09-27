@@ -22,7 +22,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http;
 
 namespace kaliteConfig.ViewModels
 {
@@ -32,8 +31,6 @@ namespace kaliteConfig.ViewModels
         private readonly NvidiaDriverService _nvidiaService = new();
         private readonly AmdDriverService _amdService = new();
         private readonly NvidiaPackageService _packageService = new();
-        private static readonly HttpClient _http = new();
-
         private CancellationTokenSource? _cts;
 
         public ObservableCollection<GpuDriverItem> Drivers { get; } = new();
@@ -92,7 +89,6 @@ namespace kaliteConfig.ViewModels
         public partial NvidiaDriverPackage? SelectedNvidiaPackage { get; set; }
 
         // AMD properties 
-        public ObservableCollection<AmdDriverPackageConfig> AmdPackages { get; } = new();
 
         public GpuDriversViewModel()
         {
@@ -406,35 +402,65 @@ namespace kaliteConfig.ViewModels
 
                     progress.Report(GpuDriverStatus.Downloading);
                     string tempPath = TempDownloadPath(item.InstallerFileName);
-                    
-                    using var response = await _http.GetAsync(item.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
-                    response.EnsureSuccessStatusCode();
-                    
-                    using var contentStream = await response.Content.ReadAsStreamAsync(_cts.Token);
-                    using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.Read, 8192, true))
-                        await contentStream.CopyToAsync(fileStream, _cts.Token);
-                    
-                    string extractDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AMD_Extract");
-                    System.IO.Directory.CreateDirectory(extractDir);
-                    
-                    progress.Report(GpuDriverStatus.Installing);
-                    
-                    bool extracted = await _amdService.ExtractInstallerAsync(tempPath, extractDir, logProgress, _cts.Token);
-                    if (!extracted) { item.ErrorMessage = "AMD Extraction failed."; progress.Report(GpuDriverStatus.Failed); return; }
-                    
-                    progress.Report(GpuDriverStatus.Installing);
-                    
-                    string logPath = Path.Combine(Path.GetTempPath(), "AMDInstall.log");
-                    bool success = await _amdService.InstallCustomizedAsync(extractDir, logPath, logProgress, _cts.Token);
-                    
-                    if (success) progress.Report(GpuDriverStatus.Installed);
-                    else { item.ErrorMessage = "Install failed or threw errors."; progress.Report(GpuDriverStatus.Failed); }
+
+                    try
+                    {
+                        // An earlier attempt may have died holding a partial package
+                        // in %TEMP%. Clear it before starting a fresh transfer.
+                        _amdService.SweepStaleTempArtifacts(logProgress);
+
+                        // Goes through AmdDriverApiService rather than a bare HttpClient:
+                        // AMD's CDN answers a request with no Referer header with a
+                        // 200 OK "Download Not Complete" HTML page. The same call
+                        // sniffs the payload for an MZ header, refuses to start if the
+                        // volume is too full, and resumes if the connection drops.
+                        var download = await AmdDriverApiService.DownloadInstallerAsync(item.DownloadUrl, tempPath, downloadProgress, _cts.Token);
+                        if (!download.Success)
+                        {
+                            item.ErrorMessage = download.Error ?? "AMD download failed.";
+                            item.Status = GpuDriverStatus.Failed;
+                            progress.Report(GpuDriverStatus.Failed);
+                            _cts.Dispose();
+                            _cts = null;
+                            return;
+                        }
+
+                        progress.Report(GpuDriverStatus.Installing);
+
+                        // The package is a self-extracting installer: it unpacks and
+                        // installs itself. Handing it to the user beats unpacking
+                        // 2.7 GB into %TEMP% here just to reimplement its own
+                        // installer with a worse component picker.
+                        bool launched = _amdService.LaunchInstaller(tempPath, logProgress);
+                        if (!launched)
+                        {
+                            item.ErrorMessage = "The driver downloaded, but AMD's installer would not start.";
+                            item.Status = GpuDriverStatus.Failed;
+                            progress.Report(GpuDriverStatus.Failed);
+                            _cts.Dispose();
+                            _cts = null;
+                            return;
+                        }
+
+                        logProgress("AMD's installer is open - finish the install there, then refresh this page.");
+                        item.Status = GpuDriverStatus.Installed;
+                        progress.Report(GpuDriverStatus.Installed);
+                    }
+                    finally
+                    {
+                        // The package stays on disk while AMD's installer runs - it
+                        // reads from that exact file - so it is swept on the *next*
+                        // attempt rather than deleted out from under the installer.
+                        // 900 MB of leftovers is recoverable; a failed install
+                        // because the file vanished is not.
+                    }
                 }
             }
             catch (OperationCanceledException)
             {
                 item.ErrorMessage = "Cancelled";
                 item.Status = GpuDriverStatus.Failed;
+                IsInstalling = false;
             }
 
             IsInstalling = false;
@@ -447,6 +473,50 @@ namespace kaliteConfig.ViewModels
         {
             if (item is null) return;
             GpuDriverService.OpenUrl(item.VendorPageUrl);
+        }
+
+        /// <summary>
+        /// Fetches (first use only) and starts Radeon Software Slimmer, the
+        /// third-party utility that trims the bloat out of an Adrenalin install.
+        /// </summary>
+        [RelayCommand]
+        private async Task OpenRadeonSlimmerAsync(GpuDriverItem? item)
+        {
+            if (item is null) return;
+
+            item.IsSlimmerBusy = true;
+            item.IsSlimmerInstalled = RadeonSlimmerService.IsInstalled;
+            string previousError = item.ErrorMessage;
+            item.ErrorMessage = string.Empty;
+
+            try
+            {
+                var result = await RadeonSlimmerService.LaunchAsync(
+                    msg => InstallStatusText = msg,
+                    new Progress<double>(p => item.SlimmerProgress = p),
+                    CancellationToken.None);
+
+                if (result.Cancelled)
+                {
+                    // Declining the UAC prompt is a choice, not a failure.
+                    InstallStatusText = "Radeon Software Slimmer was not started.";
+                }
+                else if (!result.Success)
+                {
+                    item.ErrorMessage = result.Error ?? "Radeon Software Slimmer could not be started.";
+                }
+                else
+                {
+                    InstallStatusText = "Radeon Software Slimmer is open.";
+                }
+            }
+            finally
+            {
+                item.IsSlimmerBusy = false;
+                item.SlimmerProgress = -1;
+                item.IsSlimmerInstalled = RadeonSlimmerService.IsInstalled;
+                if (item.ErrorMessage.Length == 0) item.ErrorMessage = previousError;
+            }
         }
 
         [RelayCommand]

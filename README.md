@@ -27,20 +27,17 @@
 - **Template Synthesis**: Export, inject, and backup `.pow` payload power schemes cleanly.
 
 ### 🎮 GPU Optimization Hub
-- **NVIDIA Profile Inspector Integration**: Bundle the raw capabilities of the NVIDIA Profile Inspector seamlessly behind a gorgeous WinUI 3 dashboard interface.
-- **Direct Global Overrides**: Manage `global_profile.nip` profiles alongside advanced framerate limitation and telemetry prevention overlays perfectly optimized without jumping out to legacy tools.
-- **Rollback Safeties**: Instantly pull strings back to safe-state defaults to revert catastrophic driver tuning.
+- **NVIDIA Profile Inspector Integration**: Bundle NVIDIA Profile Inspector seamlessly behind a gorgeous WinUI 3 dashboard interface. (with a nip file)
+
 
 ### 📊 Benchmark View & Telemetry
 - **PresentMon & CapFrameX Synchronization**: Natively ingest deeply accurate CSV telemetry logic.
-- **Performance Overlays**: Trace real-time hardware latencies and frametimes dynamically over workloads to quantify tweaks.
 
 ### 🌐 Advanced Network Engine
 - **Hardware TCP/IP Profiles**: JSON-based profile staging mapped cleanly. Modify bandwidth limiters, and DNS resolution caching entirely locally.
 - **Deep Adapter Configuration**: Access properties embedded deep inside registry driver parameter mapping for your network card (e.g. interrupt moderation, checksum offloads).
 
 ### 📐 Snip Overlay Takeover
-- **Native Snipping Tool Aggression**: Bypasses the default Windows Snipping logic utilizing Image File Execution Options (IFEO) registry hooks to force take over the `PrintScreen` key.
 - **High-Performance Canvas**: Win2D/Direct2D accelerated image editor, text markdown injections, sticker/layer mechanics all available the split-second you capture a screen.
 - **Persistent Asset Gallery**: Track, archive, and manage historical cuts immediately natively.
 
@@ -63,7 +60,8 @@ A massive thank you to the following individuals who helped make this project po
 - **jackpot71** - Provided phenomenal ideas, ongoing guidance, and is the creator of the brilliant Hypertune! 🚀
   [GitHub (Hypertune)](https://github.com/JACKPOT71/Hypertune) | [Discord Community](https://discord.gg/XhtSQBE4jS)
 - **herothefoxking.** - An incredibly educated mind who helped endlessly with strict logic! 🧠 🦊
-  [Discord Community](https://discord.gg/vTYNb8re9g)
+- **kaisen** - Helped and gave documents for thread tuning! 🚀
+  [Discord Community 1](https://discord.gg/kDJNjUpz8U) | [Discord Community 2](https://discord.gg/DrwnExQJwf)
 
 ## License
 

@@ -19,6 +19,16 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string Name { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Stable identity of the product this entry installs ("Steam", "Brave",
+        /// "Riot", ...). Drives the uninstall path, which must NOT be derived
+        /// from <see cref="Name"/>: substring matching on the display name
+        /// mis-routed real products ("Steam" contains "ea"), and any rename
+        /// would silently change what gets uninstalled. Empty falls back to a
+        /// name heuristic for legacy entries.
+        /// </summary>
+        public string ProductId { get; set; } = string.Empty;
+
         [ObservableProperty]
         public partial string ImagePath { get; set; } = string.Empty;
 
@@ -82,6 +92,22 @@ namespace kaliteConfig.Models
         };
 
         public ObservableCollection<ExtensionItem> Extensions { get; set; } = new();
+    }
+
+    /// <summary>
+    /// How the Apps page lays out its installable entries.
+    ///
+    /// Card is the original big-icon grid. Compact is a small-icon list - many
+    /// more apps visible at once, which is what you want when hunting for one
+    /// specific app.
+    /// </summary>
+    public enum AppViewMode
+    {
+        /// <summary>Big icon tiles in a uniform grid (the default).</summary>
+        Card,
+
+        /// <summary>Single-line rows: 24px icon, name, status on the right.</summary>
+        Compact,
     }
 
     public enum BrowserInstallStatus

@@ -47,6 +47,56 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool NothingToInstall { get; set; } = false;
 
+        /// <summary>
+        /// Layout for the Apps install grid: big cards, compact rows, or an
+        /// aligned table. Card is the default because it is what the page has
+        /// always looked like; the other two are for scanning a long list.
+        /// Persisted so the choice survives a restart - a view mode that reset
+        /// on every launch would just be a nuisance.
+        /// </summary>
+        [ObservableProperty]
+        public partial AppViewMode ViewMode { get; set; } = AppViewMode.Card;
+
+        /// <summary>Individual visibility flags for the two layout modes.</summary>
+        public bool IsCardView => ViewMode == AppViewMode.Card;
+        public bool IsCompactView => ViewMode == AppViewMode.Compact;
+
+        partial void OnViewModeChanged(AppViewMode value)
+        {
+            OnPropertyChanged(nameof(IsCardView));
+            OnPropertyChanged(nameof(IsCompactView));
+            SaveViewMode(value);
+        }
+
+        private static readonly string ViewModeKey = "InstallerViewMode";
+
+        private void SaveViewMode(AppViewMode mode)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\kaliteConfig");
+                key?.SetValue(ViewModeKey, mode.ToString());
+            }
+            catch { /* a read-only profile must not break the page */ }
+        }
+
+        /// <summary>
+        /// Reads the saved layout. A missing or unrecognised value falls back to
+        /// Card rather than throwing, so a corrupt registry entry cannot stop
+        /// the page from loading.
+        /// </summary>
+        public void LoadViewMode()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\kaliteConfig");
+                var raw = key?.GetValue(ViewModeKey) as string;
+                if (raw != null && Enum.TryParse<AppViewMode>(raw, out var mode))
+                    ViewMode = mode;
+            }
+            catch { /* keep the default */ }
+        }
+
         partial void OnShowInstalledChanged(bool value)
         {
             UpdateVisibilityFilters();
@@ -106,6 +156,7 @@ namespace kaliteConfig.ViewModels
             var zenBrowser = new BrowserInstallItem
             {
                 Name = "Zen Browser",
+                ProductId = "Zen",
                 ImagePath = "ms-appx:///Assets/zen-logo.png",
                 DownloadUrl = "https://github.com/zen-browser/desktop/releases/latest/download/zen.installer.exe",
                 SilentInstallArgs = "/S",
@@ -154,6 +205,7 @@ namespace kaliteConfig.ViewModels
             var braveBrowser = new BrowserInstallItem
             {
                 Name = "Brave Browser",
+                ProductId = "Brave",
                 ImagePath = "ms-appx:///Assets/brave-logo.png",
                 DownloadUrl = "https://brave-browser-downloads.s3.brave.com/latest/brave_installer-x64.exe",
                 SilentInstallArgs = "--silent --install",
@@ -214,6 +266,7 @@ namespace kaliteConfig.ViewModels
             var vivaldiBrowser = new BrowserInstallItem
             {
                 Name = "Vivaldi",
+                ProductId = "Vivaldi",
                 ImagePath = "ms-appx:///Assets/vivaldi-logo.png",
                 // The plain "Vivaldi.Installer.exe" alias 404s; but this permalink
                 // intelligently redirects to the latest stable x64 build.
@@ -231,6 +284,7 @@ namespace kaliteConfig.ViewModels
             var heliumBrowser = new BrowserInstallItem
             {
                 Name = "Helium Browser",
+                ProductId = "Helium",
                 ImagePath = "ms-appx:///Assets/helium-logo.svg",
                 DownloadUrl = "https://github.com/imputnet/helium-windows/releases/download/0.16.5.1/helium_0.16.5.1_x64-installer.exe",
                 SilentInstallArgs = "/S",
@@ -337,6 +391,7 @@ namespace kaliteConfig.ViewModels
             var epicLauncher = new BrowserInstallItem
             {
                 Name = "Epic Games Launcher",
+                ProductId = "Epic Games Launcher",
                 ImagePath = "ms-appx:///Assets/epic-logo.png",
                 DownloadUrl = "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncherInstaller.msi",
                 SilentInstallArgs = "/qn /norestart",
@@ -348,6 +403,7 @@ namespace kaliteConfig.ViewModels
             var eaApp = new BrowserInstallItem
             {
                 Name = "EA app",
+                ProductId = "EA app",
                 ImagePath = "ms-appx:///Assets/ea-logo.png",
                 DownloadUrl = "https://origin-a.akamaihd.net/EA-Desktop-Client-Download/installer-releases/EAappInstaller-13.783.0.6296-15340466.exe",
                 SilentInstallArgs = "/quiet",
@@ -359,6 +415,7 @@ namespace kaliteConfig.ViewModels
             var ubisoftConnect = new BrowserInstallItem
             {
                 Name = "Ubisoft Connect",
+                ProductId = "Ubisoft Connect",
                 ImagePath = "ms-appx:///Assets/ubisoft-logo.png",
                 DownloadUrl = "https://ubistatic3-a.akamaihd.net/orbit/launcher_installer/UbisoftConnectInstaller.exe",
                 SilentInstallArgs = "/S",
@@ -370,6 +427,7 @@ namespace kaliteConfig.ViewModels
             var minecraftLauncher = new BrowserInstallItem
             {
                 Name = "Minecraft Launcher",
+                ProductId = "Minecraft Launcher",
                 ImagePath = "ms-appx:///Assets/minecraft-logo.png",
                 DownloadUrl = "https://launcher.mojang.com/download/MinecraftInstaller.msi",
                 SilentInstallArgs = "/qn",
@@ -381,6 +439,7 @@ namespace kaliteConfig.ViewModels
             var steamLauncher = new BrowserInstallItem
             {
                 Name = "Steam",
+                ProductId = "Steam",
                 ImagePath = "ms-appx:///Assets/steam-logo.png",
                 DownloadUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe",
                 SilentInstallArgs = "/S",
@@ -389,20 +448,16 @@ namespace kaliteConfig.ViewModels
                 Description = "The ultimate gaming platform and community, featuring massive game libraries, workshop mods, and cloud saves operated by Valve."
             };
 
-            var riotLauncher = new BrowserInstallItem
-            {
-                Name = "Riot Client",
-                ImagePath = "ms-appx:///Assets/riot-logo.svg",
-                DownloadUrl = "https://lol.secure.dyn.riotcdn.net/channels/public/x/installer/current/live.na.exe",
-                SilentInstallArgs = "--mode unattended",
-                InstallerFileName = "riot_installer.exe",
-                InstalledCheckPath = @"%PROGRAMDATA%\Riot Games\Riot Client\RiotClientServices.exe;C:\Riot Games\Riot Client\RiotClientServices.exe",
-                Description = "The unified platform for launching all Riot Games titles including League of Legends and VALORANT."
-            };
+            // No Riot entry on purpose. Riot publishes no client-only
+            // bootstrapper - the only official installers are per-game
+            // (the valorant host serves "Install VALORANT.exe", the lol host
+            // serves "Install League of Legends na.exe"), so a "Riot Client"
+            // card can only ever install a game the user did not ask for.
 
             var discordLauncher = new BrowserInstallItem
             {
                 Name = "Discord",
+                ProductId = "Discord",
                 ImagePath = "ms-appx:///Assets/discord-logo.svg",
                 DownloadUrl = "https://discord.com/api/download?platform=win",
                 SilentInstallArgs = "-s",
@@ -414,6 +469,7 @@ namespace kaliteConfig.ViewModels
             var telegramApp = new BrowserInstallItem
             {
                 Name = "Telegram Desktop",
+                ProductId = "Telegram",
                 ImagePath = "ms-appx:///Assets/telegram-logo.png",
                 DownloadUrl = "https://telegram.org/dl/desktop/win64",
                 SilentInstallArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
@@ -425,6 +481,7 @@ namespace kaliteConfig.ViewModels
             var whatsappApp = new BrowserInstallItem
             {
                 Name = "WhatsApp",
+                ProductId = "WhatsApp",
                 ImagePath = "ms-appx:///Assets/whatsapp-logo.svg",
                 DownloadUrl = "https://web.whatsapp.com/desktop/windows/release/x64/WhatsAppSetup.exe",
                 SilentInstallArgs = "/S",
@@ -489,7 +546,6 @@ namespace kaliteConfig.ViewModels
             GameLaunchers.Add(ubisoftConnect);
             GameLaunchers.Add(minecraftLauncher);
             GameLaunchers.Add(steamLauncher);
-            GameLaunchers.Add(riotLauncher);
             GameLaunchers.Add(new BrowserInstallItem
             {
                 Name = "Froststrap",
@@ -498,18 +554,35 @@ namespace kaliteConfig.ViewModels
                 InstalledCheckPath = @"%LOCALAPPDATA%\Froststrap\Froststrap.exe",
                 Description = "Fast Roblox bootstrapper focused on performance and customization."
             });
-            GameLaunchers.Add(new BrowserInstallItem
-            {
-                Name = "Medal",
-                ImagePath = "ms-appx:///Assets/medal-logo.png",
-                WingetId = "MedalB.V.Medal",
-                InstalledCheckPath = @"%LOCALAPPDATA%\Medal\Medal.exe",
-                Description = "Clip your gameplay without dropping frames, then edit and share it."
-            });
 
             SocialApps.Add(discordLauncher);
             SocialApps.Add(telegramApp);
             SocialApps.Add(whatsappApp);
+
+            // Medal installs from its own CDN, not from winget. The winget
+            // manifest (MedalB.V.Medal, 4.2309.0) points at
+            // cdn.medal.tv/production/candidate/electron/win32/4.2309.0/MedalSetup.exe
+            // which now returns 404 - the publisher purged that build, so
+            // `winget install` fails with "Download request status is not
+            // success" and there is nothing to fix on our side. The publisher's
+            // own stable entry point (linked from medal.tv/download) 307s to
+            // whatever the current build is, so it cannot go stale the same way.
+            // Note getmedal.com is a parked GoDaddy for-sale page now - the
+            // live domain is medal.tv.
+            Utilities.Add(new BrowserInstallItem
+            {
+                Name = "Medal",
+                ProductId = "Medal",
+                ImagePath = "ms-appx:///Assets/medal-logo.png",
+                DownloadUrl = "https://install.medal.tv/",
+                SilentInstallArgs = "--silent",
+                InstallerFileName = "MedalSetup.exe",
+                // Squirrel (electron-web) installs into a versioned
+                // app-<version> folder with the launcher inside it, so the
+                // check has to wildcard; the flat path is kept for older builds.
+                InstalledCheckPath = @"%LOCALAPPDATA%\Medal\app-*\Medal.exe;%LOCALAPPDATA%\Medal\Medal.exe",
+                Description = "Clip your gameplay without dropping frames, then edit and share it."
+            });
 
             Utilities.Add(new BrowserInstallItem
             {

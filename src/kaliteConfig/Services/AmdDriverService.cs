@@ -13,331 +13,370 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace kaliteConfig.Services
 {
-    public class AmdDriverPackageConfig
-    {
-        public string ProductName { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string PackageType { get; set; } = string.Empty; // "ptype" from manifest
-        public bool IsSelected { get; set; } = true;
-        
-        // Internal references to map back to JSON array nodes
-        internal JsonNode? ManifestNode { get; set; }
-    }
-
     public class AmdDriverService
     {
-        private static readonly HttpClient _httpClient = new();
+        /// <summary>
+        /// Human-readable reason the last <see cref="ExtractInstallerAsync"/> call
+        /// returned false. The GPU drivers page shows this instead of a bare
+        /// "AMD Extraction failed." so the user knows what to actually do.
+        /// </summary>
+        public string? LastExtractError { get; private set; }
+
+        private static string LogPath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "kaliteConfig", "Logs", "amd-driver.log");
 
         /// <summary>
-        /// Downloads the lightweight 7-Zip standalone executable if not present.
+        /// Mirrors a progress line to the on-screen status text *and* to a log
+        /// file. Extraction used to report straight into Debug output, which made
+        /// every failure undiagnosable from the outside.
         /// </summary>
-        private async Task<string> Ensure7ZipAsync(CancellationToken ct)
+        private static void Log(Action<string> logCallback, string message)
+        {
+            Debug.WriteLine(message);
+            try
+            {
+                string path = LogPath;
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss} {message}{Environment.NewLine}");
+            }
+            catch { /* logging must never break an install */ }
+            logCallback(message);
+        }
+
+        /// <summary>
+        /// Every place a full 7-Zip might live, best candidate first.
+        /// </summary>
+        private static IEnumerable<string> SevenZipCandidates()
+        {
+            string toolsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "Tools");
+            yield return Path.Combine(toolsDir, "7z.exe");
+
+            foreach (string root in new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+            })
+            {
+                if (!string.IsNullOrEmpty(root))
+                    yield return Path.Combine(root, "7-Zip", "7z.exe");
+            }
+
+            // Last resort: whatever 7z.exe is on PATH.
+            yield return "7z.exe";
+        }
+
+        /// <summary>
+        /// AMD ships its drivers as a self-extracting .exe (a PE stub with a 7z
+        /// payload glued onto it). Only the *full* 7-Zip build has the PE archive
+        /// handler; the reduced builds - 7zr.exe from the LZMA SDK and 7za.exe
+        /// from the "extra" package - list only 7z/zip/tar/xz/cab and bail out
+        /// with nothing but "ERROR: file". That mismatch is what made every AMD
+        /// package report "AMD Extraction failed." regardless of the download.
+        ///
+        /// Ask the binary itself rather than trusting its name: someone (us, once)
+        /// may have saved a reduced build under the full build's file name.
+        /// </summary>
+        private static bool CanOpenPeArchives(string exePath)
         {
             try
             {
-                string toolsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "Tools");
-                Directory.CreateDirectory(toolsDir);
-                string zPath = Path.Combine(toolsDir, "7za.exe");
-                
-                if (File.Exists(zPath)) return zPath;
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = "i",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
 
-                // Download 7za.exe from an official or trusted fast CDN
-                string url = "https://www.7-zip.org/a/7zr.exe"; 
-                byte[] bytes = await _httpClient.GetByteArrayAsync(url, ct);
-                await File.WriteAllBytesAsync(zPath, bytes, ct);
-                
-                return zPath;
+                using var process = Process.Start(psi);
+                if (process is null) return false;
+
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
+                if (!process.WaitForExit(10_000))
+                {
+                    try { process.Kill(); } catch { }
+                    return false;
+                }
+                string stdout = stdoutTask.GetAwaiter().GetResult();
+
+                return AmdExtractGate.ListsPeFormat(stdout);
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.WriteLine($"Ensure7ZipAsync failed: {ex.Message}");
-                // Fallback to expecting system path
-                return "7z.exe"; 
+                return false;
             }
+        }
+
+        /// <summary>
+        /// Finds a 7-Zip that can actually open a PE self-extractor, or null.
+        /// </summary>
+        private static string? ResolveFullSevenZip(Action<string> logCallback, CancellationToken ct)
+        {
+            foreach (string candidate in SevenZipCandidates())
+            {
+                ct.ThrowIfCancellationRequested();
+                if (CanOpenPeArchives(candidate))
+                {
+                    Log(logCallback, $"7-Zip: using {candidate}");
+                    return candidate;
+                }
+                Log(logCallback, $"7-Zip: {candidate} is missing, broken, or a reduced build that cannot open .exe packages.");
+            }
+
+            Log(logCallback, "7-Zip: no full build found.");
+            return null;
         }
 
         public async Task<bool> ExtractInstallerAsync(string installerExePath, string extractDir, Action<string> logCallback, CancellationToken ct)
         {
+            LastExtractError = null;
             try
             {
-                string zExe = await Ensure7ZipAsync(ct);
-                
-                // 7z.exe x "<installer.exe>" -o"<extractDir>" -y
-                string args = $"x \"{installerExePath}\" -o\"{extractDir}\" -y";
-                logCallback($"Extracting AMD package: {zExe} {args}");
-                
+                string zExe = ResolveFullSevenZip(logCallback, ct);
+                if (zExe is null)
+                {
+                    LastExtractError = "7-Zip could not be found. The AMD driver is a self-extracting .exe, which only the full 7-Zip build can open - install it from https://www.7-zip.org/ and press Retry.";
+                    Log(logCallback, LastExtractError);
+                    return false;
+                }
+
+                // A previous attempt may have died half way through; start clean so
+                // the manifest check below cannot be fooled by stale leftovers.
+                ResetDirectory(extractDir);
+
+                // 7z.exe x "<installer.exe>" -o"<extractDir>" -y -aoa
+                //   -y   answer yes to every prompt (we are non-interactive)
+                //   -aoa overwrite all existing files without asking again
+                string args = $"x \"{installerExePath}\" -o\"{extractDir}\" -y -aoa";
+                Log(logCallback, $"Extracting AMD package: \"{zExe}\" {args}");
+
                 var psi = new ProcessStartInfo
                 {
                     FileName = zExe,
                     Arguments = args,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 };
 
                 using var process = Process.Start(psi);
-                if (process == null) return false;
+                if (process is null)
+                {
+                    LastExtractError = $"Could not start 7-Zip ({zExe}).";
+                    Log(logCallback, LastExtractError);
+                    return false;
+                }
 
+                // Drain both pipes before awaiting, or a chatty 7-Zip can fill the
+                // stderr buffer and deadlock against our own wait.
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
                 await process.WaitForExitAsync(ct);
-                return process.ExitCode == 0;
+                string stdout = stdoutTask.GetAwaiter().GetResult();
+                string stderr = stderrTask.GetAwaiter().GetResult();
+
+                Log(logCallback, $"7-Zip exited with code {process.ExitCode}.");
+                foreach (string line in stdout.Split('\n').TakeLast(8))
+                {
+                    if (!string.IsNullOrWhiteSpace(line)) Log(logCallback, "  7z> " + line.Trim());
+                }
+                if (!string.IsNullOrWhiteSpace(stderr))
+                    Log(logCallback, "  7z! " + stderr.Trim().Replace("\n", " | "));
+
+                // The exit code is not the real success test - the manifest is.
+                string manifestPath = Path.Combine(extractDir, AmdExtractGate.ManifestRelativePath);
+                bool manifestPresent = File.Exists(manifestPath);
+
+                if (!AmdExtractGate.IsSuccess(process.ExitCode, manifestPresent))
+                {
+                    LastExtractError = AmdExtractGate.FailureMessage(process.ExitCode, manifestPresent)
+                                       + $" See {LogPath}.";
+                    Log(logCallback, LastExtractError);
+                    if (manifestPresent == false && Directory.Exists(extractDir))
+                    {
+                        string top = string.Join(", ", Directory
+                            .EnumerateFileSystemEntries(extractDir)
+                            .Take(12)
+                            .Select(Path.GetFileName));
+                        Log(logCallback, $"  Unpacked top level: {top}");
+                    }
+                    return false;
+                }
+
+                Log(logCallback, $"Found {AmdExtractGate.ManifestRelativePath}.");
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                logCallback($"Extraction failed: {ex.Message}");
+                LastExtractError = $"Extraction failed: {ex.Message}";
+                Log(logCallback, LastExtractError);
                 return false;
             }
         }
 
-        public async Task<List<AmdDriverPackageConfig>> GetPackagesFromManifestAsync(string extractDir, Action<string> logCallback)
+        /// <summary>
+        /// Empties a directory we own (the app's own temp extraction folder).
+        /// Best effort - a file held open by something else is simply left alone.
+        /// </summary>
+        private static void ResetDirectory(string dir)
         {
-            var packages = new List<AmdDriverPackageConfig>();
-            string manifestPath = Path.Combine(extractDir, "Bin64", "cccmanifest_64.json");
-            
-            if (!File.Exists(manifestPath))
-            {
-                logCallback($"Manifest not found at: {manifestPath}");
-                return packages;
-            }
-
             try
             {
-                string json = await File.ReadAllTextAsync(manifestPath);
-                var root = JsonNode.Parse(json);
-                var pkgArray = root?["Packages"]?["Package"]?.AsArray();
-                
-                if (pkgArray != null)
+                if (!Directory.Exists(dir))
                 {
-                    foreach (var node in pkgArray)
+                    Directory.CreateDirectory(dir);
+                    return;
+                }
+                foreach (string entry in Directory.EnumerateFileSystemEntries(dir))
+                {
+                    try
                     {
-                        var info = node?["Info"];
-                        if (info == null) continue;
-
-                        string pname = info["productName"]?.GetValue<string>() ?? "";
-                        string desc = info["Description"]?.GetValue<string>() ?? "";
-                        string ptype = info["ptype"]?.GetValue<string>() ?? "";
-
-                        packages.Add(new AmdDriverPackageConfig
-                        {
-                            ProductName = pname,
-                            Description = desc,
-                            PackageType = ptype,
-                            ManifestNode = node
-                        });
+                        if (Directory.Exists(entry)) Directory.Delete(entry, true);
+                        else File.Delete(entry);
                     }
+                    catch { }
                 }
             }
             catch (Exception ex)
             {
-                logCallback($"Failed to parse AMD manifest: {ex.Message}");
+                Debug.WriteLine($"ResetDirectory failed: {ex.Message}");
             }
-            
-            return packages;
         }
 
-        public async Task<bool> CustomizeManifestsAsync(string extractDir, List<AmdDriverPackageConfig> packages, Action<string> logCallback)
+        /// <summary>Prefix of the per-attempt installer files in the temp folder.</summary>
+        private const string InstallerFilePrefix = "amd_software_installer_";
+
+        /// <summary>
+        /// Hands the downloaded package to the user by starting it.
+        ///
+        /// An AMD Adrenalin package is a self-extracting installer: running it
+        /// unpacks the payload and drives the install itself. The app used to
+        /// unpack the same 2.7 GB by hand, parse cccmanifest_64.json, build a
+        /// component list and drive Setup.exe - which cost 2.7 GB of %TEMP%,
+        /// needed a 7-Zip that could read PE, and still ended up in AMD's
+        /// installer anyway.
+        /// </summary>
+        public bool LaunchInstaller(string installerPath, Action<string> logCallback)
         {
+            if (!File.Exists(installerPath))
+            {
+                Log(logCallback, $"Installer is missing at {installerPath}.");
+                return false;
+            }
+
             try
             {
-                string binManifest = Path.Combine(extractDir, "Bin64", "cccmanifest_64.json");
-                string configManifest = Path.Combine(extractDir, "Config", "InstallManifest.json");
-
-                await PruneManifestAsync(binManifest, packages, logCallback);
-                await PruneManifestAsync(configManifest, packages, logCallback);
-
-                // Handle specific INF removals for Display Drivers
-                var displayDriver = packages.FirstOrDefault(p => p.ProductName.Contains("Display", StringComparison.OrdinalIgnoreCase) && !p.IsSelected);
-                if (displayDriver != null)
+                Process.Start(new ProcessStartInfo
                 {
-                    string infDir = Path.Combine(extractDir, "Packages", "Drivers", "Display", "WT6A_INF");
-                    if (Directory.Exists(infDir))
-                    {
-                        // Exclude the sub-folder
-                        string backupDir = Path.Combine(extractDir, "Packages", "Drivers", "Display", "WT6A_INF_Backup");
-                        Directory.CreateDirectory(backupDir);
-                        
-                        foreach (var dir in Directory.GetDirectories(infDir))
-                        {
-                            string dirName = Path.GetFileName(dir);
-                            string dest = Path.Combine(backupDir, dirName);
-                            logCallback($"Excluding INF package component: {dirName}");
-                            Directory.Move(dir, dest);
-                        }
-                    }
-                }
-
+                    FileName = installerPath,
+                    UseShellExecute = true,
+                });
+                Log(logCallback, $"Started {Path.GetFileName(installerPath)}.");
                 return true;
             }
             catch (Exception ex)
             {
-                logCallback($"Failed to customize AMD configurations: {ex.Message}");
+                Log(logCallback, $"Could not start the installer: {ex.Message}");
                 return false;
             }
         }
 
-        private async Task PruneManifestAsync(string manifestPath, List<AmdDriverPackageConfig> packages, Action<string> logCallback)
+        /// <summary>
+        /// Removes the downloaded package and the unpacked tree.
+        ///
+        /// This is not housekeeping, it is correctness: an Adrenalin package is
+        /// ~930 MB on the wire and ~2.7 GB unpacked, and leaving both behind in
+        /// %TEMP% after every attempt is how the temp volume fills up and the
+        /// *next* attempt fails for lack of space. Best effort - a file held open
+        /// by an antivirus scan is left for the next sweep.
+        /// </summary>
+        public void CleanupTempArtifacts(string installerPath, string extractDir, Action<string> logCallback)
         {
-            if (!File.Exists(manifestPath)) return;
-            
-            string backupPath = manifestPath + ".bak";
-            if (!File.Exists(backupPath))
-                File.Copy(manifestPath, backupPath);
-
-            string json = await File.ReadAllTextAsync(manifestPath);
-            var root = JsonNode.Parse(json);
-            
-            var pkgArray = root?["Packages"]?["Package"]?.AsArray();
-            if (pkgArray != null)
-            {
-                var unselectedNames = packages.Where(p => !p.IsSelected).Select(p => p.ProductName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                
-                // Remove nodes from end to start to maintain correct Array indexing
-                for (int i = pkgArray.Count - 1; i >= 0; i--)
-                {
-                    var node = pkgArray[i];
-                    string? name = node?["Info"]?["productName"]?.GetValue<string>();
-                    
-                    if (name != null && unselectedNames.Contains(name))
-                    {
-                        logCallback($"Pruning {name} from {Path.GetFileName(manifestPath)}");
-                        pkgArray.RemoveAt(i);
-                    }
-                }
-            }
-
-            await File.WriteAllTextAsync(manifestPath, root?.ToJsonString() ?? "{}");
+            long freed = 0;
+            freed += DeleteFileQuietly(installerPath);
+            freed += DeleteDirectoryQuietly(extractDir);
+            if (freed > 0)
+                Log(logCallback, $"Cleaned up {freed / (1024.0 * 1024 * 1024):0.##} GB of temporary driver files.");
         }
 
-        private static List<string> FindAllAmdDisplayInfs(string extractedDir)
+        /// <summary>
+        /// Clears leftovers from earlier attempts before starting a new one, so a
+        /// previous failure cannot eat the space the new attempt needs.
+        /// </summary>
+        public void SweepStaleTempArtifacts(Action<string> logCallback)
         {
-            var results = new List<string>();
-            if (!System.IO.Directory.Exists(extractedDir)) return results;
+            string temp = Path.GetTempPath();
+            long freed = 0;
+            freed += DeleteDirectoryQuietly(Path.Combine(temp, "AMD_Extract"));
 
-            foreach (var sub in new[] { "Display2", "Display" })
-            {
-                var dir = System.IO.Path.Combine(extractedDir, "Packages", "Drivers", sub);
-                if (System.IO.Directory.Exists(dir))
-                {
-                    var infs = System.IO.Directory.GetFiles(dir, "*.inf", System.IO.SearchOption.AllDirectories)
-                        .Where(f => System.IO.Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase) ||
-                                    f.Contains("WT6A_INF", StringComparison.OrdinalIgnoreCase));
-                    results.AddRange(infs);
-                }
-            }
-
-            var altDir = System.IO.Path.Combine(extractedDir, "Drivers");
-            if (System.IO.Directory.Exists(altDir))
-            {
-                var infs = System.IO.Directory.GetFiles(altDir, "*.inf", System.IO.SearchOption.AllDirectories)
-                    .Where(f => System.IO.Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase) ||
-                                f.Contains("WT6A_INF", StringComparison.OrdinalIgnoreCase));
-                results.AddRange(infs);
-            }
-
-            if (results.Count == 0)
-            {
-                var allInfs = System.IO.Directory.GetFiles(extractedDir, "*.inf", System.IO.SearchOption.AllDirectories)
-                    .Where(f => System.IO.Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase) ||
-                                f.Contains("Display", StringComparison.OrdinalIgnoreCase));
-                results.AddRange(allInfs);
-            }
-
-            return results.Distinct(StringComparer.OrdinalIgnoreCase)
-                          .OrderByDescending(f => System.IO.Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase))
-                          .ToList();
-        }
-
-        public async Task<bool> InstallCustomizedAsync(string extractDir, string logPath, Action<string> logCallback, CancellationToken ct)
-        {
             try
             {
-                var infs = FindAllAmdDisplayInfs(extractDir);
-                if (infs.Count == 0)
-                {
-                    logCallback("No AMD display INFs found in the extracted payload.");
-                    return false;
-                }
-
-                foreach (var inf in infs)
-                {
-                    logCallback($"Injecting AMD display driver: {inf}");
-                    var psi = new ProcessStartInfo { 
-                        FileName = "pnputil", 
-                        Arguments = $"/add-driver \"{inf}\" /install", 
-                        UseShellExecute = false, 
-                        CreateNoWindow = true, 
-                        RedirectStandardOutput = true 
-                    };
-                    
-                    using var process = Process.Start(psi);
-                    if (process == null) continue;
-                    
-                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    timeoutCts.CancelAfter(TimeSpan.FromMinutes(20));
-                    
-                    await process.WaitForExitAsync(timeoutCts.Token);
-                    int exitCode = process.ExitCode;
-                    
-                    if (exitCode == 0 || exitCode == 3010) {
-                         logCallback($"Successfully installed AMD driver natively! Exit code: {exitCode}");
-                         return true;
-                    }
-                    if (exitCode == 259) {
-                         logCallback($"INF {Path.GetFileName(inf)} skipped internally - hardware up to date or device signature mismatch (PNP 259).");
-                         continue;
-                    }
-                    logCallback($"INF {System.IO.Path.GetFileName(inf)} execution dropped strictly with exit code {exitCode}.");
-                }
-                
-                return false;
+                foreach (string file in Directory.EnumerateFiles(temp, InstallerFilePrefix + "*.exe"))
+                    freed += DeleteFileQuietly(file);
             }
             catch (Exception ex)
             {
-                logCallback($"AMD native PnpUtil installation failed: {ex.Message}");
-                return false;
+                Debug.WriteLine($"SweepStaleTempArtifacts failed: {ex.Message}");
             }
+
+            if (freed > 0)
+                Log(logCallback, $"Freed {freed / (1024.0 * 1024 * 1024):0.##} GB left behind by an earlier attempt.");
         }
 
-        public async Task<int> UninstallInteractiveAsync(string extractDir, Action<string> logCallback, CancellationToken ct)
+        private static long DeleteFileQuietly(string path)
         {
             try
             {
-                string cleanupPath = Path.Combine(extractDir, "Bin64", "AMDCleanupUtility.exe");
-                if (!File.Exists(cleanupPath))
-                {
-                    logCallback($"AMDCleanupUtility not found at {cleanupPath}");
-                    return -1;
-                }
-                
-                logCallback($"Launching AMD Cleanup Utility: {cleanupPath}");
-                
-                // No silent flags exist. Must wrap around standard UI constraints.
-                var psi = new ProcessStartInfo
-                {
-                    FileName = cleanupPath,
-                    UseShellExecute = true
-                };
-
-                using var process = Process.Start(psi);
-                if (process == null) return -1;
-                
-                // Wait indefinitely since it's an interactive UI
-                await process.WaitForExitAsync(ct);
-                
-                logCallback($"AMD uninstaller exited with code: {process.ExitCode}");
-                return process.ExitCode;
+                if (!File.Exists(path)) return 0;
+                long size = new FileInfo(path).Length;
+                File.Delete(path);
+                return size;
             }
-            catch (Exception ex)
-            {
-                logCallback($"AMD Uninstall failed: {ex.Message}");
-                return -1;
-            }
+            catch { return 0; }
         }
+
+        private static long DeleteDirectoryQuietly(string dir)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) return 0;
+                long size = DirectorySize(dir);
+                Directory.Delete(dir, true);
+                return size;
+            }
+            catch { return 0; }
+        }
+
+        private static long DirectorySize(string dir)
+        {
+            try
+            {
+                long total = 0;
+                foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    try { total += new FileInfo(file).Length; } catch { }
+                }
+                return total;
+            }
+            catch { return 0; }
+        }
+
     }
 }

@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\Program.cs(17,42): error CS0117: 'DisplayDevice' does not contain a definition for 'GetDisplayDevices' [C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\NVProbe.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\Program.cs(39,35): error CS0103: The name 'DisplayAPI' does not exist in the current context [C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\NVProbe.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\Program.cs(44,33): error CS0103: The name 'DisplayAPI' does not exist in the current context [C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\NVProbe.csproj]
+
+Build FAILED.
+
+C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\Program.cs(17,42): error CS0117: 'DisplayDevice' does not contain a definition for 'GetDisplayDevices' [C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\NVProbe.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\Program.cs(39,35): error CS0103: The name 'DisplayAPI' does not exist in the current context [C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\NVProbe.csproj]
+C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\Program.cs(44,33): error CS0103: The name 'DisplayAPI' does not exist in the current context [C:\Users\Administrator\source\repos\kaliteconfig\NVProbe\NVProbe.csproj]
+    0 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:00.79

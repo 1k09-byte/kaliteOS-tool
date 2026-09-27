@@ -33,7 +33,7 @@ namespace kaliteConfig.GpuOverclock.Models
         /// <summary>No NVIDIA discrete GPU present (or only WDDM 1.0-era adapters).</summary>
         GpuNotDetected,
 
-        /// <summary>GPU present but not NVIDIA - module is NVIDIA-only by spec.</summary>
+        /// <summary>GPU present but not NVIDIA. Currently only NVIDIA has a backend; kept distinct from a generic unsupported control so the UI can explain that the card is the problem.</summary>
         GpuNotNvidia,
 
         /// <summary>NvAPIWrapper initialize failed: nvapi library missing/mismatched, driver too old.</summary>
@@ -99,7 +99,7 @@ namespace kaliteConfig.GpuOverclock.Models
     {
         public static string For(OverclockErrorKind kind) => kind switch
         {
-            OverclockErrorKind.GpuNotDetected => "No NVIDIA GPU was detected on this system.",
+            OverclockErrorKind.GpuNotDetected => "No supported GPU was detected on this system.",
             OverclockErrorKind.GpuNotNvidia => "The detected GPU is not NVIDIA - this module supports NVIDIA GPUs only.",
             OverclockErrorKind.NvApiInitFailed => "Could not start the NVIDIA control interface (nvapi). Your driver may be too old or damaged - reinstall the NVIDIA driver and try again.",
             OverclockErrorKind.ControlUnsupported => "This control is not supported by your GPU or driver.",
@@ -107,7 +107,7 @@ namespace kaliteConfig.GpuOverclock.Models
             OverclockErrorKind.ReadbackMismatch => "The change was applied but the GPU is not reporting the new value. The change may not be in effect.",
             OverclockErrorKind.DriverReset => "The graphics driver recovered from a crash (TDR). Your last change was automatically reverted.",
             OverclockErrorKind.GpuDisconnected => "The GPU disappeared while the module was active (unplugged or re-detection removed it).",
-            OverclockErrorKind.FanControlUnsupported => "This GPU does not expose a controllable fan through the NVIDIA interface.",
+            OverclockErrorKind.FanControlUnsupported => "This GPU does not expose a controllable fan.",
             _ => "An unexpected error occurred. See the change log for details.",
         };
     }

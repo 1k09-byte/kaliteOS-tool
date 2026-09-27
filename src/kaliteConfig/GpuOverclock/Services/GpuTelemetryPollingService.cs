@@ -39,14 +39,14 @@ namespace kaliteConfig.GpuOverclock.Services
     /// </summary>
     public sealed class GpuTelemetryPollingService : IDisposable
     {
-        private readonly INvidiaGpuController _controller;
+        private readonly IGpuTuningController _controller;
         private readonly object _gate = new();
         private CancellationTokenSource? _cts;
         private Task? _loop;
         private int _inFlight; // 0/1 guard against overlapping reads
         private TimeSpan _interval;
 
-        public GpuTelemetryPollingService(INvidiaGpuController controller, TimeSpan? interval = null)
+        public GpuTelemetryPollingService(IGpuTuningController controller, TimeSpan? interval = null)
         {
             _controller = controller;
             _interval = interval ?? TimeSpan.FromMilliseconds(1000);

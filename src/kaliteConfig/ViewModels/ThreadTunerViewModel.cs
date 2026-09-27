@@ -503,13 +503,19 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                         try
                         {
                             desc = NativeSnapshotService.TryGetThreadDescription((uint)tid) ?? "(unnamed)";
-                            
-                            // Visual enforcement: If the user explicitly suppressed this thread, 
-                            // keep the checkbox unchecked in the UI to prevent it from snapping back 
-                            // even if the OS (e.g., DWM) resets it natively in the background.
-                            if (BoostPreferenceService.Instance.IsSuppressed(procName, tid, desc, string.Empty))
+
+                            // Visual enforcement: if the user made an explicit
+                            // choice for this thread, show THAT rather than
+                            // whatever the process-wide default last wrote to
+                            // it. Both directions are honoured - a thread the
+                            // user switched back on must not read as "off"
+                            // just because the process-level preference turned
+                            // it off.
+                            bool? wanted = BoostPreferenceService.Instance.GetPreference(
+                                procName, tid, desc, string.Empty);
+                            if (wanted.HasValue)
                             {
-                                boost = false;
+                                boost = wanted.Value;
                             }
                         }
                         catch { }

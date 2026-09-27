@@ -39,7 +39,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// </summary>
     public sealed class FanCurveExecutionService : IAsyncDisposable
     {
-        private readonly INvidiaGpuController _controller;
+        private readonly IGpuTuningController _controller;
         private readonly object _gate = new();
         private CancellationTokenSource? _cts;
         private Task? _loop;
@@ -51,7 +51,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// <summary>Raised when the loop stops for any reason with the reason text.</summary>
         public event Action<string?>? Stopped;
 
-        public FanCurveExecutionService(INvidiaGpuController controller, string? markerDirectory = null)
+        public FanCurveExecutionService(IGpuTuningController controller, string? markerDirectory = null)
         {
             _controller = controller;
             _markerPath = GetMarkerPath(markerDirectory);
@@ -71,7 +71,7 @@ namespace kaliteConfig.GpuOverclock.Services
         /// Restores driver control (a real Auto write) and clears the marker.
         /// Returns true when an orphaned state was found and recovered.
         /// </summary>
-        public static bool EnsureNoOrphanedFanControl(INvidiaGpuController controller, string? directory = null)
+        public static bool EnsureNoOrphanedFanControl(IGpuTuningController controller, string? directory = null)
         {
             var path = GetMarkerPath(directory);
             try

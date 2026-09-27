@@ -64,21 +64,62 @@ public sealed partial class PowerSetting : ObservableObject
     // For Range/Enum types
     public ObservableCollection<PowerSettingChoice> PossibleChoices { get; } = new();
 
-    public bool IsChoiceType => Type == 2u && PossibleChoices.Count > 0;
-    public bool IsBooleanType => !IsChoiceType && PossibleChoices.Count == 2
+    public bool IsChoiceType => Type == 2u && PossibleChoices.Count > 0 && !IsPresetList;
+    public bool IsBooleanType => !IsChoiceType && !IsPresetList && PossibleChoices.Count == 2
         && PossibleChoices.Any(c => c.ValueIndex == 0) && PossibleChoices.Any(c => c.ValueIndex == 1);
     public bool IsRangeType => !IsChoiceType && !IsBooleanType;
-    /// <summary>Range with named options: show the friendly picker, not the raw number.</summary>
-    public bool HasRangeChoices => IsRangeType && PossibleChoices.Count > 0;
-    /// <summary>Range with no named options: numeric entry plus a friendly caption.</summary>
-    public bool IsBareRange => IsRangeType && PossibleChoices.Count == 0;
+    /// <summary>
+    /// Range whose named options come from the OS itself rather than from
+    /// <see cref="IsPresetList"/>.
+    ///
+    /// The !IsPresetList guard is load-bearing. A preset list IS a range with
+    /// named options, so without this clause both flags were true at once and
+    /// the page rendered FOUR editors per setting (an AC and a DC combo from
+    /// this branch, plus the richer AC and DC combo+number pairs from the
+    /// preset branch) instead of the intended two. The preset branch already
+    /// shows the worded picker, so claiming it here duplicated the control.
+    /// </summary>
+    public bool HasRangeChoices => IsRangeType && PossibleChoices.Count > 0 && !IsPresetList;
+    /// <summary>
+    /// Range with no named options at all: numeric entry plus a friendly
+    /// caption. Excludes preset lists for the same reason as
+    /// <see cref="HasRangeChoices"/> - a setting the catalog gave words to is
+    /// never a "bare" range, even in the degenerate case where the word list
+    /// came out empty.
+    /// </summary>
+    public bool IsBareRange => IsRangeType && PossibleChoices.Count == 0 && !IsPresetList;
 
-    partial void OnTypeChanged(uint value)
+    /// <summary>
+    /// Set by <see cref="PowerService"/> when the named values are PRESETS for
+    /// a continuous setting ("Never", "1 minute") rather than a real
+    /// enumeration. The worded picker and the raw number box are then both
+    /// shown: words are the obvious way in, and the number box keeps an
+    /// arbitrary value reachable instead of stranding it.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsPresetList { get; set; }
+
+    /// <summary>True when the worded picker should be offered at all.</summary>
+    public bool HasWordedPicker => PossibleChoices.Count > 0;
+
+    /// <summary>
+    /// Every derived editor flag depends on this one, so flipping it has to
+    /// republish all of them. Relying on Type being assigned afterwards made
+    /// the result depend on statement order inside <see cref="PowerService"/>,
+    /// which is exactly how the four-editor bug survived.
+    /// </summary>
+    partial void OnIsPresetListChanged(bool value) => RaiseEditorFlags();
+
+    partial void OnTypeChanged(uint value) => RaiseEditorFlags();
+
+    private void RaiseEditorFlags()
     {
         OnPropertyChanged(nameof(IsChoiceType));
         OnPropertyChanged(nameof(IsBooleanType));
+        OnPropertyChanged(nameof(IsRangeType));
         OnPropertyChanged(nameof(HasRangeChoices));
         OnPropertyChanged(nameof(IsBareRange));
+        OnPropertyChanged(nameof(IsPresetList));
     }
 
     partial void OnAcValueIndexChanged(double value)

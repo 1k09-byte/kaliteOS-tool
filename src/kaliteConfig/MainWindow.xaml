@@ -148,7 +148,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 
-                                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Drivers" Tag="DriversPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Graphics" Tag="GraphicsPage" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -157,7 +157,7 @@
                         <PathIcon Data="M3.5 2C2.67157 2 2 2.67157 2 3.5V13.5C2 14.3284 2.67157 15 3.5 15H7V17H5.5C5.22386 17 5 17.2239 5 17.5C5 17.7761 5.22386 18 5.5 18H14.5C14.7761 18 15 17.7761 15 17.5C15 17.2239 14.7761 17 14.5 17H13V15H16.5C17.3284 15 18 14.3284 18 13.5V3.5C18 2.67157 17.3284 2 16.5 2H3.5ZM12 15V17H8V15H12Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Affinity" Tag="GamingPage" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
@@ -222,13 +222,11 @@
                         <FontIcon Glyph="&#xE9D2;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+
+
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Games" Tag="GamesPage" Margin="0" Padding="0">
-                    <ToolTipService.ToolTip><ToolTip Visibility="Collapsed" /></ToolTipService.ToolTip>
-                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE7FC;" /></NavigationViewItem.Icon>
-                </NavigationViewItem>
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Snip" Tag="SnipPage" Margin="0" Padding="0">
                     <ToolTipService.ToolTip><ToolTip Visibility="Collapsed" /></ToolTipService.ToolTip>
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE7A8;" /></NavigationViewItem.Icon>

@@ -59,6 +59,15 @@ public sealed partial class ThreadListDialog : ContentDialog
     private string _processName = string.Empty;
     private ThreadRow? _selected;
     private bool _loadingEditor;
+    /// <summary>
+    /// True while the thread LIST is being rebuilt. The row template binds a
+    /// two-way CheckBox to <see cref="ThreadRow.BoostAllowed"/> and hooks
+    /// Checked/Unchecked, so every recycled container whose value differs from
+    /// the row it is being re-bound to fires those handlers. Without this guard
+    /// a plain "Refresh list" wrote boost state to live threads it never
+    /// touched - the list rebuild was silently mutating the system.
+    /// </summary>
+    private bool _loadingList;
     private bool _endArmed;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
@@ -89,61 +98,74 @@ public sealed partial class ThreadListDialog : ContentDialog
 
     private async Task LoadThreadsAsync()
     {
-        Rows.Clear();
-        SelectRow(null);
-        EditorStatus("Loading threads…", false);
+        // Suppress the row CheckBox handlers for the whole rebuild: Rows.Clear()
+        // plus re-add recycles every container, and each rebind fires
+        // Checked/Unchecked. See _loadingList.
+        _loadingList = true;
         try
         {
-            var threads = await Services.ThreadQueryService.ListThreadsAsync(_pid);
-            bool anyLocked = false;
-            // Named threads pin to the top (then TID order); unnamed follow.
-            foreach (var t in threads
-                .OrderByDescending(t => !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)")
-                .ThenBy(t => t.Tid))
+            Rows.Clear();
+            SelectRow(null);
+            EditorStatus("Loading threads…", false);
+            try
             {
-                bool named = !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)";
-                var row = new ThreadRow
+                var threads = await Services.ThreadQueryService.ListThreadsAsync(_pid);
+                bool anyLocked = false;
+                // Named threads pin to the top (then TID order); unnamed follow.
+                foreach (var t in threads
+                    .OrderByDescending(t => !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)")
+                    .ThenBy(t => t.Tid))
                 {
-                    Tid = t.Tid,
-                    Base = t.Base,
-                    Description = t.Description,
-                    StartAddress = t.StartAddress,
-                    CurrentText = t.RelativeText,
-                    IsNamed = named,
-                    ProcessName = _processName,
-                };
-                
-                try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)t.Tid); } catch { row.BoostAllowed = true; }
-                if (Services.BoostPreferenceService.Instance.IsSuppressed(_processName, t.Tid, t.Description, t.StartAddress))
-                    row.BoostAllowed = false;
-                try
-                {
-                    using var h = NativeMethods.Handles.OpenThread(
-                        NativeMethods.ThreadAccess.QueryInformation, false, (uint)t.Tid);
-                    if (h.IsInvalid) throw new UnauthorizedAccessException();
-                    int level = NativeMethods.Priority.GetThreadPriority(h);
-                    row.CurrentLevel = level;
-                    row.CurrentText = DescribePriority(level);
+                    bool named = !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)";
+                    var row = new ThreadRow
+                    {
+                        Tid = t.Tid,
+                        Base = t.Base,
+                        Description = t.Description,
+                        StartAddress = t.StartAddress,
+                        CurrentText = t.RelativeText,
+                        IsNamed = named,
+                        ProcessName = _processName,
+                    };
+
+                    try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)t.Tid); } catch { row.BoostAllowed = true; }
+                    if (Services.BoostPreferenceService.Instance.IsSuppressed(_processName, t.Tid, t.Description, t.StartAddress))
+                        row.BoostAllowed = false;
+                    try
+                    {
+                        using var h = NativeMethods.Handles.OpenThread(
+                            NativeMethods.ThreadAccess.QueryInformation, false, (uint)t.Tid);
+                        if (h.IsInvalid) throw new UnauthorizedAccessException();
+                        int level = NativeMethods.Priority.GetThreadPriority(h);
+                        row.CurrentLevel = level;
+                        row.CurrentText = DescribePriority(level);
+                    }
+                    catch
+                    {
+                        row.CanEdit = false;
+                        anyLocked = true;
+                    }
+                    Rows.Add(row);
                 }
-                catch
-                {
-                    row.CanEdit = false;
-                    anyLocked = true;
-                }
-                Rows.Add(row);
+                HeaderText.Text = $"{Rows.Count} threads - select one to tune it";
+                if (anyLocked)
+                    EditorStatus("Some threads are protected - Windows blocks tuning them.", true);
+                else
+                    EditorStatus(null, false);
+                if (Rows.Count == 0)
+                    HeaderText.Text = "No threads readable (process may have exited or access was denied).";
             }
-            HeaderText.Text = $"{Rows.Count} threads - select one to tune it";
-            if (anyLocked)
-                EditorStatus("Some threads are protected - Windows blocks tuning them.", true);
-            else
-                EditorStatus(null, false);
-            if (Rows.Count == 0)
-                HeaderText.Text = "No threads readable (process may have exited or access was denied).";
+            catch (Exception ex)
+            {
+                HeaderText.Text = "Failed to read threads.";
+                EditorStatus(ex.Message, true);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            HeaderText.Text = "Failed to read threads.";
-            EditorStatus(ex.Message, true);
+            // Released only after the last Rows.Add has been pumped through the
+            // binding, otherwise a late rebind would still slip past the guard.
+            _loadingList = false;
         }
     }
 
@@ -443,18 +465,37 @@ public sealed partial class ThreadListDialog : ContentDialog
         catch (Exception ex) { EditorStatus($"Save rule: {Short(ex)}", true); }
     }
 
-    private async void BoostBox_Checked(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// The row tick writes to the LIVE thread, so it must fire only on a real
+    /// user click. Checked/Unchecked also fire when the two-way binding pushes a
+    /// new value into a recycled container during a list rebuild - which is what
+    /// made "Refresh list" silently rewrite boost state on threads the user never
+    /// touched. Click is the one signal that only a real interaction produces.
+    /// </summary>
+    private async void BoostBox_Click(object sender, RoutedEventArgs e)
     {
-        if (_loadingEditor || sender is not CheckBox cb || cb.DataContext is not ThreadRow row) return;
-        try { await Services.BoostPreferenceService.Instance.RestoreAsync(_processName, row.Tid, row.Description, row.StartAddress); } catch { }
-        if (_selected == row) BoostToggle.IsOn = true;
-    }
+        if (_loadingEditor || _loadingList) return;
+        if (sender is not CheckBox cb || cb.DataContext is not ThreadRow row) return;
 
-    private async void BoostBox_Unchecked(object sender, RoutedEventArgs e)
-    {
-        if (_loadingEditor || sender is not CheckBox cb || cb.DataContext is not ThreadRow row) return;
-        try { await Services.BoostPreferenceService.Instance.SuppressAsync(_processName, row.Tid, row.Description, row.StartAddress); } catch { }
-        if (_selected == row) BoostToggle.IsOn = false;
+        bool want = cb.IsChecked == true;
+        if (want == row.BoostAllowed) return; // binding caught up; nothing to do
+        try
+        {
+            if (want)
+                await Services.BoostPreferenceService.Instance.RestoreAsync(
+                    _processName, row.Tid, row.Description, row.StartAddress);
+            else
+                await Services.BoostPreferenceService.Instance.SuppressAsync(
+                    _processName, row.Tid, row.Description, row.StartAddress);
+            row.BoostAllowed = want;
+            if (_selected == row) BoostToggle.IsOn = want;
+        }
+        catch (Exception ex)
+        {
+            // Put the tick back - the write did not happen.
+            row.BoostAllowed = !want;
+            EditorStatus($"Boost: {Short(ex)}", true);
+        }
     }
     private async void BoostToggle_Toggled(object sender, RoutedEventArgs e)
     {

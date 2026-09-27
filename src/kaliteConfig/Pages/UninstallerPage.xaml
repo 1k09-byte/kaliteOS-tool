@@ -62,7 +62,15 @@
         <vm:UninstallerViewModel x:Name="ViewModel" />
     </Page.DataContext>
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <!-- Transparent, NOT ApplicationPageBackgroundThemeBrush.
+         This page is only ever hosted as a child panel of InstallerPage
+         (x:Name="UninstallPanel"), and InstallerPage is itself a page in the
+         navigation Frame, which already paints the window background. Painting
+         the page brush a second time here stacked its alpha over the first,
+         so the Uninstall tab rendered as a visibly lighter grey block than
+         the Apps tab next to it. Every other page using that brush is a
+         top-level Frame destination, where painting it once is correct. -->
+    <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -118,17 +126,38 @@
                 Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
         <StackPanel Orientation="Horizontal" Spacing="8">
             <Button CornerRadius="12" Content="Export list..." Command="{Binding ExportListCommand}" />
-            <CheckBox CornerRadius="12" Content="Show system components" Margin="8,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ShowSystem, Mode=TwoWay}"
+            <CheckBox Content="Show system components" Margin="8,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ShowSystem, Mode=TwoWay}"
                       ToolTipService.ToolTip="Include Windows system components in the list" />
             <TextBlock x:Name="SelectionText" Text="" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
         </StackPanel>
         </Border>
 
-        <!-- Main area: Applications and Driver packages tabs (WinUI Pivot) -->
-        <Pivot x:Name="MainPivot" Grid.Row="3" Margin="28,0,28,24" SelectionChanged="MainPivot_SelectionChanged">
-            <PivotItem Header="Uninstaller">
+        <!-- Main area: Uninstaller / Remover / Startup.
+
+             This used to be a WinUI <Pivot>. Pivot lays its header out from a
+             measure pass, and this page is constructed COLLAPSED (InstallerPage
+             keeps it hidden until the Uninstall tab is picked), so the header
+             got measured at zero width and the tabs never came back - the page
+             came up with no way to switch sections. A SelectorBar (already the
+             pattern used by the Apps and Priority Boosts pages) has no such
+             first-measure dependency, and the panels are swapped by visibility
+             so each one still gets a real measure when it is first shown. -->
+        <Grid Grid.Row="3" Margin="28,0,28,24" RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <SelectorBar x:Name="MainPivot" Grid.Row="0" HorizontalAlignment="Left"
+                         SelectionChanged="MainPivot_SelectionChanged">
+                <SelectorBarItem x:Name="TabUninstaller" Text="Uninstaller" IsSelected="True" />
+                <SelectorBarItem x:Name="TabRemover" Text="Remover" />
+                <SelectorBarItem x:Name="TabStartup" Text="Startup" />
+            </SelectorBar>
+
+            <Grid Grid.Row="1">
         <!-- Main split: list + details -->
-        <Grid Margin="0,12,0,0" ColumnSpacing="16">
+        <Grid x:Name="UninstallerPanel" Margin="0,12,0,0" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="340" />
@@ -315,9 +344,7 @@
                 </Grid>
             </Border>
         </Grid>
-            </PivotItem>
-            <PivotItem Header="Remover">
-                <Grid Margin="0,12,0,0" ColumnSpacing="16">
+                <Grid x:Name="RemoverPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="340" />
@@ -457,9 +484,7 @@
                         </Grid>
                     </Border>
                 </Grid>
-            </PivotItem>
-            <PivotItem Header="Startup">
-                <Grid Margin="0,12,0,0" ColumnSpacing="16">
+                <Grid x:Name="StartupPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="248" MinWidth="200" />
                         <ColumnDefinition Width="*" />
@@ -526,7 +551,7 @@
                         </Grid.ColumnDefinitions>
                         <AutoSuggestBox CornerRadius="12" Grid.Column="0" PlaceholderText="Search name or command..." QueryIcon="Find"
                                         Text="{Binding StartupSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
-                        <CheckBox CornerRadius="12" Grid.Column="1" Content="Hide Microsoft services" IsChecked="{Binding HideMicrosoftServices, Mode=TwoWay}"
+                        <CheckBox Grid.Column="1" Content="Hide Microsoft services" IsChecked="{Binding HideMicrosoftServices, Mode=TwoWay}"
                                   VerticalAlignment="Center" Visibility="{Binding MicrosoftFilterVis}"
                                   ToolTipService.ToolTip="Hide services whose binary reports a Microsoft company name" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
@@ -565,7 +590,7 @@
                                                         <ColumnDefinition Width="4*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <CheckBox CornerRadius="12" Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
@@ -614,7 +639,7 @@
                                                         <ColumnDefinition Width="4*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <CheckBox CornerRadius="12" Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
@@ -663,7 +688,7 @@
                                                         <ColumnDefinition Width="4*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <CheckBox CornerRadius="12" Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
                                                               ToolTipService.ToolTip="Checked = automatic start; unchecked = disabled" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
@@ -713,7 +738,7 @@
                                                         <ColumnDefinition Width="4*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <CheckBox CornerRadius="12" Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
@@ -744,7 +769,7 @@
                     </ScrollViewer>
                     </Grid>
                 </Grid>
-            </PivotItem>
-        </Pivot>
+            </Grid>
+        </Grid>
     </Grid>
 </Page>
