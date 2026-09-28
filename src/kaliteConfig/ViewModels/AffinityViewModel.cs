@@ -107,7 +107,7 @@ namespace kaliteConfig.ViewModels
             // dialog full of empty values that writes interrupt settings nowhere.
             if (!_affinityService.DeviceExists(item.DeviceInstanceId))
             {
-                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning…";
+                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanningï¿½";
                 _ = RefreshDevicesCommand.ExecuteAsync(null);
                 throw new InvalidOperationException(
                     $"{item.Name} is no longer present. It was restarted or re-enumerated (this happens after a GPU restart or driver install). " +
@@ -574,168 +574,40 @@ namespace kaliteConfig.ViewModels
         [RelayCommand]
         private async Task OptimizeAsync()
         {
-            if (!IsElevated())
-            {
-                StatusText = "Optimization requires running the application as Administrator.";
-                return;
-            }
-            if (IsOptimizing) return;
             IsOptimizing = true;
-            StatusText = "Optimizing IRQ & affinity...";
-
             try
             {
-                var topology = TopologyService.Get();
-                var allDevices = GetAllDevices();
-                var modifiedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                Debug.WriteLine($"[Topology] TotalLogical={topology.TotalLogicalCores}, Physical={topology.PhysicalCores}, Reserved={topology.ReservedCore}");
-                
-                // Group devices by type for the AutoOS affinity layout below.
-                // "Other" / unknown - never touched.
-                var graphicsTier = new List<AffinityDeviceItem>();
-                var networkTier = new List<AffinityDeviceItem>();
-                var usbTier = new List<AffinityDeviceItem>();
-                var audioTier = new List<AffinityDeviceItem>();
-
-                foreach (var dev in allDevices)
-                {
-                    switch (dev.Category)
-                    {
-                        case "Graphics":
-                            graphicsTier.Add(dev);
-                            break;
-                        case "Network":
-                            networkTier.Add(dev);
-                            break;
-                        case "Usb":
-                            usbTier.Add(dev);
-                            break;
-                        case "Audio":
-                            audioTier.Add(dev);
-                            break;
-                    }
-                }
-
-                // AutoOS affinity layout over ALL P-cores (core 0 included,
-                // exactly like AutoOS). Last P-core -> NIC, second-last -> USB,
-                // third + fourth-last -> GPU, fifth-last -> audio. With exactly
-                // 4 P-cores the last core is split by thread.
-                var pCores = new List<ulong>(topology.AllPerformanceCoreMasks);
-                if (pCores.Count < 4)
-                {
-                    StatusText = "Optimization needs at least 4 performance cores - no changes made.";
-                    return;
-                }
-
-                ulong nicMask, xhciMask, gpuMask, audioMask;
-                if (pCores.Count == 4)
-                {
-                    audioMask = pCores[0];
-                    gpuMask = pCores[1] | pCores[2];
-                    xhciMask = LowestSetBit(pCores[3]);
-                    nicMask = HighestSetBit(pCores[3]);
-                }
-                else
-                {
-                    nicMask = pCores[^1];
-                    xhciMask = pCores[^2];
-                    gpuMask = pCores[^3] | pCores[^4];
-                    audioMask = pCores[^5];
-                }
-
-                // - Step 1: Enable MSI for EVERY device that reports support.
-                // Like the reference, enabling MSI also pins the limit to the
-                // device maximum (Auto became meaningless once MSI is forced on).
-                foreach (var dev in allDevices)
-                {
-                    if (!dev.IsChecked) continue;
-                    var info = _affinityService.GetInterruptInfo(dev.DeviceInstanceId);
-                    bool oldMsi = info.MsiSupported ?? false;
-                    if (!oldMsi)
-                    {
-                        if (_affinityService.SetMsiEnabled(dev.DeviceInstanceId, true))
-                        {
-                            PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "MsiEnabled", false, true, DateTime.Now));
-                            modifiedIds.Add(dev.DeviceInstanceId);
-                            int wantLimit = (int)(info.MaxMsiLimit is > 0 ? info.MaxMsiLimit.Value : 1);
-                            int oldLimit = (int)(info.MsiLimit ?? 0);
-                            if (wantLimit != oldLimit && _affinityService.SetMsiLimit(dev.DeviceInstanceId, wantLimit))
-                            {
-                                PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "MessageNumberLimit", oldLimit, wantLimit, DateTime.Now));
-                                dev.MsiLimit = wantLimit;
-                                dev.MsiLimitText = wantLimit.ToString();
-                            }
-                        }
-                    }
-                }
-                void ApplyTier(IEnumerable<AffinityDeviceItem> devices, ulong mask, int priority)
-                {
-                    foreach (var dev in devices)
-                    {
-                        if (!dev.IsChecked) continue;
-                        var info = _affinityService.GetInterruptInfo(dev.DeviceInstanceId);
-
-                        ulong oldMask = info.AffinityMask ?? 0;
-                        if (mask != 0 && oldMask != mask && _affinityService.SetAffinityMask(dev.DeviceInstanceId, mask))
-                        {
-                            PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "AffinityMask", oldMask, mask, DateTime.Now));
-                            modifiedIds.Add(dev.DeviceInstanceId);
-                        }
-
-                        // Set policy to SpecifiedProcessors (4)
-                        int oldPolicy = info.DevicePolicy ?? 0;
-                        if (oldPolicy != 4 && _affinityService.SetDevicePolicy(dev.DeviceInstanceId, 4))
-                        {
-                            PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "DevicePolicy", oldPolicy, 4, DateTime.Now));
-                            modifiedIds.Add(dev.DeviceInstanceId);
-                        }
-
-                        // Set priority - Undefined (0) deletes the value, like
-                        // the reference tool.
-                        int oldPrio = info.DevicePriority ?? 0;
-                        if (oldPrio != priority)
-                        {
-                            bool ok = priority == 0
-                                ? _affinityService.ClearAffinityPolicy(dev.DeviceInstanceId, "DevicePriority")
-                                : _affinityService.SetDevicePriority(dev.DeviceInstanceId, priority);
-                            if (ok)
-                            {
-                                PushChange(new AffinityChange(dev.DeviceInstanceId, dev.Name, "DevicePriority",
-                                    oldPrio == 0 ? null : (object)oldPrio, priority == 0 ? null : (object)priority, DateTime.Now));
-                                modifiedIds.Add(dev.DeviceInstanceId);
-                            }
-                        }
-
-                        // NIC RSS follows the effective mask, like the reference.
-                        if (dev.Category == "Network")
-                            _affinityService.SetRSS(dev.DeviceInstanceId, mask);
-                    }
-                }
-                ApplyTier(graphicsTier, gpuMask, 0);   // GPU on its own core(s)
-                ApplyTier(networkTier, nicMask, 0);    // NIC on the last P-core
-                ApplyTier(usbTier, xhciMask, 0);       // USB on the second-last P-core
-                ApplyTier(audioTier, audioMask, 0);    // Audio on the fifth-last P-core
-
-                if (modifiedIds.Count > 0)
-                {
-                    StatusText = $"Restarting {modifiedIds.Count} modified device(s)...";
-                    await RestartDevicesQuiescedAsync(modifiedIds, "affinity optimize restart");
-                }
-
-                await RefreshDevicesAsync();
-                StatusText = $"Optimization complete - {_undoStack.Count} change(s) applied and restarted.";
-            }
-            catch (Exception ex)
-            {
-                StatusText = $"Optimization failed: {ex.Message}";
+                await Task.Delay(50);
+                ApplyOptimizerToCollection(GraphicsDevices, kaliteConfig.Services.AffinityTargetType.GPU);
+                ApplyOptimizerToCollection(UsbDevices, kaliteConfig.Services.AffinityTargetType.USB);
+                ApplyOptimizerToCollection(NetworkDevices, kaliteConfig.Services.AffinityTargetType.WiFi);
             }
             finally
             {
                 IsOptimizing = false;
             }
         }
-        // -- Undo / Redo / Restore commands ----------------------------------
+
+        private void ApplyOptimizerToCollection(System.Collections.ObjectModel.ObservableCollection<kaliteConfig.Models.AffinityDeviceItem> collection, kaliteConfig.Services.AffinityTargetType target)
+        {
+            ulong mask = kaliteConfig.Services.AffinityOptimizerService.CalculateOptimalMask(target);
+            if (mask == 0) return;
+
+            foreach (var item in collection)
+            {
+                if (!IsDevicePresent(item)) continue;
+                item.SelectedPolicy = "IrqPolicySpecifiedProcessors";
+                foreach (var group in item.CoreGroups)
+                {
+                    foreach (var thread in group.Threads)
+                    {
+                        thread.IsChecked = (mask & (1UL << thread.Index)) != 0;
+                    }
+                }
+                ApplyDeviceChanges(item);
+                _ = LoadDeviceDetailsAsync(item);
+            }
+        }
 
         [RelayCommand]
         private async Task UndoAsync()
