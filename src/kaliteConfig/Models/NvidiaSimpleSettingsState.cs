@@ -87,7 +87,6 @@ public static class NvidiaSettingPresets
     public const uint TextureFilteringQualitySubstitution = 0x00CE2692;
     public const uint AmbientOcclusion = 0x00667329;
     public const uint AntialiasingLineGamma = 0x2089BF6C;
-    public const uint PowerThrottle = 0x00AE785C;
     public const uint ExternalQuietMode = 0x10115C8D;
 
     private static NvidiaPresetStep Step(uint id, params string[] targets) => new(id, targets);
@@ -123,10 +122,9 @@ public static class NvidiaSettingPresets
             }),
 
         new("quiet-efficient", "Quiet / efficient",
-            "Sets PowerThrottle to On and External Quiet Mode to On.",
+            "Sets External Quiet Mode to On.",
             new[]
             {
-                Step(PowerThrottle, "On"),
                 Step(ExternalQuietMode, "On"),
             }),
     };

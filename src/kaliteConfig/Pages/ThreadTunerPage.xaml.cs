@@ -564,10 +564,11 @@ namespace kaliteConfig.Pages
             }
         }
 
-        private async Task ShowThreadsDialogAsync(Models.TunerProcessRow row)
+        private Task ShowThreadsDialogAsync(Models.TunerProcessRow row)
         {
-            var dialog = new Controls.ThreadListDialog();
-            await dialog.ShowForProcessAsync(row.Pid, row.Name, this.XamlRoot);
+            var window = new Controls.ThreadListWindow(row.Pid, row.Name);
+            window.Activate();
+            return Task.CompletedTask;
         }
         
         private void Row_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e) => Action_Threads(sender, null);

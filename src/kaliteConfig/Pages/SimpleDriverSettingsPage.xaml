@@ -122,31 +122,8 @@
                  Message="These settings affect every application that does not have its own profile." />
 
         <StackPanel Grid.Row="2" Spacing="8">
-            <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="320" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <AutoSuggestBox Grid.Column="0" x:Name="SearchBox" PlaceholderText="Search settings"
+                <AutoSuggestBox x:Name="SearchBox" MinWidth="320" HorizontalAlignment="Left" PlaceholderText="Search settings"
                                 QueryIcon="Find" TextChanged="SearchBox_TextChanged" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="Presets" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <ItemsControl ItemsSource="{x:Bind Vm.Presets, Mode=OneWay}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="8" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:NvidiaPresetOption">
-                                <Button Content="{x:Bind Name}" Tag="{x:Bind}"
-                                        Click="Preset_Click"
-                                        ToolTipService.ToolTip="{x:Bind Description}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Grid>
         </StackPanel>
 
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,0,12">
