@@ -229,7 +229,31 @@ public sealed class BoostPreferenceService
                           .ToList();
         }
         if (names.Count == 0) return 0;
+        return await ApplyToInstancesMatchingAsync(names);
+    }
 
+    /// <summary>
+    /// Re-asserts the recorded per-thread states for every live instance of ONE
+    /// process and nothing else.
+    ///
+    /// This is the companion of the process-wide write, and it must run
+    /// immediately after it: SetProcessPriorityBoost(disable: true) switches
+    /// boost off for every thread the process already owns, so a thread the
+    /// user set on its own row stays off until something puts it back. The
+    /// keeper sweep does that, but a user unticking the process box must not
+    /// have to wait out the sweep interval to see their thread settings
+    /// honoured. Process and thread layer names are interchangeable here - the
+    /// stored process name is compared case-insensitively, and the sweep passes
+    /// the live (".exe"-suffixed) name for the same record.
+    /// </summary>
+    public Task<int> ApplyToProcessInstancesAsync(string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return Task.FromResult(0);
+        return ApplyToInstancesMatchingAsync(new[] { processName });
+    }
+
+    private async Task<int> ApplyToInstancesMatchingAsync(IReadOnlyList<string> names)
+    {
         int applied = 0;
         foreach (var proc in Process.GetProcesses())
         {

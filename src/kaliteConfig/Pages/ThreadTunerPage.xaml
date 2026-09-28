@@ -307,7 +307,7 @@
                     <TextBlock Grid.Column="8" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Grid.Column="9" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Grid.Column="10" Text="Process Boost" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it - the choice is saved and re-applied to this process every time it starts." />
+                               ToolTipService.ToolTip="The process-wide default for priority boost. Untick to disable it for this process and for every thread that has no boost setting of its own. Threads you set individually in the Threads dialog keep their own value. The choice is saved and re-applied to this process every time it starts." />
                 </Grid>
             </Border>
 
@@ -399,7 +399,7 @@
                                       Tag="{x:Bind}"
                                       IsEnabled="{x:Bind local:ThreadTunerPage.Not(IsProtected), Mode=OneWay}"
                                       IsChecked="{x:Bind BoostAllowed, Mode=OneWay}"
-                                      ToolTipService.ToolTip="Priority boost (ticked = Windows default). Untick to disable it permanently for this process." />
+                                      ToolTipService.ToolTip="Process-wide default for priority boost (ticked = Windows default). Untick to disable it permanently for this process. Threads with their own boost setting keep it." />
                         </Grid>
                         </Border>
                     </DataTemplate>

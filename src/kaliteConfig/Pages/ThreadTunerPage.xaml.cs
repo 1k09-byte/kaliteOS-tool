@@ -495,10 +495,24 @@ namespace kaliteConfig.Pages
         /// choice, which the watcher re-applies on every launch and the keeper
         /// sweep re-applies while the process runs. Without the stored
         /// preference this was a one-shot Windows forgot on the next restart.
+        ///
+        /// Both boost layers run here, in the one order that works (see
+        /// <see cref="Services.BoostPreferenceRules"/>). The process-wide write
+        /// is what moves the process default, and Windows applies it to every
+        /// thread the process already owns - so the per-thread choices have to
+        /// be re-asserted directly behind it. This handler used to run the
+        /// process layer alone, which left every thread of the process reading
+        /// "boost off" until the next keeper pass, up to 20 s later: unticking
+        /// the process box silently undid the per-thread boosts the user had
+        /// set in the Threads dialog.
         /// </summary>
         private async Task SetProcessBoostAsync(TunerProcessRow row, bool enabled)
         {
-            int applied = await Services.ProcessBoostPreferenceService.Instance.SetAsync(row.Name, enabled);
+            int applied = 0;
+            await Services.BoostPreferenceRules.ApplyBoostLayersInOrderAsync(
+                async () => { applied = await Services.ProcessBoostPreferenceService.Instance.SetAsync(row.Name, enabled); },
+                () => Services.BoostPreferenceService.Instance.ApplyToProcessInstancesAsync(row.Name));
+
             row.BoostAllowed = enabled;
             row.PriorityBoostText = enabled ? "Enabled" : "Disabled";
 
