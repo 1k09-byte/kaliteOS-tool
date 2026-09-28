@@ -62,7 +62,6 @@ public partial class TunerProcessRow : ObservableObject
     /// the live process and records a permanent preference.
     /// </summary>
     [ObservableProperty] public partial bool? BoostAllowed { get; set; }
-    [ObservableProperty] public partial bool? HybridBoostAllowed { get; set; }
     [ObservableProperty] public partial string Memory { get; set; } = "0 MB";
     [ObservableProperty] public partial int Threads { get; set; }
     [ObservableProperty] public partial string State { get; set; } = "Running";

@@ -703,38 +703,6 @@ public sealed class ProcessTuningService
         }).ConfigureAwait(false);
     }
 
-    public async Task SetHybridBoostAsync(int pid, bool enableHybridBoost)
-    {
-        await CpuSetService.RunNativeAsync(() =>
-        {
-            using var process = NativeMethods.Handles.OpenProcess(
-                NativeMethods.ProcessAccess.SetInformation | NativeMethods.ProcessAccess.QueryInformation, false, (uint)pid);
-            CpuSetService.ThrowIfInvalid(process, pid);
-
-            // Enable = Process Boost Disabled (true), threads forced Enabled (false).
-            // Disable = Return Process back to Enabled (false), threads back to Enabled (false).
-            if (!NativeMethods.Priority.SetProcessPriorityBoost(process, enableHybridBoost))
-            {
-                throw CpuSetService.Friendly(pid, NativeSnapshotService.LastError("Setting Priority Boost failed."));
-            }
-
-            foreach (var tid in LiveThreadIds(pid))
-            {
-                using var thread = NativeMethods.Handles.OpenThread(
-                    NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation | NativeMethods.ThreadAccess.QueryLimitedInformation, false, tid);
-                
-                if (!thread.IsInvalid)
-                {
-                    if (!NativeMethods.Priority.SetThreadPriorityBoost(thread, !enableHybridBoost))
-                    {
-                        // Some threads (like GUI or kernel threads) might simply reject SetInformation.
-                        // We must tolerate these, but ensure we are passing the correct inverted bollean constraint.
-                    }
-                }
-            }
-        }).ConfigureAwait(false);
-    }
-
     public async Task SuspendProcessAsync(int pid)
     {
         await CpuSetService.RunNativeAsync(() =>
