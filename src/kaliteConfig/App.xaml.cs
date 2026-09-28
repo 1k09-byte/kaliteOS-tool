@@ -273,6 +273,11 @@ namespace kaliteConfig
         {
             try 
             {
+                using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
+                {
+                    currentProcess.PriorityClass = System.Diagnostics.ProcessPriorityClass.Idle;
+                    currentProcess.PriorityBoostEnabled = false;
+                }
                 _singleInstanceMutex = new System.Threading.Mutex(true, "kaliteConfigAppMutex", out bool isFirstInstance);
                 if (!isFirstInstance)
                 {

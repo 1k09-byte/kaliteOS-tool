@@ -501,7 +501,7 @@ finally { _selecting = false; }
         Add("IPv4", a.IPv4.Count > 0 ? string.Join(", ", a.IPv4) : "None", sensitive: a.IPv4.Count > 0);
         Add("IPv6", a.IPv6.Count > 0 ? string.Join(", ", a.IPv6) : "None", sensitive: a.IPv6.Count > 0);
         Add("Gateway", a.Gateways.Count > 0 ? string.Join(", ", a.Gateways) : "None");
-        Add("DNS", a.Dns.Count > 0 ? string.Join(", ", a.Dns) : "None");
+        Add("DNS", a.Dns.Count > 0 ? string.Join(", ", a.Dns) : "None", sensitive: true);
         Add("DHCP", a.DhcpEnabled ? "On" + (string.IsNullOrEmpty(a.DhcpServer) ? "" : $" (server {a.DhcpServer})") : "Off (static)", sensitive: a.DhcpEnabled && !string.IsNullOrEmpty(a.DhcpServer));
         Add("Lease obtained", lo ?? "n/a (static)");
         Add("Lease expires", lt ?? "n/a (static)");
