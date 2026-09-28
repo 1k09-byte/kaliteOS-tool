@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 4,
+  "notes": "Which group each driver setting is listed under in Simple Driver Settings. This maps setting IDs to groups only - it makes no claim about what any setting does, because the driver publishes no description for them. IDs are the driver's own and may be hex (0x007BA09E) or decimal. Any setting this driver offers that is not listed here appears under Other; the 3D settings page's own settings are not listed here because that page shows them. Edit the copy under %LOCALAPPDATA%/kaliteConfig/Nvidia/ to regroup them.",
+  "categories": {
+    "Common settings": [
+      "0x00AC8497",
+      "0x00AE785C",
+      "0x10D1EF29",
+      "0x206C28C4",
+      "0x209AE66F",
+      "0x108F0841",
+      "0x00B65E72",
+      "0x00667329",
+      "0x00664339",
+      "0x2097C2F6",
+      "0x20A29055",
+      "0x2072C5A3",
+      "0x007BA09E",
+      "0x10115C8D",
+      "0x101AE763"
+    ]
+,
+    "Antialiasing": [
+      "0x2089BF6C",
+      "0x10F9DC83",
+      "0x10ECDB82"
+    ]
+,
+    "Sync": [
+      "0x206A6582",
+      "0x20655CFA",
+      "0x206C4581",
+      "0x201F619F",
+      "0x20D690F8",
+      "0x10FDEC23"
+    ]
+,
+    "Refresh": [
+      "0x10A879CE",
+      "0x1094F1F7",
+      "0x1094F157",
+      "0x1194F158",
+      "0x10A879AC",
+      "0x10A879CF",
+      "0x208E55E3",
+      "0x10835016",
+      "0x10835017"
+    ]
+,
+    "Texture filtering": [
+      "0x00738E8F",
+      "0x00638E8F",
+      "0x00CE2692",
+      "0x103BCCB5",
+      "0x20797D6C"
+    ]
+,
+    "RTX": [
+      "0x10444444",
+      "0x10E41E01",
+      "0x10E41E02",
+      "0x10E41E03",
+      "0x10E41E04",
+      "0x10E41E05",
+      "0x10E41E06",
+      "0x10E41DF4",
+      "0x10AFB76C",
+      "0x10C7D519",
+      "0x10C7D57E",
+      "0x10C7D597",
+      "0x10C7D684",
+      "0x10C7D82C",
+      "0x10C7D86C",
+      "0x00AB8687",
+      "0x10E41DF1",
+      "0x10E41DF3",
+      "0x10E41DF5",
+      "0x10E41DF7",
+      "0x10E41DF8",
+      "0x10AFB768",
+      "0x10BD9423",
+      "0x10C7D4A2",
+      "0x10308298",
+      "0x104D6667",
+      "0x10562D0F",
+      "0x10CF4125"
+    ]
+,
+    "Hidden": [
+      "0x10115C8C",
+      "0x1033CED1",
+      "0x1033CEC1",
+      "0x1033CEC2",
+      "0x1033DCD1",
+      "0x1033DCD2",
+      "0x1033DCD3",
+      "0x10F9DC81",
+      "0x10F9DC80",
+      "0x10F9DC84",
+      "0x10F9DC82",
+      "0x107AFC5B",
+      "0x11AA9E99",
+      "0x11AE435C",
+      "0x11E91A61",
+      "0x11333333",
+      "0x112493BD",
+      "0x204D9A0C",
+      "0x1035DB89",
+      "0x1075D972",
+      "0x1085DA8A",
+      "0x107CDDBC",
+      "0x106D5CFF",
+      "0x104554B6",
+      "0x00DB1337",
+      "0x20FF7493",
+      "0x2092D3BE",
+      "0x209DF23E",
+      "0x202888C1",
+      "0x10287051",
+      "0x1094F16F",
+      "0x1095F16F",
+      "0x1068FB9C",
+      "0x1095F170",
+      "0x00D74EF6",
+      "0x104BC9A1",
+      "0x50957B56",
+      "0x0019A002"
+    ]
+  }
+}

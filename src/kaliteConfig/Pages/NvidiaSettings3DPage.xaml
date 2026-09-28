@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="kaliteConfig.Pages.NvidiaSettings3DPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:vm="using:kaliteConfig.ViewModels"
+      xmlns:models="using:kaliteConfig.Models"
+      xmlns:converters="using:kaliteConfig.Converters"
+      Background="Transparent">
+    <Page.Resources>
+        <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter"/>
+    </Page.Resources>
+    <Page.DataContext><vm:Nvidia3DSettingsViewModel x:Name="ViewModel"/></Page.DataContext>
+    <Grid Padding="28,16" RowSpacing="12">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="Manage 3D Settings" Style="{StaticResource SubtitleTextBlockStyle}"/>
+            <TextBlock Text="Curated DRS settings. Per-program GPU preference may be overridden by Windows Graphics Settings." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+        </StackPanel>
+        <TabView x:Name="ThreeDTabView" Grid.Row="1" IsAddTabButtonVisible="False" SelectionChanged="ThreeDTabView_SelectionChanged">
+            <TabViewItem Header="Global Settings" IsClosable="False"/>
+            <TabViewItem Header="Program Settings" IsClosable="False"/>
+        </TabView>
+        <Grid Grid.Row="2" RowSpacing="8">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                <ComboBox x:Name="ProgramPicker" Header="Select a program" Width="360" ItemsSource="{x:Bind Vm.Applications, Mode=OneWay}" DisplayMemberPath="Label" SelectedItem="{x:Bind Vm.SelectedApplication, Mode=TwoWay}"/>
+                <Button x:Name="AddProgramButton" Content="Add…" VerticalAlignment="Bottom" Click="AddProgram_Click"/>
+                <Button Content="Restore" VerticalAlignment="Bottom" Click="Restore3D_Click"/>
+                <Button Content="Apply" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Bottom" Click="Apply3D_Click"/>
+            </StackPanel>
+            <TextBlock Grid.Row="1" Text="{x:Bind Vm.CatalogNote, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <ListView Grid.Row="2" ItemsSource="{x:Bind Vm.Rows, Mode=OneWay}" SelectionMode="None">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:Nvidia3DSettingRowViewModel">
+                        <Grid MinHeight="50" ColumnSpacing="12" Padding="8,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/><ColumnDefinition Width="105"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{x:Bind Name}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind DiffText}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" MinWidth="240" HorizontalAlignment="Left" ItemsSource="{x:Bind Options}" SelectedItem="{x:Bind SelectedOption, Mode=TwoWay}" Visibility="{x:Bind HasRecognizedOptions, Mode=OneWay}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="models:Nvidia3DOption"><TextBlock Text="{x:Bind Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Grid.Column="1" Text="{x:Bind CurrentValueText, Mode=OneWay}" VerticalAlignment="Center" Visibility="{x:Bind HasRecognizedOptions, Mode=OneWay, Converter={StaticResource InvertedBoolToVisibilityConverter}}"/>
+                            <TextBlock Grid.Column="2" Text="{x:Bind Id}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="3" Content="Reset" Tag="{x:Bind}" Click="Reset3DRow_Click"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock Grid.Row="3" Text="{x:Bind Vm.Status, Mode=OneWay}" VerticalAlignment="Center" Margin="8" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+        </Grid>
+    </Grid>
+</Page>
