@@ -27,8 +27,7 @@
             <StackPanel x:Name="SettingsPanel" Spacing="12">
                 <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                     <StackPanel Spacing="10">
-                        <toolkit:SettingsCard x:Name="ThreadedDpcCard" Header="Threaded DPCs" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="ThreadedDpcToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="ThreadedDpc"/></toolkit:SettingsCard>
-                        <toolkit:SettingsCard x:Name="IrqRoutingCard" Header="Disable automatic interrupt routing" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="IrqRoutingToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="InterruptRouting"/></toolkit:SettingsCard>
+
                         <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration"/></toolkit:SettingsCard>
                         <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)" Description="Reading…"><ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus"/></toolkit:SettingsCard>
                     </StackPanel>

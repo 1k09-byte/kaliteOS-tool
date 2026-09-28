@@ -37,10 +37,6 @@ namespace kaliteConfig.Pages
             _loadingKernelToggles = true;
             try
             {
-                LoadOneKernelToggle("ThreadedDpc", ThreadedDpcToggle, ThreadedDpcCard,
-                    "Runs DPCs on dedicated threads (needs restart).");
-                LoadOneKernelToggle("InterruptRouting", IrqRoutingToggle, IrqRoutingCard,
-                    "Stops Windows steering device interrupts across cores (active scheme).");
                 LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard,
                     "Serializes timer expiration (active scheme).");
                 LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
@@ -57,10 +53,7 @@ namespace kaliteConfig.Pages
             {
                 var det = _kernel.Detect(def);
                 toggle.IsOn = det.State == Services.WindowsSettingsService.TweakState.On;
-                card.Description = det.Describe(caption)
-                    + (det.State != Services.WindowsSettingsService.TweakState.WindowsDefault && _kernel.HasBackup(def)
-                        ? " Right-click the toggle to restore the original value."
-                        : "");
+                card.Description = det.Describe(caption);
             }
             catch (Exception ex)
             {
@@ -83,9 +76,7 @@ namespace kaliteConfig.Pages
                 LoadKernelToggles(); // snap back
                 var card = id switch
                 {
-                    "InterruptRouting" => IrqRoutingCard,
                     "TimerExpiration" => TimerExpCard,
-                    "ThreadedDpc" => ThreadedDpcCard,
                     "MmcssStatus" => MmcssCard,
                     _ => null,
                 };

@@ -43,31 +43,8 @@ public sealed class WindowsSettingsService
         /// <summary>True when this tweak is a power-scheme setting (PowrProf path).</summary>
         public bool IsPowerSetting => PowerSubgroup != Guid.Empty && PowerSetting != Guid.Empty;
     }
-
-    // Interrupt Steering: subgroup + setting GUIDs (documented power schema).
-    private static readonly Guid IntSteerSubgroup = new("48672f38-7a9a-4bb2-8bf8-3d85be19de4e");
-    private static readonly Guid IntSteerModeSetting = new("2bfc24f9-5ea2-4801-8213-3dbae01aa39d");
-
-    /// <summary>Interrupt Steering Mode index 4 = "Lock Interrupt Routing".</summary>
-    private const uint IntSteerLockIndex = 4;
-
-    /// <summary>Interrupt Steering Mode index 0 = "Default".</summary>
-    private const uint IntSteerDefaultIndex = 0;
-
     public static readonly IReadOnlyList<TweakDef> All = new[]
     {
-        new TweakDef(
-            "ThreadedDpc",
-            "Threaded DPCs",
-            "Runs deferred procedure calls on dedicated threads (1) instead of inline at DISPATCH_LEVEL (0). Can smooth DPC latency spikes on some systems. Read by the kernel at boot - takes effect after a restart.",
-            @"SYSTEM\CurrentControlSet\Control\Session Manager\Kernel",
-            "ThreadedDpcEnable", 1, 0, false, true),
-        new TweakDef(
-            "InterruptRouting",
-            "Lock interrupt routing",
-            "Sets Interrupt Steering Mode to 'Lock Interrupt Routing' for the active power scheme, plugged in and on battery - Windows stops moving device interrupts across cores. Pairs with manual IRQ affinity in Affinity Tuning. Applies immediately.",
-            "", "", IntSteerLockIndex, IntSteerDefaultIndex, true, false,
-            IntSteerSubgroup, IntSteerModeSetting),
         new TweakDef(
             "TimerExpiration",
             "Serialized timer expiration",
@@ -202,13 +179,7 @@ public sealed class WindowsSettingsService
 
     public readonly record struct TweakDetection(TweakState State, uint? RawValue, bool WrittenByApp)
     {
-        public string Describe(string caption) => State switch
-        {
-            TweakState.WindowsDefault => caption + " Currently: not set (Windows default).",
-            TweakState.On => caption + " Currently: ON." + (WrittenByApp ? "" : " (set outside the app)"),
-            TweakState.Off => caption + " Currently: OFF." + (WrittenByApp ? "" : " (set outside the app)"),
-            _ => caption + $" Currently: custom ({RawValue}).",
-        };
+        public string Describe(string caption) => caption;
     }
 
     /// <summary>Detects the tweak's full current state, including whether the
