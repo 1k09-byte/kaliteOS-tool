@@ -581,6 +581,8 @@ namespace kaliteConfig.ViewModels
                 ApplyOptimizerToCollection(GraphicsDevices, kaliteConfig.Services.AffinityTargetType.GPU);
                 ApplyOptimizerToCollection(UsbDevices, kaliteConfig.Services.AffinityTargetType.USB);
                 ApplyOptimizerToCollection(NetworkDevices, kaliteConfig.Services.AffinityTargetType.WiFi);
+                
+                await RestartPendingAsync();
             }
             finally
             {
@@ -605,6 +607,8 @@ namespace kaliteConfig.ViewModels
                     }
                 }
                 ApplyDeviceChanges(item);
+                _pendingRestartIds.Add(item.DeviceInstanceId);
+                RequiresRestart = true;
                 _ = LoadDeviceDetailsAsync(item);
             }
         }
