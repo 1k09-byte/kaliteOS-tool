@@ -703,6 +703,34 @@ public sealed class ProcessTuningService
         }).ConfigureAwait(false);
     }
 
+    public async Task SetHybridBoostAsync(int pid, bool enableHybridBoost)
+    {
+        await CpuSetService.RunNativeAsync(() =>
+        {
+            using var process = NativeMethods.Handles.OpenProcess(
+                NativeMethods.ProcessAccess.SetInformation | NativeMethods.ProcessAccess.QueryInformation, false, (uint)pid);
+            CpuSetService.ThrowIfInvalid(process, pid);
+
+            // Enable = Process Boost Disabled (true), threads forced Enabled (false).
+            // Disable = Return Process back to Enabled (false), threads back to Enabled (false).
+            if (!NativeMethods.Priority.SetProcessPriorityBoost(process, enableHybridBoost))
+            {
+                throw CpuSetService.Friendly(pid, NativeSnapshotService.LastError("Setting Priority Boost failed."));
+            }
+
+            foreach (var tid in LiveThreadIds(pid))
+            {
+                using var thread = NativeMethods.Handles.OpenThread(
+                    NativeMethods.ThreadAccess.SetInformation, false, tid);
+                
+                if (!thread.IsInvalid)
+                {
+                    NativeMethods.Priority.SetThreadPriorityBoost(thread, false);
+                }
+            }
+        }).ConfigureAwait(false);
+    }
+
     public async Task SuspendProcessAsync(int pid)
     {
         await CpuSetService.RunNativeAsync(() =>

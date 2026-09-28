@@ -544,6 +544,35 @@ namespace kaliteConfig.Pages
             }
         }
 
+        private async void RowHybridBoost_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not CheckBox box || box.Tag is not TunerProcessRow row) return;
+            bool enabled = box.IsChecked == true;
+
+            try
+            {
+                await App.Current.ProcessTuning.SetHybridBoostAsync(row.Pid, enabled);
+                row.HybridBoostAllowed = enabled;
+                
+                if (enabled) 
+                {
+                    // Mutating Hybrid Boost technically impacts the basic BoostAllowed UI rule
+                    row.BoostAllowed = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                row.HybridBoostAllowed = !enabled;
+                await new ContentDialog
+                {
+                    Title = "Hybrid Boost Error",
+                    Content = new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap },
+                    CloseButtonText = "Close",
+                    XamlRoot = this.XamlRoot,
+                }.ShowAsync();
+            }
+        }
+
         private void Action_Threads(object sender, RoutedEventArgs? e) => ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
 
         private async void RowThreads_Click(object sender, RoutedEventArgs e)
