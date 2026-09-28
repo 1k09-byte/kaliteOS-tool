@@ -936,16 +936,24 @@ namespace kaliteConfig.GpuOverclock.Services
                 var pts = status.Points;
                 if (pts is { Length: > 0 })
                 {
-                    voltsMv = new int[pts.Length];
-                    baseMhz = new int[pts.Length];
+                    var valid = new List<(int V, int F)>();
                     for (int i = 0; i < pts.Length; i++)
                     {
-                        voltsMv[i] = pts[i].VoltageInMilliV > 0
+                        int v = pts[i].VoltageInMilliV > 0
                             ? (int)pts[i].VoltageInMilliV
                             : (int)(pts[i].VoltageInMicroV / 1000);
-                        baseMhz[i] = (int)Math.Round(pts[i].FrequencyInkHz / 1000.0);
+                        int f = (int)Math.Round(pts[i].FrequencyInkHz / 1000.0);
+                        // Filter uninitialized trailing padding (zeros) or garbage (out of bounds).
+                        if (v > 0 && v < 3000 && f > 0 && f < 6000)
+                            valid.Add((v, f));
                     }
-                    return true;
+                    if (valid.Count > 0)
+                    {
+                        valid.Sort((a, b) => a.V.CompareTo(b.V));
+                        voltsMv = valid.Select(p => p.V).ToArray();
+                        baseMhz = valid.Select(p => p.F).ToArray();
+                        return true;
+                    }
                 }
             }
             catch (NVIDIAApiException) { }
@@ -955,14 +963,21 @@ namespace kaliteConfig.GpuOverclock.Services
                 var entries = vfp.GPUCurveEntries;
                 if (entries is { Length: > 0 })
                 {
-                    voltsMv = new int[entries.Length];
-                    baseMhz = new int[entries.Length];
+                    var valid = new List<(int V, int F)>();
                     for (int i = 0; i < entries.Length; i++)
                     {
-                        voltsMv[i] = (int)(entries[i].VoltageInMicroV / 1000);
-                        baseMhz[i] = (int)Math.Round(entries[i].FrequencyInkHz / 1000.0);
+                        int v = (int)(entries[i].VoltageInMicroV / 1000);
+                        int f = (int)Math.Round(entries[i].FrequencyInkHz / 1000.0);
+                        if (v > 0 && v < 3000 && f > 0 && f < 6000)
+                            valid.Add((v, f));
                     }
-                    return true;
+                    if (valid.Count > 0)
+                    {
+                        valid.Sort((a, b) => a.V.CompareTo(b.V));
+                        voltsMv = valid.Select(p => p.V).ToArray();
+                        baseMhz = valid.Select(p => p.F).ToArray();
+                        return true;
+                    }
                 }
             }
             catch (NVIDIAApiException) { }
