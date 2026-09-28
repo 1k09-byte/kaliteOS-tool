@@ -19,6 +19,7 @@
                      is also where the fallback content lives. -->
                 <NavigationViewItem x:Name="NvidiaTab" Content="NVIDIA" Tag="NVIDIA" />
                 <NavigationViewItem x:Name="RadeonTab" Content="Radeon" Tag="Radeon" />
+                <NavigationViewItem Content="Display" Tag="Display" />
             </NavigationView.MenuItems>
             <Frame x:Name="ContentFrame" />
         </NavigationView>

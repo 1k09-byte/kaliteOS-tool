@@ -52,10 +52,15 @@ public sealed partial class GraphicsHubPage : Page
                 ContentFrame.Navigate(typeof(OverclockPage));
                 break;
             case "NVIDIA":
-                ContentFrame.Navigate(typeof(NvidiaSettingsPage));
+                // Hosts both the simple and the flat 3D view, so Simple Driver
+                // Settings lives inside the NVIDIA section rather than beside it.
+                ContentFrame.Navigate(typeof(NvidiaSectionPage));
                 break;
             case "Radeon":
                 ContentFrame.Navigate(typeof(RadeonSettingsPage));
+                break;
+            case "Display":
+                ContentFrame.Navigate(typeof(NvidiaSettingsPage));
                 break;
         }
     }
