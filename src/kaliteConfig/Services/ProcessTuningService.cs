@@ -721,11 +721,15 @@ public sealed class ProcessTuningService
             foreach (var tid in LiveThreadIds(pid))
             {
                 using var thread = NativeMethods.Handles.OpenThread(
-                    NativeMethods.ThreadAccess.SetInformation, false, tid);
+                    NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation | NativeMethods.ThreadAccess.QueryLimitedInformation, false, tid);
                 
                 if (!thread.IsInvalid)
                 {
-                    NativeMethods.Priority.SetThreadPriorityBoost(thread, false);
+                    if (!NativeMethods.Priority.SetThreadPriorityBoost(thread, !enableHybridBoost))
+                    {
+                        // Some threads (like GUI or kernel threads) might simply reject SetInformation.
+                        // We must tolerate these, but ensure we are passing the correct inverted bollean constraint.
+                    }
                 }
             }
         }).ConfigureAwait(false);
