@@ -289,23 +289,41 @@ public sealed class WindowsSettingsService
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var backup = baseKey.OpenSubKey($"{BackupKeyPath}\\{def.Id}", false);
             if (backup == null) return false;
-            if ((backup.GetValue("Existed") as int?) != 1) return false;
+            
+            bool existed = (backup.GetValue("Existed") as int?) == 1;
 
             if (def.IsPowerSetting)
             {
+                if (!existed)
+                {
+                    // Power settings always have an index, absent means "Default" (0)
+                    Guid scheme = GetActiveScheme();
+                    if (scheme == Guid.Empty) return false;
+                    Guid sub = def.PowerSubgroup, set = def.PowerSetting;
+                    return PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref set, 0) == 0
+                        && PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref set, 0) == 0;
+                }
+                
                 int ac = (backup.GetValue("OriginalAC") as int?) ?? 0;
                 int dc = (backup.GetValue("OriginalDC") as int?) ?? 0;
-                Guid scheme = GetActiveScheme();
-                if (scheme == Guid.Empty) return false;
-                Guid sub = def.PowerSubgroup, set = def.PowerSetting;
-                return PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref set, (uint)Math.Max(0, ac)) == 0
-                    && PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref set, (uint)Math.Max(0, dc)) == 0;
+                Guid schemeAcDc = GetActiveScheme();
+                if (schemeAcDc == Guid.Empty) return false;
+                Guid subAcDc = def.PowerSubgroup, setAcDc = def.PowerSetting;
+                return PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref schemeAcDc, ref subAcDc, ref setAcDc, (uint)Math.Max(0, ac)) == 0
+                    && PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref schemeAcDc, ref subAcDc, ref setAcDc, (uint)Math.Max(0, dc)) == 0;
+            }
+
+            if (!existed)
+            {
+                using var key = baseKey.OpenSubKey(ResolveKey(def), true);
+                key?.DeleteValue(def.ValueName, false);
+                return true;
             }
 
             int original = (backup.GetValue("Original") as int?) ?? 0;
 
-            using var key = baseKey.CreateSubKey(ResolveKey(def), true);
-            key?.SetValue(def.ValueName, original, RegistryValueKind.DWord);
+            using var keyToWrite = baseKey.CreateSubKey(ResolveKey(def), true);
+            keyToWrite?.SetValue(def.ValueName, original, RegistryValueKind.DWord);
             return true;
         }
         catch { return false; }
