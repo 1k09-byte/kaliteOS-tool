@@ -54,13 +54,7 @@ if (Test-Path -LiteralPath $csprojPath) {
     }
 }
 
-# Version straight from the evaluated csproj so installer + app never
-# drift (the csproj computes Version with a date-based expression, so ask
-# MSBuild for the evaluated value, not the raw XML text).
-$version = & dotnet msbuild $csprojPath -getProperty:Version
-$version = ($version | Select-Object -First 1)
-if (-not $version) { $version = "0.1.0" }
-$version = ($version -split '\.')[0..3] -join '.'
+$version = "0.3.0.2.3"
 Write-Host "Full build v$version ($Configuration/$Runtime)..."
 
 Write-Host "--> dotnet publish (full flavor)..."
