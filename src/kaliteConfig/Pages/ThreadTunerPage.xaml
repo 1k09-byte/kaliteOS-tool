@@ -293,6 +293,7 @@
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="100" />
                         <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="64" />
                         <ColumnDefinition Width="80" />
@@ -358,6 +359,7 @@
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="1.5*" />
                                 <ColumnDefinition Width="1.5*" />
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="64" />
