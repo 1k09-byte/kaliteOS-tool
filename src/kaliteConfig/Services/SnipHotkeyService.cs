@@ -73,20 +73,27 @@ public sealed class SnipHotkeyService : IDisposable
         public HotkeyPreset(string label, uint modifiers, uint vk)
         {
             Label = label;
-            Modifiers = modifiers;
-            Vk = vk;
+            Keys = new[] { (modifiers, vk) };
+        }
+
+        public HotkeyPreset(string label, params (uint Modifiers, uint Vk)[] keys)
+        {
+            Label = label;
+            Keys = keys;
         }
 
         public string Label { get; }
-        public uint Modifiers { get; }
-        public uint Vk { get; }
+        public (uint Modifiers, uint Vk)[] Keys { get; }
+        public uint Modifiers => Keys.Length > 0 ? Keys[0].Modifiers : 0;
+        public uint Vk => Keys.Length > 0 ? Keys[0].Vk : 0;
         public override string ToString() => Label;
     }
 
     public static readonly HotkeyPreset[] Presets = new[]
     {
-        new HotkeyPreset("Win+Shift+S", ModWin | ModShift, VkS),
+        new HotkeyPreset("Win+Shift+S / PrtScn", (ModWin | ModShift, VkS), (ModNone, VkSnapshot)),
         new HotkeyPreset("PrtScn", ModNone, VkSnapshot),
+        new HotkeyPreset("Win+Shift+S", ModWin | ModShift, VkS),
         new HotkeyPreset("Ctrl+PrtScn", ModControl, VkSnapshot),
         new HotkeyPreset("Shift+PrtScn", ModShift, VkSnapshot),
         new HotkeyPreset("Ctrl+Shift+S", ModControl | ModShift, VkS),
@@ -101,6 +108,8 @@ public sealed class SnipHotkeyService : IDisposable
     private WndProcDelegate? _wndProc;
     private bool _registered;
     private bool _disposed;
+    private readonly System.Collections.Generic.List<int> _activeIds = new();
+    private int _nextId = 0xB002;
 
     public bool IsRegistered => _registered;
     public HotkeyPreset Current { get; private set; } = Presets[0];
@@ -173,7 +182,7 @@ public sealed class SnipHotkeyService : IDisposable
 
     private IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
-        if (msg == WM_HOTKEY && wParam.ToInt32() == HotkeyId)
+        if (msg == WM_HOTKEY && _activeIds.Contains(wParam.ToInt32()))
         {
             try { Pressed?.Invoke(); } catch { }
             return IntPtr.Zero;
@@ -184,21 +193,36 @@ public sealed class SnipHotkeyService : IDisposable
     /// <summary>Registers the preset. Returns (false, message) when the key is taken.</summary>
     public (bool Ok, string Message) Register(HotkeyPreset preset)
     {
-        if (!IsCapturableKey(preset.Vk))
-            return (false, $"{preset.Label} needs a main key, not a bare modifier.");
         try
         {
             Unregister();
             EnsureWindow();
-            if (!RegisterHotKey(_hwnd, HotkeyId, preset.Modifiers, preset.Vk))
+            var errors = new System.Collections.Generic.List<string>();
+            foreach (var key in preset.Keys)
             {
-                int err = Marshal.GetLastWin32Error();
-                return (false,
-                    $"{preset.Label} is already taken by another app (Win32 error {err}). " +
-                    "Pick a different hotkey below. Tip: if using PrtScn, disable 'Use the Print screen key to open Snipping Tool' in Windows Settings -> Accessibility -> Keyboard.");
+                if (!IsCapturableKey(key.Vk))
+                {
+                    errors.Add($"Requires main key, not bare modifier.");
+                    continue;
+                }
+                
+                int id = _nextId++;
+                if (!RegisterHotKey(_hwnd, id, key.Modifiers, key.Vk))
+                {
+                    int err = Marshal.GetLastWin32Error();
+                    errors.Add($"Win32 error {err} usually means another app controls this key (like Windows Snipping Tool)");
+                }
+                else
+                {
+                    _activeIds.Add(id);
+                }
             }
+
+            if (_activeIds.Count == 0) return (false, string.Join(" | ", errors));
+            
             _registered = true;
             Current = preset;
+            if (errors.Count > 0) return (true, "Partially active (some shortcuts blocked). " + string.Join(" | ", errors));
             return (true, string.Empty);
         }
         catch (Exception ex)
@@ -212,9 +236,12 @@ public sealed class SnipHotkeyService : IDisposable
         try
         {
             if (_hwnd != IntPtr.Zero && _registered)
-                UnregisterHotKey(_hwnd, HotkeyId);
+            {
+                foreach (int id in _activeIds) UnregisterHotKey(_hwnd, id);
+            }
         }
         catch { }
+        _activeIds.Clear();
         _registered = false;
     }
 
