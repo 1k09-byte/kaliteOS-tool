@@ -107,7 +107,7 @@ namespace kaliteConfig.ViewModels
             // dialog full of empty values that writes interrupt settings nowhere.
             if (!_affinityService.DeviceExists(item.DeviceInstanceId))
             {
-                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning�";
+                StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning???";
                 _ = RefreshDevicesCommand.ExecuteAsync(null);
                 throw new InvalidOperationException(
                     $"{item.Name} is no longer present. It was restarted or re-enumerated (this happens after a GPU restart or driver install). " +
@@ -578,9 +578,9 @@ namespace kaliteConfig.ViewModels
             try
             {
                 await Task.Delay(50);
-                ApplyOptimizerToCollection(GraphicsDevices, kaliteConfig.Services.AffinityTargetType.GPU);
-                ApplyOptimizerToCollection(UsbDevices, kaliteConfig.Services.AffinityTargetType.USB);
-                ApplyOptimizerToCollection(NetworkDevices, kaliteConfig.Services.AffinityTargetType.WiFi);
+                await ApplyOptimizerToCollectionAsync(GraphicsDevices, kaliteConfig.Services.AffinityTargetType.GPU);
+                await ApplyOptimizerToCollectionAsync(UsbDevices, kaliteConfig.Services.AffinityTargetType.USB);
+                await ApplyOptimizerToCollectionAsync(NetworkDevices, kaliteConfig.Services.AffinityTargetType.WiFi);
                 
                 await RestartPendingAsync();
             }
@@ -590,7 +590,7 @@ namespace kaliteConfig.ViewModels
             }
         }
 
-        private void ApplyOptimizerToCollection(System.Collections.ObjectModel.ObservableCollection<kaliteConfig.Models.AffinityDeviceItem> collection, kaliteConfig.Services.AffinityTargetType target)
+        private async Task ApplyOptimizerToCollectionAsync(System.Collections.ObjectModel.ObservableCollection<kaliteConfig.Models.AffinityDeviceItem> collection, kaliteConfig.Services.AffinityTargetType target)
         {
             ulong mask = kaliteConfig.Services.AffinityOptimizerService.CalculateOptimalMask(target);
             if (mask == 0) return;
@@ -598,6 +598,8 @@ namespace kaliteConfig.ViewModels
             foreach (var item in collection)
             {
                 if (!IsDevicePresent(item)) continue;
+                await LoadDeviceDetailsAsync(item);
+                
                 item.SelectedPolicy = "IrqPolicySpecifiedProcessors";
                 foreach (var group in item.CoreGroups)
                 {
@@ -787,3 +789,4 @@ namespace kaliteConfig.ViewModels
         };
     }
 }
+
