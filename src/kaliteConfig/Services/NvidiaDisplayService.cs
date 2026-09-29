@@ -45,6 +45,9 @@ namespace kaliteConfig.Services
                 try
                 {
                     var displays = Display.GetDisplays();
+                    IReadOnlyList<PathInfo>? paths = null;
+                    try { paths = PathInfo.GetDisplaysConfig(); } catch { }
+
                     foreach (var d in displays)
                     {
                         var profile = new NvidiaDisplayProfile
@@ -77,10 +80,19 @@ namespace kaliteConfig.Services
                             catch { profile.SupportsHue = false; }
                         }
 
-                        // Add placeholder properties
-                        profile.SupportsScaling = true;
-                        profile.ScalingMode = NvidiaScalingMode.AspectRatio;
-                        profile.ScalingLocation = NvidiaScalingLocation.Display;
+                        if (paths != null && profile.IsNvidiaControlled)
+                        {
+                            var target = paths.SelectMany(p => p.TargetsInfo).FirstOrDefault(t => t.DisplayDevice.DisplayId == d.DisplayDevice.DisplayId);
+                            if (target != null)
+                            {
+                                var mapped = NvidiaScalingMap.FromDriver(target.Scaling);
+                                profile.SupportsScaling = true;
+                                profile.ScalingLocation = mapped.Location;
+                                profile.ScalingMode = mapped.Mode;
+                            }
+                            else profile.SupportsScaling = false;
+                        }
+                        else profile.SupportsScaling = false;
                         
                         profiles.Add(profile);
                     }
@@ -113,7 +125,10 @@ namespace kaliteConfig.Services
                     try
                     {
                         DisplayApi.SetDVCLevelEx(disp.Handle, (int)profile.DigitalVibrance);
-                        res.Applied.Add("DigitalVibrance");
+                        if (disp.DigitalVibranceControl.CurrentLevel == (int)profile.DigitalVibrance)
+                            res.Applied.Add("DigitalVibrance");
+                        else
+                            res.Failed.Add("DigitalVibrance (Silent Reject)");
                     }
                     catch { res.Failed.Add("DigitalVibrance"); }
                 }
@@ -123,9 +138,38 @@ namespace kaliteConfig.Services
                     try
                     {
                         DisplayApi.SetHUEAngle(disp.Handle, (int)profile.Hue);
-                        res.Applied.Add("Hue");
+                        if (disp.HUEControl.CurrentAngle == (int)profile.Hue)
+                            res.Applied.Add("Hue");
+                        else
+                            res.Failed.Add("Hue (Silent Reject)");
                     }
                     catch { res.Failed.Add("Hue"); }
+                }
+
+                if (profile.SupportsScaling && NvidiaScalingMap.TryToDriver(profile.ScalingLocation, profile.ScalingMode, out var nvScaling))
+                {
+                    try
+                    {
+                        var paths = PathInfo.GetDisplaysConfig();
+                        var target = paths.SelectMany(p => p.TargetsInfo).FirstOrDefault(t => t.DisplayDevice.DisplayId == disp.DisplayDevice.DisplayId);
+                        if (target != null && target.Scaling != nvScaling)
+                        {
+                            target.Scaling = nvScaling;
+                            PathInfo.SetDisplaysConfig(paths, (NvAPIWrapper.Native.Display.DisplayConfigFlags)0);
+                            
+                            var newPaths = PathInfo.GetDisplaysConfig();
+                            var newTarget = newPaths.SelectMany(p => p.TargetsInfo).FirstOrDefault(t => t.DisplayDevice.DisplayId == disp.DisplayDevice.DisplayId);
+                            if (newTarget != null && newTarget.Scaling == nvScaling)
+                                res.Applied.Add("Scaling");
+                            else
+                                res.Failed.Add("Scaling (Silent Reject)");
+                        }
+                        else if (target != null && target.Scaling == nvScaling)
+                        {
+                            // Already applied
+                        }
+                    }
+                    catch { res.Failed.Add("Scaling"); }
                 }
             }
 

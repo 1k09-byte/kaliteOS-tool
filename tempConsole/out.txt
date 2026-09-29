@@ -1,0 +1,6 @@
+Display Name: \\.\DISPLAY1 Handle: 3724541953
+  Prop DisplayDevice ID: 2147881088
+Display Name: \\.\DISPLAY2 Handle: 3724541954
+  Prop DisplayDevice ID: 2147881094
+PathTarget DisplayDevice ID: 2147881088
+PathTarget DisplayDevice ID: 2147881094

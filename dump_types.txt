@@ -1,0 +1,110 @@
+
+Type: NvAPIWrapper.Native.DisplayApi
+  M: GetDisplayConfig
+  M: GetScanOutConfiguration
+  M: GetScanOutConfiguration
+  M: SetDisplayConfig
+
+Type: NvAPIWrapper.Native.Interfaces.Display.IPathInfo
+  M: get_TargetsInfo
+  P: SourceId (UInt32)
+  P: SourceModeInfo (SourceModeInfo)
+  P: TargetsInfo (IEnumerable`1)
+
+Type: NvAPIWrapper.Native.Interfaces.Display.IPathTargetInfo
+  P: Details (Nullable`1)
+  P: DisplayId (UInt32)
+
+Type: NvAPIWrapper.Native.Display.DisplayConfigFlags
+
+Type: NvAPIWrapper.Native.Display.Structures.PathAdvancedTargetInfo
+  M: get_IsClonePanAndScanTarget
+  M: get_IsPreferredUnscaledTarget
+  P: Rotation (Rotate)
+  P: Scaling (Scaling)
+  P: RefreshRateInMillihertz (UInt32)
+  P: ConnectorType (ConnectorType)
+  P: TVFormat (TVFormat)
+  P: TimingOverride (TimingOverride)
+  P: Timing (Timing)
+  P: IsInterlaced (Boolean)
+  P: IsClonePrimary (Boolean)
+  P: IsClonePanAndScanTarget (Boolean)
+  P: DisableVirtualModeSupport (Boolean)
+  P: IsPreferredUnscaledTarget (Boolean)
+
+Type: NvAPIWrapper.Native.Display.Structures.PathInfoV1
+  M: get_TargetsInfo
+  P: SourceId (UInt32)
+  P: TargetsInfo (IEnumerable`1)
+  P: SourceModeInfo (SourceModeInfo)
+
+Type: NvAPIWrapper.Native.Display.Structures.PathInfoV2
+  M: get_TargetsInfo
+  P: SourceId (UInt32)
+  P: TargetsInfo (IEnumerable`1)
+  P: SourceModeInfo (SourceModeInfo)
+  P: IsNonNVIDIAAdapter (Boolean)
+  P: OSAdapterLUID (Nullable`1)
+
+Type: NvAPIWrapper.Native.Display.Structures.PathTargetInfoV1
+  P: DisplayId (UInt32)
+  P: Details (Nullable`1)
+
+Type: NvAPIWrapper.Native.Display.Structures.PathTargetInfoV2
+  M: get_WindowsCCDTargetId
+  P: DisplayId (UInt32)
+  P: Details (Nullable`1)
+  P: WindowsCCDTargetId (UInt32)
+
+Type: NvAPIWrapper.Display.PathInfo
+  M: get_TargetsInfo
+  M: GetDisplaysConfig
+  M: SetDisplaysConfig
+  M: GetPathTargetInfoV1Array
+  M: GetPathTargetInfoV2Array
+  P: ColorFormat (ColorFormat)
+  P: IsGDIPrimary (Boolean)
+  P: IsSLIFocus (Boolean)
+  P: OSAdapterLUID (Nullable`1)
+  P: Position (Position)
+  P: Resolution (Resolution)
+  P: SourceId (UInt32)
+  P: SpanningOrientation (SpanningOrientation)
+  P: TargetsInfo (PathTargetInfo[])
+
+Type: NvAPIWrapper.Display.PathTargetInfo
+  M: get_IsClonePanAndScanTarget
+  M: set_IsClonePanAndScanTarget
+  M: get_IsPreferredUnscaledTarget
+  M: set_IsPreferredUnscaledTarget
+  M: get_WindowsCCDTargetId
+  M: GetPathAdvancedTargetInfo
+  M: GetPathTargetInfoV1
+  M: GetPathTargetInfoV2
+  P: DisableVirtualModeSupport (Boolean)
+  P: DisplayDevice (DisplayDevice)
+  P: IsClonePanAndScanTarget (Boolean)
+  P: IsClonePrimary (Boolean)
+  P: IsInterlaced (Boolean)
+  P: IsPreferredUnscaledTarget (Boolean)
+  P: RefreshRateInMillihertz (UInt32)
+  P: Rotation (Rotate)
+  P: Scaling (Scaling)
+  P: TimingOverride (TimingOverride)
+  P: TVConnectorType (ConnectorType)
+  P: TVFormat (TVFormat)
+  P: WindowsCCDTargetId (UInt32)
+
+Type: NvAPIWrapper.Native.Delegates.Display+NvAPI_DISP_GetDisplayConfig
+  M: get_Target
+  M: get_HasSingleTarget
+  P: Target (Object)
+  P: Method (MethodInfo)
+
+Type: NvAPIWrapper.Native.Delegates.Display+NvAPI_DISP_SetDisplayConfig
+  M: get_Target
+  M: get_HasSingleTarget
+  P: Target (Object)
+  P: Method (MethodInfo)
+

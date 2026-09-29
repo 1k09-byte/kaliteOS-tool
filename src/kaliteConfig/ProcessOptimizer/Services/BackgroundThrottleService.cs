@@ -8,11 +8,11 @@
 // sublicense, or sell copies of the source code in any form, in whole or in part,
 // without the express written permission of the copyright holder.
 // ==============================================================================
+using kaliteConfig.Native;
+using kaliteConfig.ProcessOptimizer.Models;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using kaliteConfig.Native;
-using kaliteConfig.ProcessOptimizer.Models;
 
 namespace kaliteConfig.ProcessOptimizer.Services;
 

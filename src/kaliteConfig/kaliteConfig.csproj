@@ -48,6 +48,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="build.log" />
+    <None Remove="build_errors.log" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
@@ -183,16 +188,10 @@
       timestamps are not on it. Missing or older-than-markup outputs make the
       target run; a healthy build skips it and keeps XAML compilation
       incremental. -->
-  <Target Name="HealStaleXamlGeneratedCode"
-          BeforeTargets="BeforeBuild"
-          DependsOnTargets="CollectXamlHealInputs"
-          Condition="'$(DesignTimeBuild)' != 'true'"
-          Inputs="@(_HealXamlSource)"
-          Outputs="@(_HealXamlGenerated)">
+  <Target Name="HealStaleXamlGeneratedCode" BeforeTargets="BeforeBuild" DependsOnTargets="CollectXamlHealInputs" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="@(_HealXamlSource)" Outputs="@(_HealXamlGenerated)">
     <Delete Files="@(_HealXamlGenerated)" />
     <Delete Files="$(XamlSavedStateFilePath)" />
-    <Message Importance="high"
-             Text="HealStaleXamlGeneratedCode: generated XAML code was missing or older than the markup - dropping @(_HealXamlGenerated->Count()) files so Pass1 regenerates them from scratch." />
+    <Message Importance="high" Text="HealStaleXamlGeneratedCode: generated XAML code was missing or older than the markup - dropping @(_HealXamlGenerated-&gt;Count()) files so Pass1 regenerates them from scratch." />
   </Target>
 
   <!--  The running app locks its own exe, which fails the build with
@@ -208,7 +207,7 @@
         ("Version 0.3.0" from Major.Minor.Build) and the installer
         filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.3.0.24</Version>
+    <Version>0.3.0.25</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

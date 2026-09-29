@@ -463,8 +463,11 @@ namespace kaliteConfig
                      case "SnipPage":
                          ContentFrame.Navigate(typeof(SnipPage));
                          break;
-                     case "NetworkPage":
+                    case "NetworkPage":
                          ContentFrame.Navigate(typeof(NetworkPage));
+                         break;
+                    case "EtwManagerPage":
+                         ContentFrame.Navigate(typeof(EtwManagerPage));
                          break;
                     case "BenchmarkPage":
                          ContentFrame.Navigate(typeof(BenchmarkPage));

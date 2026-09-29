@@ -99,50 +99,27 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     public IReadOnlyList<string> ColorFormatLabels { get; } = NvidiaColorFormatLabels.All;
     private IReadOnlyList<DynamicRangeChoice> _dynamicRangeChoices = BuildDynamicRangeChoices(NvidiaColorFormatOption.Rgb);
 
-    /// <summary>
-    /// The dynamic-range values the driver will accept for the selected colour format.
-    /// Every YCbCr subsampling mode is limited-range only, so full range is not offered
-    /// alongside one — the two controls are separate in this panel but not in the driver.
-    /// </summary>
-    public IReadOnlyList<DynamicRangeChoice> DynamicRangeChoices
-    {
-        get => _dynamicRangeChoices;
-        private set => SetProperty(ref _dynamicRangeChoices, value);
-    }
+    public ObservableCollection<DynamicRangeChoice> DynamicRangeChoices { get; } = new ObservableCollection<DynamicRangeChoice>();
 
     private static IReadOnlyList<DynamicRangeChoice> BuildDynamicRangeChoices(NvidiaColorFormatOption format) =>
         NvidiaColorMap.ReachableRanges(format)
             .Select(DynamicRangeChoice.For)
             .ToArray();
 
+    private void PopulateDynamicRangeChoices(IReadOnlyList<DynamicRangeChoice> newChoices)
+    {
+        DynamicRangeChoices.Clear();
+        foreach (var choice in newChoices)
+        {
+            DynamicRangeChoices.Add(choice);
+        }
+    }
+
     private DynamicRangeChoice? RangeChoiceFor(NvidiaDynamicRangeOption option) =>
         _dynamicRangeChoices.FirstOrDefault(choice => choice.Option == option);
 
     private IReadOnlyList<NvidiaScalingMode> _scalingModes = NvidiaScalingMap.ModesFor(NvidiaScalingLocation.Display);
-
-    /// <summary>
-    /// The modes on offer for the selected "Perform scaling on" value, as the labels the
-    /// dropdown shows. NvAPI cannot express every mode for every location — the GPU only
-    /// scans out aspect-preserving or at native resolution — so the list is rebuilt whenever
-    /// the location changes.
-    ///
-    /// The entries are plain strings and the selection is an index into this list. A typed
-    /// item bound through <c>DisplayMemberPath</c> left the selection box blank even when
-    /// the list and the selected object were both correct, and strings plus an index are
-    /// what this ComboBox has always rendered. The index is resolved back through this list
-    /// rather than cast to the enum, because trimming the list would otherwise shift every
-    /// position.
-    /// </summary>
-    public IReadOnlyList<string> ScalingModeChoices
-    {
-        get
-        {
-            var labels = new string[_scalingModes.Count];
-            for (int i = 0; i < _scalingModes.Count; i++)
-                labels[i] = NvidiaScalingMap.LabelFor(_scalingModes[i]);
-            return labels;
-        }
-    }
+    public ObservableCollection<string> ScalingModeChoices { get; } = new ObservableCollection<string>();
 
     /// <summary>Position of <paramref name="mode"/> in the current list, or -1 when it is not offered.</summary>
     private int ScalingModeIndexFor(NvidiaScalingMode mode)
@@ -155,9 +132,13 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     /// <summary>Points the list at <paramref name="location"/>'s modes and selects the given one.</summary>
     private void SetScalingModes(NvidiaScalingLocation location, NvidiaScalingMode mode)
     {
-        // ScalingModeChoices is computed off _scalingModes, so the notification has to name
-        // it or the ComboBox keeps the previous list.
-        SetProperty(ref _scalingModes, NvidiaScalingMap.ModesFor(location), nameof(ScalingModeChoices));
+        _scalingModes = NvidiaScalingMap.ModesFor(location);
+        
+        ScalingModeChoices.Clear();
+        foreach (var m in _scalingModes)
+        {
+            ScalingModeChoices.Add(NvidiaScalingMap.LabelFor(m));
+        }
 
         _scalingMode = mode;
         int index = ScalingModeIndexFor(mode);
@@ -298,6 +279,21 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             LoadSavedProfiles();
 
             var profiles = await Task.Run(NvidiaDisplayService.Enumerate);
+            
+            try
+            {
+                var osDisplays = DisplayEnumerationService.Enumerate();
+                foreach (var p in profiles)
+                {
+                    var match = osDisplays.FirstOrDefault(d => d.DeviceName.Equals(p.DeviceName, StringComparison.OrdinalIgnoreCase));
+                    if (match != null && !string.IsNullOrWhiteSpace(match.FriendlyName))
+                    {
+                        p.MonitorName = match.FriendlyName;
+                    }
+                }
+            }
+            catch { }
+
             Displays.Clear();
             foreach (var p in profiles) Displays.Add(p);
 
@@ -503,7 +499,7 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             ColorFormatIndex = (int)source.ColorFormat;
             // The reachable ranges depend on the format just set above, so rebuild the list
             // rather than assuming it already matches.
-            DynamicRangeChoices = BuildDynamicRangeChoices(source.ColorFormat);
+            PopulateDynamicRangeChoices(BuildDynamicRangeChoices(source.ColorFormat));
             _dynamicRange = NvidiaColorMap.ReachableRangeFor(source.ColorFormat, source.DynamicRange);
             ReassertDynamicRangeSelection();
             NvidiaDisplayLog.Write($"ui: loaded color {source.ColorDepth}/{source.ColorFormat}/{_dynamicRange} for {source.DeviceName}");
@@ -637,7 +633,7 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
         _syncing = true;
         try
         {
-            DynamicRangeChoices = BuildDynamicRangeChoices(format);
+            PopulateDynamicRangeChoices(BuildDynamicRangeChoices(format));
 
             _dynamicRange = NvidiaColorMap.ReachableRangeFor(format, desired);
             ReassertDynamicRangeSelection();

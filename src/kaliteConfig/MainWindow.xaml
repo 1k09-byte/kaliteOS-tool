@@ -214,6 +214,15 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="ETW" Tag="EtwManagerPage" Margin="0" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Bench" Tag="BenchmarkPage" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />

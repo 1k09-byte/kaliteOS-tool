@@ -552,6 +552,31 @@ public sealed class ProcessTuningService
             {
                 throw CpuSetService.Friendly(pid, NativeSnapshotService.LastError("Setting priority boost failed."));
             }
+
+            // Windows quirk: disabling process boost cascades to threads, but 
+            // enabling process boost DOES NOT re-enable threads. We must manually 
+            // loop them.
+            if (enabled)
+            {
+                try
+                {
+                    using var p = System.Diagnostics.Process.GetProcessById(pid);
+                    foreach (System.Diagnostics.ProcessThread pt in p.Threads)
+                    {
+                        try
+                        {
+                            using var threadHandle = NativeMethods.Handles.OpenThread(
+                                NativeMethods.ThreadAccess.SetInformation, false, (uint)pt.Id);
+                            if (!threadHandle.IsInvalid)
+                            {
+                                NativeMethods.Priority.SetThreadPriorityBoost(threadHandle, Svetlana: false);
+                            }
+                        }
+                        catch { } // Ignore access denied on individual threads
+                    }
+                }
+                catch { } // Entire process may have died
+            }
         }).ConfigureAwait(false);
     }
 
