@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,35 +17,35 @@ namespace kaliteConfig.ViewModels;
 public sealed partial class DisplayViewModel : ObservableObject, IDisposable
 {
     [ObservableProperty]
-    private ObservableCollection<DisplayInfo> _displays = new();
+    public partial ObservableCollection<DisplayInfo> Displays { get; set; } = new();
 
     [ObservableProperty]
-    private DisplayInfo? _selectedDisplay;
+    public partial DisplayInfo? SelectedDisplay { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<DisplayMode> _availableResolutions = new();
+    public partial ObservableCollection<DisplayMode> AvailableResolutions { get; set; } = new();
 
     [ObservableProperty]
-    private DisplayMode? _selectedResolution;
+    public partial DisplayMode? SelectedResolution { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<DisplayMode> _availableRefreshRates = new();
+    public partial ObservableCollection<DisplayMode> AvailableRefreshRates { get; set; } = new();
 
     [ObservableProperty]
-    private DisplayMode? _selectedRefreshRate;
+    public partial DisplayMode? SelectedRefreshRate { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<int> _availableScales = new();
+    public partial ObservableCollection<int> AvailableScales { get; set; } = new();
 
     [ObservableProperty]
-    private int _selectedScale;
+    public partial int SelectedScale { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ScaleIsSupported))]
-    private bool _isScaleSupported;
+    public partial bool IsScaleSupported { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<RotationOption> _availableRotations = new(new[]
+    public partial ObservableCollection<RotationOption> AvailableRotations { get; set; } = new(new[]
     {
         new RotationOption("Landscape", 0),
         new RotationOption("Portrait", 90),
@@ -55,22 +54,22 @@ public sealed partial class DisplayViewModel : ObservableObject, IDisposable
     });
 
     [ObservableProperty]
-    private RotationOption? _selectedRotation;
+    public partial RotationOption? SelectedRotation { get; set; }
 
     [ObservableProperty]
-    private string _hdrStatusText = "Checking...";
+    public partial string HdrStatusText { get; set; } = "Checking...";
 
     [ObservableProperty]
-    private bool _isHdrEnabled;
+    public partial bool IsHdrEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isHdrSupported;
+    public partial bool IsHdrSupported { get; set; }
 
     [ObservableProperty]
-    private bool _isAwaitingConfirmation;
+    public partial bool IsAwaitingConfirmation { get; set; }
 
     [ObservableProperty]
-    private string _countdownText = "";
+    public partial string CountdownText { get; set; } = "";
 
     private bool _isProgrammaticChange;
     private List<DisplayMode> _allModes = new();

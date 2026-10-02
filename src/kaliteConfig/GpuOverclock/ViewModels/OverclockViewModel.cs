@@ -361,7 +361,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 if (_module.Controller is AmdGpuTuningController amd && !HasAnyControl(amd))
                 {
                     SetUnsupported(
-                        $"Found {id.Value.FullName}. This GPU does not expose any overclocking controls " +
+                        $"Found {id.Value?.FullName ?? "this GPU"}. This GPU does not expose any overclocking controls " +
                         "to the driver - integrated adapters share system memory and have no fan to tune. " +
                         "AMD tuning becomes available on a supported discrete Radeon card.");
                     return;

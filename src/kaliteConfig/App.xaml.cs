@@ -39,24 +39,38 @@ namespace kaliteConfig
         public IThemeService? ThemeService { get; set; }
 
         /// <summary>
-        /// Mica Alt is the app's default material, applied only while the user has never
-        /// picked one in Settings. DevWinUI owns the material and its persistence, and it
-        /// cannot distinguish "the user chose None" from "nothing was chosen yet", so
-        /// applying this unconditionally would silently undo a deliberate None on every
-        /// launch. <see cref="BackdropPreference"/> tracks the choice instead.
+        /// Applies the app's default Material (None - a solid black window surface)
+        /// while the user has not picked one in Settings.
+        ///
+        /// This exists because DevWinUI writes the applied material to disk on
+        /// first launch, so the previous default (Mica Alt) is already stored on
+        /// existing installs and reads back identically to a real user choice. The
+        /// marker in <see cref="BackdropPreference"/> is the only way to tell the
+        /// two apart; once the user picks something, this stops.
+        ///
+        /// The App theme is deliberately NOT forced here: the default is
+        /// "Use system setting", so there is nothing to apply. Material = None
+        /// alone gives the black surface in both Windows themes.
+        ///
+        /// NOTE: this is NOT fire-and-forget. DevWinUI's SetBackdropTypeAsync
+        /// awaits its own initialization task, and that task only completes once
+        /// a window's content is loaded, so it has to run after Activate().
         /// </summary>
-        private void ApplyDefaultBackdropMaterial()
+        private async Task ApplyDefaultAppearanceAsync()
         {
             try
             {
                 var theme = ThemeService;
-                if (theme is null || BackdropPreference.MaterialChosen) return;
+                if (theme is null) return;
 
-                theme.ConfigureBackdrop(DevWinUI.BackdropType.MicaAlt, true);
+                if (!BackdropPreference.MaterialChosen)
+                {
+                    await theme.SetBackdropTypeAsync(DevWinUI.BackdropType.None);
+                }
             }
             catch
             {
-                // A missing system backdrop must never stop the app from starting.
+                // Appearance must never stop the app from starting.
             }
         }
 
@@ -323,8 +337,15 @@ namespace kaliteConfig
                     catch { }
                 };
 
-                ThemeService = new ThemeService().Initialize(_window);
-                ApplyDefaultBackdropMaterial();
+                // App defaults: solid black window surface (Material = None) and the
+                // system theme. The window surface is black either way because
+                // no backdrop is applied, so the app still reads as dark-on-dark
+                // under Windows dark mode without overriding a user who runs
+                // Windows light.
+                ThemeService = new ThemeService()
+                    .ConfigureElementTheme(ElementTheme.Default)
+                    .ConfigureBackdrop(DevWinUI.BackdropType.None, true)
+                    .Initialize(_window);
                 StartedToTray = StartupService.IsTrayLaunch(args.Arguments);
                 if (StartedToTray)
                 {
@@ -338,6 +359,10 @@ namespace kaliteConfig
                 else
                 {
                     _window.Activate();
+                    // After Activate: the backdrop call awaits the theme service's
+                    // initialization, which only completes once the window's
+                    // content is loaded.
+                    _ = ApplyDefaultAppearanceAsync();
                 }
 
                 // Reserved CPU sets reapply: the Run key launches the app with
@@ -389,9 +414,8 @@ namespace kaliteConfig
                     });
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                System.IO.File.WriteAllText("ExceptionDump.txt", ex.ToString());
                 throw;
             }
         }

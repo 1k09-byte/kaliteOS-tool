@@ -3,7 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:kaliteConfig.Models"
-    xmlns:services="using:kaliteConfig.Services"
     Title="New rule"
     PrimaryButtonText="Apply"
     CloseButtonText="Cancel"
@@ -29,11 +28,11 @@
     </ContentDialog.CloseButtonStyle>
 
     <ContentDialog.Resources>
-        <x:Double x:Key="ContentDialogMaxWidth">880</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
     </ContentDialog.Resources>
 
     <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
-        <Grid x:Name="Root" Width="760" RowSpacing="8" KeyDown="Root_KeyDown">
+        <Grid x:Name="Root" Width="1060" RowSpacing="8" KeyDown="Root_KeyDown">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -173,124 +172,110 @@
                 </Border>
             </StackPanel>
 
-            <!-- Thread rules panel -->
-            <StackPanel x:Name="ThreadsPanel" Grid.Row="3" Spacing="8" Visibility="Collapsed">
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="240" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0" PlaceholderText="Search live threads"
-                             Text="{x:Bind ThreadSearch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Column="1" x:Name="LiveSelectedText" Text="0 selected Â· right-click to add rules" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Button Grid.Column="2" Content="Refresh" Click="ThreadsRefresh_Click" />
+            <!-- Thread rules panel: same two-pane tuner as the Process tab's
+                 Threads dialog (Image 2) - saved rules on the left, the same
+                 per-thread editor on the right. A single saved rule (e.g. only
+                 .NET Finalizer) shows just that one row on the left. -->
+            <Grid x:Name="ThreadsPanel" Grid.Row="3" Visibility="Collapsed" ColumnSpacing="20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Thread rule list -->
+                <Grid Grid.Column="0" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="ThreadRulesHeaderText" Grid.Row="0" Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="No thread rules" />
+                    <ListView x:Name="ThreadRulesList" Grid.Row="1" MaxHeight="420" SelectionMode="Single"
+                              ItemsSource="{x:Bind Draft.ThreadRules, Mode=OneWay}"
+                              SelectionChanged="ThreadRulesList_SelectionChanged">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="CornerRadius" Value="6" />
+                                <Setter Property="Margin" Value="0,2,8,2" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:TunerThreadRule">
+                                <Grid ColumnSpacing="8" Padding="0,6">
+                                    <Grid.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem Text="Delete rule" Click="ThreadRule_DeleteFlyout_Click" />
+                                        </MenuFlyout>
+                                    </Grid.ContextFlyout>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE718;" FontSize="11" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                              VerticalAlignment="Center" Visibility="{x:Bind NamedVis, Mode=OneWay}"
+                                              ToolTipService.ToolTip="Named thread - pinned to top" />
+                                    <CheckBox Grid.Column="1" IsChecked="{x:Bind BoostEnabled, Mode=TwoWay}"
+                                              ToolTipService.ToolTip="Priority boost" VerticalAlignment="Center" MinWidth="32" Click="RuleBoostBox_Click" />
+                                    <StackPanel Grid.Column="2" Spacing="1">
+                                        <TextBlock Text="{x:Bind TargetText, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind PriorityText, Mode=OneWay}" FontSize="12"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{x:Bind RuleIdText, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Button Grid.Row="2" Content="Delete rule" Click="ThreadRule_DeleteButton_Click" HorizontalAlignment="Left" />
                 </Grid>
 
-                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid Padding="12,8" ColumnSpacing="12" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="0,0,0,1" Background="{ThemeResource LayerFillColorAltBrush}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70" />
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="1.6*" />
-                                <ColumnDefinition Width="130" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="TID" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="1" Text="Description" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="2" Text="Start address" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="3" Text="Current priority" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </Grid>
-                        <ListView x:Name="LiveThreadsList" Grid.Row="1" MaxHeight="260"
-                                  ItemsSource="{x:Bind FilteredLiveThreads, Mode=OneWay}"
-                                  SelectionMode="Multiple"
-                                  SelectionChanged="LiveThreads_SelectionChanged">
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="services:LiveThreadInfo">
-                                    <Grid Padding="8,6" ColumnSpacing="12" Background="Transparent">
-                                        <Grid.ContextFlyout>
-                                            <MenuFlyout>
-                                                <MenuFlyoutItem Text="Add rule for this thread" Click="LiveThread_AddRule" />
-                                            </MenuFlyout>
-                                        </Grid.ContextFlyout>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="70" />
-                                            <ColumnDefinition Width="2*" />
-                                            <ColumnDefinition Width="1.6*" />
-                                            <ColumnDefinition Width="130" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{x:Bind Tid}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Description}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="2" Text="{x:Bind StartAddress}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="3" Text="{x:Bind RelativeText}" FontSize="12" VerticalAlignment="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </Grid>
-                </Border>
+                <!-- Per-thread-rule editor -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" MaxHeight="480">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Select a thread rule to inspect and tune it." FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   x:Name="RuleNoSelectionText" />
+                        <StackPanel Spacing="10" x:Name="RuleEditorPanel" Visibility="Collapsed">
+                            <TextBlock x:Name="RuleEditorTitle" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="RuleEditorSub" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
-                <Grid>
-                    <TextBlock Text="Saved thread rules" Style="{StaticResource BodyTextBlockStyle}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBlock x:Name="SavedRulesCountText" Text="0 rules" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </Grid>
-                <TextBlock x:Name="NoThreadRulesText" Text="No thread rules added" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Style="{StaticResource BodyTextBlockStyle}" />
-                <ListView x:Name="SavedRulesList" ItemsSource="{x:Bind Draft.ThreadRules, Mode=OneWay}" SelectionMode="None" ShowsScrollingPlaceholders="False">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="models:TunerThreadRule">
-                            <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,8">
-                                <StackPanel Spacing="8">
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{x:Bind TargetText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DetailText, Mode=OneWay}" />
-                                        <Button Grid.Column="1" Content="Delete" Click="SavedRule_Delete" />
-                                    </Grid>
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="220" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <CheckBox Grid.Column="0" Content="Priority" VerticalAlignment="Center" IsChecked="True" IsEnabled="False" ToolTipService.ToolTip="This rule always enforces a thread priority" />
-                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Loaded="SavedRulePriority_Loaded" />
-                                    </Grid>
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="220" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <CheckBox Grid.Column="0" Content="Efficiency mode" VerticalAlignment="Center" IsThreeState="True" IsChecked="{x:Bind EfficiencyMode, Mode=TwoWay}" ToolTipService.ToolTip="Per-thread Efficiency mode (indeterminate = unchanged)" />
-                                    </Grid>
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="220" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <CheckBox Grid.Column="0" Content="Priority boost" VerticalAlignment="Center" IsThreeState="True" IsChecked="{x:Bind BoostEnabled, Mode=TwoWay}" ToolTipService.ToolTip="Per-thread priority boost (indeterminate = unchanged)" />
-                                        <TextBlock Grid.Column="1" Text="Per-thread priority boost" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
-                                    </Grid>
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="220" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <CheckBox Grid.Column="0" x:Name="SavedRuleAffinityBox" Content="CPU affinity" VerticalAlignment="Center" Checked="SavedRuleAffinity_Changed" Unchecked="SavedRuleAffinity_Changed" ToolTipService.ToolTip="Tick to pin this thread to specific cores, untick to leave affinity unchanged" />
-                                        <TextBlock Grid.Column="1" x:Name="SavedRuleAffinityText" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" TextTrimming="CharacterEllipsis" Text="{x:Bind AffinitySummaryText, Mode=OneWay}" />
-                                        <Button Grid.Column="2" Content="Choose..." Click="SavedRulePin_Click" Loaded="SavedRulePin_Loaded" ToolTipService.ToolTip="Pin this thread to specific logical processors (affinity mask)" />
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </StackPanel>
+                            <TextBlock Text="Thread priority" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock x:Name="RulePriorityCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ComboBox x:Name="RulePriorityCombo" Width="220" HorizontalAlignment="Left" PlaceholderText="Select priority…" SelectionChanged="RulePriorityCombo_SelectionChanged">
+                                <ComboBoxItem Content="Idle (-15)" Tag="-15" />
+                                <ComboBoxItem Content="Lowest (-2)" Tag="-2" />
+                                <ComboBoxItem Content="Below normal (-1)" Tag="-1" />
+                                <ComboBoxItem Content="Normal (0)" Tag="0" />
+                                <ComboBoxItem Content="Above normal (+1)" Tag="1" />
+                                <ComboBoxItem Content="Highest (+2)" Tag="2" />
+                                <ComboBoxItem Content="Time critical (+15)" Tag="15" />
+                            </ComboBox>
+
+                            <ToggleSwitch x:Name="RuleBoostToggle" Header="Priority boost" Toggled="RuleBoostToggle_Toggled" ToolTipService.ToolTip="Priority boost - ON = allowed, OFF = off" />
+                            <ToggleSwitch x:Name="RuleEcoToggle" Header="Efficiency mode (EcoQoS)" Toggled="RuleEcoToggle_Toggled" />
+
+                            <TextBlock Text="CPU affinity - tick the CPUs this thread may run on" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock x:Name="RuleAffinityCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            <Grid x:Name="RuleAffinityCpuGrid" ColumnSpacing="6" RowSpacing="6" />
+                            <Button Content="Apply affinity" Click="RuleAffinityApply_Click" HorizontalAlignment="Left" />
+
+                            <TextBlock Text="Ideal processor - pick one preferred CPU the thread's affinity mask allows" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock x:Name="RuleIdealCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            <Grid x:Name="RuleIdealCpuGrid" ColumnSpacing="6" RowSpacing="6" />
+                            <Button Content="Apply ideal processor" Click="RuleIdealApply_Click" HorizontalAlignment="Left" />
+
+                            <Button Content="Delete rule" HorizontalAlignment="Left" Click="ThreadRule_DeleteButton_Click"
+                                    ToolTipService.ToolTip="Remove this thread rule from the profile" />
+
+                            <TextBlock x:Name="RuleEditorStatusBox" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource SystemFillColorCautionBrush}" Visibility="Collapsed" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
 
             <!-- Summary -->
             <Border Grid.Row="4" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,10">

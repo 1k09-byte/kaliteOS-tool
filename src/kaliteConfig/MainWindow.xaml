@@ -8,12 +8,12 @@
     Title="kaliteConfig"
     mc:Ignorable="d">
 
-    <!-- Root background is managed in code-behind (ApplyRootBackground):
-         opaque theme background when Material = None (so the raw black window
-         surface never shows through the transparent nav pane), transparent
-         when a Mica/Acrylic backdrop is active (backdrops render BEHIND the
-         XAML content - an opaque root would hide them). -->
-    <Grid x:Name="RootGrid" UseLayoutRounding="True">
+    <!-- Root background is intentionally left transparent (see ApplyRootBackground
+         in code-behind). With Material = None the raw black window surface shows
+         through, which is what gives the app its solid black look; with a
+         Mica/Acrylic backdrop active the backdrop renders behind the XAML and an
+         opaque root would cover it. -->
+    <Grid x:Name="RootGrid" UseLayoutRounding="True" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -323,31 +323,6 @@
                     </StackPanel>
                 </Border>
             </Grid>
-        </Border>
-
-        <!-- Version Toast (Dropdown at startup) -->
-        <Border x:Name="VersionToast"
-                Grid.Row="1"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="20,10"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Margin="0,-60,0,0"
-                Canvas.ZIndex="150"
-                Opacity="0">
-            <Border.Shadow>
-                <ThemeShadow />
-            </Border.Shadow>
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="VersionToastTransform" Y="0" />
-            </Border.RenderTransform>
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <FontIcon Glyph="&#xE946;" FontSize="14" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
-                <TextBlock x:Name="VersionText" FontWeight="SemiBold" FontSize="13" />
-            </StackPanel>
         </Border>
     </Grid>
 </Window>

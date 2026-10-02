@@ -11,7 +11,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using kaliteConfig.Services;
 using kaliteConfig.ViewModels;
@@ -51,38 +50,18 @@ namespace kaliteConfig.Pages
         /// <summary>x:Bind helper for the per-process boost tick box.</summary>
         public static bool Not(bool value) => !value;
 
-        private static Microsoft.UI.Xaml.Media.Brush ThemeBrush(string key)
-        {
-            try
-            {
-                if (Application.Current.Resources.TryGetValue(key, out var value)
-                    && value is Microsoft.UI.Xaml.Media.Brush brush)
-                    return brush;
-            }
-            catch { }
-            return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        }
-
-        private void ProcessCard_PointerEntered(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Border card)
-            {
-                card.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
-                card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
-            }
-        }
-
-        private void ProcessCard_PointerExited(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Border card)
-            {
-                card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush");
-                card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush");
-            }
-        }
-
         private void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
         {
+            // Processes is the default tab. SelectorBar draws its active
+            // indicator from SelectedItem, which is null until something
+            // selects an item - so on the first visit neither tab was marked
+            // active. Setting it here (rather than only in XAML) also covers
+            // the cached-page case where the selection must survive.
+            if (MainSelectorBar.SelectedItem == null)
+            {
+                MainSelectorBar.SelectedItem = TabProcesses;
+            }
+
             ViewModel.LoadProcessesCommand.Execute(null);
             HookSuspendUi();
             
@@ -125,6 +104,16 @@ namespace kaliteConfig.Pages
             ?? (ProcessesGrid.ItemsSource as System.Collections.Generic.IEnumerable<TunerProcessRow>)?.FirstOrDefault(p => p.Pid == _lastSelectedPid);
 
         private int _lastSelectedPid = -1;
+
+        /// <summary>Disclosure chevron on a process row: expand / collapse its children.</summary>
+        private void RowChevron_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { DataContext: TunerProcessRow row })
+            {
+                ViewModel.ToggleExpanded(row);
+                e.Handled = true; // don't also trigger the row's double-tap
+            }
+        }
 
         private void ProcessesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -545,24 +534,6 @@ namespace kaliteConfig.Pages
         }
 
         private void Action_Threads(object sender, RoutedEventArgs? e) => ExecuteTuning(sender, row => ShowThreadsDialogAsync(row));
-
-        private async void RowThreads_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button { Tag: TunerProcessRow row })
-            {
-                try { await ShowThreadsDialogAsync(row); }
-                catch (Exception ex)
-                {
-                    _ = new ContentDialog
-                    {
-                        Title = "Threads",
-                        Content = new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap },
-                        CloseButtonText = "Close",
-                        XamlRoot = this.XamlRoot
-                    }.ShowAsync();
-                }
-            }
-        }
 
         private async Task ShowThreadsDialogAsync(Models.TunerProcessRow row)
         {

@@ -188,17 +188,17 @@
                                 <Expander x:Name="SectionHeader"
                                           HorizontalAlignment="Stretch"
                                           HorizontalContentAlignment="Stretch"
-                                          IsExpanded="{x:Bind IsMuted, Mode=OneWay, Converter={StaticResource InvertBoolConverter}}">
+                                          IsExpanded="{x:Bind IsMuted, Mode=OneTime, Converter={StaticResource InvertBoolConverter}}">
                                     <Expander.Header>
                                         <StackPanel Spacing="2">
                                             <TextBlock Text="{x:Bind Title}" Style="{StaticResource SectionTitleText}" />
                                             <TextBlock Text="{x:Bind Subtitle}" Style="{StaticResource SettingDescriptionText}"
-                                                       Visibility="{x:Bind HasSubtitle, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                       Visibility="{x:Bind HasSubtitle, Mode=OneTime, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         </StackPanel>
                                     </Expander.Header>
                                     <Border Style="{StaticResource SectionCard}"
                                             Margin="0,6,0,0"
-                                            Background="{x:Bind IsMuted, Mode=OneWay, Converter={StaticResource MutedBackgroundConverter}}">
+                                            Background="{x:Bind IsMuted, Mode=OneTime, Converter={StaticResource MutedBackgroundConverter}}">
                                     <ItemsControl ItemsSource="{x:Bind Rows}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:NvidiaSettingRowViewModel">

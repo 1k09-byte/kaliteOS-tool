@@ -9,7 +9,6 @@
 // without the express written permission of the copyright holder.
 // ==============================================================================
 using System;
-using System.IO;
 using System.Linq;
 using kaliteConfig.PackageManager.Services;
 using kaliteConfig.PackageManager.ViewModels;

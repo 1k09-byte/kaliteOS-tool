@@ -280,11 +280,9 @@ namespace kaliteConfig
             // Window has no Loaded event (WinUI 3) - also schedule via Activated so auto-setup
             // is not missed if NavView is already loaded before we subscribe.
             this.Activated += async (_, _) => await TryRunKaliteOSAutoSetupAsync();
-            this.Activated += (_, _) => { if (!_versionToastShown) { _versionToastShown = true; ShowVersionToast(); } };
             SuppressSidebarTooltips();
         }
 
-        private bool _versionToastShown;
         private bool _materialWatchAttached;
 
         /// <summary>
@@ -318,19 +316,25 @@ namespace kaliteConfig
 
         }
 
+        /// <summary>
+        /// Keeps the root background in sync with the material setting.
+        ///
+        /// The root is left transparent in BOTH cases, which is what makes
+        /// Material = None read as full black:
+        ///
+        ///  - No backdrop: with <c>Window.SystemBackdrop</c> null there is no
+        ///    backdrop to render, and the raw window surface behind the XAML is
+        ///    black. Painting <c>ApplicationPageBackgroundThemeBrush</c> here
+        ///    would replace that with WinUI's dark gray (#202020) - the app stops
+        ///    being black. AutoOS works the same way: its RootGrid only ever gets
+        ///    a brush when the user picked a Tint Color, otherwise nothing paints
+        ///    over the window surface.
+        ///  - Backdrop active: backdrops render BEHIND the XAML content, so an
+        ///    opaque root would hide them entirely.
+        /// </summary>
         private void ApplyRootBackground()
         {
-            var svc = (Application.Current as App)?.ThemeService;
-            var backdropType = DevWinUI.BackdropType.None;
-            try
-            {
-                if (svc != null) backdropType = svc.BackdropType;
-            }
-            catch { }
-            bool hasBackdrop = backdropType != DevWinUI.BackdropType.None;
-            RootGrid.Background = hasBackdrop
-                ? null // let the backdrop show through
-                : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["ApplicationPageBackgroundThemeBrush"]; // opaque
+            RootGrid.Background = null;
         }
 
         private async Task ShowElevationDialogAsync()
@@ -722,61 +726,6 @@ namespace kaliteConfig
             }
 
             return null;
-        }
-
-        private async void ShowVersionToast()
-        {
-#if DEBUG
-            VersionText.Text = "Welcome to dev tool";
-#else
-            var asmVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (!kaliteConfig.Services.StartupService.IsPackaged)
-            {
-                VersionText.Text = $"kaliteConfig v{asmVer?.ToString() ?? "release"}";
-            }
-            else
-            {
-                try
-                {
-                    var package = Windows.ApplicationModel.Package.Current;
-                    var version = package.Id.Version;
-                    VersionText.Text = $"kaliteConfig v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
-                }
-                catch
-                {
-                    VersionText.Text = $"kaliteConfig v{asmVer?.ToString() ?? "release"}";
-                }
-            }
-#endif
-
-            var board = new Storyboard();
-            
-            var opAnim = new DoubleAnimation { To = 1, Duration = TimeSpan.FromMilliseconds(400) };
-            Storyboard.SetTarget(opAnim, VersionToast);
-            Storyboard.SetTargetProperty(opAnim, "Opacity");
-            
-            var trAnim = new DoubleAnimation { To = 84, Duration = TimeSpan.FromMilliseconds(600), EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut } };
-            Storyboard.SetTarget(trAnim, VersionToastTransform);
-            Storyboard.SetTargetProperty(trAnim, "Y");
-
-            board.Children.Add(opAnim);
-            board.Children.Add(trAnim);
-            board.Begin();
-
-            await Task.Delay(8000);
-
-            var boardOut = new Storyboard();
-            var opAnimOut = new DoubleAnimation { To = 0, Duration = TimeSpan.FromMilliseconds(400) };
-            Storyboard.SetTarget(opAnimOut, VersionToast);
-            Storyboard.SetTargetProperty(opAnimOut, "Opacity");
-            
-            var trAnimOut = new DoubleAnimation { To = 0, Duration = TimeSpan.FromMilliseconds(400), EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseIn } };
-            Storyboard.SetTarget(trAnimOut, VersionToastTransform);
-            Storyboard.SetTargetProperty(trAnimOut, "Y");
-
-            boardOut.Children.Add(opAnimOut);
-            boardOut.Children.Add(trAnimOut);
-            boardOut.Begin();
         }
     }
 }

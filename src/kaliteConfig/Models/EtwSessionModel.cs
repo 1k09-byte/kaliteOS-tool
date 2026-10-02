@@ -5,27 +5,27 @@ namespace kaliteConfig.Models
     public partial class EtwSessionModel : ObservableObject
     {
         [ObservableProperty]
-        private string name = string.Empty;
+        public partial string Name { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string logFilePath = string.Empty;
+        public partial string LogFilePath { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private bool isRunning;
+        public partial bool IsRunning { get; set; }
 
         [ObservableProperty]
-        private uint buffersWritten;
+        public partial uint BuffersWritten { get; set; }
 
         [ObservableProperty]
-        private bool isAutoLoggerEnabled;
+        public partial bool IsAutoLoggerEnabled { get; set; }
         
         [ObservableProperty]
-        private bool canToggle = true;
+        public partial bool CanToggle { get; set; } = true;
 
         [ObservableProperty]
-        private string description = string.Empty;
+        public partial string Description { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private string category = "Other";
+        public partial string Category { get; set; } = "Other";
     }
 }

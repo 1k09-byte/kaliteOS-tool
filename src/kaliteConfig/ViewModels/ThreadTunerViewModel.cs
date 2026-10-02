@@ -28,6 +28,13 @@ namespace kaliteConfig.ViewModels;
 
 public sealed partial class ThreadTunerViewModel : ObservableObject
 {
+    /// <summary>
+    /// Hard ceiling on process-tree depth. Real chains are 2-4 deep; the cap
+    /// exists only so a PID cycle (parent chain that loops back on itself,
+    /// possible while PIDs are being recycled) can't spin forever.
+    /// </summary>
+    private const int MaxTreeDepth = 24;
+
     private readonly ProcessTuningService _tuning;
     private readonly CpuSetService _cpuSets;
     private readonly ThreadTuningService _threads;
@@ -40,10 +47,20 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private bool _initialThreadsLoaded;
     private DispatcherQueueTimer? _searchTimer;
 
+    /// <summary>PIDs we already attempted an icon load for (avoids re-hitting
+    /// disk every 2 s tick for icon-less pseudo-processes).</summary>
+    private readonly HashSet<int> _iconTried = new();
+
+    /// <summary>Cached fallback bitmap: the real wininit.exe icon. Icon-less
+    /// pseudo-processes (System, Registry, ...) show this instead of the
+    /// blank-page glyph, matching the wininit.exe row.</summary>
+    private Microsoft.UI.Xaml.Media.Imaging.BitmapImage? _fallbackAppIcon;
+
     private readonly string _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "threadtuner-settings.json");
 
     private class ThreadTunerSettings
     {
+        public bool ShowCounterDeltas { get; set; }
     }
 
     public ObservableCollection<TunerProcessRow> Processes { get; } = new();
@@ -68,6 +85,34 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string ThreadTuneLoadingText { get; set; } = "Scanning system threads...";
+
+    /// <summary>
+    /// Shows the Context switches / Cycles delta columns. Turning it off also
+    /// stops collecting them: <see cref="ProcessTuningService.CollectCounters"/>
+    /// is set from here, so the per-tick thread snapshot is skipped entirely
+    /// rather than computed and thrown away.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCounterDeltasVis))]
+    public partial bool ShowCounterDeltas { get; set; }
+
+    /// <summary>Header cells for the counter columns collapse with the toggle.</summary>
+    public Microsoft.UI.Xaml.Visibility ShowCounterDeltasVis =>
+        ShowCounterDeltas ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    partial void OnShowCounterDeltasChanged(bool value)
+    {
+        _tuning.CollectCounters = value;
+        // Coming back on: the stored baseline is stale by however long the
+        // toggle was off, so the first tick would show a huge bogus delta.
+        if (value) _tuning.ResetCounterBaselines();
+        // Re-mirror onto the rows so their columns collapse immediately.
+        RefreshDisplayedProcesses();
+        _ = SaveSettingsAsync();
+    }
+
+    /// <summary>PIDs the user has collapsed in the process tree.</summary>
+    private readonly HashSet<int> _collapsed = new();
 
     /// <summary>Unnamed threads are always hidden; no toggle exists in the UI.</summary>
     public bool HideUnnamedThreads => true;
@@ -198,8 +243,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             var settings = JsonSerializer.Deserialize<ThreadTunerSettings>(text);
             if (settings != null)
             {
+                ShowCounterDeltas = settings.ShowCounterDeltas;
             }
             }
+            // No settings file yet: honor the default without writing one out.
+            _tuning.CollectCounters = ShowCounterDeltas;
         }
         catch { }
     }
@@ -208,7 +256,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     {
         try
         {
-            var settings = new ThreadTunerSettings();
+            var settings = new ThreadTunerSettings { ShowCounterDeltas = ShowCounterDeltas };
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
             await File.WriteAllTextAsync(_settingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
@@ -261,17 +309,22 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public void RefreshDisplayedProcesses()
     {
         string filter = (RulesFilter ?? string.Empty).Trim();
-        var matching = new List<TunerProcessRow>();
+        var matching = filter.Length == 0
+            ? OrderAsTree(Processes)
+            : FlattenMatches(filter);
+
+        // Depth / HasChildren were recomputed by OrderAsTree above even though the
+        // visible set may not have changed (a child can come or go between
+        // ticks without the set itself changing).
+
+        // Mirror the counter toggle onto every row, including filtered-out ones,
+        // so the template binds per row and rehydrates correctly.
+        bool showCounters = ShowCounterDeltas;
         foreach (var p in Processes)
         {
-            if (filter.Length == 0
-                || p.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
-                || p.Pid.ToString().Contains(filter, StringComparison.Ordinal))
-            {
-                matching.Add(p);
-            }
+            if (p.ShowCounters != showCounters) p.ShowCounters = showCounters;
         }
-        
+
         var matchingPids = new HashSet<int>();
         foreach (var m in matching) matchingPids.Add(m.Pid);
 
@@ -294,9 +347,9 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     for(int j = i + 1; j < DisplayedProcesses.Count; j++) {
                         if (DisplayedProcesses[j].Pid == p.Pid) { currentIdx = j; break; }
                     }
-                    if (currentIdx != -1) 
+                    if (currentIdx != -1)
                         DisplayedProcesses.Move(currentIdx, i);
-                    else 
+                    else
                         DisplayedProcesses.Insert(i, p);
                 }
             }
@@ -305,6 +358,114 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 DisplayedProcesses.Add(p);
             }
         }
+    }
+
+    /// <summary>
+    /// Depth-first ordering that nests each process under its parent, skipping
+    /// the subtree of a collapsed row. Returns the rows in display order.
+    ///
+    /// A process whose parent is not in the live list (already exited, or we
+    /// couldn't read the parent PID) becomes a root. Cycles are broken by the
+    /// <c>visited</c> set plus <see cref="MaxTreeDepth"/>.
+    /// </summary>
+    private List<TunerProcessRow> OrderAsTree(IEnumerable<TunerProcessRow> all)
+    {
+        var byPid = new Dictionary<int, TunerProcessRow>();
+        var children = new Dictionary<int, List<TunerProcessRow>>();
+        var roots = new List<TunerProcessRow>();
+
+        // Materialized once: this runs on every 2 s tick and the walk below
+        // iterates the source several times.
+        var allRows = all as IReadOnlyList<TunerProcessRow> ?? all.ToList();
+
+        foreach (var p in allRows)
+        {
+            byPid[p.Pid] = p;
+            p.HasChildren = false;
+        }
+
+        foreach (var p in allRows)
+        {
+            if (p.ParentPid != 0 && p.ParentPid != p.Pid && byPid.TryGetValue(p.ParentPid, out var parent))
+            {
+                if (!children.TryGetValue(parent.Pid, out var list))
+                    children[parent.Pid] = list = new List<TunerProcessRow>();
+                list.Add(p);
+                parent.HasChildren = true;
+            }
+            else
+            {
+                roots.Add(p);
+            }
+        }
+
+        var ordered = new List<TunerProcessRow>(allRows.Count);
+        var visited = new HashSet<int>();
+        foreach (var root in roots)
+        {
+            Walk(root, 0, children, ordered, visited);
+        }
+
+        // Anything the walk didn't reach (shouldn't happen, but a cycle among
+        // non-root rows could) still has to be visible rather than dropped.
+        foreach (var p in allRows)
+        {
+            if (!visited.Contains(p.Pid))
+            {
+                p.Depth = 0;
+                ordered.Add(p);
+            }
+        }
+
+        return ordered;
+    }
+
+    private void Walk(TunerProcessRow row, int depth, Dictionary<int, List<TunerProcessRow>> children,
+        List<TunerProcessRow> output, HashSet<int> visited)
+    {
+        if (!visited.Add(row.Pid)) return;
+
+        row.Depth = depth;
+        output.Add(row);
+
+        if (!children.TryGetValue(row.Pid, out var kids) || depth >= MaxTreeDepth) return;
+
+        row.IsExpanded = !_collapsed.Contains(row.Pid);
+        if (!row.IsExpanded) return;
+
+        foreach (var kid in kids)
+        {
+            Walk(kid, depth + 1, children, output, visited);
+        }
+    }
+
+    /// <summary>
+    /// Search result set. A search flattens the tree on purpose: matching a
+    /// child should not require its parent to match too, and a filtered list
+    /// that re-nests under rows which aren't shown reads as random indentation.
+    /// </summary>
+    private List<TunerProcessRow> FlattenMatches(string filter)
+    {
+        var matching = new List<TunerProcessRow>();
+        foreach (var p in Processes)
+        {
+            if (p.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                || p.Pid.ToString().Contains(filter, StringComparison.Ordinal))
+            {
+                p.Depth = 0;
+                p.HasChildren = false;
+                matching.Add(p);
+            }
+        }
+        return matching;
+    }
+
+    /// <summary>Expands or collapses a process row's children in the tree.</summary>
+    public void ToggleExpanded(TunerProcessRow row)
+    {
+        if (row is null || !row.HasChildren) return;
+        if (!_collapsed.Add(row.Pid)) _collapsed.Remove(row.Pid);
+        RefreshDisplayedProcesses();
     }
 
     public void RefreshDisplayedProfiles()
@@ -354,10 +515,10 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     // New process: take the row as enumerated.
                     Processes.Add(p);
                     changed = true;
-                    if (!string.IsNullOrEmpty(p.Path))
-                    {
-                        _ = ExtractIconAsync(p);
-                    }
+                    // Unconditional: a protected process has no readable Path but
+                    // ExtractIconAsync falls back to System32, so gating on a
+                    // non-empty Path is what kept locked processes icon-less.
+                    _ = ExtractIconAsync(p);
                 }
                 else
                 {
@@ -370,6 +531,10 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     if (existing.BoostAllowed != p.BoostAllowed) existing.BoostAllowed = p.BoostAllowed;
                     if (existing.State != p.State) existing.State = p.State;
                     if (existing.Error != p.Error) existing.Error = p.Error;
+                    // Backfill: rows that were icon-less before the wininit
+                    // fallback existed get one retry so the blank glyph disappears.
+                    if (existing.AppIcon == null && _iconTried.Add(existing.Pid))
+                        _ = ExtractIconAsync(existing);
                 }
             }
 
@@ -390,26 +555,139 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         });
     }
 
+    /// <summary>
+    /// Loads the row's executable icon.
+    ///
+    /// Protected processes (csrss.exe, winlogon.exe, ...) cannot have their module
+    /// path read, so <see cref="TunerProcessRow.Path"/> is empty and there is
+    /// nothing to open. Those still have a real icon on disk - the one Windows
+    /// itself shows in Task Manager - so fall back to locating the image by name
+    /// in System32 / SysWOW64. This is what keeps locked processes showing their
+    /// genuine icon instead of the generic glyph.
+    ///
+    /// Pseudo-processes with no file at all (System, Registry, ...) get the
+    /// wininit.exe icon as the shared fallback, so no row ever shows the
+    /// blank-page glyph.
+    /// </summary>
     private async Task ExtractIconAsync(TunerProcessRow row)
     {
+        _iconTried.Add(row.Pid);
         try
         {
-            var sf = await Windows.Storage.StorageFile.GetFileFromPathAsync(row.Path);
-            var tb = await sf.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.SingleItem, 32);
-            if (tb != null && tb.Size > 0)
+            string path = row.Path;
+            if (string.IsNullOrWhiteSpace(path))
             {
-                _dispatcher.TryEnqueue(async () =>
+                path = ResolveSystemImagePath(row.Name) ?? string.Empty;
+            }
+            Windows.Storage.Streams.IRandomAccessStreamWithContentType? thumb = null;
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                try
                 {
-                    try 
+                    var sf = await Windows.Storage.StorageFile.GetFileFromPathAsync(path);
+                    var tb = await sf.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.SingleItem, 32);
+                    if (tb != null && tb.Size > 0)
+                        thumb = tb;
+                }
+                catch { }
+            }
+            // No file-backed icon (System, Registry, ...): fall back to the
+            // wininit.exe bytes - the blue window icon from the PRC list.
+            // Copied to a byte array once, so every row decodes from its own
+            // in-memory stream: sharing one thumbnail stream across rows raced
+            // on Seek and left some rows icon-less.
+            byte[]? fallbackBytes = null;
+            if (thumb == null)
+            {
+                fallbackBytes = await GetFallbackIconBytesAsync();
+                if (fallbackBytes == null) return;
+            }
+            var finalThumb = thumb;
+            var finalFallbackBytes = fallbackBytes;
+            _dispatcher.TryEnqueue(async () =>
+            {
+                try
+                {
+                    if (row.AppIcon != null) return;
+                    if (finalThumb != null)
                     {
                         var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-                        await bmp.SetSourceAsync(tb);
+                        try { finalThumb.Seek(0); } catch { }
+                        await bmp.SetSourceAsync(finalThumb);
                         row.AppIcon = bmp;
-                    } catch { }
-                });
-            }
+                        return;
+                    }
+                    // Reuse the shared bitmap when another row already decoded it.
+                    if (_fallbackAppIcon != null)
+                    {
+                        row.AppIcon = _fallbackAppIcon;
+                        return;
+                    }
+                    using var mem = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    var writer = new Windows.Storage.Streams.DataWriter(mem);
+                    writer.WriteBytes(finalFallbackBytes!);
+                    await writer.StoreAsync();
+                    writer.DetachStream();
+                    mem.Seek(0);
+                    var fallbackBmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+                    await fallbackBmp.SetSourceAsync(mem);
+                    _fallbackAppIcon = fallbackBmp;
+                    row.AppIcon = fallbackBmp;
+                }
+                catch { }
+            });
         }
         catch { }
+    }
+
+    private byte[]? _fallbackIconBytes;
+
+    /// <summary>Reads the wininit.exe thumbnail into memory once. Every
+    /// icon-less row decodes its own copy, so no stream is ever shared.</summary>
+    private async Task<byte[]?> GetFallbackIconBytesAsync()
+    {
+        if (_fallbackIconBytes != null) return _fallbackIconBytes;
+        try
+        {
+            string? path = ResolveSystemImagePath("wininit.exe");
+            if (string.IsNullOrWhiteSpace(path)) return null;
+            var sf = await Windows.Storage.StorageFile.GetFileFromPathAsync(path);
+            using var tb = await sf.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.SingleItem, 32);
+            if (tb == null || tb.Size == 0) return null;
+            var reader = new Windows.Storage.Streams.DataReader(tb);
+            await reader.LoadAsync((uint)tb.Size);
+            var bytes = new byte[tb.Size];
+            reader.ReadBytes(bytes);
+            reader.DetachStream();
+            _fallbackIconBytes = bytes;
+            return bytes;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Finds a system executable's file by bare name, for processes whose real
+    /// path is unreadable. Checks System32 then SysWOW64 (a 32-bit process on
+    /// 64-bit Windows lives in the latter).
+    /// </summary>
+    private static string? ResolveSystemImagePath(string exeName)
+    {
+        if (string.IsNullOrWhiteSpace(exeName)) return null;
+        string file = exeName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? exeName : exeName + ".exe";
+
+        string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(windows)) return null;
+
+        foreach (string dir in new[] { "System32", "SysWOW64" })
+        {
+            try
+            {
+                string candidate = System.IO.Path.Combine(windows, dir, file);
+                if (System.IO.File.Exists(candidate)) return candidate;
+            }
+            catch { }
+        }
+        return null;
     }
 
     private async Task RefreshCpuAsync()
@@ -534,14 +812,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 }
                 return rows.OrderBy(r => r.ProcessName).ThenBy(r => r.Tid).ToList();
             }
-            catch (Exception ex)
+            catch
             {
-                System.IO.File.WriteAllText("threadtune_crash.txt", ex.ToString());
                 return rows;
             }
         });
-
-        System.IO.File.WriteAllText("threadtune_count.txt", allRows.Count.ToString());
 
         _dispatcher.TryEnqueue(() =>
         {

@@ -49,7 +49,7 @@ public sealed partial class SimpleDriverSettingsPage : Page
         };
     }
 
-    private async void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
         Vm.SearchText = sender.Text;
@@ -250,11 +250,12 @@ public sealed partial class NvidiaPresetStepViewModel : ObservableObject
     /// <summary>Only a resolved step can be included; a skipped one is locked off.</summary>
     public bool CanInclude => Resolution.Resolved;
 
-    [ObservableProperty] private bool isIncluded;
+    [ObservableProperty]
+    public partial bool IsIncluded { get; set; }
 
     public NvidiaPresetStepViewModel(NvidiaPresetStepResolution resolution)
     {
         Resolution = resolution;
-        isIncluded = resolution.Resolved;
+        IsIncluded = resolution.Resolved;
     }
 }

@@ -18,13 +18,13 @@ namespace kaliteConfig.ViewModels
         private List<EtwSessionModel> _allSessionsCache = new();
 
         [ObservableProperty]
-        private ObservableCollection<EtwSessionGroup> groupedSessions = new();
+        public partial ObservableCollection<EtwSessionGroup> GroupedSessions { get; set; } = new();
 
         [ObservableProperty]
-        private string searchQuery = string.Empty;
+        public partial string SearchQuery { get; set; } = string.Empty;
 
         [ObservableProperty]
-        private bool isRefreshing;
+        public partial bool IsRefreshing { get; set; }
 
         public EtwManagerViewModel()
         {

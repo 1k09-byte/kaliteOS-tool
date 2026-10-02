@@ -80,6 +80,25 @@ public sealed class ProcessTuningService
 
     public bool SnapshotLimited => _snapshot.Limited;
 
+    /// <summary>
+    /// Whether the Context switches / Cycles deltas are collected at all. The
+    /// toggle in the UI owns this: when false, the per-tick SystemProcessInformation
+    /// snapshot is never taken, so the cost is genuinely zero rather than
+    /// computed and discarded.
+    /// </summary>
+    public bool CollectCounters { get; set; } = true;
+
+    /// <summary>
+    /// Drops the stored per-PID totals so the next sample re-baselines instead
+    /// of reporting the whole gap as one enormous delta. Called when the user
+    /// switches the columns back on.
+    /// </summary>
+    public void ResetCounterBaselines()
+    {
+        _lastContextSwitches.Clear();
+        _lastCycles.Clear();
+    }
+
     public static bool IsCritical(string name, int pid)
     {
         if (pid <= 4)
@@ -127,6 +146,10 @@ public sealed class ProcessTuningService
             var rows = new List<TunerProcessRow>();
             Dictionary<int, string>? wmiNames = null;
 
+            // Parent PID for the process tree. One native snapshot covers every
+            // process, which is far cheaper than a per-PID Toolhelp walk.
+            var parentPids = GetParentPids();
+
             foreach (var proc in Process.GetProcesses())
             {
                 int pid;
@@ -159,7 +182,8 @@ public sealed class ProcessTuningService
                 { 
                     Pid = pid, 
                     Name = name,
-                    IsProtected = _protectedProcess.IsProcessProtected(pid) 
+                    IsProtected = _protectedProcess.IsProcessProtected(pid),
+                    ParentPid = parentPids.GetValueOrDefault(pid)
                 };
                 FillStatic(row);
                 rows.Add(row);
@@ -167,6 +191,51 @@ public sealed class ProcessTuningService
 
             return rows;
         }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One Toolhelp32 pass returning PID → parent PID for every process, used to
+    /// build the process tree. Far cheaper than opening each process, and it sees
+    /// processes that deny PROCESS_QUERY_INFORMATION.
+    /// Returns an empty map on failure - callers treat "no parent" as root.
+    /// </summary>
+    private static Dictionary<int, int> GetParentPids()
+    {
+        var map = new Dictionary<int, int>(512);
+        try
+        {
+            IntPtr snapshot = NativeMethods.Toolhelp.CreateToolhelp32Snapshot(
+                NativeMethods.Toolhelp.TH32CS_SNAPPROCESS, 0);
+            if (snapshot == IntPtr.Zero || snapshot == new IntPtr(-1)) return map;
+
+            try
+            {
+                var entry = new NativeMethods.Toolhelp.PROCESSENTRY32
+                {
+                    dwSize = (uint)Marshal.SizeOf<NativeMethods.Toolhelp.PROCESSENTRY32>()
+                };
+
+                if (NativeMethods.Toolhelp.Process32First(snapshot, ref entry))
+                {
+                    do
+                    {
+                        map[(int)entry.th32ProcessID] = (int)entry.th32ParentProcessID;
+                        entry.dwSize = (uint)Marshal.SizeOf<NativeMethods.Toolhelp.PROCESSENTRY32>();
+                    }
+                    while (NativeMethods.Toolhelp.Process32Next(snapshot, ref entry));
+                }
+            }
+            finally
+            {
+                NativeMethods.Handles.CloseHandle(snapshot);
+            }
+        }
+        catch
+        {
+            map.Clear();
+        }
+
+        return map;
     }
 
     /// <summary>
@@ -219,9 +288,15 @@ public sealed class ProcessTuningService
             int cpus = LogicalProcessorCount();
             var result = new Dictionary<int, (double Cpu, long MemoryMb, int Threads, long ContextSwitches, long Cycles)>();
             
-            var snapshotList = _snapshot.TrySnapshot();
-            var snapDict = new Dictionary<int, kaliteConfig.Native.SnapshotProcess>();
-            foreach (var s in snapshotList) snapDict[(int)s.ProcessId] = s;
+            // The SystemProcessInformation snapshot walks every thread of every
+            // process in the system - the single most expensive thing this tick
+            // does. Skip it entirely when the deltas aren't being shown.
+            Dictionary<int, kaliteConfig.Native.SnapshotProcess>? snapDict = null;
+            if (CollectCounters)
+            {
+                snapDict = new Dictionary<int, kaliteConfig.Native.SnapshotProcess>();
+                foreach (var s in _snapshot.TrySnapshot()) snapDict[(int)s.ProcessId] = s;
+            }
 
             // Bulk enumerate to avoid N+1 GetProcessById overheads (which cause heavy CPU spikes).
             var liveMemoryAndThreads = new Dictionary<int, (long WorkingSet64, int ThreadCount)>();
@@ -270,7 +345,7 @@ public sealed class ProcessTuningService
                     long contextSwitchesDelta = 0;
                     long cyclesDelta = 0;
                     
-                    if (snapDict.TryGetValue(row.Pid, out var snapProcess))
+                    if (snapDict != null && snapDict.TryGetValue(row.Pid, out var snapProcess))
                     {
                         long totalSwitches = 0;
                         foreach (var thread in snapProcess.Threads)
