@@ -143,7 +143,7 @@ namespace kaliteConfig.Services
             LastExtractError = null;
             try
             {
-                string zExe = ResolveFullSevenZip(logCallback, ct);
+                string? zExe = ResolveFullSevenZip(logCallback, ct);
                 if (zExe is null)
                 {
                     LastExtractError = "7-Zip could not be found. The AMD driver is a self-extracting .exe, which only the full 7-Zip build can open - install it from https://www.7-zip.org/ and press Retry.";

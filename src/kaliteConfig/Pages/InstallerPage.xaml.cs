@@ -72,7 +72,7 @@ namespace kaliteConfig.Pages
         {
             // A RadioButton in a group is already mutually exclusive, so the
             // sender's identity is enough to decide the mode.
-            ViewModel.ViewMode = sender == ViewCardBtn ? AppViewMode.Card : AppViewMode.Compact;
+            ViewModel.ViewMode = ReferenceEquals(sender, ViewCardBtn) ? AppViewMode.Card : AppViewMode.Compact;
             ApplyViewMode();
         }
 

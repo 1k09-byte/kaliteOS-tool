@@ -34,6 +34,11 @@ namespace kaliteConfig.Pages
         // inert so the XAML banner compiles but never opens.
         private readonly ViewModels.UpdateViewModel Vm = new();
 
+        // ThemeServiceAttach restores the saved ComboBox selection during the
+        // ComboBox's own Loaded, which raises SelectionChanged. Ignore those and
+        // only record a Material the user actually picked.
+        private static bool _appearanceReady;
+
         public SettingsPage()
         {
             InitializeComponent();
@@ -48,18 +53,24 @@ namespace kaliteConfig.Pages
             catch { }
             Loaded += SettingsPage_Loaded;
 
-            // Once a material has been picked here, the app's Mica Alt default must stop
-            // overriding it on the next launch. DevWinUI persists the material itself but
-            // offers no way to tell a deliberate "None" from an unset value, so the
-            // decision is recorded separately.
+            // App theme / Material are owned and persisted by DevWinUI's ThemeService:
+            // the ComboBoxes are wired through ThemeServiceAttach, which restores the
+            // saved choice on load and writes a new one on selection. The Material
+            // default (None = solid black surface) is only applied while the user has
+            // never picked one, so record the first change here.
             backdropMode.SelectionChanged += BackdropMode_SelectionChanged;
         }
 
         private void BackdropMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
-            => BackdropPreference.MaterialChosen = true;
+        {
+            if (_appearanceReady) BackdropPreference.MaterialChosen = true;
+        }
 
         private async void SettingsPage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
+            // From here on, any Appearance selection is the user's.
+            _appearanceReady = true;
+
             _syncingStartupToggle = true;
             try
             {

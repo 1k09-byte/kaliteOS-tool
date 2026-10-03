@@ -17,9 +17,7 @@ using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 
 namespace kaliteConfig.ViewModels
@@ -565,12 +563,6 @@ namespace kaliteConfig.ViewModels
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
 
-        /// <summary>Isolates the lowest set bit (first thread of a core mask).</summary>
-        private static ulong LowestSetBit(ulong mask) => mask & (ulong)(-(long)mask);
-
-        /// <summary>Isolates the highest set bit (last thread of a core mask).</summary>
-        private static ulong HighestSetBit(ulong mask) => 1UL << BitOperations.Log2(mask);
-
         [RelayCommand]
         private async Task OptimizeAsync()
         {
@@ -756,16 +748,6 @@ namespace kaliteConfig.ViewModels
                     _affinityService.SetAffinityMask(change.DeviceId, newMask);
                     break;
             }
-        }
-
-        private List<AffinityDeviceItem> GetAllDevices()
-        {
-            var all = new List<AffinityDeviceItem>();
-            all.AddRange(GraphicsDevices);
-            all.AddRange(NetworkDevices);
-            all.AddRange(UsbDevices);
-            all.AddRange(AudioDevices);
-            return all;
         }
 
         private static int PolicyNameToInt(string name) => name switch

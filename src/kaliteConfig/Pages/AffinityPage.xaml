@@ -332,27 +332,6 @@
                         Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
                 </StackPanel>
                 
-                <!-- 1-Click Auto Optimizer Banner -->
-                <Button Command="{x:Bind ViewModel.OptimizeCommand}" IsEnabled="{x:Bind local:AffinityPage.Not(ViewModel.IsOptimizing), Mode=OneWay}"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0" BorderThickness="0" Background="Transparent" Margin="0,0,0,4">
-                    <Border
-                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                        CornerRadius="8"
-                        Padding="16,12">
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Grid.Column="0" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="24" Glyph="&#xE943;" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="1-Click Auto-Optimize" Style="{StaticResource BodyStrongTextBlockStyle}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
-                                <TextBlock Text="Intelligently assign Network, USB, and GPU interrupts to explicit threads based on total physical core counts and SMT/HyperThreading." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextOnAccentFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Button>
-
                 <!-- Pending-actions toolbar (layout only: tuning pass wires these up) -->
                 <Border
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

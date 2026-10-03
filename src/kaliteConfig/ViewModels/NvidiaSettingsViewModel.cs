@@ -48,7 +48,7 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     private int _secondsRemaining;
 
     [ObservableProperty]
-    private ObservableCollection<NvidiaDisplayProfile> displays = new();
+    public partial ObservableCollection<NvidiaDisplayProfile> Displays { get; set; } = new();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
@@ -66,18 +66,27 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ColorNote))]
     [NotifyPropertyChangedFor(nameof(BrightnessText))]
     [NotifyPropertyChangedFor(nameof(ContrastText))]
-    private NvidiaDisplayProfile? selectedDisplay;
+    public partial NvidiaDisplayProfile? SelectedDisplay { get; set; }
 
     // ── draft values ──
-    [ObservableProperty] private double digitalVibrance;
-    [ObservableProperty] private double brightness;
-    [ObservableProperty] private double contrast;
-    [ObservableProperty] private double gamma = 1.0;
-    [ObservableProperty] private double hue;
-    [ObservableProperty] private bool hdrEnabled;
-    [ObservableProperty] private double redGain;
-    [ObservableProperty] private double greenGain;
-    [ObservableProperty] private double blueGain;
+    [ObservableProperty]
+    public partial double DigitalVibrance { get; set; }
+    [ObservableProperty]
+    public partial double Brightness { get; set; }
+    [ObservableProperty]
+    public partial double Contrast { get; set; }
+    [ObservableProperty]
+    public partial double Gamma { get; set; } = 1.0;
+    [ObservableProperty]
+    public partial double Hue { get; set; }
+    [ObservableProperty]
+    public partial bool HdrEnabled { get; set; }
+    [ObservableProperty]
+    public partial double RedGain { get; set; }
+    [ObservableProperty]
+    public partial double GreenGain { get; set; }
+    [ObservableProperty]
+    public partial double BlueGain { get; set; }
 
     // The five choice fields are surfaced as indexes rather than enums: the controls that
     // drive them (RadioButtons, ComboBox) all speak SelectedIndex, and routing through an
@@ -88,11 +97,16 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     private NvidiaColorFormatOption _colorFormat;
     private NvidiaDynamicRangeOption _dynamicRange;
 
-    [ObservableProperty] private int scalingLocationIndex;
-    [ObservableProperty] private int scalingModeIndex;
-    [ObservableProperty] private int colorDepthIndex;
-    [ObservableProperty] private int colorFormatIndex;
-    [ObservableProperty] private DynamicRangeChoice? dynamicRangeChoice;
+    [ObservableProperty]
+    public partial int ScalingLocationIndex { get; set; }
+    [ObservableProperty]
+    public partial int ScalingModeIndex { get; set; }
+    [ObservableProperty]
+    public partial int ColorDepthIndex { get; set; }
+    [ObservableProperty]
+    public partial int ColorFormatIndex { get; set; }
+    [ObservableProperty]
+    public partial DynamicRangeChoice? DynamicRangeChoice { get; set; }
 
     public IReadOnlyList<string> ScalingLocationLabels { get; } = new[] { "Display", "GPU" };
     public IReadOnlyList<string> ColorDepthLabels { get; } = new[] { "8 bpc (RGB)", "10 bpc (RGB)" };
@@ -142,8 +156,8 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
 
         _scalingMode = mode;
         int index = ScalingModeIndexFor(mode);
-        if (index >= 0 && scalingModeIndex != index)
-            scalingModeIndex = index;
+        if (index >= 0 && ScalingModeIndex != index)
+            ScalingModeIndex = index;
     }
 
     /// <summary>
@@ -159,15 +173,22 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     }
 
     // ── status ──
-    [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private string statusText = "Ready.";
-    [ObservableProperty] private string statusDetails = "";
-    [ObservableProperty] private bool statusIsError;
-    [ObservableProperty] private InfoBarSeverity statusSeverity = InfoBarSeverity.Informational;
-    [ObservableProperty] private bool hasPendingChanges;
     [ObservableProperty]
-    private bool isAwaitingConfirmation;
-    [ObservableProperty] private string countdownText = "";
+    public partial bool IsBusy { get; set; }
+    [ObservableProperty]
+    public partial string StatusText { get; set; } = "Ready.";
+    [ObservableProperty]
+    public partial string StatusDetails { get; set; } = "";
+    [ObservableProperty]
+    public partial bool StatusIsError { get; set; }
+    [ObservableProperty]
+    public partial InfoBarSeverity StatusSeverity { get; set; } = InfoBarSeverity.Informational;
+    [ObservableProperty]
+    public partial bool HasPendingChanges { get; set; }
+    [ObservableProperty]
+    public partial bool IsAwaitingConfirmation { get; set; }
+    [ObservableProperty]
+    public partial string CountdownText { get; set; } = "";
 
     // Formatted mirrors. Binding a double straight into a TextBlock's Text relies on an
     // implicit conversion that x:Bind does not always emit, so the strings are produced here.
@@ -494,7 +515,7 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             SetScalingModes(source.ScalingLocation, ReachableModeFor(source.ScalingLocation, source.ScalingMode));
             NvidiaDisplayLog.Write(
                 $"ui: loaded scaling {_scalingLocation}/{_scalingMode} for {source.DeviceName} " +
-                $"({ScalingModeChoices.Count} options, index {scalingModeIndex})");
+                $"({ScalingModeChoices.Count} options, index {ScalingModeIndex})");
             ColorDepthIndex = (int)source.ColorDepth;
             ColorFormatIndex = (int)source.ColorFormat;
             // The reachable ranges depend on the format just set above, so rebuild the list
@@ -577,7 +598,7 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             if (correct >= 0 && correct != value)
             {
                 NvidiaDisplayLog.Write($"ui: scaling index {value} pushed by the control, re-asserting {correct}");
-                scalingModeIndex = correct;
+                ScalingModeIndex = correct;
             }
             return;
         }
@@ -663,15 +684,15 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
         var wanted = RangeChoiceFor(_dynamicRange);
         if (wanted is null) return;
 
-        if (!ReferenceEquals(dynamicRangeChoice, wanted))
-            dynamicRangeChoice = wanted;
+        if (!ReferenceEquals(DynamicRangeChoice, wanted))
+            DynamicRangeChoice = wanted;
 
         if (_dispatcherQueue is null) return;
         _ = _dispatcherQueue.TryEnqueue(() =>
         {
             var still = RangeChoiceFor(_dynamicRange);
-            if (still is not null && !ReferenceEquals(dynamicRangeChoice, still))
-                dynamicRangeChoice = still;
+            if (still is not null && !ReferenceEquals(DynamicRangeChoice, still))
+                DynamicRangeChoice = still;
         });
     }
 

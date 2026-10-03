@@ -77,31 +77,46 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
     /// </summary>
     public NvidiaProfileOption? CurrentProfile { get; private set; }
 
-    [ObservableProperty] private ObservableCollection<NvidiaSettingSectionViewModel> sections = new();
-    [ObservableProperty] private ObservableCollection<NvidiaProfileOption> profiles = new();
-    [ObservableProperty] private ObservableCollection<NvidiaPresetOption> presets = new();
-    [ObservableProperty] private string searchText = "";
-    [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private string status = "";
-    [ObservableProperty] private string applyReport = "";
-    [ObservableProperty] private bool hasStagedChanges;
-    [ObservableProperty] private string profileName = "";
-    [ObservableProperty] private string profileSubtitle = "";
-    [ObservableProperty] private bool isGlobalProfile;
-    [ObservableProperty] private bool requiresGlobalConfirmation;
+    [ObservableProperty]
+    public partial ObservableCollection<NvidiaSettingSectionViewModel> Sections { get; set; } = new();
+    [ObservableProperty]
+    public partial ObservableCollection<NvidiaProfileOption> Profiles { get; set; } = new();
+    [ObservableProperty]
+    public partial ObservableCollection<NvidiaPresetOption> Presets { get; set; } = new();
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = "";
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+    [ObservableProperty]
+    public partial string Status { get; set; } = "";
+    [ObservableProperty]
+    public partial string ApplyReport { get; set; } = "";
+    [ObservableProperty]
+    public partial bool HasStagedChanges { get; set; }
+    [ObservableProperty]
+    public partial string ProfileName { get; set; } = "";
+    [ObservableProperty]
+    public partial string ProfileSubtitle { get; set; } = "";
+    [ObservableProperty]
+    public partial bool IsGlobalProfile { get; set; }
+    [ObservableProperty]
+    public partial bool RequiresGlobalConfirmation { get; set; }
 
     /// <summary>Plain-English diff of everything staged, shown before any Apply.</summary>
-    [ObservableProperty] private ObservableCollection<string> diffLines = new();
+    [ObservableProperty]
+    public partial ObservableCollection<string> DiffLines { get; set; } = new();
 
     /// <summary>Rows the search matched, across every section, for the empty-state message.</summary>
-    [ObservableProperty] private int visibleRowCount;
+    [ObservableProperty]
+    public partial int VisibleRowCount { get; set; }
 
     /// <summary>
     /// Recently changed settings, across every profile, newest first. The profile each
     /// one came from is part of the line, because "Vertical sync is off" is a much less
     /// useful fact once you are editing a different game.
     /// </summary>
-    [ObservableProperty] private ObservableCollection<NvidiaRecentChangeViewModel> recents = new();
+    [ObservableProperty]
+    public partial ObservableCollection<NvidiaRecentChangeViewModel> Recents { get; set; } = new();
 
     /// <summary>True when a search is active and nothing matched, so the page can say so.</summary>
     public bool HasNoMatches => !string.IsNullOrWhiteSpace(SearchText) && VisibleRowCount == 0;
@@ -548,10 +563,13 @@ public sealed partial class NvidiaSettingRowViewModel : ObservableObject
     public bool IsReadOnlyControl => ControlKind == NvidiaSettingControlKind.ReadOnly;
 
     /// <summary>Free-text box for raw Advanced values; committed with Enter.</summary>
-    [ObservableProperty] private string rawInput = "";
+    [ObservableProperty]
+    public partial string RawInput { get; set; } = "";
 
-    [ObservableProperty] private bool isVisible = true;
-    [ObservableProperty] private bool isFavorite;
+    [ObservableProperty]
+    public partial bool IsVisible { get; set; } = true;
+    [ObservableProperty]
+    public partial bool IsFavorite { get; set; }
 
     /// <summary>Read-only display text: the resolved label, the raw value, or the inherit marker.</summary>
     public string ValueText => !IsEditable && Row.ValueLabel is not null

@@ -71,8 +71,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         /// <summary>True when this row is a property of the display, not the adapter.</summary>
         public bool IsDisplayLevel => Info.Scope == Radeon3DScope.DisplayLevel;
 
-        [ObservableProperty] private bool _isSupported;
-        [ObservableProperty] private bool _isBusy;
+        [ObservableProperty]
+        public partial bool IsSupported { get; set; }
+        [ObservableProperty]
+        public partial bool IsBusy { get; set; }
 
         /// <summary>
         /// What the driver last reported, NOT what the user clicked.
@@ -103,24 +105,33 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         private bool _isEnabled;
 
         /// <summary>"Supported" / "Not supported on this adapter" / "no ADLX".</summary>
-        [ObservableProperty] private string _supportText = string.Empty;
+        [ObservableProperty]
+        public partial string SupportText { get; set; } = string.Empty;
 
         /// <summary>Set only when the feature is unavailable, so the row can say why.</summary>
-        [ObservableProperty] private string? _unsupportedReason;
+        [ObservableProperty]
+        public partial string? UnsupportedReason { get; set; }
 
         // ---- the driver's own value range, never a hardcoded one ----------------
 
-        [ObservableProperty] private double _rangeMinimum;
-        [ObservableProperty] private double _rangeMaximum;
-        [ObservableProperty] private double _rangeStep;
-        [ObservableProperty] private bool _hasRange;
+        [ObservableProperty]
+        public partial double RangeMinimum { get; set; }
+        [ObservableProperty]
+        public partial double RangeMaximum { get; set; }
+        [ObservableProperty]
+        public partial double RangeStep { get; set; }
+        [ObservableProperty]
+        public partial bool HasRange { get; set; }
 
         // Chill's floor and ceiling.
-        [ObservableProperty] private double _minFps;
-        [ObservableProperty] private double _maxFps;
+        [ObservableProperty]
+        public partial double MinFps { get; set; }
+        [ObservableProperty]
+        public partial double MaxFps { get; set; }
 
         // Every other numeric parameter shares one control.
-        [ObservableProperty] private double _singleValue;
+        [ObservableProperty]
+        public partial double SingleValue { get; set; }
 
         // ---- what the row shows -------------------------------------------------
 
@@ -242,18 +253,28 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         /// <summary>Chill, Boost and Anti-Lag, and why they cannot be combined.</summary>
         public string ExclusionNote => Radeon3DPolicy.ExclusionExplanation;
 
-        [ObservableProperty] private Radeon3DAdapterItem? _selectedAdapter;
-        [ObservableProperty] private bool _isLoading;
-        [ObservableProperty] private bool _adlxAvailable;
-        [ObservableProperty] private string _statusText = "Detecting AMD adapters…";
-        [ObservableProperty] private string _driverVersionText = string.Empty;
-        [ObservableProperty] private string _vendorSummary = string.Empty;
-        [ObservableProperty] private string? _errorMessage;
-        [ObservableProperty] private string? _infoNote;
-        [ObservableProperty] private string? _writeNote;
+        [ObservableProperty]
+        public partial Radeon3DAdapterItem? SelectedAdapter { get; set; }
+        [ObservableProperty]
+        public partial bool IsLoading { get; set; }
+        [ObservableProperty]
+        public partial bool AdlxAvailable { get; set; }
+        [ObservableProperty]
+        public partial string StatusText { get; set; } = "Detecting AMD adapters…";
+        [ObservableProperty]
+        public partial string DriverVersionText { get; set; } = string.Empty;
+        [ObservableProperty]
+        public partial string VendorSummary { get; set; } = string.Empty;
+        [ObservableProperty]
+        public partial string? ErrorMessage { get; set; }
+        [ObservableProperty]
+        public partial string? InfoNote { get; set; }
+        [ObservableProperty]
+        public partial string? WriteNote { get; set; }
 
         /// <summary>True once the driver's 3D-settings change event is hooked up.</summary>
-        [ObservableProperty] private bool _watchingDriverChanges;
+        [ObservableProperty]
+        public partial bool WatchingDriverChanges { get; set; }
 
         /// <summary>
         /// Null when the driver has no 3D settings change event, which is a
@@ -269,11 +290,16 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         // ---- active renderer ----------------------------------------------------
 
-        [ObservableProperty] private string _rendererApp = string.Empty;
-        [ObservableProperty] private string _rendererTitle = string.Empty;
-        [ObservableProperty] private string _rendererDetail = string.Empty;
-        [ObservableProperty] private bool _rendererApplies;
-        [ObservableProperty] private string? _mixedVendorWarning;
+        [ObservableProperty]
+        public partial string RendererApp { get; set; } = string.Empty;
+        [ObservableProperty]
+        public partial string RendererTitle { get; set; } = string.Empty;
+        [ObservableProperty]
+        public partial string RendererDetail { get; set; } = string.Empty;
+        [ObservableProperty]
+        public partial bool RendererApplies { get; set; }
+        [ObservableProperty]
+        public partial string? MixedVendorWarning { get; set; }
 
         /// <summary>
         /// Raised from the driver's own thread when something outside this app

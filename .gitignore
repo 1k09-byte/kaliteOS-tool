@@ -41,3 +41,29 @@ _backup-oldlayout/
 
 # Crash dumps
 ExceptionDump.txt
+threadtune_*.txt
+
+# ETW traces and probe/reflection dumps (never commit debug output)
+*.etl
+device_props.txt
+dump_types.txt
+colordata.txt
+disp_types.txt
+build_out.txt
+out*.txt
+output*.txt
+dump.il
+
+# Pasted build logs
+build_error*.txt
+b.txt
+
+# Scratch patch/test programs and binaries at repo root
+fix_optim.*
+test_opt.cs
+test4.cs
+testLog.cs
+test*.exe
+
+# Vendored tool archives (fetch on demand, don't commit blobs)
+*.zip

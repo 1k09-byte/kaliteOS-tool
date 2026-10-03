@@ -10,7 +10,6 @@
 // ==============================================================================
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
@@ -23,7 +22,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
-using Windows.Foundation.Collections;
 
 namespace kaliteConfig.GpuOverclock.Views
 {

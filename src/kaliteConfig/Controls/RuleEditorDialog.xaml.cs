@@ -12,24 +12,15 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using kaliteConfig.Models;
-using kaliteConfig.Native;
 using kaliteConfig.Services;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace kaliteConfig.Controls;
-
-public sealed class PriorityOption
-{
-    public string Label { get; set; } = string.Empty;
-    public int Value { get; set; }
-}
 
 public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyChanged
 {
@@ -118,33 +109,19 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         set { if (Set(ref _cpuSetsEnabled, value)) UpdateSummary(); }
     }
 
-    private string _threadSearch = string.Empty;
-    public string ThreadSearch
-    {
-        get => _threadSearch;
-        set { if (Set(ref _threadSearch, value)) ApplyLiveFilter(); }
-    }
-
     public List<string> ProcessPriorityNames { get; } = new() { "Idle", "BelowNormal", "Normal", "AboveNormal", "High", "Realtime" };
     public List<string> ToggleNames { get; } = new() { "Enabled", "Disabled" };
 
-    public static List<PriorityOption> BaseThreadPriorities { get; } = new()
-    {
-        new() { Label = "Idle", Value = -15 },
-        new() { Label = "Lowest", Value = -2 },
-        new() { Label = "Below normal", Value = -1 },
-        new() { Label = "Normal", Value = 0 },
-        new() { Label = "Above normal", Value = 1 },
-        new() { Label = "Highest", Value = 2 },
-        new() { Label = "Time critical", Value = 15 },
-    };
-
-    public ObservableCollection<LiveThreadInfo> FilteredLiveThreads { get; } = new();
-
-    private readonly List<LiveThreadInfo> _allLiveThreads = new();
     private ulong _pendingAffinityMask;
     private List<ulong> _pendingCpuSetIds = new();
     private int _cpuCount;
+
+    // Thread-rules tuner state (mirrors ThreadListDialog, but edits the saved
+    // TunerThreadRule instead of a live thread).
+    private TunerThreadRule? _selectedRule;
+    private bool _loadingRuleEditor;
+    private int _ruleIdealCpu = -1;
+    private const int RuleCpuBoxColumns = 8;
 
     public RuleEditorDialog()
     {
@@ -162,7 +139,7 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         Draft.ThreadRules.CollectionChanged += (_, _) =>
         {
             UpdateSummary();
-            UpdateSavedRulesMeta();
+            RefreshThreadRulesView();
         };
         UpdateSummary();
     }
@@ -187,7 +164,9 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         ShowTab("Settings");
         HideError();
         UpdateSummary();
-        UpdateSavedRulesMeta();
+        _selectedRule = null;
+        _ruleIdealCpu = -1;
+        RefreshThreadRulesView();
     }
 
     // ---- tabs ----
@@ -209,7 +188,7 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         TabThreads.FontWeight = settings ? Microsoft.UI.Text.FontWeights.Normal : Microsoft.UI.Text.FontWeights.Bold;
         if (!settings)
         {
-            _ = LoadLiveThreadsAsync();
+            RefreshThreadRulesView();
         }
     }
 
@@ -244,108 +223,270 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
-    // ---- live threads ----
+    // ---- thread rules: same two-pane tuner as the Process tab's Threads dialog ----
 
-    private async Task LoadLiveThreadsAsync()
+    private void ThreadRulesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        string target = (TargetBox.Text ?? string.Empty).Trim();
-        _allLiveThreads.Clear();
-        FilteredLiveThreads.Clear();
-        LiveSelectedText.Text = "loading…";
-        if (string.IsNullOrEmpty(target))
-        {
-            LiveSelectedText.Text = "0 selected · enter a target process";
-            return;
-        }
-
-        int pid = await Task.Run(() => ThreadQueryService.FindPid(target));
-        if (pid == 0)
-        {
-            LiveSelectedText.Text = "0 selected · process not running";
-            return;
-        }
-
-        var rows = await ThreadQueryService.ListThreadsAsync(pid);
-        // Pin named threads to the top (stable: TID order within each group),
-        // mirroring the threads window - otherwise the actionable rows drown
-        // below dozens of (unnamed) driver threads.
-        _allLiveThreads.AddRange(rows
-            .OrderBy(t => string.IsNullOrWhiteSpace(t.Description) || t.Description == "(unnamed)" ? 1 : 0)
-            .ThenBy(t => t.Tid));
-        ApplyLiveFilter();
-        LiveSelectedText.Text = $"0 selected · right-click to add rules";
+        SelectRule(ThreadRulesList.SelectedItem as TunerThreadRule);
     }
 
-    private void ApplyLiveFilter()
+    private void SelectRule(TunerThreadRule? rule)
     {
-        string q = (ThreadSearch ?? string.Empty).Trim();
-        FilteredLiveThreads.Clear();
-        foreach (var t in _allLiveThreads)
+        _selectedRule = rule;
+        _ruleIdealCpu = -1;
+        RuleEditorStatus(null);
+        bool has = rule != null;
+        RuleNoSelectionText.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
+        RuleEditorPanel.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+        if (rule == null) return;
+        _loadingRuleEditor = true;
+        try
         {
-            if (q.Length == 0
-                || t.Tid.ToString().Contains(q)
-                || t.Description.Contains(q, StringComparison.OrdinalIgnoreCase)
-                || t.StartAddress.Contains(q, StringComparison.OrdinalIgnoreCase))
+            RuleEditorTitle.Text = rule.TargetText;
+            RuleEditorSub.Text = string.IsNullOrWhiteSpace(rule.StartAddress)
+                ? (rule.MatchAllThreads ? "Matches all threads" : "Matches any thread")
+                : rule.StartAddress;
+            RulePriorityCurrent.Text = "Current: " + rule.PriorityText;
+            SelectComboByTag(RulePriorityCombo, rule.Priority);
+            RuleBoostToggle.IsOn = rule.BoostEnabled ?? false;
+            RuleEcoToggle.IsOn = rule.EfficiencyMode ?? false;
+            RuleAffinityCurrent.Text = "Current: " + DescribeRuleAffinity(rule.AffinityMask);
+            BuildRuleAffinityBoxes(rule.AffinityMask ?? AllMask());
+            _ruleIdealCpu = -1;
+            if (rule.IdealGroup.HasValue && rule.IdealIndex.HasValue && rule.IdealGroup.Value == 0)
             {
-                FilteredLiveThreads.Add(t);
+                _ruleIdealCpu = rule.IdealIndex.Value;
+                RuleIdealCurrent.Text = $"Current: group 0 CPU {_ruleIdealCpu}";
+            }
+            else if (rule.IdealGroup.HasValue || rule.IdealIndex.HasValue)
+            {
+                RuleIdealCurrent.Text = $"Current: group {rule.IdealGroup?.ToString() ?? "?"} CPU {rule.IdealIndex?.ToString() ?? "?"} - only processor group 0 is tuneable here, pick a CPU below.";
+            }
+            else
+            {
+                RuleIdealCurrent.Text = "Current: Windows chooses (no preference) - pick a CPU below.";
+            }
+            BuildRuleIdealBoxes();
+            foreach (var box in RuleIdealCpuGrid.Children.OfType<Microsoft.UI.Xaml.Controls.Primitives.ToggleButton>())
+                box.IsChecked = _ruleIdealCpu >= 0 && box.Tag is int t && t == _ruleIdealCpu;
+        }
+        finally { _loadingRuleEditor = false; }
+    }
+
+    private void RefreshThreadRulesView()
+    {
+        int n = Draft.ThreadRules.Count;
+        ThreadRulesHeaderText.Text = n == 0
+            ? "No thread rules"
+            : n == 1 ? "1 thread rule - select one to tune it" : $"{n} thread rules - select one to tune it";
+        // Drop a selection that no longer exists (e.g. after delete).
+        if (_selectedRule != null && !Draft.ThreadRules.Contains(_selectedRule))
+        {
+            ThreadRulesList.SelectedItem = null;
+            SelectRule(null);
+        }
+        else if (_selectedRule != null)
+        {
+            // Refresh the editor text for the selected rule (priority text may have changed).
+            var keep = _selectedRule;
+            SelectRule(null);
+            ThreadRulesList.SelectedItem = keep;
+            SelectRule(keep);
+        }
+        // Default selection: tune the first rule without requiring a click.
+        if (_selectedRule == null && Draft.ThreadRules.Count > 0)
+        {
+            var first = Draft.ThreadRules[0];
+            ThreadRulesList.SelectedItem = first;
+            if (_selectedRule == null) SelectRule(first);
+        }
+    }
+
+    private void BuildRuleAffinityBoxes(ulong mask)
+    {
+        RuleAffinityCpuGrid.Children.Clear();
+        RuleAffinityCpuGrid.ColumnDefinitions.Clear();
+        RuleAffinityCpuGrid.RowDefinitions.Clear();
+        int count = Math.Min(_cpuCount, 64);
+        for (int c = 0; c < RuleCpuBoxColumns; c++)
+            RuleAffinityCpuGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        for (int r = 0; r < (count + RuleCpuBoxColumns - 1) / RuleCpuBoxColumns; r++)
+            RuleAffinityCpuGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (int i = 0; i < count; i++)
+        {
+            var box = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
+            {
+                Content = i.ToString(),
+                Width = 44,
+                IsChecked = (mask & (1UL << i)) != 0,
+                Tag = i,
+            };
+            Grid.SetColumn(box, i % RuleCpuBoxColumns);
+            Grid.SetRow(box, i / RuleCpuBoxColumns);
+            RuleAffinityCpuGrid.Children.Add(box);
+        }
+    }
+
+    private void BuildRuleIdealBoxes()
+    {
+        RuleIdealCpuGrid.Children.Clear();
+        RuleIdealCpuGrid.ColumnDefinitions.Clear();
+        RuleIdealCpuGrid.RowDefinitions.Clear();
+        int count = Math.Min(_cpuCount, 64);
+        for (int c = 0; c < RuleCpuBoxColumns; c++)
+            RuleIdealCpuGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        for (int r = 0; r < (count + RuleCpuBoxColumns - 1) / RuleCpuBoxColumns; r++)
+            RuleIdealCpuGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (int i = 0; i < count; i++)
+        {
+            int cpu = i;
+            var box = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
+            {
+                Content = cpu.ToString(),
+                Width = 44,
+                Tag = cpu,
+            };
+            box.Click += (_, _) =>
+            {
+                _ruleIdealCpu = cpu;
+                foreach (var other in RuleIdealCpuGrid.Children.OfType<Microsoft.UI.Xaml.Controls.Primitives.ToggleButton>())
+                    other.IsChecked = ReferenceEquals(other, box);
+            };
+            Grid.SetColumn(box, cpu % RuleCpuBoxColumns);
+            Grid.SetRow(box, cpu / RuleCpuBoxColumns);
+            RuleIdealCpuGrid.Children.Add(box);
+        }
+    }
+
+    private ulong ReadRuleAffinityMask()
+    {
+        ulong mask = 0;
+        foreach (var box in RuleAffinityCpuGrid.Children.OfType<Microsoft.UI.Xaml.Controls.Primitives.ToggleButton>())
+        {
+            if (box.IsChecked == true && box.Tag is int cpu && cpu < 64)
+                mask |= 1UL << cpu;
+        }
+        return mask;
+    }
+
+    private static void SelectComboByTag(ComboBox box, int level)
+    {
+        box.SelectedItem = null;
+        foreach (var item in box.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string s && int.TryParse(s, out int v) && v == level)
+            {
+                box.SelectedItem = item;
+                return;
             }
         }
     }
 
-    private async void ThreadsRefresh_Click(object sender, RoutedEventArgs e)
+    private static int? ComboLevel(ComboBox box)
     {
-        // async void: an escaping exception here is an unhandled UI exception
-        // and takes the whole app down, not just the dialog.
-        try { await LoadLiveThreadsAsync(); }
-        catch (Exception ex) { LiveSelectedText.Text = "Could not read threads: " + ex.Message; }
+        if (box.SelectedItem is ComboBoxItem item && item.Tag is string s && int.TryParse(s, out int v))
+            return v;
+        return null;
     }
 
-    private void LiveThreads_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private string DescribeRuleAffinity(ulong? mask)
     {
-        int n = LiveThreadsList.SelectedItems.Count;
-        LiveSelectedText.Text = $"{n} selected · right-click to add rules";
+        if (!mask.HasValue) return "All logical processors";
+        ulong m = mask.Value;
+        if (m == AllMask()) return "All logical processors";
+        var cpus = new List<string>();
+        for (int i = 0; i < _cpuCount && i < 64; i++)
+            if ((m & (1UL << i)) != 0) cpus.Add(i.ToString());
+        return cpus.Count == 0 ? "None" : $"Group 0: CPU {string.Join(", ", cpus)} (0x{m:X})";
     }
 
-    private void LiveThread_AddRule(object sender, RoutedEventArgs e)
+    private void RulePriorityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        IEnumerable<LiveThreadInfo> targets;
-        if (sender is FrameworkElement fe && fe.DataContext is LiveThreadInfo single)
+        if (_loadingRuleEditor || _selectedRule == null) return;
+        var level = ComboLevel(RulePriorityCombo);
+        if (level == null) return;
+        _selectedRule.Priority = level.Value;
+        RulePriorityCurrent.Text = "Current: " + _selectedRule.PriorityText;
+        Draft.RefreshSummaries();
+        UpdateSummary();
+        RuleEditorStatus(null);
+    }
+
+    private void RuleBoostBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox cb || cb.DataContext is not TunerThreadRule rule) return;
+        bool want = cb.IsChecked == true;
+        rule.BoostEnabled = want;
+        if (_selectedRule == rule && !_loadingRuleEditor)
         {
-            targets = new[] { single };
+            _loadingRuleEditor = true;
+            try { RuleBoostToggle.IsOn = want; }
+            finally { _loadingRuleEditor = false; }
+        }
+        Draft.RefreshSummaries();
+        UpdateSummary();
+    }
+
+    private void RuleBoostToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loadingRuleEditor || _selectedRule == null) return;
+        _selectedRule.BoostEnabled = RuleBoostToggle.IsOn;
+        Draft.RefreshSummaries();
+        UpdateSummary();
+        RuleEditorStatus(null);
+    }
+
+    private void RuleEcoToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loadingRuleEditor || _selectedRule == null) return;
+        _selectedRule.EfficiencyMode = RuleEcoToggle.IsOn;
+        Draft.RefreshSummaries();
+        UpdateSummary();
+        RuleEditorStatus(null);
+    }
+
+    private void RuleAffinityApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedRule == null) return;
+        ulong mask = ReadRuleAffinityMask();
+        if (mask == 0)
+        {
+            RuleEditorStatus("Affinity: tick at least one CPU.", true);
+            return;
+        }
+        if (mask == AllMask())
+        {
+            _selectedRule.AffinityMask = null;
+            _selectedRule.AffinityGroup = null;
         }
         else
         {
-            targets = LiveThreadsList.SelectedItems.OfType<LiveThreadInfo>().ToList();
+            _selectedRule.AffinityGroup = 0;
+            _selectedRule.AffinityMask = mask;
         }
-
-        foreach (var t in targets)
-        {
-            AddThreadRule(t);
-        }
+        RuleAffinityCurrent.Text = "Current: " + DescribeRuleAffinity(_selectedRule.AffinityMask);
         Draft.RefreshSummaries();
+        UpdateSummary();
+        RuleEditorStatus(null);
     }
 
-    private void AddThreadRule(LiveThreadInfo t)
+    private void RuleIdealApply_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(t.Description) || t.Description == "(unnamed)")
+        if (_selectedRule == null) return;
+        if (_ruleIdealCpu < 0)
         {
+            RuleEditorStatus("Ideal processor: pick one CPU box first.", true);
             return;
         }
-        bool exists = Draft.ThreadRules.Any(r =>
-            string.Equals(r.Description, t.Description, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(r.StartAddress, t.StartAddress, StringComparison.OrdinalIgnoreCase));
-        if (exists) return;
-        Draft.ThreadRules.Add(new TunerThreadRule
-        {
-            Description = t.Description,
-            StartAddress = t.StartAddress,
-            Priority = t.RelativeValue,
-            TargetCount = 1,
-        });
+        _selectedRule.IdealGroup = 0;
+        _selectedRule.IdealIndex = (byte)_ruleIdealCpu;
+        RuleIdealCurrent.Text = $"Current: group 0 CPU {_ruleIdealCpu}";
         Draft.RefreshSummaries();
+        UpdateSummary();
+        RuleEditorStatus(null);
     }
 
-    private void SavedRule_Delete(object sender, RoutedEventArgs e)
+    private void ThreadRule_DeleteFlyout_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is TunerThreadRule rule)
         {
@@ -354,122 +495,37 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
-    private void SavedRulePriority_Loaded(object sender, RoutedEventArgs e)
+    private void ThreadRule_DeleteButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not ComboBox cb) return;
-        // The DataContext here is the TunerThreadRule for the row.
-        if (cb.DataContext is not TunerThreadRule rule) return;
-
-        var options = BaseThreadPriorities
-            .Select(o => new PriorityOption { Label = o.Label, Value = o.Value })
-            .ToList();
-        if (!options.Any(o => o.Value == rule.Priority))
+        var rule = _selectedRule
+            ?? (sender as FrameworkElement)?.DataContext as TunerThreadRule
+            ?? ThreadRulesList.SelectedItem as TunerThreadRule;
+        if (rule == null)
         {
-            options.Add(new PriorityOption
-            {
-                Label = ThreadQueryService.FormatRelative(rule.Priority),
-                Value = rule.Priority,
-            });
+            RuleEditorStatus("Select a thread rule first.", true);
+            return;
         }
-
-        cb.SelectionChanged -= SavedRulePriority_Changed;
-        cb.DisplayMemberPath = "Label";
-        cb.SelectedValuePath = "Value";
-        cb.ItemsSource = options;
-        cb.SelectedValue = rule.Priority;
-        cb.Tag = rule;
-        cb.SelectionChanged += SavedRulePriority_Changed;
+        Draft.ThreadRules.Remove(rule);
+        Draft.RefreshSummaries();
     }
 
-    private void SavedRulePriority_Changed(object sender, SelectionChangedEventArgs e)
+    private void RuleEditorStatus(string? message)
     {
-        if (sender is ComboBox cb && cb.Tag is TunerThreadRule rule && cb.SelectedValue is int v)
-        {
-            rule.Priority = v;
-        }
+        RuleEditorStatus(message, false);
     }
 
-    private void SavedRulePin_Click(object sender, RoutedEventArgs e)
+    private void RuleEditorStatus(string? message, bool warn)
     {
-        if (sender is not FrameworkElement anchor) return;
-        if (anchor.DataContext is not TunerThreadRule rule) return;
-        ulong initial = rule.AffinityMask ?? AllMask();
-        _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
-            anchor,
-            _cpuCount,
-            initial,
-            mask =>
-            {
-                rule.AffinityMask = mask == AllMask() ? null : mask; // full mask = "leave unchanged"
-                if ((sender as FrameworkElement)?.DataContext is TunerThreadRule updated)
-                {
-                    SyncSavedRuleAffinityRow(updated);
-                }
-            });
-    }
-
-    private void SavedRulePin_Loaded(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is TunerThreadRule rule)
+        if (string.IsNullOrEmpty(message))
         {
-            SyncSavedRuleAffinityRow(rule);
+            RuleEditorStatusBox.Visibility = Visibility.Collapsed;
+            RuleEditorStatusBox.Text = string.Empty;
         }
-    }
-
-    /// <summary>Ticking the box opens the core picker (a pin needs a mask);
-    /// unticking clears the pin. Keeps checkbox and summary text in sync.</summary>
-    private void SavedRuleAffinity_Changed(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement anchor) return;
-        if (anchor.DataContext is not TunerThreadRule rule) return;
-        bool isChecked = sender is CheckBox cb && cb.IsChecked == true;
-        if (isChecked && !rule.AffinityMask.HasValue)
+        else
         {
-            // Ticked with no pin yet - open the picker to choose cores.
-            _ = CpuPickerFlyouts.ShowAffinityPickerAsync(
-                anchor,
-                _cpuCount,
-                AllMask(),
-                mask =>
-                {
-                    rule.AffinityMask = mask == AllMask() ? null : mask;
-                    SyncSavedRuleAffinityRow(rule);
-                });
+            RuleEditorStatusBox.Text = message;
+            RuleEditorStatusBox.Visibility = Visibility.Visible;
         }
-        else if (!isChecked && rule.AffinityMask.HasValue)
-        {
-            rule.AffinityMask = null; // untick = stop pinning this thread
-        }
-    }
-
-    private void SyncSavedRuleAffinityRow(TunerThreadRule rule)
-    {
-        if (SavedRulesList.ContainerFromItem(rule) is ContentPresenter presenter
-            && FindNamedDescendant(presenter, "SavedRuleAffinityBox") is CheckBox box)
-        {
-            box.IsChecked = rule.AffinityMask.HasValue;
-        }
-    }
-
-    private static Microsoft.UI.Xaml.DependencyObject? FindNamedDescendant(Microsoft.UI.Xaml.DependencyObject root, string name)
-    {
-        int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
-            if (child is FrameworkElement fe && fe.Name == name) return fe;
-            var result = FindNamedDescendant(child, name);
-            if (result != null) return result;
-        }
-        return null;
-    }
-
-    private void UpdateSavedRulesMeta()
-    {
-        int n = Draft.ThreadRules.Count;
-        SavedRulesCountText.Text = n == 1 ? "1 rule" : $"{n} rules";
-        NoThreadRulesText.Visibility = n == 0 ? Visibility.Visible : Visibility.Collapsed;
-        SavedRulesList.Visibility = n == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ---- affinity / cpu sets choosers (flyouts; nested dialogs are not allowed) ----

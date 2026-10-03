@@ -12,14 +12,22 @@ namespace kaliteConfig.ViewModels;
 public sealed partial class Nvidia3DSettingsViewModel : ObservableObject
 {
     private readonly Nvidia3DSettingsService _service = new();
-    [ObservableProperty] private ObservableCollection<Nvidia3DSettingRowViewModel> rows = new();
-    [ObservableProperty] private ObservableCollection<Nvidia3DApplication> applications = new();
-    [ObservableProperty] private Nvidia3DApplication? selectedApplication;
-    [ObservableProperty] private bool isProgram;
-    [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private string status = "";
-    [ObservableProperty] private bool hasChanges;
-    [ObservableProperty] private string catalogNote = "Loading driver metadata…";
+    [ObservableProperty]
+    public partial ObservableCollection<Nvidia3DSettingRowViewModel> Rows { get; set; } = new();
+    [ObservableProperty]
+    public partial ObservableCollection<Nvidia3DApplication> Applications { get; set; } = new();
+    [ObservableProperty]
+    public partial Nvidia3DApplication? SelectedApplication { get; set; }
+    [ObservableProperty]
+    public partial bool IsProgram { get; set; }
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+    [ObservableProperty]
+    public partial string Status { get; set; } = "";
+    [ObservableProperty]
+    public partial bool HasChanges { get; set; }
+    [ObservableProperty]
+    public partial string CatalogNote { get; set; } = "Loading driver metadata…";
 
     public async Task RefreshAsync()
     {

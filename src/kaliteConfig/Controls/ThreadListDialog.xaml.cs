@@ -110,7 +110,6 @@ public sealed partial class ThreadListDialog : ContentDialog
             try
             {
                 var threads = await Services.ThreadQueryService.ListThreadsAsync(_pid);
-                bool anyLocked = false;
                 // Named threads pin to the top (then TID order); unnamed follow.
                 foreach (var t in threads
                     .OrderByDescending(t => !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)")
@@ -143,7 +142,6 @@ public sealed partial class ThreadListDialog : ContentDialog
                     catch
                     {
                         row.CanEdit = false;
-                        anyLocked = true;
                     }
                     Rows.Add(row);
                 }
@@ -172,6 +170,12 @@ public sealed partial class ThreadListDialog : ContentDialog
             // binding, otherwise a late rebind would still slip past the guard.
             _loadingList = false;
         }
+
+        // Default selection: tune the first thread without requiring a click.
+        // Refresh clears the selection (Rows.Clear drops it), so this also
+        // re-selects after Refresh list.
+        if (ThreadList.SelectedItem == null && Rows.Count > 0)
+            ThreadList.SelectedItem = Rows[0];
     }
 
     private async void ThreadList_SelectionChanged(object sender, SelectionChangedEventArgs e)

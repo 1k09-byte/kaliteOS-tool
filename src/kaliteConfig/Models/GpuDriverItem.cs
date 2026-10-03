@@ -10,6 +10,7 @@
 // ==============================================================================
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
+using System;
 
 namespace kaliteConfig.Models
 {
@@ -27,13 +28,25 @@ namespace kaliteConfig.Models
 
         // Driver version currently on this machine ("" when nothing usable detected).
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
         public partial string InstalledVersion { get; set; } = string.Empty;
 
         // Latest version from the vendor lookup ("" until checked).
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
+        [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
         public partial string LatestVersion { get; set; } = string.Empty;
+
+        /// <summary>Shows the "Latest version" column only when a lookup
+        /// returned a version that differs from the installed one. Hides when
+        /// up to date (the checker's own comparison), when versions match, or
+        /// when no lookup has run yet.</summary>
+        public Visibility LatestVersionVis =>
+            Status == GpuDriverStatus.UpToDate
+            || string.IsNullOrWhiteSpace(LatestVersion)
+            || string.Equals(InstalledVersion?.Trim(), LatestVersion.Trim(), StringComparison.OrdinalIgnoreCase)
+                ? Visibility.Collapsed : Visibility.Visible;
 
         [ObservableProperty]
         public partial string DownloadUrl { get; set; } = string.Empty;
@@ -88,6 +101,7 @@ namespace kaliteConfig.Models
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
         [NotifyPropertyChangedFor(nameof(CheckActionText))]
         [NotifyPropertyChangedFor(nameof(IsCheckEnabled))]
+        [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
         public partial GpuDriverStatus Status { get; set; } = GpuDriverStatus.NotChecked;
 
         [ObservableProperty]
