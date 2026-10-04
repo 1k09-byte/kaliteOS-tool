@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -371,7 +371,6 @@ namespace kaliteConfig.ViewModels
             
             void logProgress(string msg)
             {
-                System.Diagnostics.Debug.WriteLine(msg);
                 InstallStatusText = msg;
             }
 

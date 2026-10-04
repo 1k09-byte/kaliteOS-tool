@@ -450,15 +450,32 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
             var c = caps.Value;
 
-            if (c.IsNotebook || c.GpuName.Contains("Laptop", StringComparison.OrdinalIgnoreCase) || c.GpuName.Contains("Mobile", StringComparison.OrdinalIgnoreCase))
-            {
-                SetUnsupported("Overclocking is disabled for laptop GPUs to prevent exceeding manufacturer power limits.");
-                return;
-            }
-
-            if (c.GpuName.Contains("Integrated", StringComparison.OrdinalIgnoreCase) || 
-                c.GpuName.Contains("Intel", StringComparison.OrdinalIgnoreCase) || 
-                c.GpuName.Contains("Radeon", StringComparison.OrdinalIgnoreCase))
+            // Mobile GPUs are ALLOWED. This check used to refuse anything with
+            // IsNotebook set or "Laptop"/"Mobile" in the adapter name, which
+            // locked out every laptop dGPU regardless of whether the vendor API
+            // actually exposed controls for it. Whether a control is usable is
+            // decided by the driver: a range is null when the card cannot do it,
+            // and the UI already renders nothing for a null range. Locking out
+            // mobile parts here threw that away, so a laptop with a perfectly
+            // tunable card was told it was unsupported.
+            //
+            // Integrated GPUs stay locked. They share system memory with the CPU
+            // and generally expose no tuning domains, so there is nothing safe
+            // to apply - and overclocking one can destabilise the whole system
+            // rather than just the display.
+            //
+            // The decision is the vendor API's IsIntegrated, not the product
+            // name. The name test used to include "Radeon", which is the
+            // branding of every AMD card ever shipped - it refused discrete
+            // Radeons too, not just the iGPU. A discrete Radeon is unlocked now
+            // and only a real integrated adapter is refused.
+            //
+            // The Intel match is kept deliberately: an Intel adapter is always
+            // integrated, and NVIDIA's NVML SystemType enum has no integrated
+            // member, so the Intel name is still the signal for that vendor.
+            if (c.IsIntegrated ||
+                c.GpuName.Contains("Integrated", StringComparison.OrdinalIgnoreCase) ||
+                c.GpuName.Contains("Intel", StringComparison.OrdinalIgnoreCase))
             {
                 SetUnsupported("Overclocking is disabled for integrated graphics processors.");
                 return;

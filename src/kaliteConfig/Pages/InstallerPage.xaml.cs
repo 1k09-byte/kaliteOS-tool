@@ -78,17 +78,15 @@ namespace kaliteConfig.Pages
 
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
-            bool packages = sender.SelectedItem == TabPackages;
+            // The Packages tab was removed at the user's request, so this now
+            // only flips between Install and Uninstall.
             bool uninstall = sender.SelectedItem == TabUninstall;
-            PackagesPanel.Visibility = packages ? Visibility.Visible : Visibility.Collapsed;
             UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
-            InstallPanel.Visibility = (!packages && !uninstall) ? Visibility.Visible : Visibility.Collapsed;
+            InstallPanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
 
             // The Cards/Compact switcher only re-lays-out the Install tab's app
             // grid, so it is shown there and nowhere else.
-            ViewModePanel.Visibility = (!packages && !uninstall)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            ViewModePanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private async void BrowserCard_Click(object sender, RoutedEventArgs e)

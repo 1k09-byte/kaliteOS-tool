@@ -8,7 +8,7 @@
     mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Enabled">
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <Border Grid.Row="0" Margin="28,20,28,14" Padding="22,18" CornerRadius="16"
+        <Border Grid.Row="0" Margin="28,20,28,14" Padding="22,18" CornerRadius="6"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
             <Grid ColumnSpacing="20">
@@ -18,26 +18,26 @@
                     <TextBlock Text="Tune Windows scheduling, kernel behavior, service layout, and CPU topology from one controlled workspace."
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
-                <Border Grid.Column="1" Padding="14,8" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                <Border Grid.Column="1" Padding="14,8" CornerRadius="3" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                     <StackPanel Spacing="2"><TextBlock Text="SYSTEM TUNING" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/><TextBlock Text="Changes are verified" FontWeight="SemiBold"/></StackPanel>
                 </Border>
             </Grid>
         </Border>
         <ScrollViewer Grid.Row="1" Padding="28,0,28,28" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="SettingsPanel" Spacing="12">
-                <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <Border Style="{StaticResource KaliteCard}" Padding="14">
                     <StackPanel Spacing="10">
 
                         <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration"/></toolkit:SettingsCard>
                         <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)" Description="Reading…"><ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus"/></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
-                <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <Border Style="{StaticResource KaliteCard}" Padding="14">
                     <StackPanel Spacing="10">
                         <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold" Description="Reading…"><StackPanel Orientation="Horizontal" Spacing="8"><ComboBox x:Name="SvcSplitBox" PlaceholderText="Select RAM size" SelectionChanged="SvcSplitBox_SelectionChanged" MinWidth="220"/><Button Content="Reset" Click="SvcSplitReset_Click"/></StackPanel></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
-                <Border CornerRadius="14" Padding="14" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <Border Style="{StaticResource KaliteCard}" Padding="14">
                     <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True"/></StackPanel>
                 </Border>
             </StackPanel>

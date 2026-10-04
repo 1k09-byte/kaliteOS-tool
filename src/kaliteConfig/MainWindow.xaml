@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:controls="using:kaliteConfig.Controls"
     Title="kaliteConfig"
     mc:Ignorable="d">
 
@@ -18,6 +19,60 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
+        <!--
+             LAYOUT IS LOAD-BEARING HERE. Row 0 is Height="Auto". A backdrop that
+             sits in row 0 without spanning contributes its desired height to
+             that row - and its inner canvases are deliberately oversized
+             (1600x900) so the drift can never expose an edge. That made the
+             TitleBar row 900px tall and squeezed NavShell off the window,
+             which looked like the entire UI had vanished. RowSpan="2" stops
+             it contributing to any row's sizing (a spanning child never does),
+             and Stretch on both axes makes it fill rather than use its
+             desired size. It stays the first child so it paints behind
+             everything, and IsHitTestVisible=False on the control means it can
+             never intercept a click meant for the nav rail or a page.
+        -->
+        <controls:KaliteBackdrop
+            x:Name="Backdrop"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch" />
+
+        <!--
+            OPAQUE NAV RAIL MASK.
+
+            The meteor backdrop is a window-level element, so it drifts behind
+            the whole window including the rail - which read as streaks smearing
+            through the nav icons and labels.
+
+            Setting NavigationViewDefaultPaneBackground / ExpandedPaneBackground
+            to black is NOT sufficient: WinUI does not honour those keys for the
+            compact rail layout, and the pane still rendered at RGB(28,29,28)
+            rather than true black. So the rail is masked explicitly instead,
+            with an opaque panel the same width as the pane
+            (CompactPaneLength, 68px). It stays fully opaque, because
+            translucency is what let the streaks through in the first place,
+            but it is tinted to the app's own surface (#101014, the colour
+            under every card) rather than pure black, so the rail reads as
+            part of the tool instead of a black bar bolted to the side.
+            Being a sibling placed after the backdrop
+            but before the nav shell, it covers the backdrop in the rail column
+            and nothing else, and it needs no cooperation from WinUI theming.
+
+            Transparent remains correct everywhere else: page content keeps the
+            live backdrop, and a material backdrop still shows when selected.
+        -->
+        <Border
+            x:Name="NavRailMask"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Width="68"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Stretch"
+            Background="#FF10150F"
+            IsHitTestVisible="False" />
 
         <TitleBar x:Name="titleBar" />
 
@@ -46,8 +101,43 @@
             SelectionChanged="NavView_SelectionChanged">
             
             <NavigationView.Resources>
-                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
-                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+                <!--
+                    The side rail is deliberately OPAQUE. The meteor backdrop is a
+                    window-level element that paints behind everything, so a
+                    transparent pane let the streaks drift down the nav list and
+                    through the icon labels, which read as smearing. Pure black
+                    keeps the rail clean and makes the rail/content edge crisp.
+
+                    The rest of the NavigationView stays transparent so the
+                    backdrop is still visible behind page content.
+                -->
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FF101014" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#FF101014" />
+
+                <!--
+                    THE RAIL PAINTS FROM NavigationViewBackground, NOT THE PANE KEYS.
+
+                    NavigationViewDefaultPaneBackground / ExpandedPaneBackground
+                    were set to black and the rail still rendered RGB(28,29,28):
+                    in the compact rail layout WinUI fills the pane from the
+                    control's own Background, so those two pane keys are not the
+                    thing that decides the colour here.
+
+                    So the fill is inverted instead: the whole NavigationView
+                    takes the rail's own surface colour, and only
+                    ContentBackground - the region the Frame of page content sits
+                    in - is Transparent. That keeps the rail opaque so the backdrop
+                    cannot smear through it, while letting it match the colour the
+                    rest of the tool is built on. Painting the rail by covering it
+                    with a sibling Border cannot work here, because NavigationView is
+                    a later sibling and paints over anything before it.
+
+                    The colour is #101014, the surface every card sits on, rather
+                    than pure black: a pure-black rail against near-black cards read
+                    as a separate app rather than part of this one.
+                -->
+                <SolidColorBrush x:Key="NavigationViewBackground" Color="#FF101014" />
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="Transparent" />
 
                 <Style x:Key="RailNavItemStyle" TargetType="NavigationViewItem">
@@ -72,14 +162,16 @@
                                                     <DoubleAnimation Storyboard.TargetName="IconPresenter" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)" To="1.06" Duration="0:0:0.15" AutoReverse="True" FillBehavior="Stop" />
                                                 </Storyboard>
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                                                    <Setter Target="BackgroundPill.BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                     <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="Pressed">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                     <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
@@ -90,21 +182,24 @@
                                                  Selected for PointerOverSelected). -->
                                             <VisualState x:Name="Selected">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                                                    <Setter Target="BackgroundPill.BorderBrush" Value="Transparent"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
                                                     <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="PointerOverSelected">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.BorderBrush" Value="Transparent"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
                                                     <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="PressedSelected">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
+                                                    <Setter Target="BackgroundPill.BorderBrush" Value="Transparent"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
                                                     <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
                                                 </VisualState.Setters>
@@ -112,8 +207,16 @@
                                         </VisualStateGroup>
                                     </VisualStateManager.VisualStateGroups>
 
-                                    <!-- Pill that highlights on hover/select -->
-                                    <Border x:Name="BackgroundPill" Background="Transparent" CornerRadius="4" />
+                                    <!-- Pill that highlights on hover/select. Carries the card
+                                         shape: the same 10px radius the page cards use,
+                                         plus a hairline stroke so a lit item reads as a
+                                         card sitting on the rail rather than a Fluent
+                                         rounded rectangle. -->
+                                    <Border x:Name="BackgroundPill"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="1"
+                                            CornerRadius="10" />
 
                                     <!-- Selection marker: one shared NavPill overlay (bottom of file)
                                          glides between items; no per-item indicator here. -->
@@ -138,7 +241,7 @@
             </NavigationView.Resources>
             
             <NavigationView.MenuItems>
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Apps" Tag="AppsPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Apps" Tag="AppsPage" AutomationProperties.Name="App Manager" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -148,7 +251,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Graphics" Tag="GraphicsPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Graphics" Tag="GraphicsPage" AutomationProperties.Name="Graphics Control" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -158,7 +261,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Affinity" Tag="GamingPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Affinity" Tag="GamingPage" AutomationProperties.Name="Process Affinity" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -168,7 +271,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="PRC" Tag="ThreadTunerPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="PRC" Tag="ThreadTunerPage" AutomationProperties.Name="Process Control" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -177,7 +280,7 @@
                         <PathIcon Data="M5.5 2C6.88071 2 8 3.11929 8 4.5V6H13.5C14.3644 6 15.1118 6.49525 15.5413 7.21041L15.65 7.4243L17.8184 12.0125C17.9352 12.2596 18.0002 12.5293 18.0002 12.8055C18.0028 13.9213 17.1517 14.8569 16.0353 14.9926L15.8053 15C14.7061 15 13.8052 14.1083 13.8052 13.003L13.8043 12.84L12.0002 9V15.5C12.0002 16.8285 10.963 17.9157 9.65487 17.9947L9.50025 18C8.16335 18 7.06877 16.9535 7.00551 15.6322L7.00025 15.5V8H5.5C4.16335 8 3.06877 6.95353 3.00551 5.63222L3 5.5C3 4.16335 4.04647 3.06877 5.36778 3.00551L5.5 3H5.50025V4.5H7.00025V6H5.5C5.4673 6 5.4349 6.00122 5.40284 6.00363L5.35086 6.00977C5.16104 6.03756 5.09351 6.05929 5.03554 6.08272C4.54589 6.28183 4.15615 6.64303 3.93175 7.10304C3.89679 7.17466 3.86438 7.26629 3.84443 7.33088C3.82092 7.40698 3.80216 7.47895 3.79133 7.55013H4C4 7.55013 4 7.50536 4.00412 7.4586C4.019 7.28976 4.08486 7.02692 4.25056 6.78443L4.31688 6.69537C4.59473 6.34568 5.00696 6.09675 5.51865 6.00025H7C7.51169 6.09675 7.92392 6.34568 8.20177 6.69537L8.26809 6.78443C8.42398 6.99839 8.5 7.22941 8.5 7.5H4C4 7.77614 4.22386 8 4.5 8H8.5C8.77614 8 9 7.77614 9 7.5C9 7.22941 8.92398 6.99839 8.76809 6.78443L8.70177 6.69537C8.42392 6.34568 8.01169 6.09675 7.50025 6H8C9.32854 6 10.4157 7.03703 10.4947 8.34513L10.5 8.5V11H12.5C12.7761 11 13 11.2239 13 11.5C13 11.7294 12.8368 11.9213 12.6176 11.9806L12.55 12H10.5V14.5C10.5 14.7761 10.2239 15 9.95 15C9.72064 15 9.52874 14.8368 9.46939 14.6176L9.45 14.55V8C9.45 6.67157 10.487 5.5843 11.7951 5.5053L11.95 5.5H13.5C14.0006 5.5 14.4552 5.68819 14.8 5.99222L14.8872 6.08253C14.949 6.15545 15.006 6.23358 15.0577 6.31681L15.1106 6.40698L17.279 10.9951C17.3496 11.1444 17.3912 11.3093 17.4243 11.4883L17.4398 11.5834L17.4492 11.6997C17.4497 12.28 16.9956 12.7607 16.4253 12.8258L16.3353 12.833L16.1453 12.8355C15.5458 12.8355 15.0506 12.3734 15.0258 11.7828L15.0243 11.6669V8.50025H13.5002C13.2241 8.50025 13.0002 8.72411 13.0002 9.00025V13.003L13.0016 13.11C13.0416 13.5519 13.4111 13.8824 13.8564 13.9039L13.9189 13.9056H16.0354H16.0851H16.1454C16.8927 13.9056 17.5199 13.4079 17.6534 12.6933C17.7001 12.4431 17.6853 12.1878 17.6087 11.9427L17.5683 11.8219L15.4 7.23376C14.9288 6.23668 13.9183 5.56834 12.8217 5.55018L12.65 5.5H8.00025C7.96541 5.5 7.93043 5.50294 7.89552 5.5087L7.8488 5.5186L7.8488 4.5H5.50025Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="BIOS" Tag="BiosManagerPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="BIOS" Tag="BiosManagerPage" AutomationProperties.Name="BIOS Control" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -186,7 +289,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="WS" Tag="WindowsSettingsPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="WS" Tag="WindowsSettingsPage" AutomationProperties.Name="Windows Tuning" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -205,7 +308,7 @@
                 </NavigationViewItem>
 
 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Net" Tag="NetworkPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Net" Tag="NetworkPage" AutomationProperties.Name="Network Control" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -214,16 +317,8 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="ETW" Tag="EtwManagerPage" Margin="0" Padding="0">
-                    <ToolTipService.ToolTip>
-                        <ToolTip Visibility="Collapsed" />
-                    </ToolTipService.ToolTip>
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9D9;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
 
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Bench" Tag="BenchmarkPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Bench" Tag="BenchmarkPage" AutomationProperties.Name="Benchmark Lab" Margin="0" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
@@ -232,11 +327,10 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Snip" Tag="SnipPage" Margin="0" Padding="0">
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Snip" Tag="SnipPage" AutomationProperties.Name="Screen Capture" Margin="0" Padding="0">
                     <ToolTipService.ToolTip><ToolTip Visibility="Collapsed" /></ToolTipService.ToolTip>
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE7A8;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -251,7 +345,28 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            <!--
+                PAGES SIT IN ONE BIG ROUNDED CARD.
+
+                ContentFrame used to be a bare Frame filling the content area, so
+                every page bled to the window edges - there was no visual
+                container at all and pages read as one full-screen surface.
+
+                This Border is the page card: a rounded surface with a hairline
+                stroke and a small margin on all sides so the matte-black window
+                shows around it. The backdrop stays behind it and is visible in
+                that margin, which is the layering the app is meant to have.
+            -->
+            <Border
+                Margin="12"
+                CornerRadius="6"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+                <Frame x:Name="ContentFrame" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
+            </Border>
         </NavigationView>
 
             <!-- Shared selection pill at the rail's left edge. Margin-driven moves
@@ -289,13 +404,13 @@
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
-                        CornerRadius="12"
+                        CornerRadius="6"
                         Padding="24">
                     <StackPanel Spacing="16">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE713;" FontSize="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Setting up KaliteOS" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                                <TextBlock Text="Setting up KaliteOS" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" />
                             </StackPanel>
                             <TextBlock Text="First launch detected - installing Windhawk and importing mods. This may take a few minutes…"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"

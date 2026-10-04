@@ -121,6 +121,46 @@ public static class NvidiaSettingCategories
             default: return false;
         }
     }
+
+    /// <summary>
+    /// Files a setting under the group the Profile Inspector gives it, so a setting the
+    /// hand-maintained map has never heard of still lands somewhere sensible instead of
+    /// dumping into "Other".
+    ///
+    /// This only routes; it never renames or reinterprets anything. The inspector's
+    /// group names are its own and are matched loosely because they vary ("01 - 3D
+    /// Settings" and "3D Settings" are the same place). A blank or missing group is
+    /// "Other" rather than a guess, because putting a setting in the wrong bucket is
+    /// worse than putting it in a plainly-unclassified one.
+    /// </summary>
+    public static NvidiaSettingCategory FromReferenceGroup(string? group)
+    {
+        if (string.IsNullOrWhiteSpace(group)) return NvidiaSettingCategory.Other;
+        string key = new string(group.Trim().ToLowerInvariant()
+            .Replace("&", "and")
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+
+        // Anything multi-GPU, stereoscopic, OpenGL or cross-vendor is real but has no
+        // use on a normal single-GPU machine, which is what "Hidden" is for.
+        if (Contains(key, "opengl") || Contains(key, "stereo") || Contains(key, "sli")
+            || Contains(key, "nvlink") || Contains(key, "compatib")) return NvidiaSettingCategory.Hidden;
+
+        if (Contains(key, "antialias")) return NvidiaSettingCategory.Antialiasing;
+        if (Contains(key, "texture") || Contains(key, "anisotropic")) return NvidiaSettingCategory.TextureFiltering;
+        if (Contains(key, "upscaling") || Contains(key, "framegeneration")
+            || Contains(key, "raytracing") || Contains(key, "dxr")) return NvidiaSettingCategory.Rtx;
+        if (Contains(key, "sync") || Contains(key, "tearing")) return NvidiaSettingCategory.Sync;
+        if (Contains(key, "refresh") || Contains(key, "framerate")) return NvidiaSettingCategory.Refresh;
+
+        // "07 - System, Memory and Compute" deliberately falls through to the general
+        // bucket. Hiding it would bury power, thermal and PCIe limits that every
+        // machine has an opinion about.
+        return NvidiaSettingCategory.CommonSettings;
+    }
+
+    private static bool Contains(string haystack, string needle)
+        => haystack.IndexOf(needle, StringComparison.Ordinal) >= 0;
 }
 
 /// <summary>
@@ -175,6 +215,22 @@ public sealed record NvidiaSimpleSettingRow(
     string HexId,
     string? ValueLabel = null)
 {
+    /// <summary>
+    /// False when this driver's own enumeration does not offer the setting, even
+    /// though the Profile Inspector lists it. Such a row is shown so the page matches
+    /// what the Inspector shows, but it is inert: there is nothing on this machine for
+    /// it to act on, and <see cref="IsEditable"/> is false to match.
+    /// </summary>
+    public bool IsSupportedByDriver { get; init; } = true;
+
+    /// <summary>
+    /// Why a row is inert, in one sentence, shown under its name. Empty for every
+    /// row the driver does offer, so the note is never decoration on a working row.
+    /// </summary>
+    public string? SupportNote { get; init; }
+
+    public bool HasSupportNote => !string.IsNullOrWhiteSpace(SupportNote);
+
     /// <summary>Settings whose value is not an integer cannot be written by this editor.</summary>
     public bool IsInheriting => IsInherited;
 
@@ -412,7 +468,7 @@ public sealed class NvidiaSettingCategoryMap
     /// it when you add or move settings; users on an older number get the new file
     /// re-seeded instead of silently losing every new row into "Other".
     /// </summary>
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 6;
 
     private readonly Dictionary<uint, NvidiaSettingCategory> _map;
 
@@ -426,6 +482,20 @@ public sealed class NvidiaSettingCategoryMap
     /// <summary>Never throws and never guesses: an unlisted ID lands in "Other".</summary>
     public NvidiaSettingCategory CategoryFor(uint id)
         => _map.TryGetValue(id, out var category) ? category : NvidiaSettingCategory.Other;
+
+    /// <summary>
+    /// The user's map wins; anything it does not mention is filed under the group the
+    /// Profile Inspector itself uses for that setting.
+    ///
+    /// The fallback exists because the map is hand-maintained and will always trail
+    /// the driver. Routing by the inspector's own group means a setting added to a
+    /// newer driver still lands somewhere sensible instead of dumping into "Other",
+    /// without this app having to invent a bucket for it first.
+    /// </summary>
+    public NvidiaSettingCategory CategoryFor(uint id, string? referenceGroup)
+        => _map.TryGetValue(id, out var category)
+            ? category
+            : NvidiaSettingCategories.FromReferenceGroup(referenceGroup);
 
     public static NvidiaSettingCategoryMap Empty { get; } = new();
 

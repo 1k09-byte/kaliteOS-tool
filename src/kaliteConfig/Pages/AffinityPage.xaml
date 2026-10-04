@@ -130,7 +130,7 @@
                             VerticalAlignment="Center"
                             Source="{x:Bind local:AffinityPage.VendorIcon(ViewModel.SelectedDevice.Name), Mode=OneWay, FallbackValue={x:Null}}" />
                         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind ViewModel.SelectedDevice.Name, Mode=OneWay, FallbackValue=''}" TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource KaliteSectionTitle}" Text="{x:Bind ViewModel.SelectedDevice.Name, Mode=OneWay, FallbackValue=''}" TextWrapping="Wrap" />
                             <TextBlock
                                 FontFamily="Cascadia Mono"
                                 FontSize="11"
@@ -325,7 +325,7 @@
 
                 <!-- Page header (scan runs automatically on first visit) -->
                 <StackPanel Spacing="4">
-                    <TextBlock Text="IRQ &amp; Affinity Tuning" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="IRQ &amp; Affinity Tuning" Style="{StaticResource KalitePageTitle}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"

@@ -38,21 +38,9 @@ if ($Clean) {
     }
 }
 
-# Auto-bump the last digit of the version in the csproj before building
+# Use the version already assigned to the project. Building an installer must
+# not silently mutate project metadata; releases bump <Version> explicitly first.
 $csprojPath = Join-Path $projectDir "src\kaliteConfig\kaliteConfig.csproj"
-if (Test-Path -LiteralPath $csprojPath) {
-    $content = Get-Content -Path $csprojPath -Raw
-    if ($content -match "<Version>(.*?)</Version>") {
-        $oldVersion = $matches[1]
-        $parts = $oldVersion.Split('.')
-        $lastIndex = $parts.Length - 1
-        $parts[$lastIndex] = ([int]$parts[$lastIndex] + 1).ToString()
-        $newVersion = $parts -join '.'
-        $content = $content -replace "<Version>.*?</Version>", "<Version>$newVersion</Version>"
-        Set-Content -Path $csprojPath -Value $content -NoNewline
-        Write-Host "--> Auto-bumped version from $oldVersion to $newVersion in csproj."
-    }
-}
 
 # Version straight from the evaluated csproj so installer + app never
 # drift (the csproj computes Version with a date-based expression, so ask
@@ -85,7 +73,8 @@ Write-Host "--> PresentMon bundled OK ($(Split-Path -Leaf $presentMon))"
 $isccCmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 $iscc = if ($isccCmd) { $isccCmd.Source } else { $null }
 foreach ($candidate in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-        "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe")) {
     if (-not $iscc -and (Test-Path -LiteralPath $candidate)) { $iscc = $candidate; break }
 }
 if (-not $iscc) {

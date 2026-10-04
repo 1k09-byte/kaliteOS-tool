@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -390,15 +390,13 @@ namespace kaliteConfig.Services
                             File.Move(tmp, prefPath, overwrite: true);
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Debug.WriteLine($"EnsureHeliumServicesEnabled failed for {userData}: {ex.Message}");
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"EnsureHeliumServicesEnabled failed: {ex.Message}");
             }
         }
 
@@ -518,9 +516,8 @@ namespace kaliteConfig.Services
 
                     unpackedDirs.Add(dest);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Debug.WriteLine($"SeedHeliumExtensionsFromStore {ext.Name}: {ex.Message}");
                 }
             }
             if (unpackedDirs.Count == 0) return;
@@ -607,9 +604,8 @@ namespace kaliteConfig.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"PatchHeliumShortcuts: {ex.Message}");
             }
         }
 
@@ -654,9 +650,8 @@ namespace kaliteConfig.Services
                 File.Move(tmp, crxPath, overwrite: true);
                 return HasValidCrxMagic(crxPath);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"TryDownloadCrx {id}: {ex.Message}");
                 return File.Exists(crxPath) && HasValidCrxMagic(crxPath);
             }
         }
@@ -721,9 +716,8 @@ namespace kaliteConfig.Services
                 version = manifest?["version"]?.GetValue<string>();
                 return !string.IsNullOrEmpty(version) && manifest is not null;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"TryParseCrx: {ex.Message}");
                 return false;
             }
         }
@@ -775,9 +769,8 @@ namespace kaliteConfig.Services
                 }
                 return File.Exists(Path.Combine(destDir, "manifest.json"));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"TryExtractCrx: {ex.Message}");
                 return false;
             }
         }
@@ -948,7 +941,6 @@ namespace kaliteConfig.Services
                     {
                         if (process.HasExited && process.ExitCode != 0)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Installer exit code {process.ExitCode} for {item.Name}");
                         }
                     }
                     catch { }

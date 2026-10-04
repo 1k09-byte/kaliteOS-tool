@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -134,9 +134,8 @@ public sealed class WindhawkDetectionService
                     };
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"WindhawkDetection({baseKey}): {ex.Message}");
             }
         }
 

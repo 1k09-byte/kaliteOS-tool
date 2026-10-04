@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -111,9 +111,8 @@ namespace kaliteConfig.Services
                     }
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Debug.WriteLine($"EnumerateDevices: {ex.Message}");
                 }
                 DisambiguateDuplicates(result);
                 return result;
@@ -232,9 +231,8 @@ namespace kaliteConfig.Services
                     mask = BitConverter.ToUInt64(eight, 0);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"GetInterruptInfo: {ex.Message}");
             }
             return new InterruptInfo(msi, limit, maxLimit, policy, priority, mask);
         }
@@ -433,24 +431,20 @@ namespace kaliteConfig.Services
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties";
                 int targetVal = enabled ? 1 : 0;
-                Debug.WriteLine($"[AffinityService] Writing MSISupported={targetVal} to {path}");
                 
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(path);
                 key.SetValue("MSISupported", targetVal, Microsoft.Win32.RegistryValueKind.DWord);
                 
                 object? readback = key.GetValue("MSISupported");
-                Debug.WriteLine($"[AffinityService] Read-back MSISupported={readback}");
 
                 if (readback is null || (int)readback != targetVal)
                 {
-                    Debug.WriteLine("[AffinityService] Read-back failed or mismatched. Write failed.");
                     return false;
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetMsiEnabled failed: {ex.Message}");
                 return false;
             }
         }
@@ -470,9 +464,8 @@ namespace kaliteConfig.Services
                 key.DeleteValue(valueName, throwOnMissingValue: false);
                 return key.GetValue(valueName) is null;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"ClearMsiValue({valueName}) failed: {ex.Message}");
                 return false;
             }
         }
@@ -483,24 +476,20 @@ namespace kaliteConfig.Services
             try
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties";
-                Debug.WriteLine($"[AffinityService] Writing MessageNumberLimit={limit} to {path}");
                 
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(path);
                 key.SetValue("MessageNumberLimit", limit, Microsoft.Win32.RegistryValueKind.DWord);
                 
                 object? readback = key.GetValue("MessageNumberLimit");
-                Debug.WriteLine($"[AffinityService] Read-back MessageNumberLimit={readback}");
 
                 if (readback is null || (int)readback != limit)
                 {
-                    Debug.WriteLine("[AffinityService] Read-back failed or mismatched. Write failed.");
                     return false;
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetMsiLimit failed: {ex.Message}");
                 return false;
             }
         }
@@ -511,24 +500,20 @@ namespace kaliteConfig.Services
             try
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties";
-                Debug.WriteLine($"[AffinityService] Writing MaxMessageNumberLimit={limit} to {path}");
                 
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(path);
                 key.SetValue("MaxMessageNumberLimit", limit, Microsoft.Win32.RegistryValueKind.DWord);
                 
                 object? readback = key.GetValue("MaxMessageNumberLimit");
-                Debug.WriteLine($"[AffinityService] Read-back MaxMessageNumberLimit={readback}");
 
                 if (readback is null || (int)readback != limit)
                 {
-                    Debug.WriteLine("[AffinityService] Read-back failed or mismatched. Write failed.");
                     return false;
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetMaxMsiLimit failed: {ex.Message}");
                 return false;
             }
         }
@@ -539,24 +524,20 @@ namespace kaliteConfig.Services
             try
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\Affinity Policy";
-                Debug.WriteLine($"[AffinityService] Writing DevicePolicy={policy} to {path}");
                 
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(path);
                 key.SetValue("DevicePolicy", policy, Microsoft.Win32.RegistryValueKind.DWord);
                 
                 object? readback = key.GetValue("DevicePolicy");
-                Debug.WriteLine($"[AffinityService] Read-back DevicePolicy={readback}");
 
                 if (readback is null || (int)readback != policy)
                 {
-                    Debug.WriteLine("[AffinityService] Read-back failed or mismatched. Write failed.");
                     return false;
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetDevicePolicy failed: {ex.Message}");
                 return false;
             }
         }
@@ -567,24 +548,20 @@ namespace kaliteConfig.Services
             try
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\Affinity Policy";
-                Debug.WriteLine($"[AffinityService] Writing DevicePriority={priority} to {path}");
 
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(path);
                 key.SetValue("DevicePriority", priority, Microsoft.Win32.RegistryValueKind.DWord);
                 
                 object? readback = key.GetValue("DevicePriority");
-                Debug.WriteLine($"[AffinityService] Read-back DevicePriority={readback}");
 
                 if (readback is null || (int)readback != priority)
                 {
-                    Debug.WriteLine("[AffinityService] Read-back failed or mismatched. Write failed.");
                     return false;
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetDevicePriority failed: {ex.Message}");
                 return false;
             }
         }
@@ -598,7 +575,6 @@ namespace kaliteConfig.Services
             try
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\Affinity Policy";
-                Debug.WriteLine($"[AffinityService] Writing AssignmentSetOverride={mask:X} to {path}");
                 
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(path);
                 if (mask == 0)
@@ -607,7 +583,6 @@ namespace kaliteConfig.Services
                     object? readback = key.GetValue("AssignmentSetOverride");
                     if (readback is not null)
                     {
-                        Debug.WriteLine("[AffinityService] Read-back deletion mismatched. Value still exists.");
                         return false;
                     }
                 }
@@ -620,24 +595,20 @@ namespace kaliteConfig.Services
                     if (readback is byte[] actualBytes)
                     {
                         ulong readMask = actualBytes.Length == 8 ? BitConverter.ToUInt64(actualBytes) : (ulong)BitConverter.ToUInt32(actualBytes);
-                        Debug.WriteLine($"[AffinityService] Read-back AssignmentSetOverride={readMask:X}");
                         if (readMask != mask)
                         {
-                            Debug.WriteLine("[AffinityService] Read-back failed or mismatched. Write failed.");
                             return false;
                         }
                     }
                     else
                     {
-                        Debug.WriteLine("[AffinityService] Read-back failed or mismatched type. Write failed.");
                         return false;
                     }
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetAffinityMask failed: {ex.Message}");
                 return false;
             }
         }
@@ -651,7 +622,6 @@ namespace kaliteConfig.Services
             try
             {
                 string path = $@"SYSTEM\CurrentControlSet\Enum\{deviceId}\Device Parameters\Interrupt Management\Affinity Policy";
-                Debug.WriteLine($"[AffinityService] Deleting {valueName} from {path}");
                 
                 using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(path, writable: true);
                 if (key is not null)
@@ -660,15 +630,13 @@ namespace kaliteConfig.Services
                     object? readback = key.GetValue(valueName);
                     if (readback is not null)
                     {
-                        Debug.WriteLine("[AffinityService] Read-back deletion mismatched. Value still exists.");
                         return false;
                     }
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"ClearAffinityPolicy({valueName}) failed: {ex.Message}");
                 return false;
             }
         }
@@ -711,9 +679,8 @@ namespace kaliteConfig.Services
                 classKey.SetValue("*MaxProcessors", threads.Count.ToString(), Microsoft.Win32.RegistryValueKind.String);
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SetRSS failed: {ex.Message}");
                 return false;
             }
         }
@@ -804,13 +771,11 @@ namespace kaliteConfig.Services
                     }
                     catch (OperationCanceledException)
                     {
-                        Debug.WriteLine($"pnputil restart timed out for {fullId}");
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"RestartDevice failed: {ex.Message}");
             }
         }
     }

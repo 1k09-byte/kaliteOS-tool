@@ -301,6 +301,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     GpuName = _primary.Name,
                     DriverVersion = DriverVersion ?? "unknown",
                     IsNotebook = !_primary.IsDiscrete,
+                    IsIntegrated = !_primary.IsDiscrete,
 
                     // A null range is the documented signal for "do not render
                     // this control", which is exactly right for every domain the

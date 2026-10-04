@@ -94,6 +94,17 @@ public sealed class NvidiaDisplayProfile
     /// <summary>CCD target id, used to reach the OS-owned controls (HDR) for the same panel.</summary>
     public uint CcdTargetId { get; set; }
 
+    /// <summary>
+    /// Where this panel sits in the virtual desktop, and how big it is. The driver only
+    /// knows the panel by id; DDC/CI can only be reached by pointing at a rectangle of
+    /// screen, so the monitor-side controls need this geometry before they can be read
+    /// or written at all.
+    /// </summary>
+    public int PositionX { get; set; }
+    public int PositionY { get; set; }
+    public int PanelWidth { get; set; }
+    public int PanelHeight { get; set; }
+
     /// <summary>False when the panel is driven by something other than an NVIDIA GPU.</summary>
     public bool IsNvidiaControlled { get; set; } = true;
 
@@ -141,6 +152,15 @@ public sealed class NvidiaDisplayProfile
     /// here nothing ever answered, so the panel says so rather than showing a reading.
     /// </summary>
     public bool MonitorControlsUnreachable { get; set; }
+
+    /// <summary>
+    /// True when brightness and contrast were read from the graphics driver's own
+    /// desktop-colour ramp, false when they came from the monitor over DDC/CI. The two
+    /// are different hardware controls that happen to share a name, so a value read
+    /// from one must never be written to the other — that is what this records.
+    /// Gamma has no monitor-side equivalent and always rides the driver route.
+    /// </summary>
+    public bool ColourIsDriverSide { get; set; }
 
     /// <summary>
     /// Per-channel RGB gain, each 0.0 - 1.0. This is the NVIDIA "Color channel" control;

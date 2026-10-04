@@ -97,7 +97,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2">
-                        <TextBlock Text="Overclocking" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="Overclocking" Style="{StaticResource KaliteSectionTitle}" />
                         <TextBlock Text="{x:Bind Vm.GpuTitle, Mode=OneWay}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
                     </StackPanel>

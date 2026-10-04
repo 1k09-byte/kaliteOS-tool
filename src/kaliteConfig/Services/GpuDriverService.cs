@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -147,12 +147,10 @@ namespace kaliteConfig.Services
                         bool hasNoDriver = configError is 28 or 31 or 43;
                         if (configError != 0 && !hasNoDriver)
                         {
-                            Debug.WriteLine($"DetectGpus: skipping {name} (ConfigManagerErrorCode={configError})");
                             continue;
                         }
                         if (!hasNoDriver && !NativeMethods.CfgMgr32.IsDevicePresent(obj["PNPDeviceID"]?.ToString() ?? ""))
                         {
-                            Debug.WriteLine($"DetectGpus: skipping non-present adapter {name}");
                             continue;
                         }
 
@@ -200,9 +198,8 @@ namespace kaliteConfig.Services
                     }
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Debug.WriteLine($"DetectGpus (WMI): {ex.Message}");
                 }
 
                 // Fallback: with no driver loaded, some systems never surface the
@@ -263,7 +260,6 @@ namespace kaliteConfig.Services
                             if (name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase))
                                 continue; // generic fallback renderer, not real hardware identity
 
-                            Debug.WriteLine($"DetectGpus: PnPEntity fallback found {name} (code={code}, class={pnpClass})");
                             result.Add(new DetectedGpu(name, vendor, "", name, "OK")
                             {
                                 PnpDeviceId = pnpId,
@@ -274,9 +270,8 @@ namespace kaliteConfig.Services
                             });
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Debug.WriteLine($"DetectGpus (PnPEntity fallback): {ex.Message}");
                     }
                 }
 
@@ -327,9 +322,8 @@ namespace kaliteConfig.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"ReadVramFromRegistry: {ex.Message}");
             }
             return 0;
         }
@@ -359,9 +353,8 @@ namespace kaliteConfig.Services
                     return string.IsNullOrWhiteSpace(version) ? null : version;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"ReadRegistryDriverVersion: {ex.Message}");
             }
             return null;
         }
@@ -424,9 +417,8 @@ namespace kaliteConfig.Services
                     break;
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Debug.WriteLine($"NvidiaLookup {psid}/{pfid}: {ex.Message}");
                 }
             }
             return (null, null);
@@ -447,9 +439,8 @@ namespace kaliteConfig.Services
                     url = first?["DownloadURL"]?.GetValue<string>();
                 return (version?.Trim(), url?.Trim());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"ParseNvidiaLookup: {ex.Message}");
                 return (null, null);
             }
         }
@@ -465,9 +456,8 @@ namespace kaliteConfig.Services
                 if (!IsHttpUrl(url)) return;
                 Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"OpenUrl: {ex.Message}");
             }
         }
 
@@ -558,7 +548,6 @@ namespace kaliteConfig.Services
 
                 int exit = -1;
                 try { if (process.HasExited) exit = process.ExitCode; } catch { }
-                Debug.WriteLine($"NVIDIA installer exit code {exit}");
                 if (exit == 0)
                 {
                     await RefreshInstalledVersionAsync(item, "NVIDIA", ct);
@@ -667,9 +656,8 @@ namespace kaliteConfig.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"RefreshInstalledVersion: {ex.Message}");
             }
         }
 

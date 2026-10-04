@@ -8,7 +8,6 @@
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     xmlns:dev="using:DevWinUI"
     xmlns:converters="using:kaliteConfig.Converters"
-    xmlns:pm="using:kaliteConfig.PackageManager.Views"
     NavigationCacheMode="Enabled">
     <Page.Transitions>
         <TransitionCollection>
@@ -39,7 +38,7 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -57,7 +56,7 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 Click="BrowserCard_Click"
-                CornerRadius="8"
+                CornerRadius="3"
                 Tag="{x:Bind}"
                 Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
                 <Button.OpacityTransition>
@@ -110,7 +109,7 @@
                     VerticalContentAlignment="Center"
                     Background="Transparent"
                     BorderThickness="0"
-                    CornerRadius="8"
+                    CornerRadius="3"
                     Click="BrowserCard_Click"
                     Tag="{x:Bind}"
                     Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
@@ -145,10 +144,10 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Apps" Style="{StaticResource KalitePageTitle}" />
             <!-- Layout switcher for the Install tab. It only affects the app
-                 install grid, so it is hidden on the Packages and Uninstall
-                 tabs by MainSelectorBar_SelectionChanged - a control that
+                 install grid, so it is hidden on the Uninstall tab by
+                 MainSelectorBar_SelectionChanged - a control that
                  silently does nothing on the tab you are looking at is worse
                  than no control at all. -->
             <StackPanel x:Name="ViewModePanel" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -165,7 +164,6 @@
                      HorizontalAlignment="Left"
                      SelectionChanged="MainSelectorBar_SelectionChanged">
             <SelectorBarItem x:Name="TabInstall" Text="Install" IsSelected="True" />
-            <SelectorBarItem x:Name="TabPackages" Text="Packages" />
             <SelectorBarItem x:Name="TabUninstall" Text="Uninstall" />
         </SelectorBar>
 
@@ -189,7 +187,7 @@
                          Visibility="{x:Bind ViewModel.NothingToInstall, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 <!-- Web Browsers Section -->
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Web Browsers" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Web Browsers" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="BrowserGrid" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -210,7 +208,7 @@
 
                 <!-- Game Launchers Section -->
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Game Launchers" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Game Launchers" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="LauncherGrid" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -231,7 +229,7 @@
 
                 <!-- Socials & Communication Section -->
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Socials &amp; Communication" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Socials &amp; Communication" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="SocialGrid" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -252,7 +250,7 @@
 
                 <!-- Utilities Section -->
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Utilities" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Utilities" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="UtilityGrid" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -274,7 +272,6 @@
             </StackPanel>
         </ScrollViewer>
         </Grid>
-        <pm:PackageManagerPage x:Name="PackagesPanel" Grid.Row="2" Visibility="Collapsed" />
         <local:UninstallerPage x:Name="UninstallPanel" Grid.Row="2" Visibility="Collapsed" />
         
         <!-- ContentDialog moved inside the visual tree to resolve XamlRoot / Binding cycle crashes -->
@@ -288,7 +285,7 @@
                 <!-- Title Panel -->
                 <StackPanel Orientation="Horizontal" Spacing="12">
                      <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay, Converter={StaticResource AssetPathConverter}}"/>
-                     <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
+                     <TextBlock Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
                 </StackPanel>
 
                 <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.SelectedBrowser.Description, Mode=OneWay}"/>

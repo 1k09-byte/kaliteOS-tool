@@ -11,6 +11,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using kaliteConfig.Models;
 using kaliteConfig.Services;
 using kaliteConfig.ViewModels;
@@ -29,6 +30,7 @@ namespace kaliteConfig.Pages
         private readonly kaliteConfig.Services.StartupService _startup = new();
         private bool _syncingStartupToggle;
         private TunerProcessRow? _contextProcessRow;
+        private bool _activationAttached;
 
         public ThreadTunerPage()
         {
@@ -37,6 +39,66 @@ namespace kaliteConfig.Pages
             this.DataContext = ViewModel;
             
             this.Loaded += ThreadTunerPage_Loaded;
+        }
+
+        /// <summary>
+        /// The process list polls every 2 s (WMI process scan + CPU sampling).
+        /// Doing that while the user is on another page is pure waste, so the
+        /// poll is gated on this page being the one on screen.
+        /// </summary>
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            ViewModel.IsPageVisible = true;
+            AttachWindowActivation();
+
+            // The poll was stood down while off-page, so the list can be up to
+            // one tick stale on the way back in. Refresh immediately rather than
+            // making the user wait up to 2 s to see the current process list.
+            _ = ViewModel.RefreshProcessesNowAsync();
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            ViewModel.IsPageVisible = false;
+            base.OnNavigatedFrom(e);
+        }
+
+        /// <summary>
+        /// Follows the host window's foreground state so the 2 s poll stops while the
+        /// app is minimised or behind another window. Being on this page is not the
+        /// same as being able to see it.
+        /// </summary>
+        private void AttachWindowActivation()
+        {
+            if (_activationAttached) return;
+
+            var window = kaliteConfig.App.MainWindow;
+            if (window is null) return;
+
+            _activationAttached = true;
+            ViewModel.IsWindowActive = true;
+            window.Activated += HostWindow_Activated;
+            Unloaded += (_, _) =>
+            {
+                window.Activated -= HostWindow_Activated;
+                _activationAttached = false;
+            };
+        }
+
+        private void HostWindow_Activated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
+        {
+            bool active = args.WindowActivationState != Microsoft.UI.Xaml.WindowActivationState.Deactivated;
+            ViewModel.IsWindowActive = active;
+
+            // Coming back to the foreground: the poll stood down while hidden, so
+            // the deltas would otherwise show one huge bogus jump covering the whole
+            // hidden period. Reset the baselines and refresh once, which is the same
+            // reason the counter toggle resets on re-enable.
+            if (active && ViewModel.IsPageVisible)
+            {
+                ViewModel.OnReturningToForeground();
+            }
         }
 
         public static Microsoft.UI.Xaml.Media.Brush RowNameBrush(bool isProtected)

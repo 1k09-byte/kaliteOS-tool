@@ -80,6 +80,31 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsThreadTuneTabActive { get; set; }
 
+    /// <summary>
+    /// True only while the PRC page is actually on screen. The 2 s poll does a
+    /// WMI process scan plus a CPU sample, which is wasted work - and needless
+    /// UI churn - while the user is on any other page. Set from the page's
+    /// OnNavigatedTo / OnNavigatedFrom.
+    ///
+    /// Defaulted to true so the list is populated on first construction, before
+    /// any navigation event has fired.
+    /// </summary>
+    public bool IsPageVisible { get; set; } = true;
+
+    /// <summary>
+    /// True only while the window is the foreground window.
+    ///
+    /// <see cref="IsPageVisible"/> alone is not enough: this page stays "visible"
+    /// when the app is minimised or sitting behind something else, so the poll kept
+    /// walking every process - and, with the delta columns on, taking a full thread
+    /// snapshot of every process in the system - with nobody looking. This is what
+    /// made the counters appear to keep running in the background.
+    /// </summary>
+    public bool IsWindowActive { get; set; } = true;
+
+    /// <summary>Both must hold before the poll does any work.</summary>
+    private bool ShouldPoll => IsPageVisible && IsWindowActive;
+
     [ObservableProperty]
     public partial bool IsThreadTuneLoading { get; set; }
 
@@ -201,6 +226,15 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     return;
                 }
 
+                // Off-page OR window not in the foreground: skip the process scan
+                // and CPU sampling entirely. The rules engine's own watchers are
+                // separate from this poll and keep running, so nothing about rule
+                // application depends on it.
+                if (!ShouldPoll)
+                {
+                    return;
+                }
+
                 _refreshing = true;
                 try
                 {
@@ -306,6 +340,41 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     /// <summary>Search matches process name and PID on the Processes tab, and
     /// rule name/pattern on the Rules tab - one box serves both tabs.</summary>
+    /// <summary>
+    /// Refreshes the process list right now, bypassing the 2 s poll. Used when
+    /// navigating back into the page so the list is never a tick stale.
+    /// Fire-and-forget: callers discard the task, and a failure here only means
+    /// the next poll tick catches up.
+    /// </summary>
+    /// <summary>
+    /// Called when the window comes back to the foreground. The poll stood down
+    /// while hidden, so the counter baselines are stale by the whole hidden period
+    /// and the first delta would read as one enormous jump. Resetting them makes
+    /// the next tick measure from now instead of averaging over dead time.
+    /// </summary>
+    public void OnReturningToForeground()
+    {
+        _tuning.ResetCounterBaselines();
+        _ = RefreshProcessesNowAsync();
+    }
+
+    public async Task RefreshProcessesNowAsync()
+    {
+        if (_refreshing) return;
+
+        _refreshing = true;
+        try
+        {
+            await LoadProcessesAsync();
+            await RefreshCpuAsync();
+        }
+        catch { }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
     public void RefreshDisplayedProcesses()
     {
         string filter = (RulesFilter ?? string.Empty).Trim();

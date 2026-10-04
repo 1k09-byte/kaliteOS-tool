@@ -70,7 +70,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
-            <TextBlock Text="Threads &amp; Boosts" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Threads &amp; Boosts" Style="{StaticResource KalitePageTitle}" />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="36,12,36,16">
@@ -100,7 +100,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Spacing="4">
-                    <TextBlock Text="Thread Tune" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Thread Tune" Style="{StaticResource KaliteSectionTitle}" />
                     <TextBlock Text="Untick the checkbox to disable priority boost for a thread permanently."
                                Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                 </StackPanel>
@@ -186,7 +186,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Margin="0,0,12,0" />
             <TextBox Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
                      Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">

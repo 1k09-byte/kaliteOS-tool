@@ -18,7 +18,7 @@
                         <FontIcon Glyph="&#xE950;" FontSize="22" />
                     </Border>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="GPU Overclock" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="GPU Overclock" Style="{StaticResource KaliteSectionTitle}" />
                         <TextBlock Text="NVIDIA and AMD performance tuning" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                     <Button Click="RedetectBtn_Click" VerticalAlignment="Center" Margin="16,0,0,0">

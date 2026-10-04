@@ -74,7 +74,6 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.11" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
     <PackageReference Include="System.Management" Version="10.0.11" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
   </ItemGroup>
@@ -207,7 +206,7 @@
         ("Version 0.3.0" from Major.Minor.Build) and the installer
         filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.3.0.25</Version>
+    <Version>0.3.0.24</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

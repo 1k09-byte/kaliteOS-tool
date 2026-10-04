@@ -20,7 +20,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Spacing="2">
-            <TextBlock Text="Software Updates" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="Software Updates" Style="{StaticResource KaliteSectionTitle}" />
             <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
         </StackPanel>

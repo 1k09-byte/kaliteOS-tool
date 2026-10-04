@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -180,8 +180,6 @@ public sealed class SnipService : IDisposable
             int totalW = maxX - minX;
             int totalH = maxY - minY;
 
-            System.Diagnostics.Debug.WriteLine($"Multi-monitor capture: {areas.Count} monitors, bounds: ({minX},{minY}) to ({maxX},{maxY}), total size: {totalW}x{totalH}");
-
             // Create destination buffer for stitched image (initialized to black background)
             byte[] stitchedPixels = new byte[totalW * totalH * 4];
             // Fill with black background (0,0,0,255 in BGRA)
@@ -198,12 +196,9 @@ public sealed class SnipService : IDisposable
             {
                 foreach (var (x, y, w, h) in areas)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Capturing monitor at ({x},{y}) size {w}x{h}");
                     var monitorPixels = SnipCaptureHelper.CaptureScreenSlice(x, y, w, h);
                     int offsetX = x - minX;
                     int offsetY = y - minY;
-
-                    System.Diagnostics.Debug.WriteLine($"Copying to offset ({offsetX},{offsetY})");
 
                     // Copy monitor pixels into stitched buffer with bounds checking
                     for (int row = 0; row < h; row++)
@@ -233,7 +228,6 @@ public sealed class SnipService : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine("Fullscreen capture exception: " + ex.ToString());
             return (false, "Fullscreen capture failed: " + ex.Message);
         }
     }
@@ -266,9 +260,8 @@ public sealed class SnipService : IDisposable
                     Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
                     tcs.TrySetResult(true);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine("CopyBgra failed: " + ex.Message);
                     tcs.TrySetResult(false);
                 }
             }))
@@ -290,7 +283,6 @@ public sealed class SnipService : IDisposable
         if (!ok)
         {
             // Surfaced in the UI (status bar + banner) instead of being swallowed here.
-            System.Diagnostics.Debug.WriteLine("Snip hotkey: " + message);
         }
     }
 
@@ -407,7 +399,23 @@ public sealed class SnipService : IDisposable
 
     public void TriggerCapture()
     {
+        // Any overlay from a previous capture has to be fully gone before the first
+        // BitBlt, or its window frame lands in the new frozen frame. CloseOverlays
+        // only asks the windows to close; it does not wait for them to actually be
+        // torn down, so the capture is deferred rather than slept on - the callers
+        // are on the UI thread, and a blocking wait here would freeze the window
+        // that is being screenshotted.
         CloseOverlays();
+        System.Threading.Tasks.Task.Run(async () =>
+        {
+            await System.Threading.Tasks.Task.Delay(120).ConfigureAwait(false);
+            BeginCapture();
+        });
+    }
+
+    /// <summary>The capture itself, run off the UI thread once old overlays are gone.</summary>
+    private void BeginCapture()
+    {
 
         // Who was the user looking at? Recorded now (before our overlay steals focus).
         string foregroundApp = ForegroundAppName();
@@ -438,8 +446,15 @@ public sealed class SnipService : IDisposable
             Log($"Cursor at ({cursor.X},{cursor.Y}) on monitor {cursorMonitorIndex}");
         }
 
-        // Capture all monitors in parallel
-        var captureTasks = areas.Select(area => 
+        // Every monitor is captured before any overlay is created and shown.
+        //
+        // They used to be captured in parallel but only joined after the fact, with
+        // the overlays created inside the continuation - so a monitor still being
+        // BitBlt-ed could have another monitor's overlay already on screen. That is
+        // what put a window frame around the captured desktop. Capturing the full set
+        // first, and only then showing anything, makes each frozen frame contain only
+        // what was on the desktop at the moment of capture.
+        var captureTasks = areas.Select(area =>
             System.Threading.Tasks.Task.Run(() => SnipCaptureHelper.CaptureScreenSlice(area.X, area.Y, area.W, area.H))
         ).ToList();
 
@@ -556,9 +571,8 @@ public sealed class SnipService : IDisposable
                 overlay.Activate();
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine("OpenInEditor failed: " + ex.Message);
         }
     }
 
@@ -576,9 +590,8 @@ public sealed class SnipService : IDisposable
                 var viewer = new kaliteConfig.Views.SnipViewerWindow(filePath);
                 viewer.Activate();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine("OpenInViewer failed: " + ex.Message);
             }
         });
     }
@@ -618,9 +631,8 @@ public sealed class SnipService : IDisposable
                 pin.Activate();
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine("PinImageFile failed: " + ex.Message);
         }
     }
 

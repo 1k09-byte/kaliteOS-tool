@@ -4,7 +4,7 @@
 //
 // This software and associated documentation files are provided freely for end-users
 // to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
+// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute,
 // sublicense, or sell copies of the source code in any form, in whole or in part,
 // without the express written permission of the copyright holder.
 // ==============================================================================
@@ -22,34 +22,43 @@ using System.Threading.Tasks;
 namespace kaliteConfig.Services;
 
 /// <summary>
-/// The "Import backup" half of the provisioning flow: parses a
-/// windhawk-user-data-v1 JSON backup and applies it to a running Windhawk
-/// installation. Two strategies, best-first:
+/// Applies a "windhawk-user-data-v1" backup to an installed Windhawk by driving
+/// Windhawk's OWN command-line interface (windhawk-cli.exe, shipped beside
+/// windhawk.exe since Windhawk 2.0).
 ///
-/// 1. PREFERRED - windhawk-cli.exe (ships with Windhawk 2.0+):
-///    "windhawk-cli data import &lt;archive&gt; --yes --confirm-app-restart" consumes
-///    this exact format natively (verified in the Windhawk 2.0 source:
-///    src/windhawk-core/cli/src/commands/data.rs). The CLI talks to the running
-///    Windhawk core, which fetches each modId's source from the official mod
-///    repository, applies per-mod settings, and reports per-mod outcomes -
-///    settings-only entries are sufficient (no manual .wh.cpp handling).
-/// 2. FALLBACK - direct HKLM\SOFTWARE\Windhawk registry writes (stable 1.7.x
-///    has no import CLI). Verified layout (upstream issue #195 backup script):
-///    - Mods live under Engine\Mods\&lt;modId&gt; with values LibraryFileName,
-///      MetadataJson, Disabled, Settings_&lt;n&gt; keyed per setting.
-///    - App settings live under the Settings subkey.
-///    After writing, Windhawk's engine is restarted via its service so it
-///    picks up new mods. Mods download on demand once the engine sees them.
-///    NOTE: this fallback is best-effort; the 2.0 CLI path is the supported one.
+/// WHY THE CLI AND NOT THE REGISTRY
+/// --------------------------------
+/// Windhawk persists its profile under HKLM\SOFTWARE\Windhawk, and an earlier
+/// version of this file wrote those keys directly. That was wrong: the engine
+/// names each mod's binary "&lt;modId&gt;_&lt;version&gt;_&lt;hash&gt;.dll"
+/// (e.g. "f1-blocker_0.0.3_989293.dll"), a name only the engine can compute, so
+/// a hand-written "LibraryFileName" pointing at "&lt;modId&gt;.dll" resolved to
+/// nothing and left mods installed-but-dead. The CLI already implements this
+/// correctly and is the interface Windhawk supports, so this class owns no
+/// knowledge of the on-disk layout at all: it hands Windhawk a backup file and
+/// lets the engine do the work.
+///
+/// The flow is:
+///   1. data inspect  - validate the archive up front and learn what it holds
+///                      (read-only; nothing is modified).
+///   2. data import   - apply it. One call, atomic from our point of view, and
+///                      it carries app settings + mod configs + mod settings.
+///   3. mod list      - read the engine's own view back and diff against the
+///                      manifest, so the summary reports what Windhawk really
+///                      has rather than what we asked for.
 /// </summary>
 public sealed class WindhawkImportService
 {
     private const string BackupFormat = "windhawk-user-data-v1";
-    private const string WindhawkRegistryKey = @"SOFTWARE\Windhawk";
-    private const string EngineModsKey = WindhawkRegistryKey + @"\Engine\Mods";
-    private const string SettingsKey = WindhawkRegistryKey + @"\Settings";
 
-    /// <summary>Parses and validates a backup file without touching Windhawk.</summary>
+    /// <summary>How long any single CLI invocation may take before we give up.</summary>
+    private static readonly TimeSpan CliTimeout = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// Parses and validates a backup file without touching Windhawk. Kept as a
+    /// separate step so the UI can reject a bad file before it prompts for
+    /// anything.
+    /// </summary>
     public static WindhawkBackup ParseBackup(string jsonFilePath)
     {
         if (!File.Exists(jsonFilePath))
@@ -73,377 +82,258 @@ public sealed class WindhawkImportService
     }
 
     /// <summary>
-    /// Imports a backup into the installed Windhawk. Prefers the Windhawk 2.0+
-    /// CLI, falls back to direct registry writes on 1.7.x. Per-mod failures are
-    /// logged and skipped, never abort the run; the returned result carries a
-    /// per-mod summary for the InfoBar.
+    /// Imports a backup into the installed Windhawk.
     /// </summary>
+    /// <param name="jsonFilePath">Path to the windhawk-user-data-v1 archive.</param>
+    /// <param name="installation">The detected Windhawk install; must carry a CLI path.</param>
+    /// <param name="status">Progress text for the UI.</param>
+    /// <param name="ct">Cancellation.</param>
     public async Task<WindhawkImportResult> ImportBackupAsync(
         string jsonFilePath,
         WindhawkInstallationInfo installation,
         IProgress<string>? status = null,
         CancellationToken ct = default)
     {
+        // Parsing first gives a clean error for a malformed file, and it also
+        // proves the file is readable before we shell out to anything.
         var backup = ParseBackup(jsonFilePath);
+
+        var cliPath = installation.CliPath;
+        if (string.IsNullOrEmpty(cliPath) || !File.Exists(cliPath))
+            throw new InvalidOperationException(
+                "This Windhawk install has no windhawk-cli.exe, so backups cannot be applied " +
+                "automatically. Update Windhawk (2.0 or newer) and try again.");
+
         var result = new WindhawkImportResult();
 
-        // Strategy 1: native CLI (Windhawk 2.0+).
-        if (!string.IsNullOrEmpty(installation.CliPath) && File.Exists(installation.CliPath))
+        // 1. Validate with the engine's own inspector before changing anything.
+        //    --json matters: without it the CLI emits human-readable text and the
+        //    manifest below would silently parse to nothing.
+        status?.Report("Checking the backup with Windhawk...");
+        var inspect = await RunCliAsync(cliPath, new[] { "--json", "data", "inspect", jsonFilePath }, ct);
+        if (!inspect.Success)
         {
-            status?.Report("Importing via windhawk-cli (Windhawk 2.0+)...");
-            var cliResult = await ImportViaCliAsync(installation.CliPath!, jsonFilePath, backup, status, ct);
-            if (cliResult is not null)
-            {
-                status?.Report("Restarting the Windhawk engine service to apply changes...");
-                try
-                {
-                    RestartWindhawkService();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Service restart failed: {ex.Message}");
-                    status?.Report("Note: Windhawk service could not be restarted automatically - it will pick up the mods on its next start.");
-                }
-                return cliResult;
-            }
-
-            status?.Report("windhawk-cli import did not complete - falling back to registry import.");
+            throw new InvalidOperationException(
+                "Windhawk rejected this backup file: " + Describe(inspect));
         }
 
-        // Strategy 2: direct registry (stable 1.7.x, no CLI).
-        status?.Report("Importing via Windhawk registry (legacy 1.7.x path)...");
-        await ImportViaRegistryAsync(backup, result, status, ct);
-        return result;
-    }
-
-    // ------------------------------------------------------------------
-    // Strategy 1: windhawk-cli.exe (Windhawk 2.0+)
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Executes sequential installation and configuration for each mod via CLI.
-    /// This bypasses "data import" which strict-checks repo versions and fails.
-    /// Returns null when the CLI is critically broken so the caller can fall back.
-    /// </summary>
-    private static async Task<WindhawkImportResult?> ImportViaCliAsync(
-        string cliPath, string jsonFilePath, WindhawkBackup backup, IProgress<string>? status, CancellationToken ct)
-    {
-        var result = new WindhawkImportResult();
-
-        // App settings can be immediately written to the registry because Windhawk
-        // live-monitors and consumes them regardless of version via filesystem mapping.
-        try
+        var expected = ReadManifestModIds(inspect.StdOut);
+        // If the manifest could not be read (unexpected CLI output shape), fall
+        // back to the ids from the file we already parsed - verifying "whatever
+        // the backup asked for" is still meaningful, and reporting zero mods
+        // after a successful import would be a silent lie.
+        if (expected.Count == 0)
         {
-            ApplyAppSettings(backup);
+            foreach (var mod in backup.Mods)
+                if (!string.IsNullOrWhiteSpace(mod.ModId))
+                    expected[mod.ModId] = string.IsNullOrWhiteSpace(mod.Version) ? null : mod.Version;
         }
-        catch (Exception ex)
+        status?.Report($"Backup looks valid: {expected.Count} mod(s), {backup.Mods.Count} listed in the file.");
+
+        // 2. Apply. data import is the supported, complete path - it carries app
+        //    settings, each mod's config and each mod's runtime settings.
+        status?.Report("Applying the backup via Windhawk...");
+        var import = await RunCliAsync(cliPath, new[] { "data", "import", jsonFilePath, "--yes" }, ct);
+        if (!import.Success)
         {
-            Debug.WriteLine($"CLI fallback ApplyAppSettings failed: {ex.Message}");
-            status?.Report($"Warning: app settings could not be applied ({ex.Message}).");
+            // Do NOT fall back to writing the registry ourselves: that path is
+            // exactly the thing that silently installed dead mods before. If
+            // the engine says no, the user needs to see why.
+            foreach (var modId in expected.Keys)
+                result.Outcomes.Add(new WindhawkModImportOutcome(modId, false, "Not applied - Windhawk reported an error."));
+            result.Skipped = expected.Count;
+            throw new InvalidOperationException(
+                "Windhawk could not apply this backup: " + Describe(import));
         }
 
-        foreach (var mod in backup.Mods)
+        // 3. Verify against the engine's own view rather than trusting the
+        //    import's exit code alone.
+        status?.Report("Verifying the result with Windhawk...");
+        var installed = await ReadInstalledModsAsync(cliPath, ct);
+
+        foreach (var modId in expected.Keys)
         {
-            ct.ThrowIfCancellationRequested();
-            status?.Report($"Installing mod: {mod.ModId}...");
-
-            try
-            {
-                // 1. Install mod via unified Mod Install CLI (fetches latest)
-                var installPsi = new ProcessStartInfo
-                {
-                    FileName = cliPath,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    StandardOutputEncoding = Encoding.UTF8
-                };
-                installPsi.ArgumentList.Add("mod");
-                installPsi.ArgumentList.Add("install");
-                installPsi.ArgumentList.Add(mod.ModId);
-                installPsi.ArgumentList.Add("--yes");
-                
-                using var installProcess = Process.Start(installPsi);
-                if (installProcess is null)
-                {
-                    result.Outcomes.Add(new WindhawkModImportOutcome(mod.ModId, false, "Failed to instantiate windhawk-cli bridge."));
-                    result.Skipped++;
-                    continue;
-                }
-
-                await installProcess.WaitForExitAsync(ct);
-                
-                if (installProcess.ExitCode != 0)
-                {
-                    string stderr = await installProcess.StandardError.ReadToEndAsync(ct);
-                    Debug.WriteLine($"Mod '{mod.ModId}' install failed: {stderr}");
-                    result.Outcomes.Add(new WindhawkModImportOutcome(mod.ModId, false, $"Installation failed: {stderr.Trim()}"));
-                    result.Skipped++;
-                    continue;
-                }
-
-                // 2. Map Configuration block back onto LIVE Mod properties using ArgumentList safely parsing flattened keys
-                if (mod.Settings is not null && mod.Settings.Count > 0)
-                {
-                    var configPsi = new ProcessStartInfo
-                    {
-                        FileName = cliPath,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    configPsi.ArgumentList.Add("mod");
-                    configPsi.ArgumentList.Add("settings");
-                    configPsi.ArgumentList.Add("set");
-                    configPsi.ArgumentList.Add(mod.ModId);
-                    
-                    foreach (var (key, value) in mod.Settings)
-                    {
-                        string strValue = ConvertSettingValue(value);
-                        configPsi.ArgumentList.Add($"{key}={strValue}");
-                    }
-                    
-                    using var configProcess = Process.Start(configPsi);
-                    if (configProcess is not null)
-                    {
-                        await configProcess.WaitForExitAsync(ct);
-                    }
-                }
-
-                result.Imported++;
-                result.Outcomes.Add(new WindhawkModImportOutcome(mod.ModId, true, "Installed and injected configurations successfully."));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Exception deploying Windhawk mod '{mod.ModId}': {ex.Message}");
-                result.Outcomes.Add(new WindhawkModImportOutcome(mod.ModId, false, ex.Message));
-                result.Skipped++;
-            }
-        }
-        
-        status?.Report(result.SummaryText);
-        return result;
-    }
-
-    // ------------------------------------------------------------------
-    // Strategy 2: direct registry writes (stable 1.7.x fallback)
-    // ------------------------------------------------------------------
-
-    private async Task ImportViaRegistryAsync(
-        WindhawkBackup backup, WindhawkImportResult result, IProgress<string>? status, CancellationToken ct)
-    {
-        // App settings first (dotted keys under HKLM\SOFTWARE\Windhawk\Settings),
-        // then mods one by one.
-        await Task.Run(() =>
-        {
-            try
-            {
-                ApplyAppSettings(backup);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"ApplyAppSettings failed: {ex.Message}");
-                status?.Report($"Warning: app settings could not be applied ({ex.Message}).");
-            }
-
-        // Only import mods whose IDs are known-good; unknown IDs won't resolve
-        // from the Windhawk repository and will leave the user with disabled, non-
-        // functional entries. This keeps the import deterministic.
-        var catalog = WindhawkModCatalog.AllowedModIds;
-        foreach (var mod in backup.Mods)
-        {
-            ct.ThrowIfCancellationRequested();
-
-            if (!catalog.Contains(mod.ModId, StringComparer.OrdinalIgnoreCase))
+            if (!installed.TryGetValue(modId, out var state))
             {
                 result.Skipped++;
                 result.Outcomes.Add(new WindhawkModImportOutcome(
-                    mod.ModId, false,
-                    "Mod id is not in the bundled catalog - skipped for safety."));
-                Debug.WriteLine($"Mod '{mod.ModId}' skipped: not in catalog.");
+                    modId, false, "Not present in Windhawk after the import."));
                 continue;
             }
 
-            try
+            if (!state.Enabled)
             {
-                ApplyModToRegistry(mod);
-
-                // Hard verification: re-read the registry to confirm the mod is
-                // present and NOT disabled. A write-back failure or a stray
-                // Disabled=1 would otherwise silently leave the mod not applied.
-                bool applied = VerifyModApplied(mod.ModId);
-                if (!applied)
-                {
-                    result.Skipped++;
-                    result.Outcomes.Add(new WindhawkModImportOutcome(
-                        mod.ModId, false,
-                        "Registry write succeeded but the mod is not enabled - Windhawk will not apply it."));
-                    Debug.WriteLine($"Mod '{mod.ModId}' import verified as NOT applied.");
-                    continue;
-                }
-
-                result.Imported++;
-                result.Outcomes.Add(new WindhawkModImportOutcome(mod.ModId, true, null));
-                Debug.WriteLine($"Mod '{mod.ModId}' import verified as applied.");
-            }
-            catch (Exception ex)
-            {
-                // Per-mod failure: log and continue (e.g. modId unknown,
-                // registry locked). Windhawk will skip it.
-                Debug.WriteLine($"Mod '{mod.ModId}' import failed: {ex.Message}");
                 result.Skipped++;
-                result.Outcomes.Add(new WindhawkModImportOutcome(mod.ModId, false, ex.Message));
+                result.Outcomes.Add(new WindhawkModImportOutcome(
+                    modId, false, "Installed but disabled - Windhawk will not apply it until it is enabled."));
+                continue;
             }
-        }
-        }, ct);
 
-        // Nudge the engine to pick up the changes: restart the Windhawk service
-        // (it reloads its mod profile from the registry on start).
-        status?.Report("Restarting the Windhawk engine service to apply changes...");
-        try
-        {
-            RestartWindhawkService();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Service restart failed: {ex.Message}");
-            status?.Report("Note: Windhawk service could not be restarted automatically - it will pick up the mods on its next start.");
+            result.Imported++;
+            result.Outcomes.Add(new WindhawkModImportOutcome(
+                modId, true, state.Version is null ? null : $"v{state.Version}"));
         }
 
-        // Post-import summary: recompute Imported/Skipped counts from the verified
-        // per-mod outcomes so the UI message is accurate (the loop above already
-        // tagged failures as Skipped).
         status?.Report(result.SummaryText);
+        return result;
     }
+
+    // ------------------------------------------------------------------
+    // CLI plumbing
+    // ------------------------------------------------------------------
+
+    private sealed record CliResult(int ExitCode, string StdOut, string StdErr)
+    {
+        public bool Success => ExitCode == 0;
+    }
+
+    private sealed record ModState(bool Enabled, string? Version);
 
     /// <summary>
-    /// Applies appSettings as dotted registry values under HKLM\SOFTWARE\Windhawk\Settings.
-    /// Engine sub-settings flatten to "engine.xxx" keys, matching how Windhawk's
-    /// own settings UI names them.
+    /// Runs windhawk-cli with the given arguments and captures both streams.
+    /// Uses ArgumentList (never a joined string) so mod ids and setting values
+    /// cannot be re-interpreted as flags, and redirects the streams so a hidden
+    /// window never flashes on screen.
     /// </summary>
-    private static void ApplyAppSettings(WindhawkBackup backup)
-    {
-        var app = backup.AppSettings;
-        if (app is null) return;
-
-        using var baseKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(SettingsKey, writable: true)
-            ?? throw new InvalidOperationException("Could not open the Windhawk settings registry key (elevation required).");
-
-        void SetString(string name, string? value)
-        {
-            if (value is null) return;
-            baseKey.SetValue(name, value, Microsoft.Win32.RegistryValueKind.String);
-        }
-        void SetDword(string name, bool? value) { if (value.HasValue) baseKey.SetValue(name, value.Value ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord); }
-        void SetDwordInt(string name, int? value) { if (value.HasValue) baseKey.SetValue(name, value.Value, Microsoft.Win32.RegistryValueKind.DWord); }
-
-        SetString("language", app.Language);
-        SetString("theme", app.Theme);
-        SetDword("disableUpdateCheck", app.DisableUpdateCheck);
-        SetDword("devModeOptOut", app.DevModeOptOut);
-        SetDword("hideTrayIcon", app.HideTrayIcon);
-        SetDword("alwaysCompileModsLocally", app.AlwaysCompileModsLocally);
-        SetDword("dontAutoShowToolkit", app.DontAutoShowToolkit);
-        SetDwordInt("modTasksDialogDelay", app.ModTasksDialogDelay);
-        SetDwordInt("loggingVerbosity", app.LoggingVerbosity);
-
-        if (app.Engine is { } engine)
-        {
-            SetDwordInt("engine.loggingVerbosity", engine.LoggingVerbosity);
-            SetDword("engine.injectIntoCriticalProcesses", engine.InjectIntoCriticalProcesses);
-            SetDword("engine.injectIntoIncompatiblePrograms", engine.InjectIntoIncompatiblePrograms);
-            SetDword("engine.injectIntoGames", engine.InjectIntoGames);
-
-            if (engine.Include is not null)
-                baseKey.SetValue("engine.include", string.Join("\n", engine.Include), Microsoft.Win32.RegistryValueKind.MultiString);
-            if (engine.Exclude is not null)
-                baseKey.SetValue("engine.exclude", string.Join("\n", engine.Exclude), Microsoft.Win32.RegistryValueKind.MultiString);
-        }
-    }
-
-    /// <summary>
-    /// Writes one mod's registration under HKLM\SOFTWARE\Windhawk\Engine\Mods\&lt;modId&gt;.
-    /// The registry stores settings as flat string values ("key" → stringified
-    /// scalar, arrays as key[i] entries) - this is exactly the flat form the
-    /// backup already uses, so values transfer directly.
-    /// </summary>
-    private static void ApplyModToRegistry(WindhawkModEntry mod)
-    {
-        if (string.IsNullOrWhiteSpace(mod.ModId) || mod.ModId.Contains('\\') || mod.ModId.StartsWith("local@"))
-            throw new InvalidOperationException("Unsupported mod id.");
-
-        // Mods ship as .dll under the engine's mod directory; the engine resolves
-        // the modId against the official repository on first run. Writing the
-        // registry entry is enough to make it an "installed" mod for the engine.
-        string modKeyPath = EngineModsKey + "\\" + mod.ModId;
-        using var modKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(modKeyPath, writable: true)
-            ?? throw new InvalidOperationException($"Could not create the registry key for mod '{mod.ModId}' (elevation required).");
-
-        modKey.SetValue("LibraryFileName", $"{mod.ModId}.dll", Microsoft.Win32.RegistryValueKind.String);
-
-        if (!string.IsNullOrEmpty(mod.Version))
-            modKey.SetValue("Version", mod.Version, Microsoft.Win32.RegistryValueKind.String);
-
-        // IMPORTANT: enable the mod by default. The engine disables it only when
-        // the source/binary cannot be resolved from the repository. Writing 0 here
-        // is what makes the toggle appear "on" in the Windhawk UI.
-        modKey.SetValue("Disabled", 0, Microsoft.Win32.RegistryValueKind.DWord);
-
-        if (mod.Settings is not null)
-        {
-            foreach (var (key, value) in mod.Settings)
-            {
-                modKey.SetValue($"Settings_{key}", ConvertSettingValue(value), Microsoft.Win32.RegistryValueKind.String);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Verifies that a single mod was written correctly by re-opening its registry
-    /// key and checking the Disabled value - the most reliable signal that the
-    /// engine will honor the mod.
-    /// </summary>
-    private static bool VerifyModApplied(string modId)
-    {
-        try
-        {
-            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(EngineModsKey + "\\" + modId, writable: false);
-            if (key is null) return false;
-            var disabled = key.GetValue("Disabled");
-            if (disabled is int d && d == 0) return true;
-            if (disabled is int d2 && d2 == 1) return false; // explicitly disabled
-            return false;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string ConvertSettingValue(object? value) => value switch
-    {
-        null => string.Empty,
-        bool b => b ? "1" : "0",
-        string s => s,
-        JsonElement { ValueKind: JsonValueKind.Number } n => n.GetRawText(),
-        JsonElement { ValueKind: JsonValueKind.String } s => s.GetString() ?? string.Empty,
-        JsonElement { ValueKind: JsonValueKind.True } => "1",
-        JsonElement { ValueKind: JsonValueKind.False } => "0",
-        _ => value.ToString() ?? string.Empty,
-    };
-
-    /// <summary>Restarts the Windhawk service so it reloads its mod profile.</summary>
-    private static void RestartWindhawkService()
+    private static async Task<CliResult> RunCliAsync(
+        string cliPath, IReadOnlyList<string> args, CancellationToken ct)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = "cmd.exe",
-            Arguments = "/c net stop WindhawkService & net start WindhawkService",
+            FileName = cliPath,
             UseShellExecute = false,
             CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
-        using var process = Process.Start(psi);
-        process?.WaitForExit(30000);
+        foreach (var a in args) psi.ArgumentList.Add(a);
+
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("Could not start windhawk-cli.exe.");
+
+        // Read both pipes before awaiting exit: a child that fills a pipe buffer
+        // while we wait on exit would otherwise deadlock.
+        var stdOutTask = process.StandardOutput.ReadToEndAsync(ct);
+        var stdErrTask = process.StandardError.ReadToEndAsync(ct);
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(CliTimeout);
+        try
+        {
+            await process.WaitForExitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            TryKill(process);
+            throw new TimeoutException(
+                $"windhawk-cli did not finish within {CliTimeout.TotalMinutes:0} minutes.");
+        }
+
+        return new CliResult(process.ExitCode, await stdOutTask, await stdErrTask);
+    }
+
+    private static void TryKill(Process p)
+    {
+        try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch { /* already gone */ }
+    }
+
+    /// <summary>Best-effort one-line explanation of a failed CLI run.</summary>
+    private static string Describe(CliResult r)
+    {
+        var text = string.IsNullOrWhiteSpace(r.StdErr) ? r.StdOut : r.StdErr;
+        text = text.Trim();
+        if (text.Length == 0) return $"exit code {r.ExitCode}.";
+        // The CLI is chatty; one line is enough for an InfoBar.
+        var firstLine = text.Split('\n', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+        return firstLine.Length > 200 ? firstLine[..200] + "..." : firstLine;
+    }
+
+    // ------------------------------------------------------------------
+    // JSON reading
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Pulls the mod ids out of `data inspect --json`. Returns an empty map when
+    /// the output is not the expected shape - the caller still has the parsed
+    /// file, so an unexpected payload degrades to "verify whatever is there"
+    /// rather than failing the import.
+    /// </summary>
+    private static Dictionary<string, string?> ReadManifestModIds(string stdout)
+    {
+        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (!TryParseJson(stdout, out var root)) return result;
+
+        if (root.ValueKind != JsonValueKind.Object) return result;
+        if (!root.TryGetProperty("data", out var data)) return result;
+        if (data.ValueKind != JsonValueKind.Object) return result;
+        if (!data.TryGetProperty("manifest", out var manifest)) return result;
+        if (manifest.ValueKind != JsonValueKind.Object) return result;
+        if (!manifest.TryGetProperty("mods", out var mods)) return result;
+        if (mods.ValueKind != JsonValueKind.Array) return result;
+
+        foreach (var mod in mods.EnumerateArray())
+        {
+            if (mod.ValueKind != JsonValueKind.Object) continue;
+            var id = mod.TryGetProperty("modId", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                ? idEl.GetString() : null;
+            if (string.IsNullOrWhiteSpace(id)) continue;
+            var ver = mod.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String
+                ? v.GetString() : null;
+            result[id!] = ver;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Reads `mod list --json` into id → (enabled, version). This is the
+    /// engine's own answer to "what do you actually have?", which is why the
+    /// summary is built from it instead of from the import's exit code.
+    /// </summary>
+    private static async Task<Dictionary<string, ModState>> ReadInstalledModsAsync(
+        string cliPath, CancellationToken ct)
+    {
+        var installed = new Dictionary<string, ModState>(StringComparer.OrdinalIgnoreCase);
+
+        var run = await RunCliAsync(cliPath, new[] { "--json", "mod", "list" }, ct);
+        if (!run.Success || !TryParseJson(run.StdOut, out var root)) return installed;
+
+        if (root.ValueKind != JsonValueKind.Object) return installed;
+        if (!root.TryGetProperty("data", out var data)) return installed;
+        if (data.ValueKind != JsonValueKind.Object) return installed;
+        if (!data.TryGetProperty("mods", out var mods)) return installed;
+        if (mods.ValueKind != JsonValueKind.Array) return installed;
+
+        foreach (var mod in mods.EnumerateArray())
+        {
+            if (mod.ValueKind != JsonValueKind.Object) continue;
+            var id = mod.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                ? idEl.GetString() : null;
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            var enabled = mod.TryGetProperty("enabled", out var en) && en.ValueKind == JsonValueKind.True;
+            var version = mod.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String
+                ? v.GetString() : null;
+
+            installed[id!] = new ModState(enabled, version);
+        }
+        return installed;
+    }
+
+    private static bool TryParseJson(string text, out JsonElement element)
+    {
+        element = default;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            element = doc.RootElement.Clone();
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

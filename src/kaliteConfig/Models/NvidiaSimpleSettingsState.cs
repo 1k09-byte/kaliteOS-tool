@@ -211,6 +211,15 @@ public sealed class NvidiaSimpleSettingsState
     [JsonPropertyName("recentChanges")]
     public List<NvidiaRecentSettingChange> RecentChanges { get; set; } = new();
 
+    /// <summary>
+    /// Whether to list settings this driver does not offer. Null means "never asked",
+    /// which is deliberately different from false: an absent field means the user has
+    /// not made the choice yet, so the page can apply its own default of showing only
+    /// what the GPU actually offers, and still remember an explicit no.
+    /// </summary>
+    [JsonPropertyName("showUnsupportedSettings")]
+    public bool? ShowUnsupportedSettings { get; set; }
+
     /// <summary>Recents are capped so the file cannot grow without bound.</summary>
     public const int MaxRecents = 25;
 

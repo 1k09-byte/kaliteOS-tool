@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -362,9 +362,8 @@ public sealed class WindhawkInstallerService
         string stdout = await stdoutTask;
         string stderr = await stderrTask;
 
-        Debug.WriteLine($"windhawk-cli [{arguments}] exit {process.ExitCode}");
-        if (!string.IsNullOrWhiteSpace(stderr))
-            Debug.WriteLine($"windhawk-cli stderr: {stderr}");
+        // stderr is returned to the caller in CliRunResult, which is where the UI
+// already surfaces it; it needs no separate reporting here.
 
         return new CliRunResult(process.ExitCode, stdout, stderr);
     }
@@ -441,9 +440,8 @@ public sealed class WindhawkInstallerService
 
             return string.Join(" | ", parts);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Debug.WriteLine($"ParseImportSummary failed: {ex.Message}");
             return null;
         }
     }
@@ -484,9 +482,8 @@ public sealed class WindhawkInstallerService
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Debug.WriteLine($"ParseUpdateAvailableList failed: {ex.Message}");
         }
 
         return ids;

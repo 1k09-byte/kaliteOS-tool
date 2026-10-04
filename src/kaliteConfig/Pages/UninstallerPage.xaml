@@ -18,7 +18,7 @@
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="16" />
         </Style>
         <Style x:Key="RemoverSectionTitle" TargetType="TextBlock">
@@ -85,7 +85,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Uninstall" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,2,0,0"
+                <TextBlock Text="Uninstall" Style="{StaticResource KalitePageTitle}" Margin="0,2,0,0"
                            ToolTipService.ToolTip="Uninstaller &amp; remover - applications, driver packages, startup entries" />
                 <TextBlock Text="{Binding SummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
             </StackPanel>
@@ -304,7 +304,7 @@
                                            Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource InvertedBoolToVisibilityConverter}}" />
                             </Grid>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{Binding SelectedApp.Name}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding SelectedApp.Name}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
                                 <TextBlock Text="{Binding SelectedApp.Publisher}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -443,7 +443,7 @@
                                           Visibility="{Binding SelectedDriver, Converter={StaticResource NullToVisibilityConverter}}">
                                 <StackPanel Spacing="12">
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding SelectedDriver.FriendlyKind}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SelectedDriver.FriendlyKind}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding SelectedDriver.Provider}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="6">

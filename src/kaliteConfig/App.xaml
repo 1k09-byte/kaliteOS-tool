@@ -9,25 +9,19 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///DevWinUI/Themes/Generic.xaml" />
+                <!-- Kalite matte design system. Merged AFTER the WinUI/DevWinUI
+                     defaults so its tokens win: every page references these
+                     brush names by key, so redefining them here re-skins the
+                     whole app without touching a single page. -->
+                <ResourceDictionary Source="ms-appx:///Themes/KaliteTheme.xaml" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Light-mode readability: the app was designed dark-first, and the
-                 default WinUI secondary/tertiary text grays (tuned for dark
-                 surfaces) wash out on light backgrounds. Dark theme is left
-                 untouched; Light gets higher-contrast grays. Default theme
-                 inherits so "Use system setting" picks whichever dictionary
-                 matches the active theme. -->
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#CC1B1B1B" />
-                    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#A3000000" />
-                    <SolidColorBrush x:Key="TextFillColorDisabledBrush" Color="#73000000" />
-                    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#E4000000" />
-                    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#29000000" />
-                    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#1A000000" />
-                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#0F000000" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
+            <!-- The Kalite identity is dark-only and matte (see Themes/KaliteTheme.xaml,
+                 which defines Light/Dark/Default identically so the app looks the
+                 same under any theme setting). The app forces ElementTheme.Dark in
+                 code; these dictionaries exist so a light-mode system setting can
+                 never wash the UI out. -->
+
             <!-- Other app resources here -->
         </ResourceDictionary>
     </Application.Resources>

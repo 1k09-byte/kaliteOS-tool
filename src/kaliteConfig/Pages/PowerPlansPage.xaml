@@ -14,12 +14,7 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <Style x:Key="PowerCard" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
-            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="14"/>
-        </Style>
+        <Style x:Key="PowerCard" TargetType="Border" BasedOn="{StaticResource KaliteCard}" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
@@ -50,7 +45,7 @@
                 <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                     <Run Text="Windows Settings" /><Run Text="  ›  Power Plans" FontWeight="SemiBold" />
                 </TextBlock>
-                <TextBlock Text="Power Plans" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="Power Plans" Style="{StaticResource KalitePageTitle}" />
             </StackPanel>
         </Grid></Border>
 
@@ -98,7 +93,7 @@
                           Background="{ThemeResource LayerFillColorDefaultBrush}"
                           BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                           BorderThickness="1"
-                          CornerRadius="10"
+                          CornerRadius="5"
                           Padding="6">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:PowerScheme">
@@ -120,7 +115,7 @@
                     <Border Background="{ThemeResource LayerFillColorDefaultBrush}" 
                             BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" 
                             BorderThickness="1" 
-                            CornerRadius="8" 
+                            CornerRadius="5"
                             Padding="20">
                         <Grid>
                             <Grid.ColumnDefinitions>

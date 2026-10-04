@@ -13,7 +13,7 @@
     <Grid Padding="28,16" RowSpacing="12">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Manage 3D Settings" Style="{StaticResource SubtitleTextBlockStyle}"/>
+            <TextBlock Text="Manage 3D Settings" Style="{StaticResource KaliteSectionTitle}"/>
             <TextBlock Text="Curated DRS settings. Per-program GPU preference may be overridden by Windows Graphics Settings." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
         <TabView x:Name="ThreeDTabView" Grid.Row="1" IsAddTabButtonVisible="False" SelectionChanged="ThreeDTabView_SelectionChanged">

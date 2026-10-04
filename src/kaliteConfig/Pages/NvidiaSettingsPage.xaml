@@ -17,19 +17,19 @@
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <Style x:Key="BannerCard" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="16,12" />
         </Style>
         <Style x:Key="GroupCard" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="10,6" />
         </Style>
         <Style x:Key="SettingRow" TargetType="Grid">
-            <Setter Property="MinHeight" Value="48" />
-            <Setter Property="Margin" Value="16,0" />
+            <Setter Property="MinHeight" Value="54" />
+            <Setter Property="Margin" Value="18,0" />
         </Style>
         <Style x:Key="RowLabel" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -81,7 +81,7 @@
             <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
               <Border Width="44" Height="44" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Padding="10"><FontIcon Glyph="&#xE9A1;" FontSize="20" /></Border>
               <StackPanel VerticalAlignment="Center" Spacing="1">
-                <TextBlock Text="NVIDIA Control Panel · Display" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="NVIDIA Control Panel · Display" Style="{StaticResource KaliteSectionTitle}" />
                 <TextBlock Text="Display, color, scaling and Windows HDR controls." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
               </StackPanel>
             </StackPanel>
@@ -105,7 +105,8 @@
                   <Grid Style="{StaticResource SettingRow}"><Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Refresh rate" Style="{StaticResource RowLabel}"/><ComboBox Grid.Column="1" MinWidth="220" HorizontalAlignment="Left" ItemsSource="{x:Bind DisplayVm.AvailableRefreshRates, Mode=OneWay}" SelectedItem="{x:Bind DisplayVm.SelectedRefreshRate, Mode=TwoWay}" ItemTemplate="{StaticResource RefreshRateTemplate}"/></Grid>
                   <Grid Style="{StaticResource SettingRow}"><Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Display scale" Style="{StaticResource RowLabel}"/><ComboBox x:Name="ScaleComboBox" Grid.Column="1" MinWidth="220" HorizontalAlignment="Left" ItemsSource="{x:Bind DisplayVm.AvailableScales, Mode=OneWay}" IsEnabled="{x:Bind DisplayVm.ScaleIsSupported, Mode=OneWay}" SelectionChanged="ScaleComboBox_SelectionChanged"/></Grid>
                   <Grid Style="{StaticResource SettingRow}"><Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Orientation" Style="{StaticResource RowLabel}"/><ComboBox Grid.Column="1" MinWidth="220" HorizontalAlignment="Left" ItemsSource="{x:Bind DisplayVm.AvailableRotations, Mode=OneWay}" SelectedItem="{x:Bind DisplayVm.SelectedRotation, Mode=TwoWay}" ItemTemplate="{StaticResource RotationTemplate}"/></Grid>
-                </StackPanel></Border><TextBlock Style="{StaticResource GroupNote}" Text="Scale applies immediately; running programs keep their old size until restarted."/></StackPanel>
+                </StackPanel></Border><InfoBar x:Name="DisplayStatusBar" IsOpen="{x:Bind DisplayVm.StatusHasText, Mode=OneWay}" IsClosable="False" Severity="Error" Title="Display change refused" Message="{x:Bind DisplayVm.StatusMessage, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource GroupNote}" Text="Scale applies immediately; running programs keep their old size until restarted."/></StackPanel>
                 <StackPanel><TextBlock Text="Arrangement" Style="{StaticResource GroupTitle}"/><TextBlock Style="{StaticResource GroupNote}" Text="Drag displays to match your physical setup, then apply the layout."/><Border Style="{StaticResource GroupCard}" Padding="16"><StackPanel Spacing="12"><Button Content="Apply layout" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="ApplyArrangement_Click"/><Border x:Name="ArrangementBounds" Background="{ThemeResource LayerFillColorDefaultBrush}" Height="280" CornerRadius="8" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1"><Canvas x:Name="ArrangementCanvas"/></Border></StackPanel></Border></StackPanel>
                 <StackPanel><TextBlock Text="Color" Style="{StaticResource GroupTitle}"/><TextBlock Style="{StaticResource GroupNote}" Text="Brightness and contrast use the driver; channel gains are sent to the monitor; hue is applied by the driver."/><Border Visibility="{x:Bind Vm.MonitorControlsUnreachable, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" Style="{StaticResource GroupCard}" Padding="16,10" Margin="0,0,0,10"><StackPanel Spacing="3"><TextBlock Text="Channel gains unavailable" Style="{StaticResource BodyStrongTextBlockStyle}"/><TextBlock Style="{StaticResource GroupNote}" Margin="0" Text="{x:Bind Vm.ColorNote, Mode=OneWay}"/></StackPanel></Border><Border Style="{StaticResource GroupCard}"><StackPanel>
                   <Grid Style="{StaticResource SettingRow}"><Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Brightness" Style="{StaticResource RowLabel}"/><Grid Grid.Column="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Slider Grid.Column="0" Style="{StaticResource RowSlider}" Minimum="0" Maximum="1" StepFrequency="0.01" IsEnabled="{x:Bind Vm.SupportsBrightness, Mode=OneWay}" Value="{x:Bind Vm.Brightness, Mode=TwoWay}"/><TextBlock Grid.Column="1" Style="{StaticResource RowValue}" Text="{x:Bind Vm.BrightnessText, Mode=OneWay}"/></Grid></Grid>

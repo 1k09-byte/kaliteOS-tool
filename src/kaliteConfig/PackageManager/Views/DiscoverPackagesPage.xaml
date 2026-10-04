@@ -20,7 +20,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Spacing="2">
-            <TextBlock Text="Discover Packages" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="Discover Packages" Style="{StaticResource KaliteSectionTitle}" />
             <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
         </StackPanel>

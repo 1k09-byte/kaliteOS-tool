@@ -22,8 +22,10 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter" />
         
-        <!-- Flat table rows: no rounded card per row, no margin gaps. Hover
-             and selection are a subtle full-width fill on the row itself. -->
+        <!-- Table rows: flat, hairline-separated lines, but with softened
+             corners - RowSurface is rounded so the hover/selection fill
+             curves instead of being a sharp rectangle. No full outline
+             around the row: the fill is the only highlight. -->
         <Style x:Key="ProcessCardItemStyle" TargetType="ListViewItem">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -32,13 +34,12 @@
             <Setter Property="Margin" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />
-            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
             <Setter Property="FocusVisualSecondaryThickness" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="RowSurface" Background="Transparent">
+                        <Border x:Name="RowSurface" Background="Transparent" CornerRadius="8" Margin="0,1">
                             <ContentPresenter Background="Transparent"
                                               Content="{TemplateBinding Content}"
                                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -213,7 +214,7 @@
             </Grid>
 
             <!-- Column Headers: plain caption row above a hairline rule, no card. -->
-            <Grid Grid.Row="1" Margin="28,0,28,0" ColumnSpacing="12" Padding="14,0,14,6"
+            <Grid Grid.Row="1" Margin="28,0,28,0" ColumnSpacing="12" Padding="14,0,32,6"
                       BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                     <!-- Counter columns collapse to 0 via the same fixed width in
                          header and rows. Auto widths would size the header's long
@@ -248,13 +249,16 @@
             </Grid>
 
             <!-- Process table: no card, no border around the list. Rows are flat
-                     lines separated by hairlines, the way a process table reads. -->
+                     lines separated by hairlines, the way a process table reads.
+                     Right padding reserves a gutter for the scroll bar, which
+                     WinUI draws ON TOP of the content; the header row above
+                     carries the same 18px so columns stay aligned. -->
             <ListView x:Name="ProcessesGrid" Grid.Row="2" Margin="28,0,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
-                      Background="Transparent" BorderThickness="0" Padding="0"
+                      Background="Transparent" BorderThickness="0" Padding="0,0,18,0"
                       ItemContainerStyle="{StaticResource ProcessCardItemStyle}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:TunerProcessRow">
-                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" CornerRadius="8">
                         <Grid Padding="14,6" ColumnSpacing="12" Background="Transparent"
                                 ToolTipService.ToolTip="{x:Bind Name}"
                                 DoubleTapped="Row_DoubleTapped">
@@ -397,7 +401,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <TextBox CornerRadius="8" Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
                          Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">

@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 // ==============================================================================
@@ -234,9 +234,6 @@ internal static partial class NativeMethods
             int error = Marshal.GetLastWin32Error();
             if (!ok || physical.Handle == IntPtr.Zero)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[DdcCi] GetPhysicalMonitorsFromHMONITOR on 0x{hMonitor.ToInt64():X} " +
-                    $"returned ok={ok} handle=0x{physical.Handle.ToInt64():X} (win32 {error})");
                 return false;
             }
 
@@ -296,9 +293,8 @@ internal static partial class NativeMethods
             {
                 return GetVCPFeatureAndVCPFeatureReply(monitorHandle, vcpCode, out current, out maximum);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"[DdcCi] VCP 0x{vcpCode:X2} read threw {ex.GetType().Name}: {ex.Message}");
                 return false;
             }
         }
@@ -307,16 +303,10 @@ internal static partial class NativeMethods
         {
             try
             {
-                bool ok = SetVCPFeature(monitorHandle, vcpCode, value);
-                if (!ok)
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[DdcCi] VCP 0x{vcpCode:X2} write of {value} was refused " +
-                        $"(win32 {Marshal.GetLastWin32Error()})");
-                return ok;
+                return SetVCPFeature(monitorHandle, vcpCode, value);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"[DdcCi] VCP 0x{vcpCode:X2} write threw {ex.GetType().Name}: {ex.Message}");
                 return false;
             }
         }

@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -51,9 +51,8 @@ namespace kaliteConfig.Services
                 ulong mask = BitConverter.ToUInt64(safeBytes, 0);
                 return mask;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"Failed to read ReservedCpuSets: {ex.Message}");
                 return null;
             }
         }

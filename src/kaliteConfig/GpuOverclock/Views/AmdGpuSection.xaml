@@ -32,7 +32,7 @@
                 <FontIcon Glyph="&#xE950;" FontSize="16" />
             </Border>
             <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="AMD GPUs" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="AMD GPUs" Style="{StaticResource KaliteSectionTitle}" />
                 <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Text="Detected through ADLX, the AMD driver interface" />
             </StackPanel>

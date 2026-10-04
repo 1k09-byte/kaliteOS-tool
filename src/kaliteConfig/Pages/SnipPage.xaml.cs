@@ -249,7 +249,7 @@ public sealed partial class SnipPage : Page
 
         var changed = false;
         try { changed = await ViewModel.RefreshQuietAsync(); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"quiet refresh failed: {ex.Message}"); }
+        catch (Exception) { }
         if (changed) RetryFailedPreviews();
 
         // Set after the work, so a merge that takes longer than the interval cannot queue up

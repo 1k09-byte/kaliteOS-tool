@@ -30,6 +30,21 @@ namespace kaliteConfig.GpuOverclock.Models
         public required string DriverVersion { get; init; }
         public bool IsNotebook { get; init; }
 
+        /// <summary>
+        /// True when this is an integrated adapter (shares system memory with
+        /// the CPU) rather than a discrete card. Read from the vendor API, not
+        /// inferred from the product name: a discrete Radeon is a Radeon, and
+        /// matching on that substring used to lock out real discrete cards.
+        ///
+        /// NVIDIA's NVML SystemType enum has no integrated member - it reports
+        /// Laptop / Desktop / Workstation / Compute / Tegra - so the NVIDIA
+        /// controller leaves this false. That is not a blind spot in practice:
+        /// NVIDIA ships no integrated graphics part of its own, and the iGPU
+        /// alongside an NVIDIA laptop dGPU is an Intel or AMD adapter, which is
+        /// detected by whichever controller owns it.
+        /// </summary>
+        public bool IsIntegrated { get; init; }
+
         /// <summary>Null when the P0 core clock delta range is missing/read-only.</summary>
         public OverclockControlRange? CoreOffsetRangeMHz { get; init; }
 

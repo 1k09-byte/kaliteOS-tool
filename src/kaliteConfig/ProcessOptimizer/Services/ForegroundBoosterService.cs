@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -82,9 +82,8 @@ public static class ForegroundBoosterService
             }
             catch { }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Debug.WriteLine($"[ForegroundBoosterService] Failed to boost PID {pid}: {ex.Message}");
         }
     }
 }

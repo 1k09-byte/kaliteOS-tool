@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -81,9 +81,8 @@ namespace kaliteConfig.Services
                 string json = JsonSerializer.Serialize(_journal, options);
                 await File.WriteAllTextAsync(JournalFilePath, json);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to write journal: {ex.Message}");
             }
         }
     }

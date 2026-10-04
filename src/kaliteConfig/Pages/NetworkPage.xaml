@@ -15,7 +15,7 @@
     <Page.Resources>
         <DataTemplate x:Key="PropGroupTemplate" x:DataType="vm:NetPropGroup">
             <StackPanel Spacing="8" Margin="0,0,0,16">
-                <TextBlock Text="{x:Bind Category}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <TextBlock Text="{x:Bind Category}" Style="{StaticResource KaliteSectionTitle}"/>
                 <ItemsControl ItemsSource="{x:Bind Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:NetPropEdit">
@@ -102,16 +102,16 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Padding="28,20,28,24" ColumnSpacing="18" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid Padding="28,20,28,24" ColumnSpacing="18" Background="Transparent">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="16">
+        <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="5" Padding="16">
         <StackPanel Spacing="14">
-            <TextBlock Text="Network" Style="{ThemeResource TitleTextBlockStyle}"/>
-            <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="12" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="Network" Style="{StaticResource KalitePageTitle}"/>
+            <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="3" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
             <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
             <!-- Same picker chrome as the Startup page's "Sources" list: the
@@ -122,7 +122,7 @@
                       ScrollViewer.VerticalScrollBarVisibility="Hidden"
                       SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
                       SelectionChanged="AdapterList_SelectionChanged" SelectionMode="Single" MaxHeight="480"
-                      CornerRadius="12" Background="Transparent" BorderThickness="0"
+                      CornerRadius="3" Background="Transparent" BorderThickness="0"
                       HorizontalAlignment="Stretch">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="svc:NetAdapterInfo">
@@ -141,14 +141,14 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <Button Content="Refresh" Click="Refresh_Click" CornerRadius="12" HorizontalAlignment="Stretch"/>
+            <Button Content="Refresh" Click="Refresh_Click" CornerRadius="3" HorizontalAlignment="Stretch"/>
             <TextBlock Text="{x:Bind ViewModel.ElevationText, Mode=OneWay}" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
             <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
         </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="18">
+        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="5" Padding="18">
         <Grid RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -156,13 +156,13 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap"/>
             <InfoBar Grid.Row="1" x:Name="NetInfoBar" IsOpen="False" IsClosable="True" Severity="Informational" Margin="0,0,0,8">
                 <InfoBar.ActionButton>
                     <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
                 </InfoBar.ActionButton>
             </InfoBar>
-            <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="12"
+            <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="5"
                     Padding="12,8" Visibility="{x:Bind ViewModel.KeepUIVisibility, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <TextBlock Text="{x:Bind ViewModel.KeepCountdownText, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap"/>
@@ -195,7 +195,7 @@
                             <TextBlock Text="Every setting the driver exposes, matched by RegistryKeyword. Editing needs elevation; changes apply after preview + restart."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.PropGroups, Mode=OneWay}" ItemTemplate="{StaticResource PropGroupTemplate}"/>
-                            <TextBlock Text="Pending changes (preview)" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Pending changes (preview)" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.PendingDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
                             <CheckBox Content="I understand: virtual, VPN or disabled adapters, and this restarts the adapter (brief disconnect)." IsChecked="{x:Bind ViewModel.ConfirmRiskyEdit, Mode=TwoWay}"
                                       Visibility="{x:Bind ViewModel.IsRiskyTarget, Mode=OneWay}"/>
@@ -203,9 +203,9 @@
                                 <Button Content="Apply" Click="Apply_Click" Style="{ThemeResource AccentButtonStyle}"/>
                                 <Button Content="Reset to driver defaults" Click="ResetDefaults_Click"/>
                             </StackPanel>
-                            <TextBlock Text="Applied / failed per setting" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Applied / failed per setting" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.ApplyResults, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
-                            <TextBlock Text="Snapshots" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Snapshots" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="SnapshotPicker" MinWidth="260"
                                           ItemsSource="{x:Bind ViewModel.Snapshots, Mode=OneWay}"
@@ -280,7 +280,7 @@
                                 <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.SysSections, Mode=OneWay}"
                                           SelectedIndex="{x:Bind ViewModel.SysSectionIndex, Mode=TwoWay}"
                                           SelectionMode="Single" Background="Transparent" BorderThickness="0"
-                                          CornerRadius="12" HorizontalAlignment="Stretch">
+                                          CornerRadius="5" HorizontalAlignment="Stretch">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SysSectionVm">
                                             <Grid ColumnSpacing="8">
@@ -309,7 +309,7 @@
                             </Grid>
                         </Border>
 
-                        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="18">
+                        <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="5" Padding="18">
         <Grid RowSpacing="8">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -455,17 +455,17 @@
                 <TabViewItem IsClosable="False" Header="Tools">
                     <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
                         <StackPanel Spacing="16">
-                            <TextBlock Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="Speed test" Style="{StaticResource KaliteSectionTitle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Start" Click="SpeedStart_Click" VerticalAlignment="Bottom"/>
                                 <Button Content="Cancel" Click="SpeedCancel_Click" VerticalAlignment="Bottom"/>
-                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
                                 <TextBlock Text="/" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
                             </StackPanel>
                             <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind ViewModel.SpeedProgress, Mode=OneWay}"/>
                             <TextBlock Text="{x:Bind ViewModel.SpeedStatus, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="Export" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="Export" Style="{StaticResource KaliteSectionTitle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="ExportFormatBox" SelectedIndex="0" MinWidth="120">
                                     <ComboBoxItem Content="JSON"/>
@@ -476,13 +476,13 @@
                                 <Button Content="Export..." Click="Export_Click"/>
                                 <Button Content="Copy as text" Click="CopyText_Click"/>
                             </StackPanel>
-                            <TextBlock Text="Import profile" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="Import profile" Style="{StaticResource KaliteSectionTitle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Pick JSON..." Click="Import_Click"/>
                                 <Button Content="Stage import" Click="StageImport_Click"/>
                             </StackPanel>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.ImportDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
-                            <TextBlock Text="Compare adapters" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="Compare adapters" Style="{StaticResource KaliteSectionTitle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="CompareABox" MinWidth="200" DisplayMemberPath="Name"
                                           ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"

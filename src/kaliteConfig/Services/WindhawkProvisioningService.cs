@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -307,7 +307,6 @@ public sealed class WindhawkProvisioningService
 
         int exit = -1;
         try { if (process.HasExited) exit = process.ExitCode; } catch { }
-        Debug.WriteLine($"Windhawk installer exit code {exit}");
         // NSIS: 0 = success. Verification below is the real source of truth; a
         // non-zero exit here is logged but the file check decides.
     }

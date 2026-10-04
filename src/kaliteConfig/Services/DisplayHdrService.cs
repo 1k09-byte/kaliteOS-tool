@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 // ==============================================================================
@@ -33,7 +33,6 @@ internal static class DisplayHdrService
         int hr = DisplayConfigGetDeviceInfo(ref colorInfo);
         if (hr != 0)
         {
-            NvidiaDisplayLog.Write($"    <- HDR GetAdvancedColorInfo target {targetId} failed hr={hr}");
             return HdrState.NotSupported;
         }
 
@@ -45,11 +44,6 @@ internal static class DisplayHdrService
         // The raw bits are logged alongside the derived state because "HDR says it is on"
         // and "HDR is actually on" are different questions, and only the bits settle which
         // one the panel is answering.
-        NvidiaDisplayLog.Write(
-            $"    <- HDR target {targetId} bits=0x{colorInfo.Value:X} " +
-            $"(supported={colorInfo.AdvancedColorSupported} enabled={colorInfo.AdvancedColorEnabled} " +
-            $"forceDisabled={colorInfo.AdvancedColorForceDisabled} encoding={colorInfo.ColorEncoding} " +
-            $"bpc={colorInfo.BitsPerColorChannel}) -> {state}");
         return state;
     }
 
@@ -60,7 +54,6 @@ internal static class DisplayHdrService
         var state = GetHdrState(adapterId, targetId);
         if (state == HdrState.NotSupported || state == HdrState.ForceDisabled)
         {
-            NvidiaDisplayLog.Write($"    HDR set({enable}) refused up-front: state={state}");
             return false;
         }
 
@@ -72,13 +65,11 @@ internal static class DisplayHdrService
         colorState.Value = enable ? 1u : 0u;
 
         int hr = DisplayConfigSetDeviceInfo(ref colorState);
-        NvidiaDisplayLog.Write($"    -> HDR SetAdvancedColorState({enable}) target {targetId} hr={hr}");
 
         // Re-read instead of trusting the status code: Windows can accept the call and
         // leave Advanced Color exactly where it was.
         var after = GetHdrState(adapterId, targetId);
         bool took = after == (enable ? HdrState.Enabled : HdrState.Disabled);
-        NvidiaDisplayLog.Write($"    <- HDR now {after} (wanted {(enable ? HdrState.Enabled : HdrState.Disabled)}) took={took}");
         return took;
     }
 }

@@ -71,6 +71,18 @@ public sealed partial class DisplayViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string CountdownText { get; set; } = "";
 
+    /// <summary>
+    /// The outcome of the last attempted change: why it was refused, or null when the
+    /// last one succeeded. A refused mode change previously produced no message at all,
+    /// so the page just sat there looking broken.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusHasText))]
+    public partial string? StatusMessage { get; set; }
+
+    /// <summary>Binds the status strip's visibility without needing a converter.</summary>
+    public bool StatusHasText => !string.IsNullOrWhiteSpace(StatusMessage);
+
     private bool _isProgrammaticChange;
     private List<DisplayMode> _allModes = new();
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
@@ -183,13 +195,17 @@ public sealed partial class DisplayViewModel : ObservableObject, IDisposable
         // through the mode revert window: there is no intermediate state to roll back to.
         if (!DisplayScaleService.Write(SelectedDisplay.SourceAdapterId, SelectedDisplay.CcdSourceId, value))
         {
-            // The OS refused it, so put the picker back on the value the desktop still has.
+            // The OS refused it, so put the picker back on the value the desktop still has,
+            // and say so rather than letting the picker silently spring back on its own.
+            StatusMessage = $"Not applied: {value}% scaling - Windows refused the change for " +
+                            "this display.";
             _isProgrammaticChange = true;
             SelectedScale = SelectedDisplay.CurrentScalePercent;
             _isProgrammaticChange = false;
             return;
         }
 
+        StatusMessage = null;
         Refresh();
     }
 
@@ -230,12 +246,23 @@ public sealed partial class DisplayViewModel : ObservableObject, IDisposable
             _ => 0
         };
 
-        bool ok = DisplaySettingsService.ApplyMode(SelectedDisplay.DeviceName, SelectedRefreshRate, rotConst);
-        
-        if (ok)
+        string? refusal = DisplaySettingsService.ApplyMode(SelectedDisplay.DeviceName, SelectedRefreshRate, rotConst);
+
+        if (refusal is null)
         {
+            StatusMessage = null;
             DisplayRevertService.StartCountdown(15);
             // Don't auto-refresh here, let the user confirm first so the UI doesn't jump
+        }
+        else
+        {
+            // Say what was refused and why. The drivers that back the colour controls
+            // report this as a bare "error with parameters", which is the driver's
+            // wording leaking through, not the user's - re-phrasing it is the whole
+            // point of returning the reason instead of a bool.
+            var wanted = $"{SelectedResolution?.Width}x{SelectedResolution?.Height} @ " +
+                         $"{SelectedRefreshRate.RefreshRate}Hz";
+            StatusMessage = $"Not applied: {wanted} - {refusal}.";
         }
     }
 

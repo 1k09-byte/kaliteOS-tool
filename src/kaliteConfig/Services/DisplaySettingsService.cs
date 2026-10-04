@@ -54,15 +54,37 @@ internal static class DisplaySettingsService
                     .ToList();
     }
 
+    /// <summary>Explains a <c>ChangeDisplaySettingsEx</c> return code in the user's terms.</summary>
+    internal static string DescribeChangeResult(int code) => code switch
+    {
+        DISP_CHANGE_SUCCESSFUL => "applied",
+        DISP_CHANGE_RESTART => "needs the system restarted",
+        DISP_CHANGE_BADMODE => "the graphics driver does not offer that combination of " +
+                               "resolution, refresh rate and rotation",
+        DISP_CHANGE_NOTUPDATED => "the mode was recognised but could not be written to the registry",
+        DISP_CHANGE_BADFLAGS => "Windows rejected the request flags",
+        DISP_CHANGE_BADPARAM => "Windows rejected the mode as a malformed parameter - usually " +
+                               "the refresh rate does not exist at the selected resolution, " +
+                               "or this rotation is not supported on this display",
+        DISP_CHANGE_FAILED => "the request failed",
+        _ => $"failed (Windows returned {code})",
+    };
+
     /// <summary>
     /// Applies a display mode (resolution, refresh rate) and optionally rotation.
     /// Modifies the registry permanently on success.
     /// </summary>
-    public static bool ApplyMode(string deviceName, DisplayMode targetMode, int? newRotation = null)
+    /// <returns>
+    /// <see langword="null"/> on success; otherwise a sentence naming the reason the change
+    /// was refused. This used to be a bare <see cref="bool"/>, which threw away the only
+    /// information the caller had - the caller had nothing to tell the user, so a refused
+    /// resolution looked identical to an unrelated failure.
+    /// </returns>
+    public static string? ApplyMode(string deviceName, DisplayMode targetMode, int? newRotation = null)
     {
         var dm = new DEVMODEW { dmSize = (ushort)Marshal.SizeOf<DEVMODEW>() };
         if (!EnumDisplaySettingsExW(deviceName, ENUM_CURRENT_SETTINGS, ref dm, 0))
-            return false;
+            return "the display's current settings could not be read";
 
         bool isRotationChange = newRotation.HasValue && newRotation.Value != (int)dm.dmDisplayOrientation;
         
@@ -90,10 +112,12 @@ internal static class DisplaySettingsService
 
         // Test the mode first
         int testRes = ChangeDisplaySettingsExW(deviceName, ref dm, IntPtr.Zero, CDS_TEST, IntPtr.Zero);
-        if (testRes != DISP_CHANGE_SUCCESSFUL) return false;
+        if (testRes != DISP_CHANGE_SUCCESSFUL) return DescribeChangeResult(testRes);
 
         // Apply permanently
         int applyRes = ChangeDisplaySettingsExW(deviceName, ref dm, IntPtr.Zero, CDS_UPDATEREGISTRY, IntPtr.Zero);
-        return applyRes == DISP_CHANGE_SUCCESSFUL;
+        return applyRes == DISP_CHANGE_SUCCESSFUL
+            ? null
+            : DescribeChangeResult(applyRes);
     }
 }

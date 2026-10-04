@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -99,9 +99,8 @@ namespace kaliteConfig.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"Nvidia GetPfid error: {ex.Message}");
             }
             return null;
         }
@@ -200,9 +199,8 @@ namespace kaliteConfig.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"NvidiaDriverService API error: {ex.Message}");
             }
             return results;
         }
@@ -254,9 +252,8 @@ namespace kaliteConfig.Services
                         results.Add(new NvidiaDriverPackage(version.Trim(), url.Trim(), releaseDate?.Trim() ?? ""));
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"GetDriversByDeviceIdAsync: {ex.Message}");
             }
             return results;
         }

@@ -71,6 +71,13 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
     private readonly Dictionary<uint, NvidiaSettingRowViewModel> _rowVms = new();
 
     /// <summary>
+    /// The last snapshot read from the driver, kept so the toggle can re-filter without
+    /// going back to the driver. Toggling is a display choice, so it must not cost a
+    /// multi-second re-read or risk showing a different profile's data.
+    /// </summary>
+    private IReadOnlyList<Nvidia3DRow> _lastSnapshot = Array.Empty<Nvidia3DRow>();
+
+    /// <summary>
     /// The profile the rows on screen belong to. Tracked explicitly rather than
     /// re-derived from display text, because Apply has to address the exact same
     /// profile the user was looking at.
@@ -101,6 +108,18 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
     public partial bool IsGlobalProfile { get; set; }
     [ObservableProperty]
     public partial bool RequiresGlobalConfirmation { get; set; }
+
+    /// <summary>
+    /// Whether the page also lists settings this driver does not offer.
+    ///
+    /// Off by default. The long tail of settings for other cards and other driver
+    /// branches is genuinely useful to look up and genuinely useless to change, so
+    /// the default answer to "what does my GPU offer" should not be buried under 450
+    /// rows that say no. The toggle is remembered, so someone who wants the full list
+    /// keeps it.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool ShowUnsupportedSettings { get; set; }
 
     /// <summary>Plain-English diff of everything staged, shown before any Apply.</summary>
     [ObservableProperty]
@@ -150,6 +169,9 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
     {
         _categories = _config.Load();
         _state = _store.Load();
+        // Unset is not the same as false: a user who has never touched the toggle gets
+        // the short list, a user who has explicitly turned it off keeps it off.
+        ShowUnsupportedSettings = _state.ShowUnsupportedSettings ?? false;
         foreach (var preset in NvidiaSettingPresets.All)
             Presets.Add(new NvidiaPresetOption(preset));
     }
@@ -214,7 +236,11 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
             Status = "";
 
             _coreById.Clear();
-            foreach (var row in snapshot.Simple) _coreById[row.Id] = row;
+            // Only rows the driver offers. An inert row must never reach Apply or the
+            // stage, so the filter is here at the single point every write path
+            // resolves its core row through, rather than at each caller.
+            foreach (var row in snapshot.Simple)
+                if (row.IsSupportedByDriver) _coreById[row.Id] = row;
 
             SetProfileHeader(snapshot.ProfileName,
                 profile.IsGlobal ? "Applies to every app without its own profile" : profile.Subtitle,
@@ -243,12 +269,64 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
 
     private void RebuildSimple(IReadOnlyList<Nvidia3DRow> rows)
     {
+        _lastSnapshot = rows;
+
         // One view model per setting, reused across every relayout. Rebuilding them
         // on each star would throw away the control state the user has staged.
         _rowVms.Clear();
-        foreach (var projected in rows.Select(Project)) _rowVms[projected.Id] = MakeRowViewModel(projected);
+        foreach (var row in rows)
+        {
+            // Skipped entirely rather than hidden, so the unsupported rows cost
+            // nothing to render and nothing to search.
+            if (!row.IsSupportedByDriver && !ShowUnsupportedSettings) continue;
+            var projected = Project(row);
+            _rowVms[projected.Id] = MakeRowViewModel(projected);
+        }
+
+        // Counted from the snapshot rather than the built view models, so the toggle
+        // can still say how many rows it is hiding while they are hidden. Setting the
+        // count is also what refreshes HasUnsupportedSettings and the label.
+        UnsupportedCount = rows.Count(r => !r.IsSupportedByDriver);
+
         RelayoutSections();
         RelayoutRecents();
+    }
+
+    /// <summary>How many settings the driver does not offer, shown on the toggle.</summary>
+    [ObservableProperty]
+    public partial int UnsupportedCount { get; set; }
+
+    /// <summary>No point offering the toggle on a driver that offers everything.</summary>
+    public bool HasUnsupportedSettings { get; private set; }
+
+    /// <summary>
+    /// The toggle's label, carrying the count. Telling someone there are 457 hidden
+    /// rows is the difference between a toggle they understand and one they leave
+    /// alone, and the number is the whole reason the choice is being offered.
+    /// </summary>
+    public string ShowUnsupportedSettingsLabel => UnsupportedCount == 1
+        ? "Also show the 1 setting this driver does not offer"
+        : $"Also show the {UnsupportedCount} settings this driver does not offer";
+
+    /// <summary>Relabel the toggle whenever the count changes.</summary>
+    partial void OnUnsupportedCountChanged(int value)
+    {
+        HasUnsupportedSettings = value > 0;
+        OnPropertyChanged(nameof(ShowUnsupportedSettingsLabel));
+        OnPropertyChanged(nameof(HasUnsupportedSettings));
+    }
+
+    /// <summary>
+    /// Re-filters from the snapshot already in hand. Toggling is a display choice,
+    /// so it must never re-read the driver: that would cost seconds and could show a
+    /// different profile's rows than the ones the user staged against.
+    /// </summary>
+    partial void OnShowUnsupportedSettingsChanged(bool value)
+    {
+        if (_lastSnapshot.Count == 0) return;
+        RebuildSimple(_lastSnapshot);
+        _state.ShowUnsupportedSettings = value;
+        _store.Save(_state);
     }
 
     /// <summary>
@@ -319,9 +397,20 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
             .ToList();
     }
 
-    private NvidiaSimpleSettingRow Project(Nvidia3DRow row) => new(
-        row.Id, row.Name, row.Value, row.DefaultValue, row.IsInherited,
-        row.Options, _categories.CategoryFor(row.Id), row.Provenance, row.IsEditable, row.HexId);
+    private NvidiaSimpleSettingRow Project(Nvidia3DRow row)
+    {
+        // The inspector's own group is only consulted for settings the hand-maintained
+        // map does not list, so the user's grouping always wins where they made one.
+        string? referenceGroup = NvidiaDriverReference.TryGet(row.Id, out var entry) ? entry.Group : null;
+        return new NvidiaSimpleSettingRow(
+            row.Id, row.Name, row.Value, row.DefaultValue, row.IsInherited,
+            row.Options, _categories.CategoryFor(row.Id, referenceGroup), row.Provenance,
+            row.IsEditable, row.HexId)
+        {
+            IsSupportedByDriver = row.IsSupportedByDriver,
+            SupportNote = row.SupportNote,
+        };
+    }
 
     // ------------------------------------------------------------------ advanced
 
@@ -451,9 +540,13 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = IsGlobalProfile
-                ? _service.ApplyGlobal(_coreById.Values.ToList(), restore: false)
-                : _service.ApplyProgram(CurrentProfile?.Executable ?? "", _coreById.Values.ToList(), restore: false);
+            var rows = _coreById.Values.ToList();
+            // Off the UI thread: this takes the NvApiSession lock, writes a backup,
+            // saves the profile and then reads every staged setting back to verify it,
+            // which is long enough to freeze the window visibly.
+            var result = await Task.Run(() => IsGlobalProfile
+                ? _service.ApplyGlobal(rows, restore: false)
+                : _service.ApplyProgram(CurrentProfile?.Executable ?? "", rows, restore: false));
             ApplyReport = DescribeApply(result);
             Status = result.Success ? "" : result.Message;
             if (result.Success) await ReloadCurrentProfileAsync();
@@ -481,7 +574,17 @@ public sealed partial class SimpleDriverSettingsViewModel : ObservableObject
     private async Task ReloadCurrentProfileAsync()
     {
         var current = CurrentProfile;
-        if (current is not null) await LoadProfileAsync(current);
+        if (current is null) return;
+
+        // LoadProfileAsync clears the report, which is right when the user switches
+        // profile by hand and wrong here: the report is the only account of what the
+        // driver actually took, and it is written immediately before this call. Saving
+        // and restoring it is what keeps "applied but not verified" visible instead of
+        // the report silently vanishing the moment it is written.
+        string report = ApplyReport;
+        await LoadProfileAsync(current);
+        ApplyReport = report;
+        OnPropertyChanged(nameof(HasApplyReport));
     }
 
     /// <summary>Turns a per-setting apply result into one honest sentence per setting.</summary>
@@ -541,7 +644,6 @@ public sealed partial class NvidiaSettingRowViewModel : ObservableObject
 {
     private readonly Action<NvidiaSimpleSettingRow, uint> _stage;
     private uint _value;
-    private bool _suppressStage;
 
     public event Action<uint, bool>? FavoriteChanged;
 
@@ -554,6 +656,11 @@ public sealed partial class NvidiaSettingRowViewModel : ObservableObject
     public bool IsInherited => Row.IsInherited;
     public NvidiaSettingProvenance Provenance => Row.Provenance;
     public bool IsUnverified => Row.Provenance == NvidiaSettingProvenance.Unknown;
+
+    /// <summary>Why this row is inert, or empty when the driver offers the setting.</summary>
+    public string SupportNote => Row.SupportNote ?? string.Empty;
+
+    public bool HasSupportNote => Row.HasSupportNote;
     public bool IsAdvancedOnly => Row.Provenance != NvidiaSettingProvenance.Curated;
     public ObservableCollection<Nvidia3DOption> Options { get; } = new();
     public NvidiaSettingControlKind ControlKind => Row.ControlKind;
@@ -592,9 +699,16 @@ public sealed partial class NvidiaSettingRowViewModel : ObservableObject
             _value = value;
             OnPropertyChanged(nameof(Value));
             OnPropertyChanged(nameof(ValueText));
+
+            // IsOn and SelectedOption are both two-way bound, so they are notified
+            // BEFORE staging rather than around it. Notifying them after the stage
+            // let the second row's write echo the control's value back through this
+            // setter, which silently reverted the first row - the "two settings at
+            // once bugs out" symptom. Staging last means nothing can re-enter here.
             OnPropertyChanged(nameof(IsOn));
             OnPropertyChanged(nameof(SelectedOption));
-            if (!_suppressStage) _stage(Row, value);
+
+            _stage(Row, value);
         }
     }
 
@@ -647,9 +761,7 @@ public sealed partial class NvidiaSettingRowViewModel : ObservableObject
     /// </summary>
     public bool TryStageRawValue(string? text)
     {
-        if (!IsEditable) return false;
-        if (!NvidiaSettingCategoryMap.TryParseIdText(text, out uint parsed)) return false;
-        _suppressStage = false;
+        if (!IsEditable) return false;if (!NvidiaSettingCategoryMap.TryParseIdText(text, out uint parsed)) return false;
         Value = parsed;
         return true;
     }

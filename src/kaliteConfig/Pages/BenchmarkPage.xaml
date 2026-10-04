@@ -11,11 +11,7 @@
     <Page.Resources>
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-        <Style x:Key="BenchCard" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
+        <Style x:Key="BenchCard" TargetType="Border" BasedOn="{StaticResource KaliteCard}">
             <Setter Property="Padding" Value="16" />
         </Style>
         <Style x:Key="BenchSectionTitle" TargetType="TextBlock">
@@ -33,7 +29,7 @@
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Margin" Value="0,1" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="UseSystemFocusVisuals" Value="False" />
@@ -41,14 +37,41 @@
             <Setter Property="FocusVisualSecondaryThickness" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
+                    <!-- Deliberately the same shape as the process list
+                         (ProcessCardItemStyle in ThreadTunerPage.xaml): a rounded
+                         RowSurface that carries the hover and selection fills.
+                         The previous bare ContentPresenter had no visual states
+                         at all, so hovering a benchmark row did nothing and the
+                         two lists in the app looked like different products. -->
                     <ControlTemplate TargetType="ListViewItem">
-                        <ContentPresenter Background="Transparent"
-                                          Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          ContentTransitions="{TemplateBinding ContentTransitions}"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          Padding="{TemplateBinding Padding}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        <Border x:Name="RowSurface" Background="Transparent" CornerRadius="8" Margin="0,1">
+                            <ContentPresenter Background="Transparent"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              Padding="{TemplateBinding Padding}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Selected">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -57,7 +80,7 @@
 
 
 
-    <Grid UseLayoutRounding="True" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid UseLayoutRounding="True" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -65,7 +88,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Margin="28,20,28,0" Style="{StaticResource BenchCard}" Padding="20,16">
+        <Border Grid.Row="0" Margin="28,20,28,0" Style="{StaticResource BenchCard}" Padding="20,16" CornerRadius="6">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

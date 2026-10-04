@@ -46,6 +46,38 @@ namespace kaliteConfig
         }
 
         /// <summary>
+        /// Retries Shell_NotifyIcon on a short timer until the icon sticks.
+        /// Bounded so a genuinely unavailable tray (no Explorer, missing .ico)
+        /// costs nothing: after the last attempt the timer is dropped and the
+        /// next close/minimize will try again.
+        /// </summary>
+        private void ScheduleTrayRetry()
+        {
+            const int maxAttempts = 12;
+
+            void Attempt(int attempt)
+            {
+                if (_trayShown) return;
+
+                EnsureTrayShown();
+
+                if (_trayShown || attempt >= maxAttempts) return;
+
+                var timer = DispatcherQueue.CreateTimer();
+                timer.Interval = TimeSpan.FromSeconds(2);
+                timer.IsRepeating = false;
+                timer.Tick += (_, _) =>
+                {
+                    timer.Stop();
+                    Attempt(attempt + 1);
+                };
+                timer.Start();
+            }
+
+            Attempt(0);
+        }
+
+        /// <summary>
         /// Best-effort (re)registration of the tray icon, so Close/Minimize
         /// can always park there even if the startup registration failed.
         /// </summary>
@@ -87,10 +119,28 @@ namespace kaliteConfig
             thread.Start();
         }
 
+        /// <summary>
+        /// Destroys the hidden tray window and removes the notification icon.
+        ///
+        /// Called first thing during app teardown. The tray window is native
+        /// state that outlives the managed graph: Windows keeps delivering
+        /// messages to it for as long as it exists, so it must be gone before
+        /// the runtime starts tearing managed state down - not merely dropped.
+        /// Safe to call when the tray was already disposed by an exit path.
+        /// </summary>
+        public void ShutdownTray()
+        {
+            try { _tray?.Dispose(); } catch { }
+            _tray = null;
+        }
+
         public void AllowExitAndClose()
         {
+            App.ShutdownTrace("settings-exit.begin");
             PrepareForUpdateShutdown();
+            App.ShutdownTrace("settings-exit.prepared");
             this.Close();
+            App.ShutdownTrace("settings-exit.closed-returned");
         }
 
         /// <summary>
@@ -99,11 +149,15 @@ namespace kaliteConfig
         /// </summary>
         public void PrepareForUpdateShutdown()
         {
+            App.ShutdownTrace("prepare.begin");
             _allowExit = true;
             try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
+            App.ShutdownTrace("prepare.gaming-released");
             try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
+            App.ShutdownTrace("prepare.foreground-resumed");
             try { _tray?.Dispose(); } catch { }
             _tray = null;
+            App.ShutdownTrace("prepare.end");
         }
 
         public MainWindow()
@@ -124,7 +178,6 @@ namespace kaliteConfig
                 // Cosmetic only: a square window is still fully usable.
             }
 
-            ExtendsContentIntoTitleBar = true;
             // Keep the three-pane BIOS layout usable: below ~1100px the detail
             // pane collapses, so this floor prevents accidental crushing.
             if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -151,12 +204,17 @@ namespace kaliteConfig
             {
                 DispatcherQueue.TryEnqueue(() =>
                 {
+                    App.ShutdownTrace("tray-exit.dequeued");
                     _allowExit = true;
                     try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
+                    App.ShutdownTrace("tray-exit.gaming-released");
                     try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
+                    App.ShutdownTrace("tray-exit.foreground-resumed");
                     try { _tray?.Dispose(); } catch { }
                     _tray = null;
+                    App.ShutdownTrace("tray-exit.tray-disposed");
                     this.Close();
+                    App.ShutdownTrace("tray-exit.close-returned");
                 });
             };
             _tray.OnTakeScreenshot += (mode) =>
@@ -196,6 +254,17 @@ namespace kaliteConfig
                 _trayShown = System.IO.File.Exists(trayIcon) && _tray.Show(trayIcon, "kaliteConfig");
             }
             catch { }
+
+            // The icon must stay in the tray until the user quits explicitly,
+            // so a failed Shell_NotifyIcon cannot be left to fail forever.
+            //
+            // On a logon start this genuinely happens: Explorer is still
+            // building the notification area, the first NIM_ADD is rejected, and
+            // because _trayShown latched false nothing ever tried again. The
+            // window would then park to a tray that had no icon in it. Retry on
+            // a short timer until it sticks.
+            if (!_trayShown)
+                ScheduleTrayRetry();
             // Second-instance handoff: a Start menu / desktop launch while
             // this tray instance runs signals us to show the window.
             StartShowWindowListener();
@@ -253,7 +322,7 @@ namespace kaliteConfig
             // The ThemeService is initialized in App.OnLaunched after this
             // constructor; retry the subscription once the window activates
             // (and again on first layout) so it always lands.
-            this.Activated += (_, _) => WatchMaterialChanges();
+            this.Activated += (_, _) => GuardedActivation(() => WatchMaterialChanges());
 
             // Default to the Apps (installer/packages/uninstaller) page on launch.
             // Pill position is layout-driven (LayoutUpdated): event-driven updates
@@ -279,7 +348,7 @@ namespace kaliteConfig
             };
             // Window has no Loaded event (WinUI 3) - also schedule via Activated so auto-setup
             // is not missed if NavView is already loaded before we subscribe.
-            this.Activated += async (_, _) => await TryRunKaliteOSAutoSetupAsync();
+            this.Activated += (_, _) => GuardedActivationAsync(TryRunKaliteOSAutoSetupAsync);
             SuppressSidebarTooltips();
         }
 
@@ -297,6 +366,36 @@ namespace kaliteConfig
         /// null and bail forever. Subscribe lazily: try on every call, and
         /// once the service exists attach the handlers (idempotent).
         /// </summary>
+        /// <summary>
+        /// Runs window-activation work so it can never terminate the process.
+        ///
+        /// Both activation handlers below do native work (Mica/Acrylic background
+        /// material via DWM, and KaliteOS auto-setup provisioning). Activation
+        /// fires every time the window regains focus, which is exactly what
+        /// happens when the user returns from another application.
+        /// Unguarded, a failure there escapes as an unhandled exception on the
+        /// dispatcher and kills the app with a stackless fatal error, with no
+        /// crash-log entry. Neither operation is important enough to justify
+        /// taking the window down, so both are contained here.
+        /// </summary>
+        private void GuardedActivation(Action work)
+        {
+            try
+            {
+                work();
+            }
+            catch { /* decorative/theming work must never break activation */ }
+        }
+
+        private async void GuardedActivationAsync(Func<Task> work)
+        {
+            try
+            {
+                await work();
+            }
+            catch { /* provisioning must never break activation */ }
+        }
+
         private void WatchMaterialChanges()
         {
             ApplyRootBackground();
@@ -441,6 +540,7 @@ namespace kaliteConfig
             if (args.IsSettingsSelected)
             {
                 ContentFrame.Navigate(typeof(SettingsPage));
+                UpdateNavPill();
                 return;
             }
 
@@ -469,12 +569,8 @@ namespace kaliteConfig
                          break;
                     case "NetworkPage":
                          ContentFrame.Navigate(typeof(NetworkPage));
-                         break;
-                    case "EtwManagerPage":
-                         ContentFrame.Navigate(typeof(EtwManagerPage));
-                         break;
-                    case "BenchmarkPage":
-                         ContentFrame.Navigate(typeof(BenchmarkPage));
+                         break;case "BenchmarkPage":
+                        ContentFrame.Navigate(typeof(BenchmarkPage));
                          break;
 
                     case "WindowsSettingsPage":

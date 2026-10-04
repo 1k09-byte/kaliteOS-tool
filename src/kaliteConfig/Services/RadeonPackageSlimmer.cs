@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -135,9 +135,8 @@ namespace kaliteConfig.Services
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Slimmer] Could not parse InstallManifest.json: {ex.Message}");
                     }
                 }
             }
@@ -256,11 +255,9 @@ namespace kaliteConfig.Services
                     try
                     {
                         Directory.Delete(fullTargetPath, recursive: true);
-                        System.Diagnostics.Debug.WriteLine($"[Slimmer] Stripped package directory: {pkg.ProductName} ({pkg.RelativePath})");
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Slimmer] Could not delete {pkg.RelativePath}: {ex.Message}");
                     }
                 }
             }
@@ -273,7 +270,7 @@ namespace kaliteConfig.Services
                     var matchingInfs = Directory.GetFiles(extractDir, comp.InfFile, SearchOption.AllDirectories);
                     foreach (var inf in matchingInfs)
                     {
-                        try { File.Delete(inf); System.Diagnostics.Debug.WriteLine($"[Slimmer] Stripped Display Component INF: {comp.InfFile}"); } catch { }
+                        try { File.Delete(inf); } catch { }
                     }
                 }
                 catch { }
@@ -309,12 +306,10 @@ namespace kaliteConfig.Services
                     if (node is JsonObject rootObj)
                     {
                         // Clean up missing package references if present
-                        System.Diagnostics.Debug.WriteLine("[Slimmer] Manifest sanitized.");
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Slimmer] Manifest cleanup note: {ex.Message}");
                 }
             }
         }
@@ -325,7 +320,6 @@ namespace kaliteConfig.Services
         /// </summary>
         public async Task<bool> PostInstallDebloatAsync(IProgress<string>? status = null)
         {
-            System.Diagnostics.Debug.WriteLine("[Slimmer] Running post-install AMD debloat...");
             status?.Report("Disabling AMD telemetry and background services…");
 
             string[] services =
@@ -351,13 +345,11 @@ namespace kaliteConfig.Services
                             var psiStop = new System.Diagnostics.ProcessStartInfo("sc", $"stop \"{s}\"") { CreateNoWindow = true };
                             var procStop = System.Diagnostics.Process.Start(psiStop);
                             if (procStop != null) await procStop.WaitForExitAsync();
-                            System.Diagnostics.Debug.WriteLine($"[Slimmer] Disabled service: {s}");
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Slimmer] Service {s}: {ex.Message}");
                 }
             }
 
@@ -371,11 +363,9 @@ namespace kaliteConfig.Services
                 var psiPs = new System.Diagnostics.ProcessStartInfo("powershell", psCommand) { CreateNoWindow = true };
                 var procPs = System.Diagnostics.Process.Start(psiPs);
                 if (procPs != null) await procPs.WaitForExitAsync();
-                System.Diagnostics.Debug.WriteLine("[Slimmer] Removed AMD telemetry scheduled tasks.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"[Slimmer] Tasks removal: {ex.Message}");
             }
 
             status?.Report("Cleaning leftover telemetry caches…");
@@ -397,14 +387,12 @@ namespace kaliteConfig.Services
                     try
                     {
                         Directory.Delete(f, recursive: true);
-                        System.Diagnostics.Debug.WriteLine($"[Slimmer] Cleared cache folder: {f}");
                     }
                     catch { }
                 }
             }
 
             status?.Report("AMD debloat completed.");
-            System.Diagnostics.Debug.WriteLine("[Slimmer] AMD debloat completed successfully.");
             return true;
         }
 
@@ -465,13 +453,11 @@ namespace kaliteConfig.Services
                         var psi = new System.Diagnostics.ProcessStartInfo("pnputil", $"{action} \"{id}\"") { CreateNoWindow = true };
                         var proc = System.Diagnostics.Process.Start(psi);
                         if (proc != null) await proc.WaitForExitAsync();
-                        System.Diagnostics.Debug.WriteLine($"[Slimmer] PnP audio device {id} set to enabled={enable}");
                     }
                     return true;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Slimmer] SetGpuAudioEnabledAsync failed: {ex.Message}");
                     return false;
                 }
             });

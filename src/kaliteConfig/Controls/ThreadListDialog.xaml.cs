@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using kaliteConfig.Native;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
@@ -49,6 +50,29 @@ public sealed partial class ThreadRow : ObservableObject
     public partial bool BoostAllowed { get; set; } = true;
     public string ProcessName { get; set; } = string.Empty;
     public string StartAddressValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Which logical CPUs this thread is allowed to run on, e.g. <c>0-7</c>,
+    /// <c>all 16</c>, or <c>0,2,4</c>. Empty when it could not be read.
+    /// </summary>
+    [ObservableProperty] public partial string CpuText { get; set; } = "-";
+
+    /// <summary>
+    /// The thread's preferred CPU, or null when it has no preference and the
+    /// scheduler is free to choose from the affinity mask.
+    /// </summary>
+    [ObservableProperty] public partial string? IdealCpuText { get; set; }
+
+    /// <summary>How much CPU time this one thread has used, in seconds.</summary>
+    [ObservableProperty] public partial string CpuTimeText { get; set; } = "-";
+
+    /// <summary>
+    /// The thread's share of the parent's total CPU time, 0-100. Null when it
+    /// cannot be computed (the parent total read failed or is still zero).
+    /// </summary>
+    [ObservableProperty] public partial double? CpuShare { get; set; }
+
+    /// <summary>
 }
 
 public sealed partial class ThreadListDialog : ContentDialog
@@ -96,6 +120,53 @@ public sealed partial class ThreadListDialog : ContentDialog
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         => await LoadThreadsAsync();
 
+    /// <summary>
+    /// Fills in the per-row CPU placement: the affinity mask as readable CPU
+    /// numbers, and the thread's preferred (ideal) processor.
+    ///
+    /// Each read is independent and individually guarded, because a process can
+    /// allow a priority query while refusing an affinity one - a protected or
+    /// cross-session thread returns failure rather than faulting the whole list.
+    /// </summary>
+    private void ApplyCpuInfo(ThreadRow row, kaliteConfig.Native.SafeThreadHandle thread)
+    {
+        try
+        {
+            if (NativeMethods.Affinity.GetThreadGroupAffinity(thread, out var affinity))
+            {
+                int coreCount = Math.Max(1, Environment.ProcessorCount);
+                if (affinity.Mask == 0)
+                {
+                    // Zero is not a real mask; it means the thread is free to run
+                    // anywhere, which is what an all-ones mask means in practice.
+                    row.CpuText = $"all {coreCount}";
+                }
+                else
+                {
+                    var parts = new List<string>();
+                    for (int i = 0; i < 64; i++)
+                        if ((affinity.Mask & (1UL << i)) != 0) parts.Add(i.ToString());
+                    row.CpuText = parts.Count > 0 ? string.Join(", ", parts) : "none";
+                }
+            }
+            else row.CpuText = "unknown";
+        }
+        catch { row.CpuText = "unknown"; }
+
+        try
+        {
+            if (NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var ideal))
+            {
+                // Group 0xFF with number 0xFF is the documented "no preference"
+                // sentinel; saying "CPU 255" would be actively misleading.
+                row.IdealCpuText = (ideal.Group == 0xFF && ideal.Number == 0xFF)
+                    ? "none (scheduler picks)"
+                    : $"CPU {ideal.Number}" + (ideal.Group != 0 ? $" (group {ideal.Group})" : "");
+            }
+        }
+        catch { row.IdealCpuText = null; }
+    }
+
     private async Task LoadThreadsAsync()
     {
         // Suppress the row CheckBox handlers for the whole rebuild: Rows.Clear()
@@ -109,6 +180,24 @@ public sealed partial class ThreadListDialog : ContentDialog
             EditorStatus("Loading threads…", false);
             try
             {
+                // One pass over the thread list for the CPU-time figures, rather
+                // than per row: Process.Threads materialises every thread on each
+                // access, so reading it inside the loop is quadratic and is
+                // painful on a process with hundreds of threads.
+                double parentCpuSeconds = 0;
+                var cpuSecondsByTid = new Dictionary<int, double>();
+                try
+                {
+                    using var proc = System.Diagnostics.Process.GetProcessById(_pid);
+                    foreach (System.Diagnostics.ProcessThread pt in proc.Threads)
+                    {
+                        double s = pt.TotalProcessorTime.TotalSeconds;
+                        cpuSecondsByTid[pt.Id] = s;
+                        parentCpuSeconds += s;
+                    }
+                }
+                catch { /* the per-row figures just stay blank */ }
+
                 var threads = await Services.ThreadQueryService.ListThreadsAsync(_pid);
                 // Named threads pin to the top (then TID order); unnamed follow.
                 foreach (var t in threads
@@ -138,6 +227,21 @@ public sealed partial class ThreadListDialog : ContentDialog
                         int level = NativeMethods.Priority.GetThreadPriority(h);
                         row.CurrentLevel = level;
                         row.CurrentText = DescribePriority(level);
+
+                        // Which CPUs this thread may use, and which one it would
+                        // prefer. Both are read here rather than in the editor so the
+                        // list answers "what is running where" without a click.
+                        ApplyCpuInfo(row, h);
+
+                        if (cpuSecondsByTid.TryGetValue(t.Tid, out double secs))
+                        {
+                            row.CpuTimeText = secs < 60
+                                ? $"{secs:0.0}s"
+                                : secs < 3600 ? $"{secs / 60:0}m {secs % 60:0}s"
+                                : $"{secs / 3600:0}h {(secs % 3600) / 60:0}m";
+                            if (parentCpuSeconds > 0)
+                                row.CpuShare = Math.Round(100.0 * secs / parentCpuSeconds, 1);
+                        }
                     }
                     catch
                     {

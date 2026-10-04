@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -89,9 +89,8 @@ namespace kaliteConfig.Services
                 if (changed)
                     File.WriteAllText(policyPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"AddInstallUrls failed: {ex.Message}");
             }
         }
 

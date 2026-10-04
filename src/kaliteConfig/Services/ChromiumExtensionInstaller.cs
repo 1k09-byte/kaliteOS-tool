@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -90,9 +90,8 @@ namespace kaliteConfig.Services
                     index++;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to write ExtensionInstallForcelist to {hive}\\{registryPath}: {ex.Message}");
                 // Swallow to avoid breaking install pipeline; HKCU fallback may succeed even if HKLM fails
             }
         }

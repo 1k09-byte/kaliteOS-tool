@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Spacing="2">
-            <TextBlock Text="Package Bundles" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="Package Bundles" Style="{StaticResource KaliteSectionTitle}" />
             <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
         </StackPanel>

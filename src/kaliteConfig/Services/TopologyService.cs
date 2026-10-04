@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -152,9 +152,8 @@ namespace kaliteConfig.Services
                     Marshal.FreeHGlobal(buf);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"TopologyService.Detect failed: {ex.Message}");
                 // Graceful fallback: assume homogeneous SMT-2 cores.
                 physicalCoreCount = Math.Max(1, logicalCount / 2);
                 perfCoreMasks.Clear();

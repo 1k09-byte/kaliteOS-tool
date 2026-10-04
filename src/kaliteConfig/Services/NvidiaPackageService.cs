@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -701,12 +701,11 @@ namespace kaliteConfig.Services
             {
                 if (keepForDebug)
                 {
-                    Debug.WriteLine($"Keeping temp dir for debugging: {root}");
                     return;
                 }
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
-            catch (Exception ex) { Debug.WriteLine($"CleanupTemp: {ex.Message}"); }
+            catch (Exception) { }
         }
 
         public static string TempRoot => Path.Combine(Path.GetTempPath(), "kaliteConfig", "nvidia");

@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -10,7 +10,6 @@
 // ==============================================================================
 using Microsoft.Win32;
 using System;
-using System.Diagnostics;
 
 namespace kaliteConfig.Services
 {
@@ -65,9 +64,8 @@ namespace kaliteConfig.Services
                 try { return Convert.ToInt32(raw); } catch { }
                 return null;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"KaliteOSRegistryService.TryRead {hive}/{view}: {ex.Message}");
                 return null;
             }
         }
@@ -100,14 +98,12 @@ namespace kaliteConfig.Services
                 subKey.SetValue(ValueName, value, RegistryValueKind.DWord);
                 return true;
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
-                Debug.WriteLine($"KaliteOSRegistryService.TryWrite {hive}/{view} unauthorized: {ex.Message}");
                 return false;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"KaliteOSRegistryService.TryWrite {hive}/{view}: {ex.Message}");
                 return false;
             }
         }

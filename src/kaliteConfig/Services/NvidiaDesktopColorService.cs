@@ -101,8 +101,15 @@ internal static class NvidiaDesktopColorService
         uint luid = NativeMethods.NvApiGamma.GetLuid(displayId);
         if (luid == 0)
         {
-            log?.Invoke($"no driver LUID for display 0x{displayId:X8}");
-            return false;
+            // No remembered values is the untouched case, not an unsupported control: the
+            // ramp still takes a write (TryWrite does not need the LUID either). Reporting
+            // false here is what disabled the brightness and contrast sliders, so this
+            // reports support and starts from neutral instead.
+            log?.Invoke($"no driver LUID for display 0x{displayId:X8} " +
+                        $"(NvAPI status {NativeMethods.NvApiGamma.LastLuidStatus}" +
+                        $"{DescribeLuidStatus(NativeMethods.NvApiGamma.LastLuidStatus)}); " +
+                        "reading as neutral - the controls are still writable");
+            return true;
         }
 
         try
@@ -123,6 +130,18 @@ internal static class NvidiaDesktopColorService
             return false;
         }
     }
+
+    /// <summary>Names an NvAPI status code, so the log says why rather than only that.</summary>
+    private static string DescribeLuidStatus(int status) => status switch
+    {
+        0 => "",
+        2 => ": NVAPI_INVALID_ARGUMENT - this driver rejected the display id",
+        3 => ": NVAPI_NOT_SUPPORTED - this driver exposes no desktop colour control for it",
+        4 => ": NVAPI_NO_PERMISSION - it needs an elevated session",
+        13 => ": NVAPI_INVALID_DEVICE - the id does not name a live display",
+        int.MinValue => ": the call could not be made at all",
+        _ => "",
+    };
 
     private static float ReadAverage(uint luid, int attribute, Action<string>? log)
     {
@@ -180,11 +199,17 @@ internal static class NvidiaDesktopColorService
             return false;
         }
 
+        // The LUID is only the registry key name, so failing to resolve it is not a reason
+        // to refuse the change. The ramp itself is addressed by display id alone, and
+        // refusing here is what left brightness and contrast unwritable on drivers that
+        // do not answer the LUID query.
         uint luid = NativeMethods.NvApiGamma.GetLuid(displayId);
         if (luid == 0)
         {
-            log?.Invoke($"no driver LUID for display 0x{displayId:X8}");
-            return false;
+            log?.Invoke($"no driver LUID for display 0x{displayId:X8} " +
+                        $"(NvAPI status {NativeMethods.NvApiGamma.LastLuidStatus}" +
+                        $"{DescribeLuidStatus(NativeMethods.NvApiGamma.LastLuidStatus)}); " +
+                        "applying the ramp anyway, but these values will not survive a reboot");
         }
 
         try
@@ -211,7 +236,7 @@ internal static class NvidiaDesktopColorService
                 return false;
             }
 
-            Persist(luid, normalised, log);
+            if (luid != 0) Persist(luid, normalised, log);
             return true;
         }
         catch (Exception ex)

@@ -205,6 +205,13 @@ public sealed class TrayIconService : IDisposable
     private IntPtr _hwnd = IntPtr.Zero;
     private IntPtr _icon = IntPtr.Zero;
     private WndProcDelegate? _proc;
+
+    /// <summary>
+    /// Keeps the WndProc delegate alive for exactly as long as the native
+    /// window that calls it exists. See the note in Show() before touching it.
+    /// </summary>
+    private GCHandle _procPin;
+
     private bool _added;
     private bool _disposed;
     private int _inCallback;
@@ -226,6 +233,30 @@ public sealed class TrayIconService : IDisposable
         try
         {
             _proc = WndProc;
+
+            // The delegate MUST be kept alive for the whole life of the window,
+            // and a normal field reference is NOT enough.
+            //
+            // Marshal.GetFunctionPointerForDelegate hands a raw function pointer
+            // to native code. The runtime cannot see that reference, so it does
+            // not treat the delegate as reachable: once the TrayIconService
+            // itself becomes unreachable the collector is free to take both the
+            // object and the delegate. The hidden window and its class
+            // registration, however, are native state the collector knows
+            // nothing about, and Windows will keep delivering messages to them.
+            //
+            // The first such delivery calls into a collected delegate and the
+            // runtime aborts the process with Environment.FailFast. That is not
+            // a catchable exception: it has no managed source, no stack trace,
+            // and it never reaches crash.log - it just kills the app, typically
+            // as it is closing. Observed exactly that, repeatedly, on exit.
+            //
+            // A GCHandle is tracked by the runtime in its own global handle
+            // table, so the delegate stays reachable regardless of what the
+            // managed graph looks like. It is released in Dispose(), and only
+            // AFTER DestroyWindow - see there for why the order matters.
+            if (!_procPin.IsAllocated) _procPin = GCHandle.Alloc(_proc);
+
             var cls = new WNDCLASSEX
             {
                 cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
@@ -469,6 +500,15 @@ public sealed class TrayIconService : IDisposable
             }
             if (_icon != IntPtr.Zero) { DestroyIcon(_icon); _icon = IntPtr.Zero; }
             if (_hwnd != IntPtr.Zero) { DestroyWindow(_hwnd); _hwnd = IntPtr.Zero; }
+
+            // Release the delegate pin only now that the window is gone and
+            // unregistering the class has taken the class's last reference to
+            // the function pointer. DestroyWindow delivers WM_DESTROY
+            // synchronously on this thread, so by this point no further call
+            // into the delegate can be in flight or arrive later.
+            if (_procPin.IsAllocated) { _procPin.Free(); _procPin = default; }
+            _proc = null;
+
             UnregisterClassW(_className, GetModuleHandleW(null));
         }
         catch { }

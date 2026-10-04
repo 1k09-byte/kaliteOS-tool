@@ -9,7 +9,14 @@
     mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Required">
 
     <Grid>
-        <NavigationView x:Name="ViewSelector" PaneDisplayMode="Top" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" SelectionChanged="ViewSelector_SelectionChanged">
+        <NavigationView x:Name="ViewSelector" PaneDisplayMode="Top" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" SelectionChanged="ViewSelector_SelectionChanged"
+                        Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <NavigationView.Resources>
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            </NavigationView.Resources>
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="Drivers" Tag="Drivers" />
                 <NavigationViewItem Content="Overclock" Tag="Overclock" />

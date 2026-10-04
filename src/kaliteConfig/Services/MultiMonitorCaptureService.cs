@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -48,6 +48,15 @@ public sealed class MultiMonitorCaptureService : IDisposable
         {
             try
             {
+                // OuterBounds is the right rectangle here: it is the display's full
+                // desktop area, which is what a fullscreen capture should contain.
+                // WorkArea would exclude the taskbar (measured 58px at the bottom on
+                // this machine) and silently crop it out of the capture.
+                //
+                // It was previously switched to WorkArea on the theory that
+                // OuterBounds included some reserved edge - that was wrong, and the
+                // measured rcMonitor/rcWork pair shows the only difference is the
+                // taskbar.
                 var bounds = area.OuterBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0)
                     return null;
@@ -70,9 +79,8 @@ public sealed class MultiMonitorCaptureService : IDisposable
                     IsHdr = false
                 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to capture monitor {area.DisplayId}: {ex.Message}");
                 return null;
             }
         }).ToList();

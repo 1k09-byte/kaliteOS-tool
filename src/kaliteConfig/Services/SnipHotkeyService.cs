@@ -106,6 +106,17 @@ public sealed class SnipHotkeyService : IDisposable
 
     private IntPtr _hwnd = IntPtr.Zero;
     private WndProcDelegate? _wndProc;
+
+    /// <summary>
+    /// Keeps the WndProc delegate alive for the whole life of the window that
+    /// calls it. A field is not enough: the runtime cannot see the raw function
+    /// pointer handed to CreateWindowExW, so it may collect the delegate, and the
+    /// next delivered message calls into a collected delegate - which the runtime
+    /// answers with Environment.FailFast (uncatchable, no stack, no crash.log).
+    /// Freed in Dispose(), only after DestroyWindow.
+    /// </summary>
+    private GCHandle _wndProcPin;
+
     private bool _registered;
     private bool _disposed;
     private readonly System.Collections.Generic.List<int> _activeIds = new();
@@ -164,6 +175,7 @@ public sealed class SnipHotkeyService : IDisposable
     {
         if (_hwnd != IntPtr.Zero) return;
         _wndProc = WndProc;
+        if (!_wndProcPin.IsAllocated) _wndProcPin = GCHandle.Alloc(_wndProc);
         var cls = new WNDCLASSEX
         {
             cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
@@ -257,6 +269,11 @@ public sealed class SnipHotkeyService : IDisposable
         }
         catch { }
         _hwnd = IntPtr.Zero;
+
+        // Only once the window and its class are gone can the pin be released:
+        // DestroyWindow delivers WM_DESTROY synchronously on this thread, so no
+        // further call into the delegate can be in flight or arrive later.
+        if (_wndProcPin.IsAllocated) { _wndProcPin.Free(); _wndProcPin = default; }
         _wndProc = null;
     }
 }

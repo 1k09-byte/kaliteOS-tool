@@ -145,17 +145,30 @@ internal static partial class NativeMethods
         /// </summary>
         public static uint GetLuid(uint displayId)
         {
-            if (!EnsureResolved()) return 0;
+            LastLuidStatus = 0;
+            if (!EnsureResolved()) { LastLuidStatus = int.MinValue; return 0; }
             try
             {
-                if (_getLuid!(displayId, 1, out Guid guid) != 0) return 0;
+                int status = _getLuid!(displayId, 1, out Guid guid);
+                LastLuidStatus = status;
+                if (status != 0) return 0;
                 return BitConverter.ToUInt32(guid.ToByteArray(), 4) ^ 0xF0000000u;
             }
             catch (Exception)
             {
+                LastLuidStatus = int.MinValue;
                 return 0;
             }
         }
+
+        /// <summary>
+        /// The NvAPI status from the most recent <see cref="GetLuid"/> call. Kept because a
+        /// bare "no LUID" says nothing about why: NV_STATUS codes name the reason
+        /// (invalid parameter, not supported, no permission) and that is the difference
+        /// between a driver we must talk to differently and a display it cannot reach.
+        /// 0 means the call succeeded; int.MinValue means it never ran.
+        /// </summary>
+        public static int LastLuidStatus { get; private set; }
 
         /// <summary>Pushes a fully built ramp to one display. True when the driver took it.</summary>
         public static bool SetGammaCorrection(uint displayId, float[] ramp)

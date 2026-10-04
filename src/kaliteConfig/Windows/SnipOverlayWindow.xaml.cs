@@ -34,6 +34,22 @@ public sealed partial class SnipOverlayWindow : Window
 {
     private AppWindow _appWindow;
     private byte[]? _bgraPixels;
+
+    /// <summary>
+    /// The frozen capture frame as a GPU texture, created ONCE when the pixels
+    /// load and reused for every redraw.
+    ///
+    /// This used to be built inside DrawCanvas_Draw via
+    /// CanvasBitmap.CreateFromBytes, and disposed at the end of the handler -
+    /// so every single redraw re-uploaded the entire full-screen BGRA buffer and
+    /// allocated a fresh texture. That is ~5.8 MB at 1600x900 and ~33 MB at 4K,
+    /// per invalidate, and an invalidate happens on every pointer move while
+    /// dragging and every annotation edit. The cost showed up two ways: CPU
+    /// spiking while the snipping tool was in use, and the overlay stalling
+    /// outright when the machine was already loaded, because the texture upload
+    /// starved behind everything else.
+    /// </summary>
+    private Microsoft.Graphics.Canvas.CanvasBitmap? _frame;
     private int _imgWidth;
     private int _imgHeight;
 
@@ -616,10 +632,10 @@ public sealed partial class SnipOverlayWindow : Window
         args.DrawingSession.Clear(Microsoft.UI.Colors.Transparent);
         if (_bgraPixels != null)
         {
-            using var bmp = Microsoft.Graphics.Canvas.CanvasBitmap.CreateFromBytes(
-                sender, _bgraPixels, _imgWidth, _imgHeight,
-                Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized);
-            args.DrawingSession.DrawImage(bmp, 0, 0);
+            if (_frame is not null)
+            {
+                args.DrawingSession.DrawImage(_frame, 0, 0);
+            }
 
             var dimColor = Microsoft.UI.ColorHelper.FromArgb(120, 0, 0, 0);
             float x = (float)Math.Min(_startPoint.X, _endPoint.X);
@@ -639,7 +655,7 @@ public sealed partial class SnipOverlayWindow : Window
                     if (ann is Models.SnipSpotlight sp) { sp.ScreenWidth = _imgWidth; sp.ScreenHeight = _imgHeight; }
                     // The frozen frame is the effect background: blur/pixelate needs it
                     // in the live preview too, otherwise redactions look missing.
-                    ann.Draw(args.DrawingSession, bmp);
+                    if (_frame is not null) ann.Draw(args.DrawingSession, _frame);
                     if (ann.IsSelected)
                     {
                         try
@@ -665,21 +681,6 @@ public sealed partial class SnipOverlayWindow : Window
                     using var fmt = new Microsoft.Graphics.Canvas.Text.CanvasTextFormat { FontSize = 14 };
                     args.DrawingSession.DrawText(dims, (float)tx, (float)ty, Microsoft.UI.Colors.White, fmt);
 
-                    // Magnifier: 3x zoom of the frozen frame around the cursor.
-                    const float mag = 3f, src = 46f;
-                    float sx = (float)Math.Max(0, Math.Min(_lastCursorPx.X - src / 2, _imgWidth - src));
-                    float sy = (float)Math.Max(0, Math.Min(_lastCursorPx.Y - src / 2, _imgHeight - src));
-                    float dw = src * mag;
-                    float dx = (float)Math.Max(4, Math.Min(_lastCursorPx.X + 20, _imgWidth - dw - 4));
-                    float dy = (float)Math.Max(4, Math.Min(_lastCursorPx.Y - dw - 28, _imgHeight - dw - 4));
-                    args.DrawingSession.FillRectangle(dx, dy, dw, dw, Microsoft.UI.Colors.Black);
-                    args.DrawingSession.DrawImage(bmp, new Rect(dx, dy, dw, dw), new Rect(sx, sy, src, src));
-                    args.DrawingSession.DrawRectangle(dx, dy, dw, dw, Microsoft.UI.Colors.White, 2);
-                    float cx = dx + dw / 2, cy = dy + dw / 2;
-                    args.DrawingSession.DrawLine(cx - 8, cy, cx + 8, cy, Microsoft.UI.Colors.Red, 1);
-                    args.DrawingSession.DrawLine(cx, cy - 8, cx, cy + 8, Microsoft.UI.Colors.Red, 1);
-                    args.DrawingSession.DrawText($"{_lastCursorPx.X:0},{_lastCursorPx.Y:0}", dx + 4, dy + dw - 20,
-                        Microsoft.UI.Colors.White, fmt);
                 }
 
                 if (!_isDragging)
@@ -713,13 +714,36 @@ public sealed partial class SnipOverlayWindow : Window
         }
     }
 
+    /// <summary>
+    /// Replaces the cached capture frame. Disposes the previous texture first so
+    /// repeated captures cannot leak GPU memory.
+    /// </summary>
+    private void RebuildFrame()
+    {
+        _frame?.Dispose();
+        _frame = null;
+
+        if (_bgraPixels is null || _imgWidth <= 0 || _imgHeight <= 0) return;
+
+        _frame = Microsoft.Graphics.Canvas.CanvasBitmap.CreateFromBytes(
+            Microsoft.Graphics.Canvas.CanvasDevice.GetSharedDevice(),
+            _bgraPixels, _imgWidth, _imgHeight,
+            Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized);
+    }
+
     public void LoadBitmap(byte[] bgraPixels, int w, int h)
     {
         ResetState();
         ApplyDpiScale();
-        _bgraPixels = bgraPixels;
+
+        // Size must be set BEFORE RebuildFrame: the cache is built at
+        // _imgWidth x _imgHeight and bails out if either is <= 0. Calling it
+        // first left _frame null, and the draw path then drew nothing but the
+        // transparent clear - which is why a capture showed a full black screen.
         _imgWidth = w;
         _imgHeight = h;
+        _bgraPixels = bgraPixels;
+        RebuildFrame();
         DrawCanvas.Invalidate();
     }
 

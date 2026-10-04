@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -82,10 +82,9 @@ public sealed class ProcessBoostPreferenceService
                 lock (_lock) _entries = loaded;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // A corrupt preference file must never block tuning; start empty.
-            Debug.WriteLine($"ProcessBoostPreferenceService load: {ex.Message}");
         }
     }
 
@@ -100,9 +99,8 @@ public sealed class ProcessBoostPreferenceService
             await File.WriteAllTextAsync(tmp, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
             File.Move(tmp, _path, overwrite: true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Debug.WriteLine($"ProcessBoostPreferenceService save: {ex.Message}");
         }
     }
 

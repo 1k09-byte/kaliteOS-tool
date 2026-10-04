@@ -20,7 +20,7 @@
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="16,12" />
         </Style>
 
@@ -78,7 +78,7 @@
                         <FontIcon Glyph="&#xE950;" FontSize="20" />
                     </Border>
                     <StackPanel VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="Radeon 3D Settings" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="Radeon 3D Settings" Style="{StaticResource KaliteSectionTitle}" />
                         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    Text="The AMD driver's own Adrenalin controls, read and written through ADLX." />
                     </StackPanel>

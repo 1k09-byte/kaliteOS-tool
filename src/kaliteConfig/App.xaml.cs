@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -16,6 +16,7 @@ using DevWinUI;
 using Microsoft.UI.Xaml;
 using kaliteConfig.Services;
 using kaliteConfig.Native;
+
 
 namespace kaliteConfig
 {
@@ -109,6 +110,18 @@ namespace kaliteConfig
                 var principal = new WindowsPrincipal(identity);
                 IsAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
+
+            // NOTE: a job-object CPU hard cap was tried here and removed. It
+            // breaks this app specifically: CPU rate control reserves scheduling
+            // cycles per process, so every CreateProcess in a capped job fails
+            // with ERROR_NOT_ENOUGH_QUOTA ("Not enough quota is available to
+            // process this command"). Measured: it breaks spawns at CpuRate
+            // 10000 - a full core - so it is not a matter of picking a saner
+            // rate. netsh, SCEWIN_64 and every other helper this app launches
+            // died. Idle usage is instead kept down by standing the work down:
+            // the backdrop stops on deactivation (KaliteBackdrop) and the
+            // Process Control poll requires a visible, foreground window
+            // (ThreadTunerViewModel.ShouldPoll).
 
             InitializeComponent();
 
@@ -283,6 +296,31 @@ namespace kaliteConfig
 
         private static System.Threading.Mutex? _singleInstanceMutex;
 
+        /// <summary>
+        /// Breadcrumb trail for process teardown.
+        ///
+        /// The reported failure is a fatal ExecutionEngineException: it is not a
+        /// catchable .NET exception, so no try/catch, no AppDomain handler and no
+        /// crash.log ever sees it. The process simply dies. A line written as each
+        /// teardown stage completes is therefore the only evidence of how far
+        /// shutdown actually got, and the last line names the stage that killed it.
+        /// No secrets are written - stage names only.
+        /// </summary>
+        internal static void ShutdownTrace(string step)
+        {
+            try
+            {
+                var dir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "kaliteConfig", "logs");
+                System.IO.Directory.CreateDirectory(dir);
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(dir, "shutdown.log"),
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {step}{Environment.NewLine}");
+            }
+            catch { /* diagnostics must never block shutdown */ }
+        }
+
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
             try 
@@ -327,23 +365,29 @@ namespace kaliteConfig
                 // watchdog. Best-effort; never delays the close.
                 _window.Closed += (_, _) =>
                 {
+                    ShutdownTrace("closed.begin");
+                    if (_window is MainWindow closingWindow) { try { closingWindow.ShutdownTray(); } catch { } }
+                    ShutdownTrace("closed.tray-gone");
                     try { GpuOverclock.GpuOverclockModule.Instance.Dispose(); }
                     catch { }
+                    ShutdownTrace("closed.gpu-done");
 
                     // Gaming mode holds do not survive the process: restore every
                     // demoted process's priority/eco before the app goes away, or
                     // they stay lowered with nothing left to put them back.
                     try { GamingMode.ReleaseAll(); }
                     catch { }
+                    ShutdownTrace("closed.end");
                 };
 
-                // App defaults: solid black window surface (Material = None) and the
-                // system theme. The window surface is black either way because
-                // no backdrop is applied, so the app still reads as dark-on-dark
-                // under Windows dark mode without overriding a user who runs
-                // Windows light.
+                // App defaults: solid black window surface (Material = None) and a
+                // forced DARK element theme. The Kalite identity is matte black:
+                // the theme is pinned to Dark rather than following the system,
+                // because the palette, the translucent cards and the animated
+                // backdrop are all tuned for a dark field - following a light
+                // system setting would leave black cards on a white window.
                 ThemeService = new ThemeService()
-                    .ConfigureElementTheme(ElementTheme.Default)
+                    .ConfigureElementTheme(ElementTheme.Dark)
                     .ConfigureBackdrop(DevWinUI.BackdropType.None, true)
                     .Initialize(_window);
                 StartedToTray = StartupService.IsTrayLaunch(args.Arguments);

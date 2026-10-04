@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -39,7 +39,6 @@ namespace kaliteConfig.Services
         /// </summary>
         private static void Log(Action<string> logCallback, string message)
         {
-            Debug.WriteLine(message);
             try
             {
                 string path = LogPath;
@@ -254,9 +253,8 @@ namespace kaliteConfig.Services
                     catch { }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"ResetDirectory failed: {ex.Message}");
             }
         }
 
@@ -331,9 +329,8 @@ namespace kaliteConfig.Services
                 foreach (string file in Directory.EnumerateFiles(temp, InstallerFilePrefix + "*.exe"))
                     freed += DeleteFileQuietly(file);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"SweepStaleTempArtifacts failed: {ex.Message}");
             }
 
             if (freed > 0)

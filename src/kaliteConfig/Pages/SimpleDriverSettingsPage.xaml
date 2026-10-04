@@ -19,7 +19,7 @@
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="5" />
         </Style>
         <Style x:Key="MutedCard" TargetType="Border" BasedOn="{StaticResource SectionCard}">
             <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
@@ -124,6 +124,16 @@
         <StackPanel Grid.Row="2" Spacing="8">
                 <AutoSuggestBox x:Name="SearchBox" MinWidth="320" HorizontalAlignment="Left" PlaceholderText="Search settings"
                                 QueryIcon="Find" TextChanged="SearchBox_TextChanged" />
+
+                <!-- The long tail of settings for other cards and other driver
+                     branches is worth being able to look up and useless to change,
+                     so it is opt-in rather than mixed into the list. -->
+                <StackPanel Orientation="Horizontal" Spacing="12"
+                            Visibility="{x:Bind Vm.HasUnsupportedSettings, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="{x:Bind Vm.ShowUnsupportedSettingsLabel, Mode=OneWay}" VerticalAlignment="Center"
+                               Style="{StaticResource SettingDescriptionText}" />
+                    <ToggleSwitch IsOn="{x:Bind Vm.ShowUnsupportedSettings, Mode=TwoWay}" />
+                </StackPanel>
         </StackPanel>
 
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,0,12">
@@ -220,6 +230,9 @@
                                                         <TextBlock Text="{x:Bind Name}" Style="{StaticResource SettingNameText}" />
                                                         <TextBlock Text="{x:Bind HexId}" FontFamily="Consolas" FontSize="11"
                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        <TextBlock Text="{x:Bind SupportNote}" TextWrapping="Wrap" FontSize="11"
+                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                   Visibility="{x:Bind HasSupportNote, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                     </StackPanel>
 
                                                     <Grid Grid.Column="2" VerticalAlignment="Center">

@@ -54,8 +54,15 @@
                                 <TextBlock Text="{x:Bind Description}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{x:Bind CurrentText, Mode=OneWay}" FontSize="12"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <!-- Which CPUs this thread may use, and which it prefers. -->
+                                <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="CPUs this thread is allowed to run on">
+                                    <Run Text="CPU " /><Run Text="{x:Bind CpuText, Mode=OneWay}" /><Run Text="  ·  ideal " /><Run Text="{x:Bind IdealCpuText, Mode=OneWay}" />
+                                </TextBlock>
                                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}">
                                     <Run Text="TID " /><Run Text="{x:Bind Tid}" />
+                                    <Run Text="  ·  " /><Run Text="{x:Bind CpuTimeText, Mode=OneWay}" /><Run Text=" CPU" />
                                 </TextBlock>
                             </StackPanel>
                         </Grid>
@@ -72,7 +79,7 @@
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            x:Name="NoSelectionText" />
                 <StackPanel Spacing="10" x:Name="EditorPanel" Visibility="Collapsed">
-                    <TextBlock x:Name="EditorTitle" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="EditorTitle" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
                     <TextBlock x:Name="EditorSub" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                     <TextBlock Text="Thread priority" Style="{StaticResource CaptionTextBlockStyle}" />

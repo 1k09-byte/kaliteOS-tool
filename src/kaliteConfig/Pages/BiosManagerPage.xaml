@@ -40,7 +40,7 @@
         <!-- Page header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="12,4,12,4" VerticalAlignment="Center">
             <FontIcon Glyph="&#xE950;" FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center" />
-            <TextBlock Text="BIOS Manager" Style="{ThemeResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+            <TextBlock Text="BIOS Manager" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" />
             <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="10" Padding="8,1"
                     Visibility="{x:Bind ViewModel.HasChanges, Mode=OneWay}" VerticalAlignment="Center">
                 <TextBlock Text="{x:Bind ViewModel.ModifiedCountText, Mode=OneWay}" FontSize="11" Foreground="White" />
@@ -215,7 +215,7 @@
                 <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Hidden">
                     <Grid>
                         <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.DetailVisibility, Mode=OneWay}">
-                            <TextBlock Text="{x:Bind ViewModel.SelectedRow.Name, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{x:Bind ViewModel.SelectedRow.Name, Mode=OneWay}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
                             <TextBlock Text="{x:Bind ViewModel.SelectedRow.SectionText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
                             <TextBlock
                                 Text="{x:Bind ViewModel.SelectedRow.HelpText, Mode=OneWay}"
@@ -315,7 +315,7 @@
                 Visibility="{x:Bind ViewModel.EmptyVisibility, Mode=OneWay}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                     <FontIcon Glyph="&#xE9D9;" FontSize="40" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="Load a SCEWIN dump to begin" HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Load a SCEWIN dump to begin" HorizontalAlignment="Center" Style="{StaticResource KaliteSectionTitle}" />
                     <TextBlock
                         Text="Open a text file produced by SCEWIN_64.exe /o /s to browse and edit BIOS settings."
                         HorizontalAlignment="Center"

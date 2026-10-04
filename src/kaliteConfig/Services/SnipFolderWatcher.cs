@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 //
@@ -34,11 +34,11 @@ public sealed class SnipFolderWatcher : IDisposable
     private int _pending;
     private bool _disposed;
 
-    private SnipFolderWatcher(string folder, Action onChanged, TimeSpan debounceDelay, Action<string>? log)
+    private SnipFolderWatcher(string folder, Action onChanged, TimeSpan debounceDelay, Action<string> log)
     {
         _onChanged = onChanged;
         _debounceDelay = debounceDelay;
-        _log = log ?? LogToDebug;
+        _log = log;
         _debounce = new Timer(_ => Fire(), null, Timeout.Infinite, Timeout.Infinite);
 
         try
@@ -63,14 +63,15 @@ public sealed class SnipFolderWatcher : IDisposable
         }
     }
 
-    private static void LogToDebug(string message) => System.Diagnostics.Debug.WriteLine(message);
-
     /// <summary>True when the folder is being watched; false means polling is carrying the page alone.</summary>
     public bool IsWatching => _watcher is not null;
 
     public static SnipFolderWatcher Start(string folder, Action onChanged, TimeSpan? debounce = null,
         Action<string>? log = null)
-        => new(folder, onChanged, debounce ?? TimeSpan.FromMilliseconds(300), log);
+        // A log sink is required: the watcher reports why it degraded to polling,
+        // and a caller that does not care can pass _ => { }. There is no debug
+        // fallback to fall back to, so silence is never a default.
+        => new(folder, onChanged, debounce ?? TimeSpan.FromMilliseconds(300), log ?? (static _ => { }));
 
     private void Raise()
     {

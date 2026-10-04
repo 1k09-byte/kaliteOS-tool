@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
 // ==============================================================================
@@ -513,9 +513,6 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             // with the location this profile reports.
             ScalingLocationIndex = (int)source.ScalingLocation;
             SetScalingModes(source.ScalingLocation, ReachableModeFor(source.ScalingLocation, source.ScalingMode));
-            NvidiaDisplayLog.Write(
-                $"ui: loaded scaling {_scalingLocation}/{_scalingMode} for {source.DeviceName} " +
-                $"({ScalingModeChoices.Count} options, index {ScalingModeIndex})");
             ColorDepthIndex = (int)source.ColorDepth;
             ColorFormatIndex = (int)source.ColorFormat;
             // The reachable ranges depend on the format just set above, so rebuild the list
@@ -523,7 +520,6 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             PopulateDynamicRangeChoices(BuildDynamicRangeChoices(source.ColorFormat));
             _dynamicRange = NvidiaColorMap.ReachableRangeFor(source.ColorFormat, source.DynamicRange);
             ReassertDynamicRangeSelection();
-            NvidiaDisplayLog.Write($"ui: loaded color {source.ColorDepth}/{source.ColorFormat}/{_dynamicRange} for {source.DeviceName}");
             HasPendingChanges = saved is not null && saved.Diff(profile).Count > 0;
         }
         finally
@@ -580,7 +576,6 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     partial void OnScalingLocationIndexChanged(int value)
     {
         _scalingLocation = ClampEnum<NvidiaScalingLocation>(value);
-        NvidiaDisplayLog.Write($"ui: scaling location -> {_scalingLocation}");
         RetargetScalingModes(_scalingLocation, _scalingMode);
         MarkDirty();
     }
@@ -597,14 +592,12 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             int correct = ScalingModeIndexFor(_scalingMode);
             if (correct >= 0 && correct != value)
             {
-                NvidiaDisplayLog.Write($"ui: scaling index {value} pushed by the control, re-asserting {correct}");
                 ScalingModeIndex = correct;
             }
             return;
         }
 
         _scalingMode = _scalingModes[value];
-        NvidiaDisplayLog.Write($"ui: scaling mode -> {_scalingMode}");
         MarkDirty();
     }
 
@@ -637,7 +630,6 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     partial void OnColorFormatIndexChanged(int value)
     {
         _colorFormat = ClampEnum<NvidiaColorFormatOption>(value);
-        NvidiaDisplayLog.Write($"ui: colour format -> {_colorFormat}");
         RetargetDynamicRanges(_colorFormat, _dynamicRange);
         MarkDirty();
     }
@@ -675,7 +667,6 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
         }
 
         _dynamicRange = value.Option;
-        NvidiaDisplayLog.Write($"ui: dynamic range -> {_dynamicRange}");
         MarkDirty();
     }
 
