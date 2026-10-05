@@ -178,6 +178,16 @@ namespace kaliteConfig
                 // Cosmetic only: a square window is still fully usable.
             }
 
+            // Draw the app's own TitleBar control into the caption area.
+            // Without this the window falls back to the classic Windows
+            // system title bar - the plain "kaliteConfig" text plus the
+            // Minimize/Maximize/Close buttons, on its own opaque bar, with
+            // the app's XAML TitleBar (and its drag region, search box and
+            // caption buttons) sitting unused below it. That is the old
+            // looking bar; the XAML <TitleBar> is only drawn into the
+            // window when content is extended into the title bar.
+            ExtendsContentIntoTitleBar = true;
+
             // Keep the three-pane BIOS layout usable: below ~1100px the detail
             // pane collapses, so this floor prevents accidental crushing.
             if (AppWindow.Presenter is OverlappedPresenter presenter)

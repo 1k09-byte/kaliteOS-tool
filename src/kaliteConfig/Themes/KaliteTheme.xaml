@@ -71,10 +71,13 @@
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush"   Color="#FFC6F36B" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#70C6F36B" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#38C6F36B" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FFC6F36B" />
+            <!-- Accent: dark navy. The accent TEXT brush is a lighter tint of
+                 the same navy because it is used as a Foreground on the
+                 near-black cards - full-strength navy is unreadable there. -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush"   Color="#FF1B3A6B" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
             <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -144,11 +147,11 @@
             <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAlt"   Color="#FF080B08" />
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
-            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FFC6F36B" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#70C6F36B" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#38C6F36B" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FFC6F36B" />
+            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" /><!-- Accent: dark navy (see the note on the first dictionary). -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF1B3A6B" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
             <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -195,11 +198,11 @@
             <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAlt"   Color="#FF080B08" />
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
-            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FFC6F36B" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#70C6F36B" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#38C6F36B" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FFC6F36B" />
+            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" /><!-- Accent: dark navy (see the note on the first dictionary). -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF1B3A6B" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
             <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -342,7 +345,7 @@
 
     <Style x:Key="KaliteAccentButton" TargetType="Button" BasedOn="{StaticResource KaliteButton}">
         <Setter Property="Background" Value="{ThemeResource AccentFillColorDefaultBrush}" />
-        <Setter Property="Foreground" Value="#FF06120C" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
