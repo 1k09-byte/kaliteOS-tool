@@ -164,6 +164,17 @@ namespace kaliteConfig
         {
             InitializeComponent();
 
+            // The tint layer owns its own brush (never a shared theme resource),
+            // so the saved colour can be swapped in without re-resolving
+            // anything or fighting a theme-dictionary swap.
+            // The masks own their brushes too: their colours are derived from the
+            // tint rather than hard-coded, so the tint reaches the chrome.
+            NavRailMask.Background = _railMaskBrush;
+            TopBarMask.Background = _titleMaskBrush;
+            _backdropTintBrush = new SolidColorBrush();
+            TintLayer.Background = _backdropTintBrush;
+            ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
+
             // Explicitly request Windows 11 rounded window corners (the green-check
             // shape in the reference) instead of inheriting whatever the default
             // resolves to with a custom title bar + Mica backdrop.
@@ -408,18 +419,18 @@ namespace kaliteConfig
 
         private void WatchMaterialChanges()
         {
-            ApplyRootBackground();
+            OnThemeChanged();
             if (_materialWatchAttached) return;
             var svc = (Application.Current as App)?.ThemeService;
             if (svc == null) return;
             try
             {
-                svc.BackdropChanged += (_, _) => DispatcherQueue.TryEnqueue(ApplyRootBackground);
-                svc.ThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(ApplyRootBackground);
+                svc.BackdropChanged += (_, _) => DispatcherQueue.TryEnqueue(OnThemeChanged);
+                svc.ThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(OnThemeChanged);
                 _materialWatchAttached = true;
                 // Service appeared between our last apply and now - re-apply
                 // so a persisted non-None material is honored at startup.
-                ApplyRootBackground();
+                OnThemeChanged();
             }
             catch { }
 
@@ -441,9 +452,78 @@ namespace kaliteConfig
         ///  - Backdrop active: backdrops render BEHIND the XAML content, so an
         ///    opaque root would hide them entirely.
         /// </summary>
-        private void ApplyRootBackground()
+        /// <summary>
+        /// Paints the user's backdrop tint over every surface of the window:
+        ///
+        ///  - the page field gets a translucent wash over the backdrop, so the
+        ///    material still reads through it (alpha 0 = nothing there);
+        ///  - the chrome - nav rail, caption band and the NavigationView's own
+        ///    pane fills - gets the SAME tint blended into the matte surface they
+        ///    are painted with. They stay opaque on purpose: the meteor backdrop
+        ///    drifts behind the whole window, and a translucent rail let its
+        ///    streaks smear through the icons and labels. Blending keeps them
+        ///    opaque while still carrying the tint, so the colour reaches the
+        ///    rail and the title bar too.
+        ///
+        /// Called at startup and from Settings the moment the colour or the
+        /// strength moves.
+        /// </summary>
+        public void ApplyBackdropTint((byte R, byte G, byte B, byte A) tint)
+        {
+            if (_backdropTintBrush is null) return;
+
+            _backdropTintBrush.Color = Windows.UI.Color.FromArgb(tint.A, tint.R, tint.G, tint.B);
+
+            // The chrome carries the same tint, blended into the matte surface it
+            // is painted with. Those surfaces stay opaque on purpose - the meteor
+            // backdrop drifts behind the whole window, and a translucent rail let
+            // its streaks smear through the icons and labels. Blending keeps them
+            // opaque while still taking the tint, so the colour reaches the rail
+            // and the caption band as well as the page field.
+            var chrome = kaliteConfig.Services.BackdropTint.Blended(
+                kaliteConfig.Services.BackdropTint.Matte, tint);
+            var chromeColor = Windows.UI.Color.FromArgb(255, chrome.R, chrome.G, chrome.B);
+
+            _railMaskBrush.Color = chromeColor;
+            _titleMaskBrush.Color = chromeColor;
+
+            var rail = NavView.Resources;
+            if (rail is null) return;
+
+            // The rail paints from the NavigationView's own fill rather than from
+            // the mask over it, so the tint has to reach the brushes it resolves.
+            if (rail["NavigationViewBackground"] is SolidColorBrush navBackground)
+                navBackground.Color = chromeColor;
+            if (rail["NavigationViewDefaultPaneBackground"] is SolidColorBrush paneBackground)
+                paneBackground.Color = chromeColor;
+            if (rail["NavigationViewExpandedPaneBackground"] is SolidColorBrush expandedPaneBackground)
+                expandedPaneBackground.Color = chromeColor;
+
+            // The inside of the UI: the shared theme brushes every card, panel and
+            // hairline paints from are recoloured in place, so the tint reaches the
+            // surfaces themselves and not only the gaps between them. Text and
+            // icon colours are untouched - they are never a "surface".
+            kaliteConfig.Services.SurfaceTint.Apply(tint);
+        }
+
+        private SolidColorBrush _backdropTintBrush = new();
+        private readonly SolidColorBrush _railMaskBrush = new();
+        private readonly SolidColorBrush _titleMaskBrush = new();
+
+
+
+        /// <summary>
+        /// Keeps the root background in sync with the material setting, and re-
+        /// applies the tint after a theme rewrite. A theme switch replaces the
+        /// shared surface brushes with the new theme's values, so the captured
+        /// bases are dropped first - otherwise the tint would compound on top of
+        /// the already-tinted colour with every switch.
+        /// </summary>
+        private void OnThemeChanged()
         {
             RootGrid.Background = null;
+            kaliteConfig.Services.SurfaceTint.ResetCapture();
+            ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
         }
 
         private async Task ShowElevationDialogAsync()

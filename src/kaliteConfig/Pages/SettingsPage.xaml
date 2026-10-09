@@ -130,6 +130,86 @@
                     </ComboBox>
                 </toolkit:SettingsCard>
 
+                <!--
+                    Backdrop tint: a soft colour wash over the material. The
+                    strength is capped (BackdropTint.MaxAlpha, ~63%) precisely so
+                    the wash can never cover the material - the point of a tint is
+                    that the backdrop still shows through it. The rail and caption
+                    masks are opaque, so the tint never reaches the chrome either.
+                -->
+                <toolkit:SettingsCard
+                    Description="Soft colour wash over the material. The material still shows through it - pick a colour, then set how strong it is."
+                    Header="Backdrop tint">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <!-- Swatch doubles as the colour button: what you see is what the window is painted with. -->
+                        <Button x:Name="TintColorButton"
+                                Width="52"
+                                Height="34"
+                                Padding="0"
+                                ToolTipService.ToolTip="Pick a tint colour">
+                            <Button.Flyout>
+                                <Flyout Opened="TintFlyout_Opened" Closed="TintFlyout_Closed">
+                                    <ColorPicker
+                                        x:Name="TintPicker"
+                                        ColorSpectrumShape="Ring"
+                                        Width="300"
+                                        IsAlphaEnabled="False"
+                                        IsAlphaSliderVisible="False"
+                                        IsAlphaTextInputVisible="False"
+                                        IsColorSpectrumVisible="True"
+                                        IsColorSliderVisible="True"
+                                        IsColorChannelTextInputVisible="True"
+                                        IsHexInputVisible="True"
+                                        ColorChanged="TintPicker_ColorChanged" />
+                                </Flyout>
+                            </Button.Flyout>
+                            <Border x:Name="TintSwatch"
+                                    Width="34"
+                                    Height="20"
+                                    CornerRadius="3"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1" />
+                        </Button>
+
+                        <Button Content="Clear" Click="TintClear_Click" ToolTipService.ToolTip="Remove the tint" />
+
+                        <StackPanel Spacing="0" VerticalAlignment="Center">
+                            <TextBlock Text="Strength" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Slider x:Name="TintStrength"
+                                    Width="130"
+                                    Minimum="0"
+                                    Maximum="100"
+                                    StepFrequency="1"
+                                    ValueChanged="TintStrength_ValueChanged"
+                                    ToolTipService.ToolTip="0% is no tint. Higher makes the wash stronger without ever hiding the material." />
+                        </StackPanel>
+
+                        <TextBlock x:Name="TintStrengthText" Width="40" VerticalAlignment="Center" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard
+                    Description="Choose the typeface used for text across the app (Default is the standard Windows font)"
+                    Header="App font">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE8D2;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="fontMode"
+                        Width="250"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="fontModeComboBox"
+                        SelectionChanged="FontMode_SelectionChanged">
+                        <ComboBoxItem Content="Default" Tag="Default" FontFamily="Segoe UI" />
+                        <ComboBoxItem Content="Jim Nightshade" Tag="JimNightshade" FontFamily="ms-appx:///Assets/Fonts/JimNightshade-Regular.ttf#Jim Nightshade" />
+                        <ComboBoxItem Content="Uncial Antiqua" Tag="UncialAntiqua" FontFamily="ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua" />
+                        <ComboBoxItem Content="Cormorant Garamond" Tag="CormorantGaramond" FontFamily="ms-appx:///Assets/Fonts/CormorantGaramond-Regular.ttf#Cormorant Garamond" />
+                    </ComboBox>
+                </toolkit:SettingsCard>
+
                 <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="About" />
 
                 <toolkit:SettingsCard x:Name="AboutCard" Header="About kaliteConfig" Description="Version - View development team and application links" IsClickEnabled="True" Click="AboutCard_Click">

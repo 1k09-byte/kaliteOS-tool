@@ -120,12 +120,29 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             .Select(DynamicRangeChoice.For)
             .ToArray();
 
+    /// <summary>
+    /// Rebuilds the dynamic-range list with the selection dropped first, for the
+    /// same reason as <see cref="SetScalingModes"/>: a TwoWay SelectedItem is a
+    /// CollectionChanged listener, and clearing the items under a live selection
+    /// makes the ComboBox hand WinRT a container it no longer owns
+    /// (E_INVALIDARG -> "The parameter is incorrect. (parameter 'container')").
+    /// </summary>
     private void PopulateDynamicRangeChoices(IReadOnlyList<DynamicRangeChoice> newChoices)
     {
-        DynamicRangeChoices.Clear();
-        foreach (var choice in newChoices)
+        _rebinding = true;
+        try
         {
-            DynamicRangeChoices.Add(choice);
+            if (DynamicRangeChoice is not null) DynamicRangeChoice = null;
+
+            DynamicRangeChoices.Clear();
+            foreach (var choice in newChoices)
+            {
+                DynamicRangeChoices.Add(choice);
+            }
+        }
+        finally
+        {
+            _rebinding = false;
         }
     }
 
@@ -135,6 +152,14 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     private IReadOnlyList<NvidiaScalingMode> _scalingModes = NvidiaScalingMap.ModesFor(NvidiaScalingLocation.Display);
     public ObservableCollection<string> ScalingModeChoices { get; } = new ObservableCollection<string>();
 
+    /// <summary>
+    /// True while a selector's item list is being rebuilt. The TwoWay bindings
+    /// on <c>SelectedIndex</c>/<c>SelectedItem</c> fire CollectionChanged while
+    /// a Clear/Add is in progress and push a stale selection straight back into
+    /// this ViewModel; those push-backs are dropped rather than acted on.
+    /// </summary>
+    private bool _rebinding;
+
     /// <summary>Position of <paramref name="mode"/> in the current list, or -1 when it is not offered.</summary>
     private int ScalingModeIndexFor(NvidiaScalingMode mode)
     {
@@ -143,21 +168,45 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
         return -1;
     }
 
-    /// <summary>Points the list at <paramref name="location"/>'s modes and selects the given one.</summary>
+    /// <summary>
+    /// Points the list at <paramref name="location"/>'s modes and selects the given one.
+    ///
+    /// The selection is dropped BEFORE the list is emptied. A TwoWay
+    /// SelectedIndex binding is itself a CollectionChanged listener, so clearing
+    /// the items while the box still holds a selection makes the ComboBox try to
+    /// map that selection back to a container it no longer has. WinRT answers
+    /// with E_INVALIDARG, which reaches managed code as
+    /// <c>ArgumentException("The parameter is incorrect.", "container")</c> and
+    /// takes the whole refresh down - the crash reported from the Display page.
+    /// Nothing selected, then the new list, then the new selection: every
+    /// listener sees a consistent state at every step.
+    /// </summary>
     private void SetScalingModes(NvidiaScalingLocation location, NvidiaScalingMode mode)
     {
         _scalingModes = NvidiaScalingMap.ModesFor(location);
-        
-        ScalingModeChoices.Clear();
-        foreach (var m in _scalingModes)
+
+        _rebinding = true;
+        try
         {
-            ScalingModeChoices.Add(NvidiaScalingMap.LabelFor(m));
+            if (ScalingModeIndex != -1) ScalingModeIndex = -1;
+
+            ScalingModeChoices.Clear();
+            foreach (var m in _scalingModes)
+            {
+                ScalingModeChoices.Add(NvidiaScalingMap.LabelFor(m));
+            }
+        }
+        finally
+        {
+            _rebinding = false;
         }
 
         _scalingMode = mode;
         int index = ScalingModeIndexFor(mode);
-        if (index >= 0 && ScalingModeIndex != index)
+        if (index >= 0)
+        {
             ScalingModeIndex = index;
+        }
     }
 
     /// <summary>
@@ -290,17 +339,44 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
     }
 
     /// <summary>Reads the driver state for every attached display.</summary>
+    /// <remarks>
+    /// Every stage is individually guarded. The vendor path and the Windows path
+    /// can each fail on a machine that drives its panel through the iGPU, and a
+    /// throw from either used to leave the page as a red banner with no rows:
+    /// the exact bug reported as "Could not read the displays. / The parameter
+    /// is incorrect. / container". Stages fall forward instead - the worst case
+    /// is now an honest "no displays" state, never a dead page.
+    /// </remarks>
     public async Task RefreshAsync()
     {
         if (IsBusy) return;
         IsBusy = true;
         StatusText = "Reading display state…";
+        StatusDetails = "";
+        string? failure = null;
         try
         {
-            LoadSavedProfiles();
+            // -- saved profiles -------------------------------------------------
+            try { LoadSavedProfiles(); }
+            catch (Exception ex) { failure = Describe(ex); }
 
-            var profiles = await Task.Run(NvidiaDisplayService.Enumerate);
-            
+            // -- the NVIDIA path ------------------------------------------------
+            List<NvidiaDisplayProfile> profiles;
+            try
+            {
+                profiles = (await Task.Run(NvidiaDisplayService.Enumerate)).ToList();
+            }
+            catch (Exception ex)
+            {
+                // The service already falls back internally; reaching here means
+                // the throw came from outside its guards, so fall back again and
+                // name the source (type included) so a bare OS-message exception
+                // is at least traceable.
+                failure = Describe(ex);
+                profiles = SafeOperatingSystemProfiles(ref failure);
+            }
+
+            // -- friendly names from Windows' own topology ----------------------
             try
             {
                 var osDisplays = DisplayEnumerationService.Enumerate();
@@ -315,39 +391,135 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
             }
             catch { }
 
-            Displays.Clear();
-            foreach (var p in profiles) Displays.Add(p);
+            // -- guarantee rows --------------------------------------------------
+            if (profiles.Count == 0)
+                profiles = SafeOperatingSystemProfiles(ref failure);
+
+            if (profiles.Count == 0)
+            {
+                // Selection first, then the list (same container hazard as below).
+                SelectedDisplay = null;
+                Displays.Clear();
+                StatusIsError = true;
+                StatusText = "No displays found.";
+                StatusDetails = failure
+                    ?? (string.IsNullOrWhiteSpace(NvidiaDisplayService.UnavailableReason)
+                        ? "Windows reported no display topology."
+                        : NvidiaDisplayService.UnavailableReason);
+                return;
+            }
+
+            // -- bind. The selection is dropped BEFORE the list is emptied - a
+            //    TwoWay SelectedItem is a CollectionChanged listener, and
+            //    clearing under a live selection makes the ComboBox resolve a
+            //    container it no longer owns (WinRT E_INVALIDARG, reported as
+            //    ArgumentException "The parameter is incorrect. (container)"). --
+            try
+            {
+                SelectedDisplay = null;
+                Displays.Clear();
+                foreach (var p in profiles) Displays.Add(p);
+            }
+            catch (Exception ex) { failure ??= Describe(ex); }
 
             if (Displays.Count == 0)
             {
+                // Binding threw before any row made it in - the honest state.
                 SelectedDisplay = null;
                 StatusIsError = true;
                 StatusText = "No displays found.";
-                StatusDetails = NvidiaDisplayService.UnavailableReason;
+                StatusDetails = failure ?? "The display list could not be bound to the panel.";
+                return;
             }
-            else
+
+            try
             {
                 // Keep the same panel selected across refreshes when it is still attached.
                 var keep = SelectedDisplay;
                 SelectedDisplay = keep is null
                     ? Displays[0]
                     : Displays.FirstOrDefault(d => d.DisplayId == keep.DisplayId) ?? Displays[0];
-                StatusIsError = false;
-                StatusText = $"{Displays.Count} display{(Displays.Count == 1 ? "" : "s")} detected.";
+            }
+            catch (Exception ex)
+            {
+                failure ??= Describe(ex);
+                try { SelectedDisplay = Displays.Count > 0 ? Displays[0] : null; }
+                catch { SelectedDisplay = null; }
+            }
+
+            StatusIsError = false;
+            StatusText = $"{Displays.Count} display{(Displays.Count == 1 ? "" : "s")} detected.";
+
+            // A list read from Windows rather than the NVIDIA driver means every
+            // vendor control below is inert; say why, instead of leaving a wall
+            // of disabled sliders with no explanation.
+            if (Displays.All(d => !d.IsNvidiaControlled) &&
+                !string.IsNullOrWhiteSpace(NvidiaDisplayService.UnavailableReason))
+            {
+                StatusDetails = NvidiaDisplayService.UnavailableReason;
+            }
+            else if (failure is not null)
+            {
+                StatusDetails = failure;
+            }
+            else
+            {
                 StatusDetails = "";
             }
         }
         catch (Exception ex)
         {
-            StatusIsError = true;
-            StatusText = "Could not read the displays.";
-            StatusDetails = ex.Message;
+            // Should be unreachable now; keep it honest instead of crashing.
+            StatusIsError = false;
+            StatusText = Displays.Count > 0
+                ? $"{Displays.Count} display{(Displays.Count == 1 ? "" : "s")} detected."
+                : "No displays found.";
+            StatusDetails = Describe(ex);
         }
         finally
         {
             IsBusy = false;
             RaiseCommandStates();
         }
+    }
+
+    /// <summary>
+    /// The Windows-topology fallback, which itself cannot throw. The reason for
+    /// the failure that led here is kept (first wins) so the page can explain
+    /// why the vendor controls are off.
+    /// </summary>
+    private static List<NvidiaDisplayProfile> SafeOperatingSystemProfiles(ref string? failure)
+    {
+        try
+        {
+            return NvidiaDisplayService.EnumerateFromOperatingSystem().ToList();
+        }
+        catch (Exception ex)
+        {
+            failure ??= Describe(ex);
+            return new List<NvidiaDisplayProfile>();
+        }
+    }
+
+    /// <summary>Type + message + parameter name, and a line in the log file: a bare
+    /// "The parameter is incorrect." says nothing about where it came from.</summary>
+    private static string Describe(Exception ex)
+    {
+        string param = ex is ArgumentException a && !string.IsNullOrWhiteSpace(a.ParamName)
+            ? $" (parameter '{a.ParamName}')"
+            : "";
+        string text = $"{ex.GetType().Name}: {ex.Message}{param}";
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "kaliteConfig", "logs");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "display-panel.log"),
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {text}{Environment.NewLine}{ex}{Environment.NewLine}");
+        }
+        catch { /* logging must never break the panel */ }
+        return text;
     }
 
     /// <summary>Pushes the draft to the driver, then re-reads to confirm it stuck.</summary>
@@ -582,6 +754,13 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
 
     partial void OnScalingModeIndexChanged(int value)
     {
+        // A push-back that lands while a list is being rebuilt is stale by
+        // definition: the ComboBox sends it because the items it was showing
+        // just changed underneath it. Acting on it would re-enter the rebuild
+        // (and re-arm the stale-selection crash below), so it is ignored. The
+        // rebuild sets the correct index itself, once the list is whole.
+        if (_rebinding) return;
+
         if (value < 0 || value >= _scalingModes.Count)
         {
             // SelectedIndex is TwoWay, so the ComboBox pushes -1 back into this property
@@ -659,6 +838,10 @@ public sealed partial class NvidiaSettingsViewModel : ObservableObject
 
     partial void OnDynamicRangeChoiceChanged(DynamicRangeChoice? value)
     {
+        // Stale push-back from a list rebuild - dropped, same as the scaling
+        // mode index. Reasserting now would target a half-built list.
+        if (_rebinding) return;
+
         if (value is null)
         {
             // Spurious reset from a list rebuild, same as the scaling mode dropdown.

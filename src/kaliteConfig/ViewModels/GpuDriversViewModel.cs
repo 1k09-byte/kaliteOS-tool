@@ -180,8 +180,40 @@ namespace kaliteConfig.ViewModels
                         driver.GpuTypeText = match.GpuType;
                         driver.DeviceTypeText = match.DeviceType;
                     }
-                    else if (driver.Status is GpuDriverStatus.NotChecked or GpuDriverStatus.NotInstalled or GpuDriverStatus.UpToDate)
-                        driver.Status = generic ? GpuDriverStatus.NotInstalled : GpuDriverStatus.NotChecked;
+                    else if (generic)
+                    {
+                        driver.Status = GpuDriverStatus.NotInstalled;
+                    }
+                    else if (driver.Status is not (GpuDriverStatus.Downloading or GpuDriverStatus.Installing or GpuDriverStatus.ManualActionRequired))
+                    {
+                        // Re-derive the status from what is actually loaded NOW.
+                        // The previous logic only reset NotChecked/NotInstalled/
+                        // UpToDate and left UpdateAvailable sticky, so a card kept
+                        // saying "Update now" after the driver had already been
+                        // updated (in-app or externally). Registry version wins
+                        // over WMI (WMI can lag behind a pending update), the
+                        // same rule the Check flow uses.
+                        string? effective = NvidiaVersionHelper.FromWmiVersion(
+                            string.IsNullOrEmpty(match.RegistryVersion) ? match.DriverVersion : match.RegistryVersion)
+                            ?? match.DriverVersion;
+
+                        if (string.IsNullOrEmpty(driver.LatestVersion))
+                        {
+                            driver.Status = GpuDriverStatus.NotChecked;
+                        }
+                        else
+                        {
+                            int cmp = NvidiaVersionHelper.Compare(effective, driver.LatestVersion);
+                            driver.Status = cmp < 0 ? GpuDriverStatus.UpdateAvailable : GpuDriverStatus.UpToDate;
+                            if (cmp >= 0)
+                            {
+                                // The update actually happened - drop any stale
+                                // failure record (e.g. "Install failed (exit …)")
+                                // left over from before it.
+                                driver.ErrorMessage = string.Empty;
+                            }
+                        }
+                    }
                 }
 
                 DetectStatusText = gpus.Count == 0

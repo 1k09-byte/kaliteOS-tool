@@ -8,15 +8,7 @@
     xmlns:converters="using:kaliteConfig.Converters"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     NavigationCacheMode="Enabled">
-    <Page.Transitions>
-        <TransitionCollection>
-            <NavigationThemeTransition>
-                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                    <EntranceNavigationTransitionInfo />
-                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
-            </NavigationThemeTransition>
-        </TransitionCollection>
-    </Page.Transitions>
+    <!-- Entrance transition now lives on the main ContentFrame (see MainWindow.xaml). -->
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -161,7 +153,7 @@
         </Grid>
 
         <!-- Processes Panel -->
-        <Grid x:Name="ProcessesPanel" Grid.Row="2">
+        <Grid x:Name="ProcessesPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -384,7 +376,7 @@
         </Grid>
 
         <!-- RulesPanel -->
-        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
+        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />

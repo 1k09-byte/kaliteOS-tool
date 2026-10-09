@@ -38,7 +38,17 @@
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource KaliteCard}" Padding="14">
-                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True"/></StackPanel>
+                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True">
+                    <Frame.ContentTransitions>
+                        <TransitionCollection>
+                            <NavigationThemeTransition>
+                                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                    <EntranceNavigationTransitionInfo />
+                                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                            </NavigationThemeTransition>
+                        </TransitionCollection>
+                    </Frame.ContentTransitions>
+                </Frame></StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>

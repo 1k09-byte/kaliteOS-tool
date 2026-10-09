@@ -157,7 +157,7 @@
 
             <Grid Grid.Row="1">
         <!-- Main split: list + details -->
-        <Grid x:Name="UninstallerPanel" Margin="0,12,0,0" ColumnSpacing="16">
+        <Grid x:Name="UninstallerPanel" Margin="0,12,0,0" ColumnSpacing="16" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="340" />
@@ -344,7 +344,7 @@
                 </Grid>
             </Border>
         </Grid>
-                <Grid x:Name="RemoverPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed">
+                <Grid x:Name="RemoverPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="340" />
@@ -484,7 +484,7 @@
                         </Grid>
                     </Border>
                 </Grid>
-                <Grid x:Name="StartupPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed">
+                <Grid x:Name="StartupPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="248" MinWidth="200" />
                         <ColumnDefinition Width="*" />

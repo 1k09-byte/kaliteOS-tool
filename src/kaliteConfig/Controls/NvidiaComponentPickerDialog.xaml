@@ -11,6 +11,10 @@
     CloseButtonText="Cancel"
     DefaultButton="Primary">
 
+    <!-- The whole dialog scrolls: with the component list, verification details
+         and the install log all expanded, the fixed-height ContentDialog used
+         to push the log below the visible area with no way to reach it. -->
+    <ScrollViewer x:Name="RootScroll" MaxHeight="620" VerticalScrollBarVisibility="Auto">
     <StackPanel Spacing="10" MinWidth="560">
         <TextBlock Text="NVIDIA packages the display driver with optional extras. Everything unchecked is excluded from the silent install. The base display driver cannot be removed."
                    TextWrapping="Wrap"
@@ -66,7 +70,7 @@
         </Expander>
 
         <Expander Header="Install log" HorizontalAlignment="Stretch" Visibility="Collapsed" x:Name="LogExpander">
-            <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="LogScroll" MaxHeight="300" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="LogText"
                            FontSize="11"
                            FontFamily="Consolas"
@@ -79,4 +83,5 @@
         <TextBlock x:Name="StatusText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    TextWrapping="Wrap" Visibility="Collapsed" />
     </StackPanel>
+    </ScrollViewer>
 </ContentDialog>

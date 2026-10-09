@@ -451,13 +451,24 @@ namespace kaliteConfig.Services
         /// </para>
         ///
         /// <para>
-        /// Two things happen for each deselected component: the sub-package is
-        /// marked <c>disposition="hidden"</c> (the schema's own way of taking a
-        /// component out of the install set - VirtualAudio.Driver ships hidden),
-        /// and any child entry that names payload inside that component's own
-        /// folder is removed so the installer has nothing left to copy. The
-        /// element itself is never removed: the installer resolves the remaining
+        /// Two things happen for each deselected component. The sub-package is
+        /// parked NVIDIA's own way - the exact attribute pair
+        /// VirtualAudio.Driver ships with: <c>disposition="demand"</c> (install
+        /// only when something demands it) plus <c>hidden="true"</c>. NOTE the
+        /// disposition enum is only critical/default/demand: an invented value
+        /// like <c>disposition="hidden"</c> fails the installer's config parse
+        /// outright (0x80070057 "The parameter is incorrect" in element
+        /// sub-package, seen verbatim in the installer's own log). Second, any
+        /// child entry that names payload inside that component's own folder is
+        /// removed so the installer has nothing left to copy. The element
+        /// itself is never removed: the installer resolves the remaining
         /// components through the document.
+        /// </para>
+        /// <para>
+        /// Dependency edges that would DEMAND an excluded component
+        /// (<c>type="installs"</c> / <c>type="requires"</c> pointing at it) are
+        /// removed too, otherwise a demand-disposition package gets pulled back
+        /// in by whatever references it.
         /// </para>
         /// </summary>
         public Task<string> ApplySelectionAsync(string extractDir, IReadOnlyList<NvidiaComponent> components, Action<string> log)
@@ -493,16 +504,38 @@ namespace kaliteConfig.Services
                         continue;
                     }
 
-                    el.SetAttributeValue("disposition", "hidden");
+                    // VirtualAudio.Driver's shipped pair: on-demand + hidden.
+                    // NOT disposition="hidden" - that value does not exist in
+                    // the schema and makes setup.exe reject the whole config.
+                    el.SetAttributeValue("disposition", "demand");
+                    el.SetAttributeValue("hidden", "true");
                     strippedEntries += StripPayloadReferences(extractDir, el, id);
                     excluded.Add(id);
+                }
+
+                // Nothing may demand an excluded package.
+                var excludedSet = excluded.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                int strippedEdges = 0;
+                foreach (var edge in doc.Descendants()
+                         .Where(e => e.Name.LocalName.Equals("package", StringComparison.OrdinalIgnoreCase))
+                         .ToList())
+                {
+                    string? type = (string?)edge.Attribute("type");
+                    string? target = (string?)edge.Attribute("package");
+                    if (target is null || !excludedSet.Contains(target)) continue;
+                    if (type is null ||
+                        !(type.Equals("installs", StringComparison.OrdinalIgnoreCase) ||
+                          type.Equals("requires", StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    edge.Remove();
+                    strippedEdges++;
                 }
 
                 doc.Save(cfgPath);
 
                 log(excluded.Count == 0
                     ? "setup.cfg: nothing to exclude (every component was selected)."
-                    : $"setup.cfg updated: {excluded.Count} component(s) excluded ({strippedEntries} payload entr{(strippedEntries == 1 ? "y" : "ies")} removed): {string.Join(", ", excluded)}");
+                    : $"setup.cfg updated: {excluded.Count} component(s) excluded ({strippedEntries} payload entr{(strippedEntries == 1 ? "y" : "ies")}, {strippedEdges} dependency edge{(strippedEdges == 1 ? "" : "s")} removed): {string.Join(", ", excluded)}");
                 if (installerManaged > 0)
                     log($"{installerManaged} installer-managed component(s) left as NVIDIA ships them.");
 

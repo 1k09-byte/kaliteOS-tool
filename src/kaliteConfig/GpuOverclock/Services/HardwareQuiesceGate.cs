@@ -16,7 +16,7 @@ namespace kaliteConfig.GpuOverclock.Services
     /// Process-wide "hands off the GPU hardware" gate.
     ///
     /// WHY THIS EXISTS: restarting a device (pnputil /restart-device on the
-    /// GPU itself, which IRQ/Affinity Optimize does) momentarily invalidates
+    /// GPU itself) momentarily invalidates
     /// the native handles NVAPI/NVML calls go through. A telemetry or fan
     /// tick landing in that window can fault INSIDE nvapi64.dll/nvml.dll -
     /// a native access violation (0xc0000005) that no managed try/catch can

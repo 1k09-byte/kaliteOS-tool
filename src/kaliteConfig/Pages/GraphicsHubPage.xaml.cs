@@ -6,6 +6,8 @@ using kaliteConfig.GpuOverclock.Models;
 using kaliteConfig.GpuOverclock.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using System;
+using System.Linq;
 
 namespace kaliteConfig.Pages;
 
@@ -37,6 +39,22 @@ public sealed partial class GraphicsHubPage : Page
         GpuVendorFlags vendors = GpuVendorPresenceService.Detect();
         NvidiaTab.Visibility = vendors.HasNvidia ? Visibility.Visible : Visibility.Collapsed;
         RadeonTab.Visibility = vendors.HasAmd ? Visibility.Visible : Visibility.Collapsed;
+
+        // The "Display" tab is backed by NVAPI (NVIDIA's display API). On a
+        // machine without an NVIDIA chip it can only ever fail with
+        // "no displays found", so don't offer it at all.
+        var displayTab = ViewSelector.MenuItems.OfType<NavigationViewItem>()
+            .FirstOrDefault(i => string.Equals(i.Tag as string, "Display", StringComparison.Ordinal));
+        if (displayTab is not null)
+            displayTab.Visibility = vendors.HasNvidia ? Visibility.Visible : Visibility.Collapsed;
+
+        if (!vendors.HasNvidia && ViewSelector.SelectedItem is NavigationViewItem sel &&
+            string.Equals(sel.Tag as string, "Display", StringComparison.Ordinal))
+        {
+            var first = ViewSelector.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Visibility == Visibility.Visible);
+            if (first is not null)
+                ViewSelector.SelectedItem = first;
+        }
     }
 
     private void ViewSelector_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

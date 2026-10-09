@@ -20,6 +20,16 @@
             <NavigationViewItem Content="Simple settings" Tag="Simple" IsSelected="True" />
             <NavigationViewItem Content="All 3D settings" Tag="Advanced3D" />
         </NavigationView.MenuItems>
-        <Frame x:Name="SectionFrame" />
+        <Frame x:Name="SectionFrame">
+            <Frame.ContentTransitions>
+                <TransitionCollection>
+                    <NavigationThemeTransition>
+                        <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                            <EntranceNavigationTransitionInfo />
+                        </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                    </NavigationThemeTransition>
+                </TransitionCollection>
+            </Frame.ContentTransitions>
+        </Frame>
     </NavigationView>
 </Page>

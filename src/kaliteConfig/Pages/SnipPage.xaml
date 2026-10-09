@@ -168,7 +168,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <Grid>
                         <!-- Capture Home -->
-                        <Grid x:Name="ViewCapture" Visibility="Visible">
+                        <Grid x:Name="ViewCapture" Visibility="Visible" Style="{StaticResource KaliteEntranceGrid}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -228,7 +228,7 @@
                                                       <RowDefinition Height="*"/>
                                                       <RowDefinition Height="Auto"/>
                                                   </Grid.RowDefinitions>
-                                                  <Grid>
+                                                  <Grid Grid.Row="0">
                                                       <!-- Skeleton: exact final size, so nothing shifts when pixels arrive -->
                                                       <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" Visibility="{x:Bind Card.SkeletonVisibility, Mode=OneWay}">
                                                           <Border x:Name="RecentSkeletonHighlight" Opacity="0.35">
@@ -272,7 +272,7 @@
                                                           <TextBlock Text="{x:Bind ResolutionText, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.7"/>
                                                       </StackPanel>
                                                   </StackPanel>
-                                                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Spacing="4">
+                                                  <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Spacing="4">
                                                       <Button Style="{StaticResource RecentActionStyle}" Content="&#xE8C8;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentCopy_Click" ToolTipService.ToolTip="Copy image" AutomationProperties.Name="Copy image"/>
                                                       <Button Style="{StaticResource RecentActionStyle}" Content="&#xE70F;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentEdit_Click" ToolTipService.ToolTip="Edit in Snip" AutomationProperties.Name="Edit snip"/>
                                                       <Button Style="{StaticResource RecentActionStyle}" Content="&#xE8BB;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentFolder_Click" ToolTipService.ToolTip="Show in folder" AutomationProperties.Name="Show in folder"/>
@@ -300,7 +300,7 @@
                         </Grid>
                         
                         <!-- Gallery View -->
-                        <Grid x:Name="ViewGallery" Visibility="Collapsed">
+                        <Grid x:Name="ViewGallery" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <Grid.RowDefinitions>
                                  <RowDefinition Height="Auto"/>
                                  <RowDefinition Height="Auto"/>
@@ -446,10 +446,13 @@
                                                              <MenuFlyoutSeparator/>
                                                              <MenuFlyoutItem Text="Delete" Command="{x:Bind DeleteCommand}"/>
                                                          </MenuFlyout>
-                                                     </Border.ContextFlyout>
-                                                     <Grid Margin="2">
+                                                     </Border.ContextFlyout>                                                     <Grid Margin="2">
+                                                         <Grid.RowDefinitions>
+                                                             <RowDefinition Height="*"/>
+                                                             <RowDefinition Height="36"/>
+                                                         </Grid.RowDefinitions>
                                                          <!-- SINGLE ITEM VIEW -->
-                                                         <Grid>
+                                                         <Grid Grid.Row="0">
                                                              <!-- Skeleton at the exact final size: no layout shift on load -->
                                                              <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" Visibility="{x:Bind Card.SkeletonVisibility, Mode=OneWay}">
                                                                  <Border x:Name="GallerySkeletonHighlight" Opacity="0.35">
@@ -486,7 +489,9 @@
 
 
                                                          <!-- Common Footer Overlay (gradients, name, selection badge) -->
-                                                         <Border VerticalAlignment="Bottom" Height="36">
+                                                         <Grid Grid.Row="1">
+                                                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                                                             <Border>
                                                              <Border.Background>
                                                                  <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                                                                      <GradientStop Color="#00000000" Offset="0"/>
@@ -501,6 +506,7 @@
                                                          <Border CornerRadius="12" Width="22" Height="22" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="4" Background="#CC2F2F2F" Visibility="{x:Bind IsSelected, Mode=OneWay}">
                                                              <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="White"/>
                                                          </Border>
+                                                     </Grid>
                                                      </Grid>
                                                  </Border>
                                              </DataTemplate>
@@ -630,6 +636,12 @@
                                                 <!-- Icon + label: the glyph lives in a FontIcon, never in Button.Content
                                                      with the icon font applied to the whole string (that turned the
                                                      labels into tofu boxes). -->
+                                                <!-- The action row must never clip its last button: in a narrow
+                                                     details pane the horizontal StackPanel overflowed the pane edge
+                                                     and the box was cut off with no way to reach it. Same treatment
+                                                     as the installer dialog's log: keep the layout, make it scroll. -->
+                                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                              VerticalScrollBarVisibility="Disabled">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <Button Command="{x:Bind ViewModel.SelectedGalleryItem.CopyImageCommand, Mode=OneWay}"
                                                             ToolTipService.ToolTip="Copy image">
@@ -657,6 +669,7 @@
                                                         </StackPanel>
                                                     </Button>
                                                 </StackPanel>
+                                                </ScrollViewer>
                                                 <StackPanel>
                                                      <StackPanel.ContextFlyout>
                                                          <MenuFlyout>
@@ -680,7 +693,7 @@
                         </Grid>
                         
                         <!-- Stickers View -->
-                        <Grid x:Name="ViewStickers" Visibility="Collapsed">
+                        <Grid x:Name="ViewStickers" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <StackPanel Spacing="16">
                                  <TextBlock Text="Stickers" Style="{StaticResource KalitePageTitle}" />
                                  <TextBlock Text="Import your own stickers, then stamp them onto captures with the sticker tool (K) in the capture overlay." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -717,7 +730,7 @@
                         </Grid>
 
                         <!-- Bin View -->
-                        <Grid x:Name="ViewBin" Visibility="Collapsed">
+                        <Grid x:Name="ViewBin" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <StackPanel Spacing="16">
                                  <TextBlock Text="Bin" Style="{StaticResource KalitePageTitle}" />
                                  <TextBlock Text="Deleted snips wait here until you restore them or empty the bin. Nothing is purged automatically." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -756,7 +769,7 @@
                         </Grid>
 
                         <!-- Tools View -->
-                        <Grid x:Name="ViewTools" Visibility="Collapsed">
+                        <Grid x:Name="ViewTools" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <StackPanel Spacing="16">
                                  <TextBlock Text="Tools" Style="{StaticResource KalitePageTitle}" />
                                  <TextBlock Text="Analysis and Pixel Operations go here." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -765,7 +778,7 @@
                         </Grid>
 
                         <!-- Settings View -->
-                        <Grid x:Name="ViewSettings" Visibility="Collapsed">
+                        <Grid x:Name="ViewSettings" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                             <StackPanel Spacing="16" MaxWidth="800" HorizontalAlignment="Left">
                                 <TextBlock Text="Snip Configuration" Style="{StaticResource KalitePageTitle}" />
                                 

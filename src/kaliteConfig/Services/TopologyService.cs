@@ -173,7 +173,7 @@ namespace kaliteConfig.Services
             }
 
             // Remove reserved core 0 from the assignable performance list
-            // (AllPerformanceCoreMasks keeps the full set for Optimize).
+            // (AllPerformanceCoreMasks keeps the full set).
             var allPerfCoreMasks = perfCoreMasks.ToList();
             if (perfCoreMasks.Count > 0)
                 perfCoreMasks.RemoveAt(0);

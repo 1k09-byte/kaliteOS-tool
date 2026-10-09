@@ -119,7 +119,8 @@ public sealed class SnipService : IDisposable
                     var rc = mi.rcMonitor;
                     int w = rc.Right - rc.Left;
                     int h = rc.Bottom - rc.Top;
-                    if (w > 0 && h > 0)
+                    // Skip monitors with zero or negative dimensions (virtual/legacy monitors)
+                    if (w > 100 && h > 100)
                         areas.Add((rc.Left, rc.Top, w, h));
                 }
                 return true;

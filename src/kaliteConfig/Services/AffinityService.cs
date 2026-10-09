@@ -128,6 +128,8 @@ namespace kaliteConfig.Services
                 "4d36e972-e325-11ce-bfc1-08002be10318" => "Network",
                 "36fc9e60-c465-11cf-8056-444553540000" => "Usb",
                 "4d36e96c-e325-11ce-bfc1-08002be10318" => "Audio",
+                "4d36e96a-e325-11ce-bfc1-08002be10318" => "Nvme",
+                "4d36e97b-e325-11ce-bfc1-08002be10318" => "Storage",
                 _ => null
             };
         }

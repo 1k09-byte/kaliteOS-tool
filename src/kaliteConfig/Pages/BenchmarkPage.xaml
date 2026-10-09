@@ -140,7 +140,7 @@
                      Visibility="{x:Bind ViewModel.IsCapturing, Mode=OneWay}" />
 
         <!-- Capture -->
-        <Grid x:Name="CapturePanel" Grid.Row="3" Margin="28,0,28,24">
+        <Grid x:Name="CapturePanel" Grid.Row="3" Margin="28,0,28,24" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
@@ -263,7 +263,7 @@
         </Grid>
 
         <!-- Runs -->
-        <Grid x:Name="RunsPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
+        <Grid x:Name="RunsPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
@@ -346,7 +346,7 @@
         </Grid>
 
         <!-- Analysis -->
-        <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
+        <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceScrollViewer}">
             <StackPanel x:Name="AnalysisContent" Spacing="12">
                 <TextBlock x:Name="ReportHeader" Text="{x:Bind ViewModel.ReportHeaderText, Mode=OneWay}"
                            FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
@@ -447,7 +447,7 @@
         </ScrollViewer>
 
         <!-- Compare -->
-        <Grid x:Name="ComparePanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
+        <Grid x:Name="ComparePanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -517,6 +517,13 @@
 
         <!-- Export -->
         <Border x:Name="ExportPanel" Grid.Row="3" Margin="28,0,28,24" Style="{StaticResource BenchCard}" Visibility="Collapsed">
+            <!-- Keeps BenchCard's own fills; the entrance is added inline so the
+                 style does not have to be BasedOn an entrance style. -->
+            <Border.Transitions>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="40" />
+                </TransitionCollection>
+            </Border.Transitions>
             <StackPanel Spacing="8">
             <Button CornerRadius="8" Command="{x:Bind ViewModel.ExportCsvCommand}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">

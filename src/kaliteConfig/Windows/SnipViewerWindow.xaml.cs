@@ -15,6 +15,9 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
+using Windows.Foundation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.Storage;
@@ -45,6 +48,11 @@ public sealed partial class SnipViewerWindow : Window
         Preview.ImageLoaded += Preview_ImageLoaded;
         Preview.LoadFailed += Preview_LoadFailed;
         Preview.SourcePath = filePath;
+
+        RootGrid.Opacity = 0;
+        RootGrid.RenderTransformOrigin = new Point(0.5, 0.5);
+        RootGrid.RenderTransform = new ScaleTransform { ScaleX = 0.96, ScaleY = 0.96 };
+        Preview.Loaded += OnRootLoaded;
 
         ResizeToFitContent(0, 0);
     }
@@ -198,5 +206,27 @@ public sealed partial class SnipViewerWindow : Window
     {
         args.Handled = true;
         Preview.ZoomBy(1 / 1.25);
+    }
+
+    private void OnRootLoaded(object sender, RoutedEventArgs e)
+    {
+        var content = (UIElement)RootGrid;
+        var sb = new Storyboard();
+        var fade = new DoubleAnimation { From = 0d, To = 1d, Duration = TimeSpan.FromMilliseconds(180) };
+        fade.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        Storyboard.SetTarget(fade, content);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        sb.Children.Add(fade);
+        var scale = new DoubleAnimation { From = 0.96d, To = 1d, Duration = TimeSpan.FromMilliseconds(180) };
+        scale.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        Storyboard.SetTarget(scale, content);
+        Storyboard.SetTargetProperty(scale, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)");
+        sb.Children.Add(scale);
+        var scaleY = new DoubleAnimation { From = 0.96d, To = 1d, Duration = TimeSpan.FromMilliseconds(180) };
+        scaleY.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        Storyboard.SetTarget(scaleY, content);
+        Storyboard.SetTargetProperty(scaleY, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)");
+        sb.Children.Add(scaleY);
+        sb.Begin();
     }
 }

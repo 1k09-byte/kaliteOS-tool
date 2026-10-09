@@ -22,6 +22,31 @@
                  code; these dictionaries exist so a light-mode system setting can
                  never wash the UI out. -->
 
+            <!--
+                THE APP FONT, EVERYWHERE.
+
+                FontFamily/FontSize inheritance only reaches elements under a
+                Control that carries them (Frame, NavigationView); popups,
+                ContentDialogs, the startup overlay and the tray/snip windows
+                sit outside those subtrees and would silently keep WinUI's
+                default face. An implicit style reaches every TextBlock in
+                every tree that does not set its own Style, so one definition
+                here is what makes the typeface app-wide instead of
+                page-by-page.
+
+                FontSize is set here too so the bump lands on default-sized
+                text everywhere at once; anything that pins its own size (page
+                rows, dense tables, the rail template) keeps that size - those
+                were deliberate and are bumped where they are defined.
+
+                KaliteFontFamily comes from the merged KaliteTheme dictionary
+                above; merged dictionaries resolve before sibling content.
+            -->
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+                <Setter Property="FontSize" Value="16" />
+            </Style>
+
             <!-- Other app resources here -->
         </ResourceDictionary>
     </Application.Resources>

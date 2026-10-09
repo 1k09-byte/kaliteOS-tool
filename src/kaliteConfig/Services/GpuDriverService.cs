@@ -162,6 +162,12 @@ namespace kaliteConfig.Services
                             (vramBytes > (4L * 1024 * 1024 * 1024) - (128L * 1024 * 1024));
                         if (looksClamped)
                             vramBytes = ReadVramFromRegistry(obj["PNPDeviceID"]?.ToString() ?? "");
+                        if (vramBytes <= 0 && vendor == "AMD")
+                        {
+                            // Last resort for AMD: the driver-installed ADLX library
+                            // reports the card's raw total, same source the Overclock tab uses.
+                            vramBytes = ReadVramFromAdlx(obj["PNPDeviceID"]?.ToString() ?? "");
+                        }
                         string vramText = FormatVram(vramBytes);
 
                         bool integrated =
@@ -299,9 +305,10 @@ namespace kaliteConfig.Services
 
                     // MatchingDeviceId is the enumerator-relative ID (e.g.
                     // "PCI\VEN_10DE&DEV_2704..."), the PNPDeviceID adds the instance
-                    // suffix - match by prefix.
+                    // suffix - match by prefix (case-insensitive, with or without
+                    // the leading transport segment; both directions compared).
                     if (child.GetValue("MatchingDeviceId")?.ToString() is not string matching ||
-                        !pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase))
+                        !MatchesPnpId(matching, pnpId))
                         continue;
 
                     foreach (string valueName in new[]
@@ -346,7 +353,7 @@ namespace kaliteConfig.Services
                     using var child = key.OpenSubKey(sub);
                     if (child is null) continue;
                     if (child.GetValue("MatchingDeviceId")?.ToString() is not string matching ||
-                        !pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase))
+                        !MatchesPnpId(matching, pnpId))
                         continue;
 
                     string? version = child.GetValue("DriverVersion")?.ToString();
@@ -357,6 +364,47 @@ namespace kaliteConfig.Services
             {
             }
             return null;
+        }
+
+        /// <summary>Lexicographic-friendly "pci\\ven_x&amp;dev_y" comparison: the matched
+        /// device id is a prefix of the full PNP device id, but casing and
+        /// separators vary between boards and Windows sessions.</summary>
+        /// <summary>
+        /// Tells ADLX to report each AMD adapter's total VRAM, matched by
+        /// VEN/DEV id against the WMI PNP device id. Returns 0 when ADLX is
+        /// unavailable or no adapter matches.
+        /// </summary>
+        private static long ReadVramFromAdlx(string pnpId)
+        {
+            try
+            {
+                var gpus = kaliteConfig.GpuOverclock.Services.AmdAdlxInterop.EnumerateGpusWithSupport();
+                foreach (var g in gpus)
+                {
+                    if (g.VramMb == 0) continue;
+                    if (!MatchesPnpId(g.PnpString, pnpId)) continue;
+                    return (long)g.VramMb * 1024 * 1024;
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        private static bool MatchesPnpId(string matching, string pnpId)
+        {
+            if (string.IsNullOrEmpty(matching) || string.IsNullOrEmpty(pnpId)) return false;
+            if (pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase)) return true;
+            if (matching.StartsWith(pnpId, StringComparison.OrdinalIgnoreCase)) return true;
+
+            // Compare on the "<ven>_<dev>" core so "PCI\VEN..." vs "pci\ven..."
+            // and a missing leading "PCI\\" on one side are handled.
+            static string Core(string s)
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(
+                    s, @"ven_[0-9a-f]{4}[&_]dev_[0-9a-f]{4}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                return m.Success ? m.Value.ToLowerInvariant() : s.Replace('\\', '_').ToLowerInvariant();
+            }
+            return string.Equals(Core(matching), Core(pnpId), StringComparison.Ordinal);
         }
 
         private static string FormatVram(long bytes)
@@ -651,7 +699,12 @@ namespace kaliteConfig.Services
                         !string.IsNullOrWhiteSpace(gpu.DriverVersion) &&
                         !gpu.Name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase))
                     {
-                        item.InstalledVersion = gpu.DriverVersion;
+                        // Registry version wins over WMI: right after an update
+                        // WMI can still report the previous driver, which made the
+                        // card look unchanged after a successful install.
+                        item.InstalledVersion = string.IsNullOrWhiteSpace(gpu.RegistryVersion)
+                            ? gpu.DriverVersion
+                            : gpu.RegistryVersion;
                         return;
                     }
                 }

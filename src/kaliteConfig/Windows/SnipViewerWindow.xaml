@@ -34,38 +34,40 @@
                 <TextBlock x:Name="ImageSizeText" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            VerticalAlignment="Center" FontSize="12"/>
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <Button Click="Copy_Click" ToolTipService.ToolTip="Copy the image to the clipboard">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8C8;" FontSize="14"/>
-                        <TextBlock Text="Copy"/>
-                    </StackPanel>
-                </Button>
-                <Button Click="Edit_Click" ToolTipService.ToolTip="Annotate in the Snip editor">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE70F;" FontSize="14"/>
-                        <TextBlock Text="Edit"/>
-                    </StackPanel>
-                </Button>
-                <Button Click="Folder_Click" ToolTipService.ToolTip="Show the file in Explorer">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8B7;" FontSize="14"/>
-                        <TextBlock Text="Show in folder"/>
-                    </StackPanel>
-                </Button>
-                <Button Click="Pin_Click" ToolTipService.ToolTip="Pin the snip to the screen">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE718;" FontSize="14"/>
-                        <TextBlock Text="Pin"/>
-                    </StackPanel>
-                </Button>
-                <Button Click="Close_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE711;" FontSize="14"/>
-                        <TextBlock Text="Close"/>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
+            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" Margin="0,0,4,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Click="Copy_Click" ToolTipService.ToolTip="Copy the image to the clipboard">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8C8;" FontSize="14"/>
+                            <TextBlock Text="Copy"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Edit_Click" ToolTipService.ToolTip="Annotate in the Snip editor">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE70F;" FontSize="14"/>
+                            <TextBlock Text="Edit"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Folder_Click" ToolTipService.ToolTip="Show the file in Explorer">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE8B7;" FontSize="14"/>
+                            <TextBlock Text="Show in folder"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Pin_Click" ToolTipService.ToolTip="Pin the snip to the screen">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE718;" FontSize="14"/>
+                            <TextBlock Text="Pin"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Close_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE711;" FontSize="14"/>
+                            <TextBlock Text="Close"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <controls:SnipPreviewView x:Name="Preview" Grid.Row="1" WheelZoomEnabled="True"/>

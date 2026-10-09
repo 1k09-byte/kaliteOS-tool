@@ -7,15 +7,7 @@
     xmlns:models="using:kaliteConfig.Models"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     NavigationCacheMode="Enabled">
-    <Page.Transitions>
-        <TransitionCollection>
-            <NavigationThemeTransition>
-                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                    <EntranceNavigationTransitionInfo />
-                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
-            </NavigationThemeTransition>
-        </TransitionCollection>
-    </Page.Transitions>
+    <!-- Entrance transition now lives on the main ContentFrame (see MainWindow.xaml). -->
 
     <Page.Resources>
         <DataTemplate x:Key="AffinityTableRowTemplate" x:DataType="models:AffinityDeviceItem">
@@ -340,6 +332,13 @@
                     CornerRadius="12"
                     Padding="10,8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Click="LiveCpu_Click"
+                                ToolTipService.ToolTip="Open a live window showing the exact CPU each device is on right now - pinned or not">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE9D9;" FontSize="14" />
+                                <TextBlock Text="Live CPU" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <Button Command="{x:Bind ViewModel.UndoCommand}" IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE7A7;" />
@@ -372,12 +371,6 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE72C;" />
                                 <TextBlock Text="Restart devices" />
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{ThemeResource AccentButtonStyle}" Command="{x:Bind ViewModel.OptimizeCommand}" IsEnabled="{x:Bind local:AffinityPage.Not(ViewModel.IsOptimizing), Mode=OneWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE9D9;" />
-                                <TextBlock Text="Optimize" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -531,6 +524,64 @@
                                 ItemTemplate="{StaticResource AffinityTableRowTemplate}"
                                 HorizontalAlignment="Stretch"
                                 Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsAudioExpanded), Mode=OneWay}">
+                                <ItemsRepeater.Layout>
+                                    <StackLayout Spacing="0" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+
+                            <!-- NVMe group -->
+                            <Button
+                                Padding="12,8"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{x:Bind ViewModel.ToggleGroupCommand}"
+                                CommandParameter="Nvme"
+                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NvmeDevices.Count), Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon
+                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                        FontSize="12"
+                                        VerticalAlignment="Center"
+                                        Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsNvmeExpanded), Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="NVMe Drives" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <ItemsRepeater
+                                ItemsSource="{x:Bind ViewModel.NvmeDevices, Mode=OneWay}"
+                                ItemTemplate="{StaticResource AffinityTableRowTemplate}"
+                                HorizontalAlignment="Stretch"
+                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsNvmeExpanded), Mode=OneWay}">
+                                <ItemsRepeater.Layout>
+                                    <StackLayout Spacing="0" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+
+                            <!-- Storage group -->
+                            <Button
+                                Padding="12,8"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{x:Bind ViewModel.ToggleGroupCommand}"
+                                CommandParameter="Storage"
+                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.StorageDevices.Count), Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon
+                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                        FontSize="12"
+                                        VerticalAlignment="Center"
+                                        Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsStorageExpanded), Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Storage Controllers" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <ItemsRepeater
+                                ItemsSource="{x:Bind ViewModel.StorageDevices, Mode=OneWay}"
+                                ItemTemplate="{StaticResource AffinityTableRowTemplate}"
+                                HorizontalAlignment="Stretch"
+                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsStorageExpanded), Mode=OneWay}">
                                 <ItemsRepeater.Layout>
                                     <StackLayout Spacing="0" />
                                 </ItemsRepeater.Layout>

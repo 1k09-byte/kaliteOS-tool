@@ -43,7 +43,7 @@
              Transparent background is always hit-testable, while a swap-chain control is not
              guaranteed to be, so the selection drag can never be swallowed. -->
         <canvas:CanvasControl x:Name="DrawCanvas" ClearColor="Transparent"
-                              Draw="DrawCanvas_Draw" />
+                              Draw="DrawCanvas_Draw" IsHitTestVisible="False" />
         <Canvas>
             <StackPanel x:Name="ToolbarHost" Visibility="Collapsed" Spacing="0">
                 <!-- Main toolbar row: tools | history | output -->

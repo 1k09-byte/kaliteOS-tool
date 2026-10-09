@@ -14,6 +14,12 @@
          through, which is what gives the app its solid black look; with a
          Mica/Acrylic backdrop active the backdrop renders behind the XAML and an
          opaque root would cover it. -->
+    <!-- FontFamily inherits to everything under it: one body face for every
+         page instead of whatever each control's default happens to be.
+         KaliteFontFamily (Jim Nightshade, defined in KaliteTheme) is the app's
+         typeface, so page content picks it up here; controls that set an
+         explicit family (monospace readouts, symbol icons) keep theirs.
+         Panel/Grid cannot carry it (not a Control), hence the Frame below. -->
     <Grid x:Name="RootGrid" UseLayoutRounding="True" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -41,6 +47,31 @@
             VerticalAlignment="Stretch" />
 
         <!--
+             BACKDROP TINT (Settings > Appearance > Backdrop tint).
+
+             A translucent wash over the window surface, painted between the
+             backdrop and everything else so the material still renders through
+             it - which is the whole point of a tint. Brushed in from
+             code-behind (a SolidColorBrush this window owns) because the alpha
+             is user-controlled and a shared resource would have to be swapped
+             in every theme dictionary.
+
+             It is RowSpan=2 + Stretch, and IsHitTestVisible=False so it can
+             never take a click. It sits AFTER the backdrop but BEFORE the
+             opaque rail/caption masks, so those keep their matte black and the
+             tint only reaches the page area - never the chrome, and never a
+             full-screen flat colour.
+        -->
+        <Border
+            x:Name="TintLayer"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="Transparent"
+            IsHitTestVisible="False" />
+
+        <!--
             OPAQUE NAV RAIL MASK.
 
             The meteor backdrop is a window-level element, so it drifts behind
@@ -54,8 +85,8 @@
             with an opaque panel the same width as the pane
             (CompactPaneLength, 68px). It stays fully opaque, because
             translucency is what let the streaks through in the first place,
-            but it is tinted to the app's own surface (#101014, the colour
-            under every card) rather than pure black, so the rail reads as
+            but it is tinted to the app's own surface (#10150F, the same
+            matte colour as the caption band) rather than pure black, so the rail reads as
             part of the tool instead of a black bar bolted to the side.
             Being a sibling placed after the backdrop
             but before the nav shell, it covers the backdrop in the rail column
@@ -74,7 +105,34 @@
             Background="#FF10150F"
             IsHitTestVisible="False" />
 
-        <TitleBar x:Name="titleBar" />
+        <TitleBar x:Name="titleBar" FontFamily="{StaticResource KaliteFontFamily}" />
+
+        <!--
+            OPAQUE CAPTION MASK. The TitleBar control paints its default
+            translucent chrome, and the window's backdrop material shows
+            through the caption area as a washed band lighter than the page.
+            Both read as an off-coloured top strip. This mask paints the whole
+            caption band with the same matte surface as the nav rail
+            (#10150F), so rail + title bar form one coherent L of chrome.
+            The band the window material paints runs 12-16px DEEPER than the
+            TitleBar row, so the mask overhangs the row with a negative bottom
+            margin (an explicit Height instead would grow the Auto row and drag
+            the band down with it - verified). The overflow sits UNDER NavShell
+            (earlier sibling), so page content renders on top of it.
+            It sits AFTER the TitleBar so it wins the z-order, and the TitleBar
+            is currently content-less (drag region + caption buttons are
+            native), so nothing visible is covered. Keep it that way: if the
+            TitleBar ever grows content (search box, back button), paint that
+            content ABOVE this mask.
+        -->
+        <Border
+            x:Name="TopBarMask"
+            Grid.Row="0"
+            Margin="0,0,0,-16"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#FF10150F"
+            IsHitTestVisible="False" />
 
         <!-- Store-style shell: fixed 76px rail + shared selection pill overlay.
              The pill glides between items (RepositionThemeTransition); the rail
@@ -89,6 +147,7 @@
         <NavigationView
             x:Name="NavView"
             UseLayoutRounding="True"
+            FontFamily="{StaticResource KaliteFontFamily}"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             IsBackButtonVisible="Collapsed"
@@ -111,8 +170,8 @@
                     The rest of the NavigationView stays transparent so the
                     backdrop is still visible behind page content.
                 -->
-                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FF101014" />
-                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#FF101014" />
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FF10150F" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#FF10150F" />
 
                 <!--
                     THE RAIL PAINTS FROM NavigationViewBackground, NOT THE PANE KEYS.
@@ -132,11 +191,11 @@
                     with a sibling Border cannot work here, because NavigationView is
                     a later sibling and paints over anything before it.
 
-                    The colour is #101014, the surface every card sits on, rather
+                    The colour is #10150F, the app's matte chrome surface, rather
                     than pure black: a pure-black rail against near-black cards read
                     as a separate app rather than part of this one.
                 -->
-                <SolidColorBrush x:Key="NavigationViewBackground" Color="#FF101014" />
+                <SolidColorBrush x:Key="NavigationViewBackground" Color="#FF10150F" />
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="Transparent" />
 
@@ -231,7 +290,7 @@
                                             </TransformGroup>
                                         </ContentPresenter.RenderTransform>
                                         </ContentPresenter>
-                                        <TextBlock x:Name="ContentTextBlock" Text="{TemplateBinding Content}" FontSize="11" FontWeight="Medium" HorizontalAlignment="Center" TextWrapping="NoWrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock x:Name="ContentTextBlock" Text="{TemplateBinding Content}" FontSize="10" FontWeight="Normal" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
                             </ControlTemplate>
@@ -357,15 +416,43 @@
                 shows around it. The backdrop stays behind it and is visible in
                 that margin, which is the layering the app is meant to have.
             -->
+            <!--
+                Margin must equal the caption mask's 16px overhang (TopBarMask's
+                Margin="0,0,0,-16"). With a smaller margin the mask darkened only
+                the TOP of the side margins, so the backdrop strip beside the card
+                started a few px BELOW the card's top edge - the strip read as a
+                background that was "shorter than the card", with a ragged notch at
+                the top-left/top-right corners. At 16 the mask ends exactly at the
+                card's top edge and the strip runs the card's full height.
+            -->
             <Border
-                Margin="12"
+                Margin="16"
                 CornerRadius="6"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch">
-                <Frame x:Name="ContentFrame" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
+                <!--
+                    PAGE TRANSITION LIVES HERE, ONCE, FOR EVERY PAGE.
+
+                    Entrance used to be declared per page (only three pages had
+                    it), so most nav clicks hard-cut. Setting it on the Frame is
+                    the single source of truth: any page navigated here fades and
+                    slides up, and a page can still override it with its own
+                    Page.Transitions if it ever needs something else.
+                -->
+                <Frame x:Name="ContentFrame" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" FontFamily="{StaticResource KaliteFontFamily}">
+                    <Frame.ContentTransitions>
+                        <TransitionCollection>
+                            <NavigationThemeTransition>
+                                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                    <EntranceNavigationTransitionInfo />
+                                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                            </NavigationThemeTransition>
+                        </TransitionCollection>
+                    </Frame.ContentTransitions>
+                </Frame>
             </Border>
         </NavigationView>
 

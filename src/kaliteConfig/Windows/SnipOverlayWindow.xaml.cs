@@ -22,6 +22,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using WinRT.Interop;
@@ -238,6 +239,7 @@ public sealed partial class SnipOverlayWindow : Window
             presenter.IsResizable = false;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = false;
+            presenter.IsModal = false;
         }
 
         BuildSwatches();
@@ -284,11 +286,50 @@ public sealed partial class SnipOverlayWindow : Window
         }
         catch (Exception ex) { OverlayLog("show ERR " + ex.Message); }
         DrawCanvas.Invalidate();
-        RootGrid.Focus(FocusState.Programmatic);
+        // Focus the root grid so keyboard shortcuts work (Escape to close, etc.)
+        try { RootGrid.Focus(FocusState.Programmatic); } catch { }
+        // Also try focusing the DrawCanvas as a fallback for keyboard input
+        try { DrawCanvas?.Focus(FocusState.Programmatic); } catch { }
         ApplySavedSettings();
         UpdateFormatRow();
         SetOverlayCursor(Microsoft.UI.Input.InputSystemCursorShape.Cross);
         UpdateHud("show");
+
+        // Entrance polish ONLY. RootGrid must have a ScaleTransform before the
+        // storyboard can target (RenderTransform).(ScaleTransform.ScaleX) -
+        // without one, Begin() throws from this Loaded handler, which is
+        // unhandled and took the whole capture down with it. The try/catch
+        // guarantees the overlay stays usable even if the animation fails:
+        // Opacity is forced back to 1 so the frozen frame can never be left
+        // invisible.
+        try
+        {
+            var content = (UIElement)RootGrid;
+            RootGrid.RenderTransformOrigin = new Point(0.5, 0.5);
+            RootGrid.RenderTransform = new ScaleTransform { ScaleX = 0.97, ScaleY = 0.97 };
+            var sb = new Storyboard();
+            var fade = new DoubleAnimation { From = 0d, To = 1d, Duration = TimeSpan.FromMilliseconds(120) };
+            fade.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            Storyboard.SetTarget(fade, content);
+            Storyboard.SetTargetProperty(fade, "Opacity");
+            sb.Children.Add(fade);
+            var scale = new DoubleAnimation { From = 0.97d, To = 1d, Duration = TimeSpan.FromMilliseconds(120) };
+            scale.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            Storyboard.SetTarget(scale, content);
+            Storyboard.SetTargetProperty(scale, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)");
+            sb.Children.Add(scale);
+            var scaleY = new DoubleAnimation { From = 0.97d, To = 1d, Duration = TimeSpan.FromMilliseconds(120) };
+            scaleY.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            Storyboard.SetTarget(scaleY, content);
+            Storyboard.SetTargetProperty(scaleY, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)");
+            sb.Children.Add(scaleY);
+            sb.Begin();
+        }
+        catch (Exception ex)
+        {
+            OverlayLog("entrance anim WARN " + ex.GetType().Name);
+            try { RootGrid.Opacity = 1; RootGrid.RenderTransform = null; } catch { }
+        }
     }
 
     /// <summary>Full reset: selection, drag, annotations, toolbar, hover. Called on
@@ -826,6 +867,10 @@ public sealed partial class SnipOverlayWindow : Window
             e.Handled = true;
             return;
         }
+
+        // Ensure DPI scale is applied before processing pointer
+        ApplyDpiScale();
+
         var pt = ToPixels(raw.Position);
         _pressPx = pt;
         _lastCursorPx = pt;
@@ -858,7 +903,7 @@ public sealed partial class SnipOverlayWindow : Window
                 OverlayLog($"ann-add {_currentAnnotation.GetType().Name} total={_annotations.Count}");
                 _redoStack.Clear();
                 _isDragging = true;
-                RootGrid.CapturePointer(e.Pointer);
+                try { RootGrid.CapturePointer(e.Pointer); } catch { }
                 DrawCanvas.Invalidate();
             }
             return;
@@ -876,7 +921,7 @@ public sealed partial class SnipOverlayWindow : Window
                 _movingAnnotation = hit;
                 _moveLast = pt;
                 _isDragging = true;
-                RootGrid.CapturePointer(e.Pointer);
+                try { RootGrid.CapturePointer(e.Pointer); } catch { }
                 DrawCanvas.Invalidate();
                 UpdateHud("ann-move-start");
                 return;
@@ -900,7 +945,7 @@ public sealed partial class SnipOverlayWindow : Window
         }
         _isDragging = true;
         if (_dragMode == DragMode.NewSelection) _state = Services.SnipCaptureState.Selecting;
-        RootGrid.CapturePointer(e.Pointer);
+        try { RootGrid.CapturePointer(e.Pointer); } catch { }
         DrawCanvas.Invalidate();
         OverlayLog($"press dip=({raw.Position.X:0},{raw.Position.Y:0}) px=({pt.X:0},{pt.Y:0}) mode={_dragMode} tool={_currentTool}");
         UpdateHud("press");
@@ -1178,7 +1223,7 @@ public sealed partial class SnipOverlayWindow : Window
         {
             _isDragging = false;
             _currentAnnotation = null;
-            RootGrid.ReleasePointerCapture(e.Pointer);
+            try { RootGrid.ReleasePointerCapture(e.Pointer); } catch { }
             DrawCanvas.Invalidate();
             return;
         }
@@ -1204,7 +1249,7 @@ public sealed partial class SnipOverlayWindow : Window
             _startPoint = new Point(minX, minY);
             _endPoint = new Point(maxX, maxY);
 
-            RootGrid.ReleasePointerCapture(e.Pointer);
+            try { RootGrid.ReleasePointerCapture(e.Pointer); } catch { }
 
             // A click with no drag selects the hovered window; it never creates a
             // default-sized box. A missed click collapses any selection.
@@ -1218,7 +1263,7 @@ public sealed partial class SnipOverlayWindow : Window
                     _state = Services.SnipCaptureState.Idle;
                 }
             }
-            else if (Math.Abs(_endPoint.X - _startPoint.X) > 0 && Math.Abs(_endPoint.Y - _startPoint.Y) > 0)
+            else if (Math.Abs(_endPoint.X - _startPoint.X) > 1 && Math.Abs(_endPoint.Y - _startPoint.Y) > 1)
             {
                 _state = Services.SnipCaptureState.Selected;
                 int rx = _monX + (int)Math.Min(_startPoint.X, _endPoint.X);
@@ -1226,6 +1271,7 @@ public sealed partial class SnipOverlayWindow : Window
                 Services.SnipService.LastRegion = (rx, ry,
                     (int)Math.Abs(_endPoint.X - _startPoint.X),
                     (int)Math.Abs(_endPoint.Y - _startPoint.Y));
+                OverlayLog($"selection committed: {rx},{ry} {Math.Abs(_endPoint.X - _startPoint.X)}x{Math.Abs(_endPoint.Y - _startPoint.Y)}");
             }
 
             DrawCanvas.Invalidate();
@@ -1395,14 +1441,22 @@ public sealed partial class SnipOverlayWindow : Window
     public void PlaceOnMonitor(int x, int y, int width, int height)
     {
         _monX = x; _monY = y; _monW = width; _monH = height;
+        OverlayLog($"PlaceOnMonitor called: x={x} y={y} w={width} h={height}");
         try
         {
-            if (width > 0 && height > 0)
+            if (width > 100 && height > 100)
+            {
                 _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+                OverlayLog($"Window moved/resized to ({x},{y}) {width}x{height}");
+            }
             else
+            {
+                OverlayLog($"Skipping move/resized: dimensions too small (w={width} h={height})");
+                // Still try to move to the correct position even if we can't resize
                 _appWindow.Move(new Windows.Graphics.PointInt32(x, y));
+            }
         }
-        catch { }
+        catch (Exception ex) { OverlayLog($"PlaceOnMonitor ERR: {ex.Message}"); }
     }
 
     private async void BtnSave_Click(object sender, RoutedEventArgs e)

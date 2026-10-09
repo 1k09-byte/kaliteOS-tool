@@ -198,6 +198,9 @@ namespace kaliteConfig.Controls
         {
             StatusText.Text = message;
             LogText.Text += message + Environment.NewLine;
+            // Keep the newest line visible: the log grows downward and the
+            // dialog does not follow it otherwise.
+            try { LogScroll.ChangeView(null, LogScroll.ScrollableHeight, null); } catch { /* cosmetic */ }
         }
 
         public void ReportDownloadProgress(double percent)

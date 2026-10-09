@@ -340,6 +340,43 @@ namespace kaliteConfig.GpuOverclock.Views
         // ---------------- V/F curve canvas: direct-drag graph ----------------
 
         private int _vfDragIndex = -1;
+        private double _vfGrabDelta;
+
+        private void VfCurveCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            if (!Vm.HasVfCurve || Vm.VfPoints.Count == 0) return;
+            var canvas = (Canvas)sender;
+            var pos = e.GetCurrentPoint(canvas).Position;
+            _vfDragIndex = VfNearestIndex(pos.X);
+            if (_vfDragIndex >= 0 && TryGetVfPlotGeom(out var g))
+            {
+                // Relative grab so the first movement doesn't snap the point
+                // to the cursor line when the grip does not touch the point.
+                var row = Vm.VfPoints[_vfDragIndex];
+                _vfGrabDelta = pos.Y - g.Y(row.EffectiveMHz);
+                canvas.CapturePointer(e.Pointer);
+            }
+            else
+            {
+                _vfDragIndex = -1;
+            }
+            e.Handled = true;
+        }
+
+        private void VfCurveCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (_vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
+            var canvas = (Canvas)sender;
+            var pos = e.GetCurrentPoint(canvas).Position;
+
+            if (!TryGetVfPlotGeom(out var g)) return;
+            double frac = 1.0 - ((pos.Y - _vfGrabDelta) - g.PlotT) / Math.Max(1.0, g.PlotH);
+            frac = Math.Clamp(frac, 0.0, 1.0);
+            var row = Vm.VfPoints[_vfDragIndex];
+            row.OffsetMHz = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo)) - row.BaseFrequencyMHz;
+            RedrawVfCurve();
+            e.Handled = true;
+        }
 
         private void VfPoints_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
@@ -515,34 +552,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 if (d < bestDist) { bestDist = d; best = i; }
             }
             return best;
-        }
-
-        private void VfCurveCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            if (!Vm.HasVfCurve || Vm.VfPoints.Count == 0) return;
-            var canvas = (Canvas)sender;
-            var pos = e.GetCurrentPoint(canvas).Position;
-            _vfDragIndex = VfNearestIndex(pos.X);
-            if (_vfDragIndex >= 0) canvas.CapturePointer(e.Pointer);
-            e.Handled = true;
-        }
-
-        private void VfCurveCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
-        {
-            // Bool-gated: hover moves never edit - only moves between our own
-            // press (capture) and release/cancel can drag a point.
-            if (_vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
-            var canvas = (Canvas)sender;
-            var pos = e.GetCurrentPoint(canvas).Position;
-
-            // Same geometry as the drawing - a drag lands exactly where the
-            // graph shows it.
-            if (!TryGetVfPlotGeom(out var g)) return;
-            double frac = 1.0 - (pos.Y - g.PlotT) / Math.Max(1.0, g.PlotH);
-            frac = Math.Clamp(frac, 0.0, 1.0);
-            var row = Vm.VfPoints[_vfDragIndex];
-            row.OffsetMHz = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo)) - row.BaseFrequencyMHz;
-            e.Handled = true;
         }
 
         private void VfCurveCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)

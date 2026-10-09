@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DisplayProbe: runtime probe for the Display tab's display list.
+
+    Calls NvidiaDisplayService.EnumerateFromOperatingSystem() - the fallback
+    the Display tab uses when the NVIDIA vendor API cannot enumerate anything
+    (laptops that drive their panel through the iGPU). Verifies that fallback
+    still produces rows bound to real monitors, so the page shows displays
+    instead of an error banner.
+
+    Links the real sources rather than copying them, so the probe exercises
+    shipping code. Run with: dotnet run -p tools/DisplayProbe
+
+    Deliberately NOT in kaliteConfig.slnx, same as tools/BoostVerify: probes
+    are run by hand and must never reach the app or release build.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWinUI>false</UseWinUI>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LLT.NvAPIWrapper.Net" Version="1.1.28-pre.42" />
+    <PackageReference Include="System.Management" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\kaliteConfig\Services\NvidiaDisplayService.cs" Link="Services\NvidiaDisplayService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\BackdropTint.cs" Link="Services\BackdropTint.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\NvidiaDesktopColorService.cs" Link="Services\NvidiaDesktopColorService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\NvidiaScalingMap.cs" Link="Services\NvidiaScalingMap.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\NvidiaColorMap.cs" Link="Services\NvidiaColorMap.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\MonitorControlService.cs" Link="Services\MonitorControlService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\DisplayEnumerationService.cs" Link="Services\DisplayEnumerationService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\EdidEngineService.cs" Link="Services\EdidEngineService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\DisplayScaleService.cs" Link="Services\DisplayScaleService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Models\DisplayInfo.cs" Link="Models\DisplayInfo.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Models\DisplayMode.cs" Link="Models\DisplayMode.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Models\EdidModels.cs" Link="Models\EdidModels.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Models\NvidiaDisplayProfile.cs" Link="Models\NvidiaDisplayProfile.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Models\NvidiaDisplayApplyResult.cs" Link="Models\NvidiaDisplayApplyResult.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Native\NativeMethods.Display.cs" Link="Native\NativeMethods.Display.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Native\NativeMethods.DdcCi.cs" Link="Native\NativeMethods.DdcCi.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Native\NativeMethods.NvApiGamma.cs" Link="Native\NativeMethods.NvApiGamma.cs" />
+  </ItemGroup>
+
+</Project>

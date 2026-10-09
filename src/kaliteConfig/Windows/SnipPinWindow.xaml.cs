@@ -9,7 +9,11 @@
 // without the express written permission of the copyright holder.
 // ==============================================================================
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
+using Windows.Foundation;
 using System;
 using System.Runtime.InteropServices;
 using Windows.Graphics.Imaging;
@@ -47,6 +51,12 @@ namespace kaliteConfig.Views
             appWindow.Resize(new Windows.Graphics.SizeInt32 { Width = width, Height = height });
             
             LoadImageAsync(bgraPixels, width, height);
+
+            if (this.Content is FrameworkElement fe)
+            {
+                fe.Opacity = 0;
+                fe.Loaded += OnRootLoaded;
+            }
         }
 
         private async void LoadImageAsync(byte[] bgraPixels, int width, int height)
@@ -72,6 +82,28 @@ namespace kaliteConfig.Views
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void OnRootLoaded(object sender, RoutedEventArgs e)
+        {
+            var content = (UIElement)this.Content;
+            var sb = new Storyboard();
+            var fade = new DoubleAnimation { From = 0d, To = 1d, Duration = TimeSpan.FromMilliseconds(180) };
+            fade.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            Storyboard.SetTarget(fade, content);
+            Storyboard.SetTargetProperty(fade, "Opacity");
+            sb.Children.Add(fade);
+            var scale = new DoubleAnimation { From = 0.96d, To = 1d, Duration = TimeSpan.FromMilliseconds(180) };
+            scale.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            Storyboard.SetTarget(scale, content);
+            Storyboard.SetTargetProperty(scale, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)");
+            sb.Children.Add(scale);
+            var scaleY = new DoubleAnimation { From = 0.96d, To = 1d, Duration = TimeSpan.FromMilliseconds(180) };
+            scaleY.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            Storyboard.SetTarget(scaleY, content);
+            Storyboard.SetTargetProperty(scaleY, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)");
+            sb.Children.Add(scaleY);
+            sb.Begin();
         }
     }
 }

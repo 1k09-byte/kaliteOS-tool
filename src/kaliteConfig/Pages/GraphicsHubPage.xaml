@@ -28,7 +28,17 @@
                 <NavigationViewItem x:Name="RadeonTab" Content="Radeon" Tag="Radeon" />
                 <NavigationViewItem Content="Display" Tag="Display" />
             </NavigationView.MenuItems>
-            <Frame x:Name="ContentFrame" />
+            <Frame x:Name="ContentFrame">
+                <Frame.ContentTransitions>
+                    <TransitionCollection>
+                        <NavigationThemeTransition>
+                            <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                <EntranceNavigationTransitionInfo />
+                            </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                        </NavigationThemeTransition>
+                    </TransitionCollection>
+                </Frame.ContentTransitions>
+            </Frame>
         </NavigationView>
     </Grid>
 </Page>

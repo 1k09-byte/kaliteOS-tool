@@ -66,6 +66,10 @@ public sealed partial class ThreadRow : ObservableObject
     /// <summary>How much CPU time this one thread has used, in seconds.</summary>
     [ObservableProperty] public partial string CpuTimeText { get; set; } = "-";
 
+    /// <summary>Which CPU the thread is running on at that moment (live kernel
+    /// context-switch observation). "-" when unknown.</summary>
+    [ObservableProperty] public partial string RunningCpuText { get; set; } = "-";
+
     /// <summary>
     /// The thread's share of the parent's total CPU time, 0-100. Null when it
     /// cannot be computed (the parent total read failed or is still zero).
@@ -93,6 +97,7 @@ public sealed partial class ThreadListDialog : ContentDialog
     /// </summary>
     private bool _loadingList;
     private bool _endArmed;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _cpuTimer;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
     private bool _idealUserPicked;
@@ -105,6 +110,24 @@ public sealed partial class ThreadListDialog : ContentDialog
     {
         InitializeComponent();
         ThreadList.ItemsSource = Rows;
+
+        // Live "on CPU" column: observe kernel context switches while the
+        // dialog is open, refresh the column every second, and release the
+        // observation session when the dialog closes.
+        try { Services.CpuObservationService.AddRef(); } catch { }
+        _cpuTimer = DispatcherQueue.CreateTimer();
+        _cpuTimer.Interval = TimeSpan.FromSeconds(1);
+        _cpuTimer.Tick += (_, _) =>
+        {
+            foreach (var r in Rows)
+                try { r.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(r.Tid); } catch { }
+        };
+        _cpuTimer.Start();
+        Closed += (_, _) =>
+        {
+            try { _cpuTimer?.Stop(); } catch { }
+            try { Services.CpuObservationService.Release(); } catch { }
+        };
     }
 
     public async Task ShowForProcessAsync(int pid, string processName, XamlRoot root)
@@ -247,6 +270,7 @@ public sealed partial class ThreadListDialog : ContentDialog
                     {
                         row.CanEdit = false;
                     }
+                    try { row.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(row.Tid); } catch { }
                     Rows.Add(row);
                 }
                 if (Rows.Count == 0)

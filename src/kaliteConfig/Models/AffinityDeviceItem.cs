@@ -93,6 +93,8 @@ namespace kaliteConfig.Models
             "Network" => "Network adapter",
             "Usb" => "USB controller",
             "Audio" => "Audio controller",
+            "Nvme" => "NVMe drive",
+            "Storage" => "Storage controller",
             _ => Category
         };
 

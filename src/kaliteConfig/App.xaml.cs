@@ -356,6 +356,19 @@ namespace kaliteConfig
                     return;
                 }
 
+                // Saved font choice (Settings > App font): applied here, in
+                // OnLaunched - Application.Resources is not readable yet inside
+                // the App constructor (get_Resources throws E_UNEXPECTED), and
+                // this still runs BEFORE MainWindow parses, so every window,
+                // page and dialog resolves the chosen face from the first frame.
+                // No-op while the preference is the shipped default.
+                try
+                {
+                    FontPreference.Load();
+                    FontPreference.Apply();
+                }
+                catch { /* a font preference must never break startup */ }
+
                 _window = new MainWindow();
                 _windowStatic = _window;
 

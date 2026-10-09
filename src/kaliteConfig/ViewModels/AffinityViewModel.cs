@@ -24,7 +24,7 @@ namespace kaliteConfig.ViewModels
 {
     /// <summary>
     /// Full tuning-pass ViewModel: groups devices by category, provides
-    /// Optimize / Undo / Redo / Restore / View Changes commands, and
+    /// Undo / Redo / Restore / View Changes commands, and
     /// tracks every registry write in an undo stack.
     /// </summary>
     public partial class AffinityViewModel : ObservableObject
@@ -35,6 +35,8 @@ namespace kaliteConfig.ViewModels
         public ObservableCollection<AffinityDeviceItem> NetworkDevices { get; } = new();
         public ObservableCollection<AffinityDeviceItem> UsbDevices { get; } = new();
         public ObservableCollection<AffinityDeviceItem> AudioDevices { get; } = new();
+        public ObservableCollection<AffinityDeviceItem> NvmeDevices { get; } = new();
+        public ObservableCollection<AffinityDeviceItem> StorageDevices { get; } = new();
 
         [ObservableProperty]
         public partial AffinityDeviceItem? SelectedDevice { get; set; }
@@ -54,6 +56,12 @@ namespace kaliteConfig.ViewModels
 
         [ObservableProperty]
         public partial bool IsAudioExpanded { get; set; } = true;
+
+        [ObservableProperty]
+        public partial bool IsNvmeExpanded { get; set; } = true;
+
+        [ObservableProperty]
+        public partial bool IsStorageExpanded { get; set; } = true;
 
         // -- Change tracking -------------------------------------------------
 
@@ -283,6 +291,8 @@ namespace kaliteConfig.ViewModels
                 case "Network": IsNetworkExpanded = !IsNetworkExpanded; break;
                 case "Usb": IsUsbExpanded = !IsUsbExpanded; break;
                 case "Audio": IsAudioExpanded = !IsAudioExpanded; break;
+                case "Nvme": IsNvmeExpanded = !IsNvmeExpanded; break;
+                case "Storage": IsStorageExpanded = !IsStorageExpanded; break;
             }
         }
 
@@ -347,12 +357,14 @@ namespace kaliteConfig.ViewModels
                         case "Network": NetworkDevices.Add(device); break;
                         case "Usb": UsbDevices.Add(device); break;
                         case "Audio": AudioDevices.Add(device); break;
+                        case "Nvme": NvmeDevices.Add(device); break;
+                        case "Storage": StorageDevices.Add(device); break;
                     }
                 }
 
                 if (selectedId is not null)
                 {
-                    SelectedDevice = GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices)
+                    SelectedDevice = GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices).Concat(NvmeDevices).Concat(StorageDevices)
                         .FirstOrDefault(d => string.Equals(d.DeviceInstanceId, selectedId, StringComparison.OrdinalIgnoreCase));
                     if (SelectedDevice is null && wasPresent)
                     {
@@ -511,11 +523,8 @@ namespace kaliteConfig.ViewModels
                 item.SelectedThreadCountText += " (system default)";
         }
 
-        // -- Optimize command ------------------------------------------------
+        // -- Restart handling ------------------------------------------------
 
-        [ObservableProperty]
-        public partial bool IsOptimizing { get; set; }
-        
         [ObservableProperty]
         public partial bool RequiresRestart { get; set; }
         
@@ -535,9 +544,8 @@ namespace kaliteConfig.ViewModels
         /// <summary>
         /// Restarts devices with all native GPU access held off: a telemetry
         /// or fan tick landing mid-restart can fault INSIDE nvapi64/nvml
-        /// (0xc0000005) where no managed catch can contain it - the exact
-        /// crash seen after Optimize restarts the GPU. Settles PnP, then
-        /// forces fresh native handles before anyone calls in again.
+        /// (0xc0000005) where no managed catch can contain it. Settles PnP,
+        /// then forces fresh native handles before anyone calls in again.
         /// </summary>
         private static async Task RestartDevicesQuiescedAsync(
             IEnumerable<string> deviceIds, string reason)
@@ -548,63 +556,19 @@ namespace kaliteConfig.ViewModels
                 {
                     await AffinityService.RestartDeviceAsync(id);
                 }
-                // Let PnP re-enumeration (especially a restarted GPU) settle
-                // before any native call goes near it again.
+                // Let PnP re-enumeration settle before any native call goes
+                // near the new device handles again.
                 await Task.Delay(TimeSpan.FromSeconds(4));
                 GpuOverclockModule.Instance.Controller.InvalidateGpu();
                 NvmlBridge.Reset();
             }
         }
-        
+
         private static bool IsElevated()
         {
             using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
             var principal = new System.Security.Principal.WindowsPrincipal(identity);
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-        }
-
-        [RelayCommand]
-        private async Task OptimizeAsync()
-        {
-            IsOptimizing = true;
-            try
-            {
-                await Task.Delay(50);
-                await ApplyOptimizerToCollectionAsync(GraphicsDevices, kaliteConfig.Services.AffinityTargetType.GPU);
-                await ApplyOptimizerToCollectionAsync(UsbDevices, kaliteConfig.Services.AffinityTargetType.USB);
-                await ApplyOptimizerToCollectionAsync(NetworkDevices, kaliteConfig.Services.AffinityTargetType.WiFi);
-                
-                await RestartPendingAsync();
-            }
-            finally
-            {
-                IsOptimizing = false;
-            }
-        }
-
-        private async Task ApplyOptimizerToCollectionAsync(System.Collections.ObjectModel.ObservableCollection<kaliteConfig.Models.AffinityDeviceItem> collection, kaliteConfig.Services.AffinityTargetType target)
-        {
-            ulong mask = kaliteConfig.Services.AffinityOptimizerService.CalculateOptimalMask(target);
-            if (mask == 0) return;
-
-            foreach (var item in collection)
-            {
-                if (!IsDevicePresent(item)) continue;
-                await LoadDeviceDetailsAsync(item);
-                
-                item.SelectedPolicy = "IrqPolicySpecifiedProcessors";
-                foreach (var group in item.CoreGroups)
-                {
-                    foreach (var thread in group.Threads)
-                    {
-                        thread.IsChecked = (mask & (1UL << thread.Index)) != 0;
-                    }
-                }
-                ApplyDeviceChanges(item);
-                _pendingRestartIds.Add(item.DeviceInstanceId);
-                RequiresRestart = true;
-                _ = LoadDeviceDetailsAsync(item);
-            }
         }
 
         [RelayCommand]

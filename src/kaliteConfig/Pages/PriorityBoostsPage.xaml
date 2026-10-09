@@ -85,7 +85,7 @@
         </Grid>
 
         <!-- Threads Panel -->
-        <Grid x:Name="ThreadsPanel" Grid.Row="2">
+        <Grid x:Name="ThreadsPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -170,7 +170,7 @@
         </Grid>
 
         <!-- Rules Panel -->
-    <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
+    <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />

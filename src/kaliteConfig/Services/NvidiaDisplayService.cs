@@ -41,93 +41,180 @@ namespace kaliteConfig.Services
 
         public static IReadOnlyList<NvidiaDisplayProfile> Enumerate()
         {
-            if (!EnsureInitialized()) return Array.Empty<NvidiaDisplayProfile>();
-
-            var profiles = new List<NvidiaDisplayProfile>();
-
-            // The driver knows a display only by id, but the monitor's own controls are
-            // addressed by a rectangle of screen, so the OS topology is read too and the
-            // two lists are matched by device name.
-            List<DisplayInfo>? osDisplays = null;
-            try { osDisplays = DisplayEnumerationService.Enumerate(); }
-            catch (Exception) { }
-
-            lock (_gate)
+            try
             {
-                try
+                if (!EnsureInitialized()) return EnumerateFromOperatingSystem();
+
+                // The driver knows a display only by id, but the monitor's own controls are
+                // addressed by a rectangle of screen, so the OS topology is read too and the
+                // two lists are matched by device name.
+                List<DisplayInfo>? osDisplays = null;
+                try { osDisplays = DisplayEnumerationService.Enumerate(); }
+                catch (Exception) { }
+
+                if (osDisplays is { Count: 0 }) osDisplays = null;
+
+                List<NvidiaDisplayProfile> profiles;
+                lock (_gate)
                 {
-                    var displays = Display.GetDisplays();
-                    IReadOnlyList<PathInfo>? paths = null;
-                    try { paths = PathInfo.GetDisplaysConfig(); } catch { }
-
-                    foreach (var d in displays)
+                    try
                     {
-                        var profile = new NvidiaDisplayProfile
-                        {
-                            DeviceName = d.Name,
-                            MonitorName = "Physical Monitor", // We would cross-reference WMI for true name
-                            DisplayId = (uint)d.Handle.MemoryAddress.ToInt64(),
-                            IsNvidiaControlled = d.PhysicalGPUs.Any()
-                        };
+                        var displays = Display.GetDisplays();
+                        IReadOnlyList<PathInfo>? paths = null;
+                        try { paths = PathInfo.GetDisplaysConfig(); } catch { }
 
-                        var os = osDisplays?.FirstOrDefault(x =>
-                            x.DeviceName.Equals(profile.DeviceName, StringComparison.OrdinalIgnoreCase));
-                        if (os != null)
-                        {
-                            profile.PositionX = os.PositionX;
-                            profile.PositionY = os.PositionY;
-                            profile.PanelWidth = os.CurrentWidth;
-                            profile.PanelHeight = os.CurrentHeight;
-                            if (!string.IsNullOrWhiteSpace(os.FriendlyName))
-                                profile.MonitorName = os.FriendlyName;
-                            if (!string.IsNullOrWhiteSpace(os.ConnectionTypeDisplay))
-                                profile.ConnectionLabel = os.ConnectionTypeDisplay;
-                        }
-
-                        if (profile.IsNvidiaControlled)
-                        {
-                            try
-                            {
-                                var dvc = d.DigitalVibranceControl;
-                                profile.SupportsDigitalVibrance = true;
-                                profile.DvcDefault = dvc.DefaultLevel;
-                                profile.DvcMinimum = dvc.MinimumLevel;
-                                profile.DvcMaximum = dvc.MaximumLevel;
-                                profile.DigitalVibrance = dvc.CurrentLevel;
-                            }
-                            catch (Exception) { profile.SupportsDigitalVibrance = false; }
-
-                            try
-                            {
-                                var hue = d.HUEControl;
-                                profile.SupportsHue = true;
-                                profile.Hue = hue.CurrentAngle;
-                            }
-                            catch (Exception) { profile.SupportsHue = false; }
-
-                            ReadColour(profile);
-                        }
-
-                        if (paths != null && profile.IsNvidiaControlled)
-                        {
-                            var target = paths.SelectMany(p => p.TargetsInfo).FirstOrDefault(t => t.DisplayDevice.DisplayId == d.DisplayDevice.DisplayId);
-                            if (target != null)
-                            {
-                                var mapped = NvidiaScalingMap.FromDriver(target.Scaling);
-                                profile.SupportsScaling = true;
-                                profile.ScalingLocation = mapped.Location;
-                                profile.ScalingMode = mapped.Mode;
-                            }
-                            else profile.SupportsScaling = false;
-                        }
-                        else profile.SupportsScaling = false;
-                        
-                        profiles.Add(profile);
+                        profiles = EnumerateFromNvApi(displays, paths, osDisplays);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Laptops (Optimus / Dynamic Boost) often make every NVAPI
+                        // display query fail - nvapi_nvidia_device_not_found, or a
+                        // bare "The parameter is incorrect." from the vendor wrapper
+                        // when the panel is driven through the iGPU. Fall back to
+                        // what the OS knows so the panel still lists displays;
+                        // NVAPI-only controls render disabled per entry.
+                        UnavailableReason = FriendlyReason(ex);
+                        profiles = EnumerateFromOsDisplays(osDisplays);
                     }
                 }
-                catch (Exception ex) { UnavailableReason = ex.Message; }
+                return profiles;
+            }
+            catch (Exception ex)
+            {
+                // Nothing above is allowed to reach the caller: the page turns a
+                // thrown enumeration into a red "could not read" banner with no
+                // way to see anything, which is the bug this guards.
+                UnavailableReason = FriendlyReason(ex);
+                return EnumerateFromOperatingSystem();
+            }
+        }
+
+        /// <summary>
+        /// Display list built from Windows' own topology with every vendor
+        /// control inert. The last resort behind every other path, so the page
+        /// always has rows to bind to instead of an error banner.
+        /// </summary>
+        public static IReadOnlyList<NvidiaDisplayProfile> EnumerateFromOperatingSystem()
+        {
+            List<DisplayInfo>? os = null;
+            try { os = DisplayEnumerationService.Enumerate(); }
+            catch (Exception) { }
+            return os is null ? new List<NvidiaDisplayProfile>() : EnumerateFromOsDisplays(os);
+        }
+
+        private static List<NvidiaDisplayProfile> EnumerateFromNvApi(
+            IEnumerable<Display> displays, IReadOnlyList<PathInfo>? paths, List<DisplayInfo>? osDisplays)
+        {
+            var profiles = new List<NvidiaDisplayProfile>();
+            foreach (var d in displays)
+            {
+                // Body of the old foreach loop moved, unchanged.
+                var profile = new NvidiaDisplayProfile
+                {
+                    DeviceName = d.Name,
+                    MonitorName = "Physical Monitor", // We would cross-reference WMI for true name
+                    DisplayId = (uint)d.Handle.MemoryAddress.ToInt64(),
+                    IsNvidiaControlled = d.PhysicalGPUs.Any()
+                };
+
+                var os = osDisplays?.FirstOrDefault(x =>
+                    x.DeviceName.Equals(profile.DeviceName, StringComparison.OrdinalIgnoreCase));
+                if (os != null)
+                {
+                    profile.PositionX = os.PositionX;
+                    profile.PositionY = os.PositionY;
+                    profile.PanelWidth = os.CurrentWidth;
+                    profile.PanelHeight = os.CurrentHeight;
+                    if (!string.IsNullOrWhiteSpace(os.FriendlyName))
+                        profile.MonitorName = os.FriendlyName;
+                    if (!string.IsNullOrWhiteSpace(os.ConnectionTypeDisplay))
+                        profile.ConnectionLabel = os.ConnectionTypeDisplay;
+                }
+
+                if (profile.IsNvidiaControlled)
+                {
+                    try
+                    {
+                        var dvc = d.DigitalVibranceControl;
+                        profile.SupportsDigitalVibrance = true;
+                        profile.DvcDefault = dvc.DefaultLevel;
+                        profile.DvcMinimum = dvc.MinimumLevel;
+                        profile.DvcMaximum = dvc.MaximumLevel;
+                        profile.DigitalVibrance = dvc.CurrentLevel;
+                    }
+                    catch (Exception) { profile.SupportsDigitalVibrance = false; }
+
+                    try
+                    {
+                        var hue = d.HUEControl;
+                        profile.SupportsHue = true;
+                        profile.Hue = hue.CurrentAngle;
+                    }
+                    catch (Exception) { profile.SupportsHue = false; }
+
+                    ReadColour(profile);
+                }
+
+                if (paths != null && profile.IsNvidiaControlled)
+                {
+                    var target = paths.SelectMany(p => p.TargetsInfo).FirstOrDefault(t => t.DisplayDevice.DisplayId == d.DisplayDevice.DisplayId);
+                    if (target != null)
+                    {
+                        var mapped = NvidiaScalingMap.FromDriver(target.Scaling);
+                        profile.SupportsScaling = true;
+                        profile.ScalingLocation = mapped.Location;
+                        profile.ScalingMode = mapped.Mode;
+                    }
+                    else profile.SupportsScaling = false;
+                }
+                else profile.SupportsScaling = false;
+
+                profiles.Add(profile);
             }
             return profiles;
+        }
+
+        /// <summary>
+        /// Last-resort display list built from the OS topology when NVAPI can't
+        /// see any display (common on laptops driven through the iGPU). Every
+        /// entry is inert: IsNvidiaControlled=false, so no slider in the UI
+        /// enables itself.
+        /// </summary>
+        private static List<NvidiaDisplayProfile> EnumerateFromOsDisplays(List<DisplayInfo>? osDisplays)
+        {
+            var profiles = new List<NvidiaDisplayProfile>();
+            if (osDisplays is null) return profiles;
+            foreach (var os in osDisplays)
+            {
+                profiles.Add(new NvidiaDisplayProfile
+                {
+                    DeviceName = os.DeviceName,
+                    MonitorName = string.IsNullOrWhiteSpace(os.FriendlyName) ? "Display" : os.FriendlyName,
+                    DisplayId = 0,
+                    IsNvidiaControlled = false,
+                    PositionX = os.PositionX,
+                    PositionY = os.PositionY,
+                    PanelWidth = os.CurrentWidth,
+                    PanelHeight = os.CurrentHeight,
+                    ConnectionLabel = os.ConnectionTypeDisplay ?? "",
+                });
+            }
+            return profiles;
+        }
+
+        private static string FriendlyReason(Exception ex)
+        {
+            string msg = ex.Message ?? "";
+            if (msg.Contains("device_not_found", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("nvapi_init_failed", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("NVAPI_DEVICE_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                return "The NVIDIA display driver did not expose any controllable display " +
+                       "(common on laptops that output through the integrated GPU). " +
+                       "Listing the displays from Windows instead; NVIDIA colour/scaling " +
+                       "controls are not available here.";
+            }
+            return msg;
         }
 
         /// <summary>

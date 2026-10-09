@@ -113,7 +113,12 @@ public sealed partial class PowerPlansViewModel : ObservableObject
             else if (e.PropertyName == nameof(PowerSetting.DcValueIndex))
                 _service.WriteDCValue(SelectedScheme.Id, subgroup.Id, setting.Id, (uint)setting.DcValueIndex);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // The write failed - surface it instead of silently dropping, so the
+            // user can see why the change does not stick on their machine.
+            ErrorMessage = $"Could not save \"{setting.Name}\": {ex.Message}";
+        }
     }
 
     /// <summary>Manual trigger for the hidden-settings reveal. The load path
@@ -411,14 +416,28 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     public void UpdateSettingAcValue(PowerSetting setting, uint value, PowerSubgroup subgroup)
     {
         if (SelectedScheme == null) return;
-        _service.WriteACValue(SelectedScheme.Id, subgroup.Id, setting.Id, value);
-        setting.AcValueIndex = value;
+        try
+        {
+            _service.WriteACValue(SelectedScheme.Id, subgroup.Id, setting.Id, value);
+            setting.AcValueIndex = value;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Could not save \"{setting.Name}\": {ex.Message}";
+        }
     }
 
     public void UpdateSettingDcValue(PowerSetting setting, uint value, PowerSubgroup subgroup)
     {
         if (SelectedScheme == null) return;
-        _service.WriteDCValue(SelectedScheme.Id, subgroup.Id, setting.Id, value);
-        setting.DcValueIndex = value;
+        try
+        {
+            _service.WriteDCValue(SelectedScheme.Id, subgroup.Id, setting.Id, value);
+            setting.DcValueIndex = value;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Could not save \"{setting.Name}\": {ex.Message}";
+        }
     }
 }

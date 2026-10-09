@@ -84,8 +84,10 @@ namespace kaliteConfig.GpuOverclock.Models
             var result = new List<int>(Points.Count);
             for (int i = 0; i < Points.Count; i++)
             {
+                int lo = Math.Min(Points[i].MinOffsetMHz, Points[i].MaxOffsetMHz);
+                int hi = Math.Max(Points[i].MinOffsetMHz, Points[i].MaxOffsetMHz);
                 int want = i < edited.Count ? edited[i] : 0;
-                result.Add(Math.Clamp(want, Points[i].MinOffsetMHz, Points[i].MaxOffsetMHz));
+                result.Add(Math.Clamp(want, lo, hi));
             }
             return result;
         }
@@ -96,7 +98,12 @@ namespace kaliteConfig.GpuOverclock.Models
         /// full per-point offset table, uniformly.
         /// </summary>
         public List<int> ExpandFlatOffset(int offsetMhz)
-            => Points.Select(p => Math.Clamp(offsetMhz, p.MinOffsetMHz, p.MaxOffsetMHz)).ToList();
+            => Points.Select(p =>
+            {
+                int lo = Math.Min(p.MinOffsetMHz, p.MaxOffsetMHz);
+                int hi = Math.Max(p.MinOffsetMHz, p.MaxOffsetMHz);
+                return Math.Clamp(offsetMhz, lo, hi);
+            }).ToList();
 
         /// <summary>
         /// Validates that the curve stays monotonically sensible: effective

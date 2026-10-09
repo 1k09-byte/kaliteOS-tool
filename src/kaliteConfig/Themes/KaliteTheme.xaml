@@ -78,7 +78,7 @@
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
             <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
             <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
-            <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
+            <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
             <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
@@ -152,7 +152,7 @@
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
             <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
             <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
-            <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
+            <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
             <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
@@ -203,7 +203,7 @@
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
             <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
             <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
-            <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
+            <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
             <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
@@ -212,68 +212,231 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <!--  Shapes: a small, consistent radius vocabulary. 3 for controls, 5 for
-          cards, 2 for the little chips. Flat + hairline reads as "matte";
-          WinUI's 4px-everywhere + soft shadows reads as "Fluent". -->
+    <!--  Shapes: a small, consistent radius vocabulary. 4 for controls (the
+          Fluent control radius, so built-ins and ours match), 8 for cards,
+          2 for the little chips. Flat + hairline keeps it "matte"; the
+          Fluent-shaped radii are what stop it reading as a knock-off. -->
+    <!--  THE APP'S TYPEFACE.
+
+          Uncial Antiqua (SIL OFL, bundled at
+          Assets/Fonts/UncialAntiqua-Regular.ttf + UncialAntiqua-OFL.txt; the
+          csproj's Assets\**\* Content rule ships it, so it reaches publish
+          output and the installer with no csproj change). It replaced Jim
+          Nightshade from the same Google Fonts drop.
+
+          An uncial/capital display face - one Regular weight only. The
+          consequences are encoded below so they are not rediscovered later:
+            - FontWeight is Normal everywhere: there is no bold face to ask
+              for, so SemiBold would be synthesised, and faux-bold on a
+              calligraphic face reads as smudged ink.
+            - CharacterSpacing is 0: the strokes already interlock.
+            - Everything points at KaliteFontFamily, so the app's face is
+              swapped in exactly one place (App.xaml's implicit TextBlock
+              style carries it to every text tree: pages, dialogs, popups,
+              overlays, tray and snip windows).
+          Coverage was checked against the font's cmap before use: full ASCII
+          (32-126) present, lowercase included, so no glyph silently falls
+          back mid-string. -->
+    <FontFamily x:Key="KaliteFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
+    <!--
+        THE SAME FACE UNDER WINUI'S OWN KEYS.
+
+        An implicit TextBlock style only reaches TextBlocks with no Style of
+        their own, and Control-level inheritance stops at any element whose
+        template sets FontFamily locally (TemplateBinding is a local value and
+        beats both). Dialogs, popups, tooltips, list items and every built-in
+        control render through templates that read these theme resources, so
+        redefining the keys here is what actually makes the face global:
+        app-level theme resources win over the built-in ones for every
+        {ThemeResource} lookup in every tree, including ContentDialogs and
+        separate windows.
+
+        Both keys exist in WinUI 3's Microsoft.UI.Xaml.Controls.pri
+        (checked before use); XamlAutoFontFamily is the automatic/default
+        family, ContentControlThemeFontFamily the one control templates bind
+        content to.
+    -->
+    <FontFamily x:Key="XamlAutoFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
+    <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
+    <!--
+        WINUI'S OWN TEXT STYLES, REDEFINED WITH THE APP FONT.
+
+        Most page text sets an explicit Style (216 Caption, 111 BodyStrong,
+        87 Body, plus Title/Subtitle/Header). An explicit style beats both the
+        implicit TextBlock style in App.xaml AND property inheritance, so every
+        one of those runs kept WinUI's family - which is exactly why "some of
+        the writing" stayed outside the app font while the Kalite* styles
+        (page titles, section titles) were already in it.
+
+        The originals cannot be BasedOn'd under their own key - that would be
+        circular - so each is first snapshotted under a KaliteSnap.* key while
+        the name still resolves to WinUI's version (document order: this
+        dictionary is parsed top to bottom), then redefined below with a
+        FontFamily setter. KaliteTheme is merged LAST in App.xaml, so the
+        overrides win the lookup for every page, dialog and popup.
+
+        Same trick for DefaultContentDialogStyle: dialogs fetch that key by
+        string (Application.Current.Resources[...]), and setting FontFamily on
+        the dialog itself reaches its title, its content and its template
+        controls through inheritance.
+    -->
+    <Style x:Key="KaliteSnap.Caption" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}" />
+    <Style x:Key="KaliteSnap.Body" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}" />
+    <Style x:Key="KaliteSnap.BodyStrong" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}" />
+    <Style x:Key="KaliteSnap.Title" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}" />
+    <Style x:Key="KaliteSnap.Subtitle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}" />
+    <Style x:Key="KaliteSnap.Header" TargetType="TextBlock" BasedOn="{StaticResource HeaderTextBlockStyle}" />
+    <Style x:Key="KaliteSnap.ContentDialog" TargetType="ContentDialog" BasedOn="{StaticResource DefaultContentDialogStyle}" />
+
+    <Style x:Key="CaptionTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource KaliteSnap.Caption}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+    <Style x:Key="BodyTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource KaliteSnap.Body}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+    <Style x:Key="BodyStrongTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource KaliteSnap.BodyStrong}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+    <Style x:Key="TitleTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource KaliteSnap.Title}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+    <Style x:Key="SubtitleTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource KaliteSnap.Subtitle}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+    <Style x:Key="HeaderTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource KaliteSnap.Header}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+    <Style x:Key="DefaultContentDialogStyle" TargetType="ContentDialog" BasedOn="{StaticResource KaliteSnap.ContentDialog}">
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+    </Style>
+
     <Style x:Key="KaliteDisplayText" TargetType="TextBlock" BasedOn="{StaticResource HeaderTextBlockStyle}">
-        <Setter Property="FontFamily" Value="Bahnschrift" />
-        <Setter Property="FontSize" Value="34" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="CharacterSpacing" Value="-24" />
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+        <Setter Property="FontSize" Value="42" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="CharacterSpacing" Value="0" />
         <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
     </Style>
     <Style x:Key="KalitePageTitle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
-        <Setter Property="FontFamily" Value="Bahnschrift" />
-        <Setter Property="FontSize" Value="24" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="CharacterSpacing" Value="-8" />
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="CharacterSpacing" Value="0" />
         <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
     </Style>
     <Style x:Key="KaliteSectionTitle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
-        <Setter Property="FontFamily" Value="Bahnschrift" />
-        <Setter Property="FontSize" Value="16" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
     </Style>
     <Style x:Key="KaliteEyebrow" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
-        <Setter Property="FontSize" Value="10" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="CharacterSpacing" Value="110" />
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="CharacterSpacing" Value="70" />
         <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
     </Style>
 
-    <CornerRadius x:Key="KaliteControlRadius">3</CornerRadius>
-    <CornerRadius x:Key="KaliteCardRadius">5</CornerRadius>
+    <CornerRadius x:Key="KaliteControlRadius">4</CornerRadius>
+    <CornerRadius x:Key="KaliteCardRadius">8</CornerRadius>
     <CornerRadius x:Key="KaliteChipRadius">2</CornerRadius>
-    <CornerRadius x:Key="ControlCornerRadius">3,3,3,3</CornerRadius>
+    <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
     <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
     <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
     <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
 
+    <!--  Content-panel entrance: same fade + slide-up the navigated pages get
+          from the shell Frame's EntranceNavigationTransitionInfo, on the
+          panels that are swapped by Visibility instead of navigation (tab
+          switches inside a page). Without it those tabs pop in instantly while
+          the pages around them glide, which is exactly the inconsistency this
+          removes.
+
+          The transition fires on the Collapsed -> Visible swap, which is what
+          a tab click does, so it re-runs on every switch. Kept in three
+          flavours only because a XAML Style is typed to one TargetType, and
+          the swapped roots are Grids, ScrollViewers (no layout children) and
+          Borders (cards) - the panels that keep their own Style keep it and
+          get an inline <Transitions> instead. -->
+    <Style x:Key="KaliteEntranceGrid" TargetType="Grid">
+        <Setter Property="Transitions">
+            <Setter.Value>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="40" />
+                </TransitionCollection>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="KaliteEntranceScrollViewer" TargetType="ScrollViewer">
+        <Setter Property="Transitions">
+            <Setter.Value>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="40" />
+                </TransitionCollection>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="KaliteEntranceBorder" TargetType="Border">
+        <Setter Property="Transitions">
+            <Setter.Value>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="40" />
+                </TransitionCollection>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!--  The matte card. Transparent enough to show the backdrop, with a
-          hairline instead of a shadow. -->
+          hairline instead of a shadow.
+          Entrance transition: cards fade and slide up on first show, matching
+          the ItemsRepeater list entry animation. -->
     <Style x:Key="KaliteCard" TargetType="Border">
         <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource KaliteCardRadius}" />
+        <Setter Property="Transitions">
+            <Setter.Value>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="16" />
+                </TransitionCollection>
+            </Setter.Value>
+        </Setter>
     </Style>
 
-    <!--  Buttons: square-ish, matte, accent only when they carry emphasis.
+    <!--  Buttons: Fluent proportions with our own finish.
 
           WinUI's stock Button has no BackgroundPointerOver/Pressed dependency
           properties - hover and press live in its default template's visual
           states. So the hover/press fills are supplied by a template here. That
-          is also what lets the shape be genuinely ours: a hard 3px radius and a
-          flat fill, rather than Fluent's fully-rounded animated pill. -->
+          is also what lets the shape be genuinely ours: the Fluent 4px radius
+          (so it sits next to built-in controls without a seam) with a flat,
+          hairline-stroked fill instead of Fluent's soft elevation pill, and a
+          33px target instead of 32 so dense toolbars breathe by a pixel.
+
+          The fill is a SOLID raised plate. Fluent's translucent control fills
+          (and our old card-secondary fill) vanish against the translucent
+          cards - the button read as a see-through outline. This is the matte
+          surface one clear step above a card, with a hairline that carries it. -->
+    <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FF2A322A" />
+    <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FF343E34" />
+    <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FF454F45" />
+    <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FF5A665A" />
+
     <Style x:Key="KaliteButton" TargetType="Button">
-        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
+        <Setter Property="Background" Value="{StaticResource KaliteButtonFillBrush}" />
         <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource KaliteButtonStrokeBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource KaliteControlRadius}" />
-        <Setter Property="Padding" Value="14,7" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="FontSize" Value="15" />
+        <!-- Explicit rather than inherited: a button's ContentPresenter reads
+             the control's own FontFamily, and buttons live outside
+             ContentFrame too (dialogs, overlays), where there is no ancestor
+             carrying the face. -->
+        <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
@@ -281,18 +444,50 @@
                     <Grid Background="Transparent">
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="Normal">
+                                    <!-- Eases the press dip back out when the pointer
+                                         leaves after a click. No From: it starts at
+                                         whatever the press left behind. -->
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.14" />
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.14" />
+                                    </Storyboard>
+                                </VisualState>
                                 <VisualState x:Name="PointerOver">
                                     <VisualState.Setters>
-                                        <Setter Target="Surface.Background" Value="{ThemeResource LayerFillColorAltBrush}" />
-                                        <Setter Target="Surface.BorderBrush" Value="{ThemeResource ControlStrokeColorStrongBrush}" />
+                                        <Setter Target="Surface.Background" Value="{StaticResource KaliteButtonFillHoverBrush}" />
+                                        <Setter Target="Surface.BorderBrush" Value="{StaticResource KaliteButtonStrokeHoverBrush}" />
                                     </VisualState.Setters>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.14" />
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.14" />
+                                    </Storyboard>
                                 </VisualState>
                                 <VisualState x:Name="Pressed">
                                     <VisualState.Setters>
                                         <Setter Target="Surface.Background" Value="{ThemeResource AccentFillColorTertiaryBrush}" />
                                         <Setter Target="Surface.BorderBrush" Value="{ThemeResource AccentFillColorSecondaryBrush}" />
                                     </VisualState.Setters>
+                                    <!-- Press dip: the surface contracts to 97% under the
+                                         pointer and springs back on release, so a click has
+                                         physical feedback on top of the colour change. No From
+                                         (starts at current value); the state's storyboard is
+                                         stopped on release, and Normal/PointerOver ease back
+                                         to 1 from wherever this left off. Kept at 3% so the
+                                         label never reads as moving - a transform scale
+                                         re-rasterises text mid-flight and blurs it. -->
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.97" Duration="0:0:0.06">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0.97" Duration="0:0:0.06">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
                                 </VisualState>
                                 <VisualState x:Name="Disabled">
                                     <VisualState.Setters>
@@ -310,10 +505,14 @@
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
                         <Border x:Name="Surface"
+                                RenderTransformOrigin="0.5,0.5"
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="{TemplateBinding CornerRadius}">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1" />
+                            </Border.RenderTransform>
                             <ContentPresenter x:Name="Content"
                                               Content="{TemplateBinding Content}"
                                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -342,6 +541,21 @@
     <!-- Built-in controls already consume ControlCornerRadius. Override the
          shared token in the theme dictionaries rather than replacing their
          default templates (which keeps caret, validation, and automation states). -->
+
+    <!--  Stagger entrance for list items: every ItemsRepeater in the app fades
+          and slides up on first show, so page content never hard-cuts in. The
+          20px vertical offset is small enough to read as a settling motion
+          rather than a slide; the 250ms duration matches the button press
+          spring. -->
+    <Style TargetType="ItemsRepeater">
+        <Setter Property="Transitions">
+            <Setter.Value>
+                <TransitionCollection>
+                    <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="20" />
+                </TransitionCollection>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <Style x:Key="KaliteAccentButton" TargetType="Button" BasedOn="{StaticResource KaliteButton}">
         <Setter Property="Background" Value="{ThemeResource AccentFillColorDefaultBrush}" />

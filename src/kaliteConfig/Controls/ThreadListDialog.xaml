@@ -60,6 +60,13 @@
                                            ToolTipService.ToolTip="CPUs this thread is allowed to run on">
                                     <Run Text="CPU " /><Run Text="{x:Bind CpuText, Mode=OneWay}" /><Run Text="  ·  ideal " /><Run Text="{x:Bind IdealCpuText, Mode=OneWay}" />
                                 </TextBlock>
+                                <!-- Which CPU the thread is on at that moment (live, kernel context-switch observation). -->
+                                <TextBlock FontSize="11"
+                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="The CPU this thread is running on right now">
+                                    <Run Text="on CPU " /><Run Text="{x:Bind RunningCpuText, Mode=OneWay}" />
+                                </TextBlock>
                                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}">
                                     <Run Text="TID " /><Run Text="{x:Bind Tid}" />
                                     <Run Text="  ·  " /><Run Text="{x:Bind CpuTimeText, Mode=OneWay}" /><Run Text=" CPU" />

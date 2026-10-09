@@ -55,8 +55,8 @@
         fill, exactly as MainWindow.ApplyRootBackground documents.
     -->
     <Border Background="Transparent" BorderBrush="Transparent" BorderThickness="0">
-        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Canvas x:Name="Field" Width="1440" Height="1200">
+        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Canvas x:Name="Field" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
         <Line x:Name="m0" Tag="m0" X1="335" Y1="595" X2="334" Y2="940" StrokeThickness="6" RenderTransformOrigin="0.5,0.5" />
         <Line x:Name="m1" Tag="m1" X1="141" Y1="601" X2="140" Y2="912" StrokeThickness="6" RenderTransformOrigin="0.5,0.5" />
         <Line x:Name="m2" Tag="m2" X1="980" Y1="346" X2="979" Y2="-58" StrokeThickness="6" RenderTransformOrigin="0.5,0.5" />

@@ -30,8 +30,8 @@ namespace kaliteConfig.Models
 
         /// <summary>
         /// Every performance-core mask INCLUDING the reserved core 0, in
-        /// enumeration order. Used by Optimize, which follows the AutoOS
-        /// layout that counts core 0 (its 4-core branch pins audio to it).
+        /// enumeration order. All callers can use this when a complete list
+        /// including the reserved core is needed (e.g. audio-related pinning).
         /// </summary>
         public System.Collections.Generic.List<ulong> AllPerformanceCoreMasks { get; init; } = new();
 

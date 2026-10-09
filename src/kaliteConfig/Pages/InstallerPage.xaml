@@ -9,15 +9,9 @@
     xmlns:dev="using:DevWinUI"
     xmlns:converters="using:kaliteConfig.Converters"
     NavigationCacheMode="Enabled">
-    <Page.Transitions>
-        <TransitionCollection>
-            <NavigationThemeTransition>
-                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                    <EntranceNavigationTransitionInfo />
-                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
-            </NavigationThemeTransition>
-        </TransitionCollection>
-    </Page.Transitions>
+    <!-- Entrance transition now lives on the main ContentFrame (see MainWindow.xaml)
+         so every page animates the same way; declaring it here too stacked two
+         entrances on top of each other. -->
 
     <Page.Resources>
         <converters:AssetPathToImageSourceConverter x:Key="AssetPathConverter" />
@@ -167,7 +161,7 @@
             <SelectorBarItem x:Name="TabUninstall" Text="Uninstall" />
         </SelectorBar>
 
-        <Grid x:Name="InstallPanel" Grid.Row="2">
+        <Grid x:Name="InstallPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
         <ScrollViewer
             Padding="36,0,36,24"
             VerticalScrollBarVisibility="Auto"
@@ -272,6 +266,8 @@
             </StackPanel>
         </ScrollViewer>
         </Grid>
+        <!-- Entrance transition: the Uninstall/Remover/Startup panels inside
+             animate themselves; the hosted page itself needs no extra effect. -->
         <local:UninstallerPage x:Name="UninstallPanel" Grid.Row="2" Visibility="Collapsed" />
         
         <!-- ContentDialog moved inside the visual tree to resolve XamlRoot / Binding cycle crashes -->

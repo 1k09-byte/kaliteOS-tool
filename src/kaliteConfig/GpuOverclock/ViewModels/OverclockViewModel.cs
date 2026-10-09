@@ -344,14 +344,14 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 var init = await Task.Run(_module.Controller.Initialize);
                 if (!init.IsSuccess)
                 {
-                    SetUnsupported(OverclockErrorMessages.For(init.ErrorKind));
+                    SetUnsupported(OverclockErrorMessages.For(init.ErrorKind), init.Detail);
                     return;
                 }
 
                 var id = await Task.Run(_module.Controller.GetIdentity);
                 if (!id.IsSuccess)
                 {
-                    SetUnsupported(OverclockErrorMessages.For(id.ErrorKind));
+                    SetUnsupported(OverclockErrorMessages.For(id.ErrorKind), id.Detail);
                     return;
                 }
 
@@ -432,10 +432,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
         }
 
-        private void SetUnsupported(string message)
+        private void SetUnsupported(string message, string? detail = null)
         {
             IsSupported = false;
-            UnsupportedMessage = message;
+            UnsupportedMessage = detail is { Length: > 0 }
+                ? $"{message}   [details: {detail}]"
+                : message;
             _module.Telemetry.Update -= OnTelemetryUpdate;
         }
 
@@ -444,7 +446,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             var caps = await Task.Run(_module.Controller.ReadCapabilities);
             if (!caps.IsSuccess || caps.Value is null)
             {
-                SetUnsupported(OverclockErrorMessages.For(caps.ErrorKind));
+                SetUnsupported(OverclockErrorMessages.For(caps.ErrorKind), caps.Detail);
                 return;
             }
 
@@ -1616,7 +1618,13 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             get => _offsetMHz;
             set
             {
-                int clamped = Math.Clamp(value, MinOffsetMHz, MaxOffsetMHz);
+                // Driver ranges have historically come back inverted (Max<Min) on
+                // some laptop GPUs, which made Math.Clamp throw mid-drag and
+                // silently cancel the whole gesture. Normalize before clamping
+                // so the edit always lands in a sane range.
+                int lo = Math.Min(MinOffsetMHz, MaxOffsetMHz);
+                int hi = Math.Max(MinOffsetMHz, MaxOffsetMHz);
+                int clamped = Math.Clamp(value, lo, hi);
                 if (SetProperty(ref _offsetMHz, clamped))
                     OnPropertyChanged(nameof(EffectiveMHz));
             }
