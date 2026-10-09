@@ -245,7 +245,8 @@
                      Right padding reserves a gutter for the scroll bar, which
                      WinUI draws ON TOP of the content; the header row above
                      carries the same 18px so columns stay aligned. -->
-            <ListView x:Name="ProcessesGrid" Grid.Row="2" Margin="28,0,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
+            <Grid Grid.Row="2">
+            <ListView x:Name="ProcessesGrid" Margin="28,0,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
                       Background="Transparent" BorderThickness="0" Padding="0,0,18,0"
                       ItemContainerStyle="{StaticResource ProcessCardItemStyle}">
                 <ListView.ItemTemplate>
@@ -367,6 +368,24 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+
+            <!-- First-load state: same shape as the Threads dialog's spinner.
+                 The process scan is a WMI pass plus a CPU sample, so the grid is
+                 genuinely empty for a beat on entering the page; without this it
+                 just looks broken. Overlay on the list, so nothing shifts when
+                 it disappears. -->
+            <Grid x:Name="ProcessesLoadingOverlay" MinHeight="220" Background="Transparent"
+                  Visibility="{x:Bind ViewModel.IsProcessListLoadingVis, Mode=OneWay}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <ProgressRing x:Name="ProcessesLoadingRing" Width="42" Height="42"
+                                  IsActive="{x:Bind ViewModel.IsProcessListLoading, Mode=OneWay}" />
+                    <TextBlock x:Name="ProcessesLoadingText" Text="Loading processes…" FontSize="12"
+                               HorizontalAlignment="Center"
+                               Visibility="{x:Bind ViewModel.IsProcessListLoadingVis, Mode=OneWay}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Grid>
+            </Grid>
 
             <Grid Grid.Row="3" Margin="28,12,28,12">
                 <StackPanel Orientation="Horizontal" Spacing="24">

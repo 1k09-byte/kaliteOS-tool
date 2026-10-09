@@ -47,6 +47,18 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private bool _initialThreadsLoaded;
     private DispatcherQueueTimer? _searchTimer;
 
+    /// <summary>
+    /// First-load state only, not the 2 s poll - a spinner on every tick would
+    /// flicker forever.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsProcessListLoadingVis))]
+    public partial bool IsProcessListLoading { get; set; } = true;
+
+    /// <summary>Overlay visibility for the loading flag.</summary>
+    public Microsoft.UI.Xaml.Visibility IsProcessListLoadingVis =>
+        IsProcessListLoading ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
     /// <summary>PIDs we already attempted an icon load for (avoids re-hitting
     /// disk every 2 s tick for icon-less pseudo-processes).</summary>
     private readonly HashSet<int> _iconTried = new();
@@ -620,6 +632,12 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             if (changed)
             {
                 RefreshDisplayedProcesses();
+            }
+
+            // First real pass has landed: drop the spinner for good.
+            if (IsProcessListLoading && Processes.Count > 0)
+            {
+                IsProcessListLoading = false;
             }
         });
     }

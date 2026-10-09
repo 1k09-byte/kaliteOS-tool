@@ -112,29 +112,15 @@ namespace kaliteConfig.Pages
             int previousChanges = ViewModel.TrackedChanges.Count;
             ViewModel.ApplyDeviceChanges(ViewModel.SelectedDevice);
             DeviceDetailsDialog.Hide();
-                
+
             // If the application engine actually pushed a modification to the registry
             if (ViewModel.TrackedChanges.Count > previousChanges)
             {
-                var restartDialog = new ContentDialog
-                {
-                    Title = "Restart Device",
-                    Content = $"Changes have been successfully applied to {ViewModel.SelectedDevice.Name}.\n\nWould you like to restart the device now for the changes to take effect?",
-                    PrimaryButtonText = "Restart Device",
-                    CloseButtonText = "Later",
-                    XamlRoot = XamlRoot,
-                    Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style
-                };
-
-                var result = await restartDialog.ShowAsync();
-                if (result == ContentDialogResult.Primary)
-                {
-                    await kaliteConfig.Services.AffinityService.RestartDeviceAsync(ViewModel.SelectedDevice.DeviceInstanceId);
-
-                    // A restart re-enumerates the adapter: rescan so the table and
-                    // the selection reflect the device that came back.
-                    await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
-                }
+                // These settings are read when the device STARTS, so the write on
+                // its own is inert - the row would change and the interrupts would
+                // not. Restart here so "applied" and "in effect" are the same
+                // moment, rather than asking and usually being answered "Later".
+                await ViewModel.RestartDeviceAfterApplyAsync(ViewModel.SelectedDevice);
             }
         }
 

@@ -143,10 +143,27 @@ public sealed class ProfileWatcherService : IDisposable
         RaiseChanged();
     }
 
+    /// <summary>The image name this toolkit runs as, as the rule engine matches it.</summary>
+    public const string SelfProcessPattern = "kaliteConfig.exe";
+
     private List<TunerProfile> CreateBuiltInDefaults()
     {
         return new List<TunerProfile>
         {
+            // Idle + no boost + EcoQoS keeps this app's own polling and rendering out of
+            // the way; App.OnLaunched sets the first two, and this rule is what
+            // survives a restart or a session that re-arms priorities.
+            new TunerProfile
+            {
+                Name = "kaliteConfig (this app)",
+                Pattern = SelfProcessPattern,
+                PriorityClass = (uint)TunerPriorityClass.Idle,
+                BoostEnabled = false,
+                EfficiencyMode = true,
+                Enabled = true,
+                AutoApply = true
+            },
+
             new TunerProfile
             {
                 // Scoped to DWM: generic "Input"/"Sensor"/"Kernel" contains-
@@ -211,6 +228,18 @@ public sealed class ProfileWatcherService : IDisposable
                     Log($"defaults: added missing built-in '{def.Name}'");
                     changed = true;
                 }
+                else if (def.Name == "kaliteConfig (this app)" && IsOursToRefreshSelfRule(existing))
+                {
+                    // Only our own shipped shape: a user who changed this rule keeps
+                    // their values.
+                    Log($"defaults: refreshed built-in '{def.Name}' to Idle / no boost / Efficiency mode");
+                    existing.Pattern = def.Pattern;
+                    existing.PriorityClass = def.PriorityClass;
+                    existing.BoostEnabled = def.BoostEnabled;
+                    existing.EfficiencyMode = def.EfficiencyMode;
+                    existing.AutoApply = def.AutoApply;
+                    changed = true;
+                }
                 else if (IsOldShippedContent(existing))
                 {
                     existing.Pattern = def.Pattern;
@@ -251,6 +280,24 @@ public sealed class ProfileWatcherService : IDisposable
     /// </summary>
     internal static bool PatternIsDisplayName(TunerProfile p) =>
         RulePatternGuard.IsRuleNameUsedAsPattern(p.Pattern, p.Name);
+
+    /// <summary>True when the saved self-rule is unconfigured or exactly our shipped shape.</summary>
+    private static bool IsOursToRefreshSelfRule(TunerProfile p)
+    {
+        if (p.GamingModeAuto) return false;
+        if (p.ProtectThreads) return false;
+        if (p.ThreadRules != null && p.ThreadRules.Count > 0) return false;
+        if (p.AffinityMask.HasValue) return false;
+        if (p.CpuSetIds != null && p.CpuSetIds.Count > 0) return false;
+
+        // No settings at all: a bare rule, or one whose actions never persisted.
+        bool nothingSet = !p.PriorityClass.HasValue && !p.BoostEnabled.HasValue && !p.EfficiencyMode.HasValue;
+        if (nothingSet) return true;
+
+        return (p.PriorityClass.HasValue && p.PriorityClass.Value == (uint)TunerPriorityClass.Idle)
+            && (p.BoostEnabled.HasValue && p.BoostEnabled.Value == false)
+            && (p.EfficiencyMode.HasValue && p.EfficiencyMode.Value == true);
+    }
 
     private static bool IsOldShippedContent(TunerProfile p)
     {

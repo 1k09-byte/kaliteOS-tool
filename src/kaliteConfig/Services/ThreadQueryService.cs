@@ -30,10 +30,33 @@ public sealed class LiveThreadInfo
     public int Base { get; set; }
 }
 
+/// <summary>One Threads-dialog row, with every column gathered in a single pass.</summary>
+public sealed class LiveThreadDetail
+{
+    public int Tid { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public string StartAddress { get; set; } = string.Empty;
+
+    /// <summary>Current thread priority level (-15 … +15), or null when unreadable.</summary>
+    public int? PriorityLevel { get; set; }
+
+    /// <summary>Null = boost state could not be read (treat as allowed).</summary>
+    public bool? BoostAllowed { get; set; }
+
+    /// <summary>Affinity mask, null when unreadable.</summary>
+    public ulong? AffinityMask { get; set; }
+
+    /// <summary>Preferred CPU, null when the thread has no preference.</summary>
+    public int? IdealCpu { get; set; }
+    public int? IdealGroup { get; set; }
+
+    /// <summary>Total processor time in seconds, 0 when unreadable.</summary>
+    public double CpuSeconds { get; set; }
+}
+
 /// <summary>
-/// Enumerates live threads for the rule editor (description + start address +
-/// current priority). Uses OS thread names only - no DbgHelp, so it stays fast
-/// and never blocks on symbol downloads. Null when the process is gone.
+/// Enumerates live threads using OS thread names only - no DbgHelp, so nothing
+/// ever blocks on symbol downloads.
 /// </summary>
 public sealed class ThreadQueryService
 {
@@ -52,6 +75,7 @@ public sealed class ThreadQueryService
         _ => $"Custom ({level})",
     };
 
+    /// <summary>Threads with the fields the rule editor's thread picker needs.</summary>
     public static async Task<List<LiveThreadInfo>> ListThreadsAsync(int pid)
     {
         return await Task.Run(() =>
@@ -79,6 +103,10 @@ public sealed class ThreadQueryService
                     return rows;
                 }
 
+                // Modules are re-materialised on every access, so reading them per thread
+                // made this quadratic on a large process.
+                ModuleRange[] modules = ReadModuleRanges(proc);
+
                 foreach (ProcessThread t in threads)
                 {
                     string desc = string.Empty;
@@ -89,7 +117,7 @@ public sealed class ThreadQueryService
                     {
                         desc = NativeSnapshotService.TryGetThreadDescription((uint)t.Id)
                             ?? "(unnamed)";
-                        start = ResolveStart(proc, t);
+                        start = ResolveStart(t, modules);
                         relative = (int)t.PriorityLevel;
                         basePri = t.BasePriority;
                     }
@@ -112,6 +140,97 @@ public sealed class ThreadQueryService
             }
 
             return rows.OrderBy(r => r.Tid).ToList();
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>Every Threads-dialog column for every thread, using one handle per thread.</summary>
+    public static async Task<List<LiveThreadDetail>> ListThreadsDetailedAsync(int pid)
+    {
+        return await Task.Run(() =>
+        {
+            var rows = new List<LiveThreadDetail>();
+            Process proc;
+            try
+            {
+                proc = Process.GetProcessById(pid);
+            }
+            catch
+            {
+                return rows;
+            }
+
+            using (proc)
+            {
+                ProcessThreadCollection threads;
+                try
+                {
+                    threads = proc.Threads;
+                }
+                catch
+                {
+                    return rows;
+                }
+
+                ModuleRange[] modules = ReadModuleRanges(proc);
+
+                foreach (ProcessThread t in threads)
+                {
+                    if (t == null) continue;
+                    int tid = t.Id;
+                    var row = new LiveThreadDetail { Tid = tid, StartAddress = "-" };
+
+                    // Free from the already-materialised ProcessThread, and readable even
+                    // when the handle below is refused.
+                    try { row.CpuSeconds = t.TotalProcessorTime.TotalSeconds; } catch { }
+
+                    try
+                    {
+                        using var h = NativeMethods.Handles.OpenThread(
+                            NativeMethods.ThreadAccess.QueryInformation |
+                            NativeMethods.ThreadAccess.QueryLimitedInformation,
+                            false, (uint)tid);
+                        if (h.IsInvalid) throw new UnauthorizedAccessException();
+
+                        row.Description = NativeSnapshotService.QueryThreadDescription(h) ?? "(unnamed)";
+                        row.StartAddress = ResolveStart(t, modules, h);
+
+                        row.PriorityLevel = NativeMethods.Priority.GetThreadPriority(h);
+                        try
+                        {
+                            if (NativeMethods.Priority.GetThreadPriorityBoost(h, out bool boostDisabled))
+                                row.BoostAllowed = !boostDisabled; // API flag is inverted
+                        }
+                        catch { }
+
+                        try
+                        {
+                            if (NativeMethods.Affinity.GetThreadGroupAffinity(h, out var affinity))
+                                row.AffinityMask = affinity.Mask;
+                        }
+                        catch { }
+
+                        try
+                        {
+                            if (NativeMethods.Affinity.GetThreadIdealProcessorEx(h, out var ideal)
+                                && !(ideal.Group == 0xFF && ideal.Number == 0xFF))
+                            {
+                                row.IdealCpu = ideal.Number;
+                                row.IdealGroup = ideal.Group;
+                            }
+                        }
+                        catch { }
+                    }
+                    catch
+                    {
+                        // Keep the cheap reads rather than dropping the row entirely.
+                        if (string.IsNullOrEmpty(row.Description)) row.Description = "(unnamed)";
+                    }
+
+                    rows.Add(row);
+                }
+            }
+
+            return rows;
         }).ConfigureAwait(false);
     }
 
@@ -146,12 +265,37 @@ public sealed class ThreadQueryService
         return 0;
     }
 
-    private static string ResolveStart(Process proc, ProcessThread t)
+    private readonly record struct ModuleRange(long Base, long Size, string Name);
+
+    /// <summary>Modules as sorted address ranges; empty when the list is unreadable.</summary>
+    private static ModuleRange[] ReadModuleRanges(Process proc)
+    {
+        try
+        {
+            var list = new List<ModuleRange>();
+            foreach (ProcessModule mod in proc.Modules)
+            {
+                list.Add(new ModuleRange(
+                    mod.BaseAddress.ToInt64(), mod.ModuleMemorySize, mod.ModuleName));
+            }
+            list.Sort(static (a, b) => a.Base.CompareTo(b.Base));
+            return list.ToArray();
+        }
+        catch
+        {
+            return Array.Empty<ModuleRange>();
+        }
+    }
+
+    /// <summary>"mod.dll+0x1A2B" for an address inside a module, else the raw address.</summary>
+    private static string ResolveStart(ProcessThread t, ModuleRange[] modules, SafeThreadHandle? handle = null)
     {
         long addr = 0;
         try
         {
-            addr = NativeSnapshotService.TryGetWin32StartAddress((uint)t.Id) ?? 0;
+            addr = handle != null
+                ? NativeSnapshotService.QueryWin32StartAddress(handle) ?? 0
+                : NativeSnapshotService.TryGetWin32StartAddress((uint)t.Id) ?? 0;
         }
         catch
         {
@@ -169,19 +313,20 @@ public sealed class ThreadQueryService
             }
         }
 
-        try
+        return FormatAddress(addr, modules);
+    }
+
+    /// <summary>"mod.dll+0x1A2B" or "0x7FF..." - binary search over sorted ranges.</summary>
+    private static string FormatAddress(long addr, ModuleRange[] modules)
+    {
+        int lo = 0, hi = modules.Length - 1;
+        while (lo <= hi)
         {
-            foreach (ProcessModule mod in proc.Modules)
-            {
-                long b = mod.BaseAddress.ToInt64();
-                if (addr >= b && addr < b + mod.ModuleMemorySize)
-                {
-                    return $"{mod.ModuleName}+0x{(addr - b):X}";
-                }
-            }
-        }
-        catch
-        {
+            int mid = lo + ((hi - lo) >> 1);
+            ModuleRange m = modules[mid];
+            if (addr < m.Base) hi = mid - 1;
+            else if (addr >= m.Base + m.Size) lo = mid + 1;
+            else return $"{m.Name}+0x{addr - m.Base:X}";
         }
 
         return $"0x{addr:X}";

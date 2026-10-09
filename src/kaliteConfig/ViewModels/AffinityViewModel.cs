@@ -78,6 +78,14 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool CanRedo { get; set; }
 
+        /// <summary>Cached "any device off the defaults" flag; the getter reads the registry.</summary>
+        [ObservableProperty]
+        public partial bool HasNonDefaultDevices { get; set; }
+
+        /// <summary>Computed properties announce nothing when their inputs move.</summary>
+        partial void OnHasNonDefaultDevicesChanged(bool value)
+            => OnPropertyChanged(nameof(CanRestoreDefaults));
+
         public string ChangeCountText => $"View Changes ({ChangeCount})";
 
         private void RefreshChangeState()
@@ -85,6 +93,8 @@ namespace kaliteConfig.ViewModels
             ChangeCount = _undoStack.Count;
             CanUndo = _undoStack.Count > 0;
             CanRedo = _redoStack.Count > 0;
+            OnPropertyChanged(nameof(CanRestoreDefaults));
+            RefreshRestoreAvailability();
             
             // TrackedChanges for the "View Changes" dialog
             TrackedChanges.Clear();
@@ -377,6 +387,8 @@ namespace kaliteConfig.ViewModels
                     ? "No tunable devices found."
                     : $"{total} device{(total == 1 ? "" : "s")} found."
                       + (wasPresent && SelectedDevice is null ? " The previously selected device is gone." : "");
+
+                RefreshRestoreAvailability();
             }
             catch (Exception ex)
             {
@@ -485,6 +497,9 @@ namespace kaliteConfig.ViewModels
             // Resync the dialog checkboxes from readback so a partial/failed
             // write can never leave them lying about the applied affinity.
             ResyncGroupsFromMask(item, refreshed.AffinityMask);
+
+            // The write may have returned this device to the defaults.
+            RefreshRestoreAvailability();
         }
 
         private static ulong BuildMaskFromGroups(AffinityDeviceItem item)
@@ -525,27 +540,44 @@ namespace kaliteConfig.ViewModels
 
         // -- Restart handling ------------------------------------------------
 
-        [ObservableProperty]
-        public partial bool RequiresRestart { get; set; }
-        
-        private readonly HashSet<string> _pendingRestartIds = new(StringComparer.OrdinalIgnoreCase);
-
-        [RelayCommand]
-        private async Task RestartPendingAsync()
+        /// <summary>
+        /// Restarts devices after a write, then rescans. These settings are only
+        /// read when a device starts, so a write alone is inert - every path
+        /// restarts what it changed so "applied" and "in effect" are the same
+        /// moment.
+        /// </summary>
+        private async Task RestartAfterWriteAsync(IEnumerable<string> deviceIds, string whatWasDone)
         {
-            if (_pendingRestartIds.Count == 0) return;
-            StatusText = $"Restarting {_pendingRestartIds.Count} device(s)...";
-            await RestartDevicesQuiescedAsync(_pendingRestartIds, "affinity pending restarts");
-            _pendingRestartIds.Clear();
-            RequiresRestart = false;
-            StatusText = "Device restarts complete.";
+            var ids = deviceIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (ids.Count == 0)
+            {
+                await RefreshDevicesAsync();
+                return;
+            }
+
+            StatusText = ids.Count == 1
+                ? $"{whatWasDone} - restarting device..."
+                : $"{whatWasDone} - restarting {ids.Count} devices...";
+
+            await RestartDevicesQuiescedAsync(ids, "affinity apply");
+
+            await RefreshDevicesAsync();
+            StatusText = ids.Count == 1
+                ? $"{whatWasDone} - device restarted."
+                : $"{whatWasDone} - {ids.Count} devices restarted.";
+        }
+
+        /// <summary>Restarts one device after its dialog's Apply, then rescans.</summary>
+        public async Task RestartDeviceAfterApplyAsync(AffinityDeviceItem item)
+        {
+            string name = item?.Name ?? "device";
+            await RestartAfterWriteAsync(new[] { item!.DeviceInstanceId }, $"Applied to {name}");
         }
 
         /// <summary>
-        /// Restarts devices with all native GPU access held off: a telemetry
-        /// or fan tick landing mid-restart can fault INSIDE nvapi64/nvml
-        /// (0xc0000005) where no managed catch can contain it. Settles PnP,
-        /// then forces fresh native handles before anyone calls in again.
+        /// Restarts with native GPU access held off: a telemetry or fan tick
+        /// landing mid-restart can fault inside nvapi64/nvml where no managed
+        /// catch can contain it.
         /// </summary>
         private static async Task RestartDevicesQuiescedAsync(
             IEnumerable<string> deviceIds, string reason)
@@ -582,13 +614,8 @@ namespace kaliteConfig.ViewModels
             RevertChange(change);
             _redoStack.Add(change);
             RefreshChangeState();
-            
-            _pendingRestartIds.Add(change.DeviceId);
-            RequiresRestart = true;
-            
-            // Prompt user for restart, skip auto restart
-            await RefreshDevicesAsync();
-            StatusText = "Undo applied. Restart required.";
+
+            await RestartAfterWriteAsync(new[] { change.DeviceId }, "Undo applied");
         }
 
         [RelayCommand]
@@ -603,23 +630,30 @@ namespace kaliteConfig.ViewModels
             _undoStack.Add(change);
             RefreshChangeState();
 
-            _pendingRestartIds.Add(change.DeviceId);
-            RequiresRestart = true;
-
-            // Prompt user for restart, skip auto restart
-            await RefreshDevicesAsync();
-            StatusText = "Redo applied. Restart required.";
+            await RestartAfterWriteAsync(new[] { change.DeviceId }, "Redo applied");
         }
 
         [RelayCommand]
         private async Task RestoreAsync()
         {
-            if (!IsElevated()) return;
-            if (_undoStack.Count == 0) return;
-            StatusText = "Restoring original values...";
-            var modifiedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!IsElevated())
+            {
+                StatusText = "Restore needs administrator rights - every one of these writes is under HKLM.";
+                return;
+            }
+            if (_undoStack.Count == 0 && !CanRestoreDefaults) return;
 
-            // Revert in reverse order
+            var all = AllDevices().ToList();
+            if (all.Count == 0)
+            {
+                StatusText = "No devices to restore.";
+                return;
+            }
+
+            StatusText = "Restoring defaults on every device...";
+
+            // Revert in reverse order so a later write to the same property unwinds first.
+            var modifiedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = _undoStack.Count - 1; i >= 0; i--)
             {
                 var change = _undoStack[i];
@@ -630,14 +664,94 @@ namespace kaliteConfig.ViewModels
             _redoStack.Clear();
             RefreshChangeState();
 
-            foreach (var id in modifiedIds)
-                _pendingRestartIds.Add(id);
-            
-            if (_pendingRestartIds.Count > 0)
-                RequiresRestart = true;
+            // Force every listed device back to the defaults, not just the ones this
+            // session touched - a machine left half-tuned by a previous run has
+            // to be cleanable from here too.
+            int reset = 0, failed = 0;
+            foreach (var item in all)
+            {
+                if (RestoreDeviceDefaults(item.DeviceInstanceId)) reset++;
+                else failed++;
+                modifiedIds.Add(item.DeviceInstanceId);
+            }
+
+            // Every listed device was rewritten, so all of them are in scope.
+            var toRestart = modifiedIds.ToList();
+
+            string done = failed > 0
+                ? $"Restored defaults on {reset} device(s); {failed} could not be written (access denied)."
+                : $"Restored OS defaults on all {reset} device(s).";
+
+            if (toRestart.Count > 0)
+            {
+                StatusText = toRestart.Count == 1
+                    ? $"{done} Restarting device..."
+                    : $"{done} Restarting {toRestart.Count} devices...";
+                await RestartDevicesQuiescedAsync(toRestart, "restore defaults");
+            }
 
             await RefreshDevicesAsync();
-            StatusText = "All changes restored. Restart required.";
+            StatusText = toRestart.Count switch
+            {
+                0 => done,
+                1 => $"{done} Device restarted.",
+                _ => $"{done} {toRestart.Count} devices restarted.",
+            };
+        }
+
+        /// <summary>Every listed device, across all categories.</summary>
+        private IEnumerable<AffinityDeviceItem> AllDevices()
+            => GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices)
+                .Concat(AudioDevices).Concat(NvmeDevices).Concat(StorageDevices);
+
+        /// <summary>
+        /// Puts one device back to IrqPolicyMachineDefault with priority
+        /// undefined and no affinity override. "Undefined" is implemented by
+        /// deleting the value - writing an explicit 0 would pin it in place.
+        /// MSI mode itself is left alone: the driver advertises that capability,
+        /// so forcing it either way risks a broken device for no gain.
+        /// </summary>
+        private bool RestoreDeviceDefaults(string deviceInstanceId)
+        {
+            try
+            {
+                if (!_affinityService.SetDevicePolicy(deviceInstanceId, 0)) return false;
+                if (!_affinityService.ClearAffinityPolicy(deviceInstanceId, "DevicePriority")) return false;
+                if (!_affinityService.ClearAffinityPolicy(deviceInstanceId, "AssignmentSetOverride")) return false;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// True when some device is off the defaults this button restores to.
+        /// Driven by device state rather than the undo stack, which is empty on a
+        /// machine tuned by an earlier run - exactly when Restore is needed.
+        /// </summary>
+        public bool CanRestoreDefaults => HasNonDefaultDevices || _undoStack.Count > 0;
+
+        /// <summary>Recaches the flag; opens every device's key, so never per-frame.</summary>
+        private void RefreshRestoreAvailability()
+        {
+            try
+            {
+                foreach (var item in AllDevices())
+                {
+                    var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
+                    if (info.DevicePolicy is not null && info.DevicePolicy != 0) { HasNonDefaultDevices = true; return; }
+                    if (info.DevicePriority is not null && info.DevicePriority != 0) { HasNonDefaultDevices = true; return; }
+                    if (info.AffinityMask is not null) { HasNonDefaultDevices = true; return; }
+                }
+                HasNonDefaultDevices = false;
+            }
+            catch
+            {
+                // A failed probe must not light the button up on a guess - leave
+                // the previous value alone.
+            }
         }
 
         // -- View Changes ----------------------------------------------------

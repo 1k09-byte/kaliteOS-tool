@@ -184,15 +184,10 @@ public sealed partial class NativeSnapshotService
                     continue;
                 }
 
-                int status = NativeMethods.Ntdll.NtQueryInformationThread(
-                    thread,
-                    NativeMethods.Ntdll.ThreadQuerySetWin32StartAddress,
-                    out IntPtr address,
-                    IntPtr.Size,
-                    out _);
-                if (status == 0 && address != IntPtr.Zero)
+                long? address = QueryWin32StartAddress(thread);
+                if (address.HasValue)
                 {
-                    return address.ToInt64();
+                    return address;
                 }
             }
             catch
@@ -202,6 +197,26 @@ public sealed partial class NativeSnapshotService
         }
 
         return null;
+    }
+
+    /// <summary>Win32 start address for an already-open thread handle.</summary>
+    internal static long? QueryWin32StartAddress(SafeThreadHandle thread)
+    {
+        if (thread.IsInvalid) return null;
+        try
+        {
+            int status = NativeMethods.Ntdll.NtQueryInformationThread(
+                thread,
+                NativeMethods.Ntdll.ThreadQuerySetWin32StartAddress,
+                out IntPtr address,
+                IntPtr.Size,
+                out _);
+            return status == 0 && address != IntPtr.Zero ? address.ToInt64() : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     internal static string? TryGetThreadDescription(uint tid)
@@ -220,92 +235,10 @@ public sealed partial class NativeSnapshotService
                     continue;
                 }
 
-                // This is the supported API and handles the allocation/freeing
-                // details for us. NOTE: check SUCCEEDED (hr >= 0), not == S_OK.
-                // Threads named via NtSetInformationThread (all seven DWM role
-                // threads) return success code 0x10000000 with a valid string
-                // pointer - verified live. An == 0 check silently discards
-                // every one of them and the Description column goes unnamed.
-                if (NativeMethods.Threads.GetThreadDescription(thread, out IntPtr description) >= 0
-                    && description != IntPtr.Zero)
+                string? name = QueryThreadDescription(thread);
+                if (!string.IsNullOrEmpty(name))
                 {
-                    try
-                    {
-                        string? value = Marshal.PtrToStringUni(description);
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            return value.Trim();
-                        }
-                    }
-                    finally
-                    {
-                        NativeMethods.Handles.LocalFree(description);
-                    }
-                }
-
-                // System Informer uses a real output buffer for class 38. A zero
-                // length probe is not reliable here: Windows can return no useful
-                // returnLength even though a 0x100-byte query succeeds. The old
-                // probe therefore discarded valid DWM names before parsing them.
-                const int InitialNameBufferSize = 0x100;
-                int status;
-                int bufferSize = InitialNameBufferSize;
-                IntPtr info = Marshal.AllocHGlobal(bufferSize);
-                try
-                {
-                    status = NativeMethods.Ntdll.NtQueryInformationThreadName(
-                        thread,
-                        NativeMethods.Ntdll.ThreadNameInformation,
-                        info,
-                        bufferSize,
-                        out uint returned);
-
-                    if (status == NativeMethods.Ntdll.StatusBufferOverflow
-                        || status == NativeMethods.Ntdll.StatusBufferTooSmall
-                        || status == NativeMethods.Ntdll.StatusInfoLengthMismatch)
-                    {
-                        if (returned < 16 || returned > 65536)
-                        {
-                            continue;
-                        }
-
-                        Marshal.FreeHGlobal(info);
-                        bufferSize = checked((int)returned);
-                        info = Marshal.AllocHGlobal(bufferSize);
-                        status = NativeMethods.Ntdll.NtQueryInformationThreadName(
-                            thread,
-                            NativeMethods.Ntdll.ThreadNameInformation,
-                            info,
-                            bufferSize,
-                            out _);
-                    }
-
-                    if (status != 0)
-                    {
-                        continue;
-                    }
-
-                    // THREAD_NAME_INFORMATION contains a UNICODE_STRING. On
-                    // x64 the Buffer pointer is at offset 8; on x86 it is at
-                    // offset 4. Windows normally points it into the returned
-                    // buffer, but accept an external pointer as System Informer
-                    // does as well.
-                    ushort length = (ushort)Marshal.ReadInt16(info, 0);
-                    IntPtr nameBuffer = Marshal.ReadIntPtr(info, IntPtr.Size == 8 ? 8 : 4);
-                    if (length == 0 || length > 32768 || nameBuffer == IntPtr.Zero)
-                    {
-                        continue;
-                    }
-
-                    string? nativeValue = Marshal.PtrToStringUni(nameBuffer, length / 2);
-                    if (!string.IsNullOrWhiteSpace(nativeValue))
-                    {
-                        return nativeValue.Trim();
-                    }
-                }
-                finally
-                {
-                    Marshal.FreeHGlobal(info);
+                    return name;
                 }
             }
             catch
@@ -315,6 +248,101 @@ public sealed partial class NativeSnapshotService
         }
 
         return null;
+    }
+
+    /// <summary>Thread name for an already-open handle; avoids a second OpenThread per query.</summary>
+    internal static string? QueryThreadDescription(SafeThreadHandle thread)
+    {
+        if (thread.IsInvalid) return null;
+
+        // This is the supported API and handles the allocation/freeing
+        // details for us. NOTE: check SUCCEEDED (hr >= 0), not == S_OK.
+        // Threads named via NtSetInformationThread (all seven DWM role
+        // threads) return success code 0x10000000 with a valid string
+        // pointer - verified live. An == 0 check silently discards
+        // every one of them and the Description column goes unnamed.
+        if (NativeMethods.Threads.GetThreadDescription(thread, out IntPtr description) >= 0
+            && description != IntPtr.Zero)
+        {
+            try
+            {
+                string? value = Marshal.PtrToStringUni(description);
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value.Trim();
+                }
+            }
+            finally
+            {
+                NativeMethods.Handles.LocalFree(description);
+            }
+        }
+
+        // System Informer uses a real output buffer for class 38. A zero
+        // length probe is not reliable here: Windows can return no useful
+        // returnLength even though a 0x100-byte query succeeds. The old
+        // probe therefore discarded valid DWM names before parsing them.
+        const int InitialNameBufferSize = 0x100;
+        int status;
+        int bufferSize = InitialNameBufferSize;
+        IntPtr info = Marshal.AllocHGlobal(bufferSize);
+        try
+        {
+            status = NativeMethods.Ntdll.NtQueryInformationThreadName(
+                thread,
+                NativeMethods.Ntdll.ThreadNameInformation,
+                info,
+                bufferSize,
+                out uint returned);
+
+            if (status == NativeMethods.Ntdll.StatusBufferOverflow
+                || status == NativeMethods.Ntdll.StatusBufferTooSmall
+                || status == NativeMethods.Ntdll.StatusInfoLengthMismatch)
+            {
+                if (returned < 16 || returned > 65536)
+                {
+                    return null;
+                }
+
+                Marshal.FreeHGlobal(info);
+                bufferSize = checked((int)returned);
+                info = Marshal.AllocHGlobal(bufferSize);
+                status = NativeMethods.Ntdll.NtQueryInformationThreadName(
+                    thread,
+                    NativeMethods.Ntdll.ThreadNameInformation,
+                    info,
+                    bufferSize,
+                    out _);
+            }
+
+            if (status != 0)
+            {
+                return null;
+            }
+
+            // THREAD_NAME_INFORMATION contains a UNICODE_STRING. On
+            // x64 the Buffer pointer is at offset 8; on x86 it is at
+            // offset 4. Windows normally points it into the returned
+            // buffer, but accept an external pointer as System Informer
+            // does as well.
+            ushort length = (ushort)Marshal.ReadInt16(info, 0);
+            IntPtr nameBuffer = Marshal.ReadIntPtr(info, IntPtr.Size == 8 ? 8 : 4);
+            if (length == 0 || length > 32768 || nameBuffer == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            string? nativeValue = Marshal.PtrToStringUni(nameBuffer, length / 2);
+            return string.IsNullOrWhiteSpace(nativeValue) ? null : nativeValue.Trim();
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(info);
+        }
     }
 
     internal static string? TryGetCommandLine(SafeProcessHandle process)
