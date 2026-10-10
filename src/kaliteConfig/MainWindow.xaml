@@ -47,6 +47,36 @@
             VerticalAlignment="Stretch" />
 
         <!--
+             BACKGROUND IMAGE (Settings > Appearance > Background image).
+
+             A user-chosen image painted between the animated meteor field and the
+             backdrop tint, so the tint can wash over it and the chrome masks stay
+             opaque on top. It is RowSpan=2 + Stretch and IsHitTestVisible=False,
+             and it is removed when the user has not picked an image (the meteor
+             field shows through).
+
+             Stretch is user-controlled: None (native size, top-left), Fill (cover
+             the window, ignores aspect), Uniform (fit inside, centred), Uniform to
+             fill (cover, keep aspect, crop).
+        -->
+        <Border
+            x:Name="BgImageLayer"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="Transparent"
+            IsHitTestVisible="False"
+            Visibility="Collapsed">
+            <Image
+                x:Name="BgImage"
+                Stretch="Uniform"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Visibility="Collapsed" />
+        </Border>
+
+        <!--
              BACKDROP TINT (Settings > Appearance > Backdrop tint).
 
              A translucent wash over the window surface, painted between the
@@ -99,10 +129,10 @@
             x:Name="NavRailMask"
             Grid.Row="0"
             Grid.RowSpan="2"
-            Width="68"
+            Width="76"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
-            Background="#FF10150F"
+            Background="{ThemeResource KaliteChromeSurfaceBrush}"
             IsHitTestVisible="False" />
 
         <TitleBar x:Name="titleBar" FontFamily="{StaticResource KaliteFontFamily}" />
@@ -131,12 +161,10 @@
             Margin="0,0,0,-16"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
-            Background="#FF10150F"
+            Background="{ThemeResource KaliteChromeSurfaceBrush}"
             IsHitTestVisible="False" />
 
-        <!-- Store-style shell: fixed 76px rail + shared selection pill overlay.
-             The pill glides between items (RepositionThemeTransition); the rail
-             slides in on launch (EntranceThemeTransition). -->
+        <!-- Store-style shell: 76px rail + shared animated selection pill. -->
         <Grid x:Name="NavShell" Grid.Row="1">
             <Grid.Transitions>
                 <TransitionCollection>
@@ -147,19 +175,28 @@
         <NavigationView
             x:Name="NavView"
             UseLayoutRounding="True"
-            FontFamily="{StaticResource KaliteFontFamily}"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             IsPaneToggleButtonVisible="False"
             PaneDisplayMode="Left"
-            OpenPaneLength="68"
-            CompactPaneLength="68"
+            OpenPaneLength="76"
+            CompactPaneLength="76"
             IsPaneOpen="True"
             SelectionChanged="NavView_SelectionChanged">
             
             <NavigationView.Resources>
+                <!-- Keep the rail on WinUI's Segoe face even when the app font
+                     preference is a decorative serif. NavigationViewItem's theme
+                     style reads ContentControlThemeFontFamily; the empty scoped
+                     TextBlock style prevents App.xaml's global serif setter from
+                     overriding inherited rail text fonts. -->
+                <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI Variable</FontFamily>
+                <!-- Explicit keyed label style prevents App.xaml's implicit TextBlock
+                     style from stamping the decorative app font onto this caption. -->
+                <Style x:Key="RailLabelTextBlockStyle" TargetType="TextBlock" />
+
                 <!--
                     The side rail is deliberately OPAQUE. The meteor backdrop is a
                     window-level element that paints behind everything, so a
@@ -170,127 +207,169 @@
                     The rest of the NavigationView stays transparent so the
                     backdrop is still visible behind page content.
                 -->
-                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FF10150F" />
-                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#FF10150F" />
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
 
                 <!--
-                    THE RAIL PAINTS FROM NavigationViewBackground, NOT THE PANE KEYS.
-
-                    NavigationViewDefaultPaneBackground / ExpandedPaneBackground
-                    were set to black and the rail still rendered RGB(28,29,28):
-                    in the compact rail layout WinUI fills the pane from the
-                    control's own Background, so those two pane keys are not the
-                    thing that decides the colour here.
-
-                    So the fill is inverted instead: the whole NavigationView
-                    takes the rail's own surface colour, and only
-                    ContentBackground - the region the Frame of page content sits
-                    in - is Transparent. That keeps the rail opaque so the backdrop
-                    cannot smear through it, while letting it match the colour the
-                    rest of the tool is built on. Painting the rail by covering it
-                    with a sibling Border cannot work here, because NavigationView is
-                    a later sibling and paints over anything before it.
-
-                    The colour is #10150F, the app's matte chrome surface, rather
-                    than pure black: a pure-black rail against near-black cards read
-                    as a separate app rather than part of this one.
+                    Beyond NavigationViewBackground/ContentBackground, we also need to
+                    give the compact rail's item chrome its own surface fill, because
+                    NavigationViewItem icons live inside the pane region and a pane-
+                    level background inversion does not always reach per-item hover/
+                    selection brushes on every theme. This is a separate, local override
+                    for that item chrome only.
                 -->
-                <SolidColorBrush x:Key="NavigationViewBackground" Color="#FF10150F" />
+                <SolidColorBrush x:Key="NavigationViewBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="Transparent" />
+                <!--
+                    ITEM STATE CHROME LIVES IN RailNavItemStyle NOW.
+
+                    The control template above paints hover/pressed/selected itself
+                    from theme brushes, so none of the NavigationViewItem*Background
+                    overrides are read any more. They used to be declared here - and
+                    three of them assigned a *Brush* (AccentFillColorDefaultBrush) to
+                    SolidColorBrush.Color, which is a type mismatch the XAML loader
+                    rejects at parse time. They are gone rather than "fixed": the
+                    template is the single source of truth for item colour.
+
+                    ItemBackground stays only so a generated container can never
+                    paint over the template's own rounded plate.
+                -->
+                <SolidColorBrush x:Key="NavigationViewItemBackground" Color="Transparent" />
+
+                <!-- Rail highlight plates: explicit white-alpha fills, lighter than WinUI's
+                     ControlFill brushes. Selected ~30%, hover ~22%, pressed ~18% - all Opacity 1. -->
+                <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
+                <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
+                <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
 
                 <Style x:Key="RailNavItemStyle" TargetType="NavigationViewItem">
+                    <Setter Property="UseSystemFocusVisuals" Value="False" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
+                    <Setter Property="Width" Value="60" />
+                    <Setter Property="Height" Value="56" />
+                    <Setter Property="Margin" Value="0,4" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="HorizontalAlignment" Value="Center" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="NavigationViewItem">
-                                <Grid x:Name="LayoutRoot" Background="Transparent" Margin="4,4,4,4" Width="60" Height="58">
+                                <Grid x:Name="LayoutRoot" Background="Transparent" Width="60" Height="56">
                                     <VisualStateManager.VisualStateGroups>
                                         <VisualStateGroup x:Name="CommonStates">
+                                            <VisualStateGroup.Transitions>
+                                                <!-- Smooth cross-fade between idle/hover/pressed/selected
+                                                     instead of an instant snap. -->
+                                                <VisualTransition GeneratedDuration="0:0:0.12">
+                                                    <VisualTransition.GeneratedEasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </VisualTransition.GeneratedEasingFunction>
+                                                </VisualTransition>
+                                            </VisualStateGroup.Transitions>
+                                            <!-- Idle: unselected items carry no background at all. -->
                                             <VisualState x:Name="Normal">
                                                 <VisualState.Setters>
+                                                    <Setter Target="ItemBody.Background" Value="Transparent"/>
+                                                    <Setter Target="ItemBody.Opacity" Value="0"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                    <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="PointerOver">
-                                                <Storyboard>
-                                                    <!-- Gentle hover pulse. No From (starts at current value,
-                                                         releases to base on exit) so rapid hover never jumps
-                                                         or sticks. -->
-                                                    <DoubleAnimation Storyboard.TargetName="IconPresenter" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)" To="1.06" Duration="0:0:0.15" AutoReverse="True" FillBehavior="Stop" />
-                                                    <DoubleAnimation Storyboard.TargetName="IconPresenter" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)" To="1.06" Duration="0:0:0.15" AutoReverse="True" FillBehavior="Stop" />
-                                                </Storyboard>
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
-                                                    <Setter Target="BackgroundPill.BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
-                                                    <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                    <!-- Hover: lighter control fill, dialled back. -->
+                                                    <Setter Target="ItemBody.Background" Value="{StaticResource RailHighlightHoverBrush}"/>
+                                                    <Setter Target="ItemBody.Opacity" Value="1"/>
+                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="Pressed">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
-                                                    <Setter Target="BackgroundPill.BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
-                                                    <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                    <Setter Target="ItemBody.Background" Value="{StaticResource RailHighlightPressedBrush}"/>
+                                                    <Setter Target="ItemBody.Opacity" Value="1"/>
+                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
-                                            <!-- Selected icon animation runs from code-behind
-                                                 (PlaySelectPop): a VSM storyboard here is cancelled
+                                            <!-- Selected icon pop runs from code-behind
                                                  the moment the pointer hovers (state leaves
                                                  Selected for PointerOverSelected). -->
                                             <VisualState x:Name="Selected">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
-                                                    <Setter Target="BackgroundPill.BorderBrush" Value="Transparent"/>
+                                                    <Setter Target="ItemBody.Background" Value="{StaticResource RailHighlightSelectedBrush}"/>
+                                                    <Setter Target="ItemBody.Opacity" Value="1"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                                    <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                    <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="PointerOverSelected">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
-                                                    <Setter Target="BackgroundPill.BorderBrush" Value="Transparent"/>
+                                                    <Setter Target="ItemBody.Background" Value="{StaticResource RailHighlightSelectedBrush}"/>
+                                                    <Setter Target="ItemBody.Opacity" Value="1"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                                    <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                    <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
+                                            <!-- Selection must stay legible while pressed, so this
+                                                 keeps the selection plate instead of dropping to the
+                                                 unselected pressed colour. -->
                                             <VisualState x:Name="PressedSelected">
                                                 <VisualState.Setters>
-                                                    <Setter Target="BackgroundPill.Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
-                                                    <Setter Target="BackgroundPill.BorderBrush" Value="Transparent"/>
+                                                    <Setter Target="ItemBody.Background" Value="{StaticResource RailHighlightSelectedBrush}"/>
+                                                    <Setter Target="ItemBody.Opacity" Value="1"/>
                                                     <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                                    <Setter Target="ContentTextBlock.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                    <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
                                         </VisualStateGroup>
                                     </VisualStateManager.VisualStateGroups>
 
-                                    <!-- Pill that highlights on hover/select. Carries the card
-                                         shape: the same 10px radius the page cards use,
-                                         plus a hairline stroke so a lit item reads as a
-                                         card sitting on the rail rather than a Fluent
-                                         rounded rectangle. -->
-                                    <Border x:Name="BackgroundPill"
+                                    <!-- Neutral selected/hover plate fills the fixed cell. Squarish 4px radius: still rounded, matches KaliteControlRadius. -->
+                                    <Border x:Name="ItemBody"
+                                            Margin="0"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            CornerRadius="4"
                                             Background="Transparent"
-                                            BorderBrush="Transparent"
-                                            BorderThickness="1"
-                                            CornerRadius="10" />
+                                            BorderThickness="0"
+                                            Opacity="0" />
 
-                                    <!-- Selection marker: one shared NavPill overlay (bottom of file)
-                                         glides between items; no per-item indicator here. -->
+                                    <!--
+                                        ICON OVER CAPTION, both centred in a fixed 60×56 cell;
+                                        the 21px icon and 12px one-line label never resize it.
 
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
-                                        <ContentPresenter x:Name="IconPresenter" Content="{TemplateBinding Icon}" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" RenderTransformOrigin="0.5,0.5">
-                                        <ContentPresenter.RenderTransform>
-                                            <TransformGroup>
-                                                <ScaleTransform />
-                                                <RotateTransform />
-                                                <TranslateTransform />
-                                            </TransformGroup>
-                                        </ContentPresenter.RenderTransform>
-                                        </ContentPresenter>
-                                        <TextBlock x:Name="ContentTextBlock" Text="{TemplateBinding Content}" FontSize="10" FontWeight="Normal" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    -->
+                                    <StackPanel x:Name="ItemStack"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Spacing="2">
+                                        <ContentPresenter x:Name="IconPresenter"
+                                                          Content="{TemplateBinding Icon}"
+                                                          Width="21"
+                                                          Height="21"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <!-- Caption, not a ContentPresenter: Content is a plain
+                                             string on every rail item, so it binds straight to
+                                             Text. MaxLines + ellipsis keep a long label from
+                                             widening or wrapping the fixed row. -->
+                                        <TextBlock x:Name="ItemLabel"
+                                                   Style="{StaticResource RailLabelTextBlockStyle}"
+                                                   Text="{TemplateBinding Content}"
+                                                   Width="56"
+                                                   FontSize="12"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxLines="1"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
                             </ControlTemplate>
@@ -456,12 +535,16 @@
             </Border>
         </NavigationView>
 
-            <!-- Shared selection pill at the rail's left edge. Margin-driven moves
-                 are glide-animated; positioned from code-behind (UpdateNavPill). -->
+            <!-- Shared selection indicator: a thin accent pill riding the left edge
+                 of the selected item's plate. 4x18 with CornerRadius 2 is a full
+                 pill. It is one element rather than one-per-item so a selection
+                 change MOVES it: the RepositionThemeTransition below makes it glide
+                 between rows instead of snapping. Positioned from code-behind
+                 (UpdateNavPill), which runs on every layout pass. -->
             <Border
                 x:Name="NavPill"
-                Width="4"
-                Height="22"
+                Width="3"
+                Height="18"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
                 Background="{ThemeResource AccentFillColorDefaultBrush}"
@@ -522,6 +605,35 @@
 
                         <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
                                    Text="Do not close the app. Progress is shown above; Windhawk installs silently and the bundled KaliteOS mods are imported automatically." />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- VERIFICATION LOCK. Visible by default so the very first frame is already
+             covered (no 1s flash of content): code-behind collapses it when the
+             stamp is present, otherwise it stays and nothing inside is reachable.
+             Fully opaque, above everything (ZIndex 200). Generic copy only. -->
+        <Border x:Name="VerificationOverlay"
+                Grid.RowSpan="2"
+                Visibility="Visible"
+                Background="#FF080B08"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Canvas.ZIndex="200">
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="28">
+                    <StackPanel Spacing="16" HorizontalAlignment="Center">
+                        <FontIcon Glyph="&#xE72E;" FontSize="32" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Verification required" Style="{StaticResource KaliteSectionTitle}" TextAlignment="Center" HorizontalAlignment="Center" />
+                        <TextBlock Text="This toolkit only runs on KaliteOS."
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" FontSize="13" TextAlignment="Center" HorizontalAlignment="Center" />
+                        <Button Content="Exit" Click="VerificationExit_Click" HorizontalAlignment="Center" MinWidth="140" />
                     </StackPanel>
                 </Border>
             </Grid>

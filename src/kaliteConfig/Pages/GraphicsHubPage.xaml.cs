@@ -18,7 +18,14 @@ public sealed partial class GraphicsHubPage : Page
         this.InitializeComponent();
 
         ApplyVendorTabs();
-        ContentFrame.Navigate(typeof(GpuDriversPage));
+        // Begin parked on the first usable tab instead of forcing the Drivers page,
+        // which can throw during construction on some machines and take the window down.
+        var first = ViewSelector.MenuItems.OfType<NavigationViewItem>()
+            .FirstOrDefault(i => i.Visibility == Visibility.Visible);
+        if (first != null)
+            ViewSelector.SelectedItem = first;
+        else
+            ContentFrame.Navigate(typeof(GpuDriversPage));
     }
 
     /// <summary>

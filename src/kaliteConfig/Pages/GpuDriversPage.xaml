@@ -21,7 +21,6 @@
             <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="24" />
         </Style>
-
         <!-- Small icon tile -->
         <Style x:Key="IconTileStyle" TargetType="Border">
             <Setter Property="Width" Value="40" />
@@ -30,14 +29,12 @@
             <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
             <Setter Property="Padding" Value="9" />
         </Style>
-
         <!-- Status pill -->
+
         <Style x:Key="PillTextStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
-
-        <x:String x:Key="MutedForeground">{ThemeResource TextFillColorSecondaryBrush}</x:String>
     </Page.Resources>
 
     <Grid x:Name="RootGrid">

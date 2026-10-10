@@ -20,7 +20,11 @@
                  which defines Light/Dark/Default identically so the app looks the
                  same under any theme setting). The app forces ElementTheme.Dark in
                  code; these dictionaries exist so a light-mode system setting can
-                 never wash the UI out. -->
+                 never wash the UI out.
+                 NOTE: the merge must stay behind XamlControlsResources; if this line ever
+                 starts throwing ResourceDictionary.Source TypeConverter errors on launch,
+                 it usually means the merge Source got attached to the wrong element or
+                 the file stopped being reachable at the ms-appx:// URI. -->
 
             <!--
                 THE APP FONT, EVERYWHERE.

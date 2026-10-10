@@ -26,6 +26,12 @@
     <ResourceDictionary.ThemeDictionaries>
 
         <ResourceDictionary x:Key="Light">
+            <!-- MATTE CHROME SURFACE. The nav rail mask, the caption band and the
+                 compact pane brushes all paint from this pair, so the rail carries
+                 no literal hex - it stays a theme token like every other colour. -->
+            <Color x:Key="KaliteChromeSurfaceColor">#FF10150F</Color>
+            <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FF10150F" />
+
             <SolidColorBrush x:Key="TextFillColorPrimaryBrush"   Color="#F4F5F0" />
             <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#B5BDAE" />
             <SolidColorBrush x:Key="TextFillColorTertiaryBrush"  Color="#808A7A" />
@@ -71,13 +77,18 @@
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <!-- Accent: dark navy. The accent TEXT brush is a lighter tint of
-                 the same navy because it is used as a Foreground on the
-                 near-black cards - full-strength navy is unreadable there. -->
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush"   Color="#FF1B3A6B" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
+            <!-- Accent follows the OS: no Accent* overrides here so
+                 AccentFillColorDefault/Secondary/Tertiary + AccentTextFillColorPrimary
+                 fall through to XamlControlsResources, which tracks SystemAccentColor
+                 live (Settings > Personalization > Accent color). -->
+            <!--
+                The white-only nav rail icon accent that the selected-state
+                visuals in MainWindow.xaml expect. WinUI's built-in
+                ApplicationForegroundThemeBrush is a themed brush, but the
+                app's markup resolves it by the literal name AppForegroundColor,
+                so define that key here so {ThemeResource AppForegroundColor}
+                stops throwing at parse time on every build flavour. -->
+            <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -104,6 +115,9 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
+            <Color x:Key="KaliteChromeSurfaceColor">#FF10150F</Color>
+            <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FF10150F" />
+
             <!--
                 DIALOGS ARE TRUE BLACK TOO (Dark - the theme the app forces).
 
@@ -147,11 +161,9 @@
             <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAlt"   Color="#FF080B08" />
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
-            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" /><!-- Accent: dark navy (see the note on the first dictionary). -->
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF1B3A6B" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
+            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
+            <!-- Accent follows the OS (see note in Light dictionary): no overrides. -->
+            <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -171,6 +183,9 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Default">
+            <Color x:Key="KaliteChromeSurfaceColor">#FF10150F</Color>
+            <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FF10150F" />
+
             <SolidColorBrush x:Key="ContentDialogBackground" Color="#FF080B08" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark1" Color="#FF080B08" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark2" Color="#FF080B08" />
@@ -198,11 +213,9 @@
             <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAlt"   Color="#FF080B08" />
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
-            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" /><!-- Accent: dark navy (see the note on the first dictionary). -->
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF1B3A6B" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#701B3A6B" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="#381B3A6B" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF7FA6DC" />
+            <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
+            <!-- Accent follows the OS (see note in Light dictionary): no overrides. -->
+            <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>

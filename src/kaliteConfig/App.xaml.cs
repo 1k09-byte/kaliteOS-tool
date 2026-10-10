@@ -31,6 +31,12 @@ namespace kaliteConfig
         public static bool IsAdmin { get; private set; }
 
         /// <summary>
+        /// True when the KaliteOS system stamp is missing. MainWindow shows a
+        /// full-window lock screen in that case; nothing inside is reachable.
+        /// </summary>
+        public static bool VerificationFailed { get; private set; }
+
+        /// <summary>
         /// True when this launch came from login autostart (Run key --tray or
         /// the packaged startup task): the window stays hidden and the app
         /// lives in the notification-area tray until opened.
@@ -325,6 +331,34 @@ namespace kaliteConfig
         {
             try 
             {
+                // KaliteOS verification gate: computed once here, enforced by
+                // MainWindow as a full-window lock screen (nothing inside is
+                // visible or reachable). --dry-run bypasses it so dev machines
+                // without the stamp can still launch for testing. Background
+                // launches (--tray, --apply-*) exit silently so a login task
+                // never shows UI on an unstamped system.
+                VerificationFailed = !IsDryRun && !SystemVerificationService.IsVerified();
+                if (VerificationFailed)
+                {
+                    try
+                    {
+                        var cmdArgs = Environment.GetCommandLineArgs();
+                        bool background = cmdArgs.Any(a =>
+                            a.Equals("--tray", StringComparison.OrdinalIgnoreCase) ||
+                            a.StartsWith("--apply-", StringComparison.OrdinalIgnoreCase));
+                        if (background)
+                        {
+                            Environment.Exit(0);
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                        Environment.Exit(0);
+                        return;
+                    }
+                }
+
                 using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
                 {
                     currentProcess.PriorityClass = System.Diagnostics.ProcessPriorityClass.Idle;

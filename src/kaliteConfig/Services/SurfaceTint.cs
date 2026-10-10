@@ -87,8 +87,21 @@ internal static class SurfaceTint
     /// as they are now. Used after a theme switch: the theme rewrites the shared
     /// brushes with its own values, and blending against a stale (already tinted)
     /// base would compound the tint on every switch.
+    ///
+    /// The brushes in Application.Current.Resources are already mutated by every
+    /// prior Apply, so we must first restore each captured brush to its captured
+    /// theme colour before forgetting the capture - otherwise the next Apply would
+    /// capture an already-tinted colour as its new "theme" base and blend the tint
+    /// on top of itself again.
     /// </summary>
-    public static void ResetCapture() => Base.Clear();
+    public static void ResetCapture()
+    {
+        // Restore every captured brush to the theme value we captured the first
+        // time we saw it, THEN forget the captures. That leaves the shared brushes
+        // at their real theme values for the next Apply.
+        Reset();
+        Base.Clear();
+    }
     /// <summary>Restores every captured brush to its theme colour.</summary>
     public static void Reset()
     {

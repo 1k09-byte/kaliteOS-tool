@@ -37,6 +37,15 @@
     <Content Include="Assets\**\*">
        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Themes/KaliteTheme.xaml is merged at runtime via App.xaml's
+         ResourceDictionary.Source = ms-appx:///Themes/KaliteTheme.xaml.
+         It must go through the WinUI XAML build step (as a Page) so the XAML
+         compiler produces the compiled resource the ResourceDictionary.Source
+         loader expects; treating it as a copied Content file leaves the loader
+         unable to locate it at ms-appx:// even when the file is physically
+         present in the package. The SDK already includes Themes\KaliteTheme.xaml
+         as a Page by default, so do NOT re-include it; only keep it out of the
+         Content/Page-remove overrides that were tried before. -->
     <!-- Scratch/vendor drops (e.g. Assets\_temp\node_modules) must never be
          indexed as PRI resources (PRI249 bogus-qualifier warnings) nor
          shipped inside the installer. -->
@@ -46,6 +55,23 @@
     <EmbeddedResource Remove="tools\**\*" />
     <None Remove="tools\**\*" />
   </ItemGroup>
+
+  <!-- Post-build: copy the compiled KaliteTheme .xbf into the app package
+       so the ms-appx:///Themes/KaliteTheme.xaml ResourceDictionary.Source
+       merge in App.xaml can resolve at launch. WinUI's ResourceDictionary
+       loader for ms-appx:// expects a compiled resource (XBF) for a Page
+       XAML, not a loose .xaml file, so copy the compiler's output next to the
+       exe. -->
+  <Target Name="CopyKaliteThemeXamlToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <_KaliteThemeXbf Include="$(IntermediateOutputPath)Themes\KaliteTheme.xbf"
+                        Condition="Exists('$(IntermediateOutputPath)Themes\KaliteTheme.xbf')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_KaliteThemeXbf)"
+          DestinationFolder="$(TargetDir)Themes"
+          SkipUnchangedFiles="true"
+          Condition="@(_KaliteThemeXbf) != ''" />
+  </Target>
 
   <ItemGroup>
     <None Remove="build.log" />
@@ -212,4 +238,5 @@
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
   </PropertyGroup>
+
 </Project>

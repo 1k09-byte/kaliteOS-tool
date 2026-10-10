@@ -16,6 +16,9 @@ using kaliteConfig.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using System.Linq;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace kaliteConfig.Pages
 {
@@ -181,6 +184,73 @@ namespace kaliteConfig.Pages
             try { TintStrength.Value = 0; }
             finally { _tintReady = true; }
             RefreshTintVisuals();
+        }
+
+        // ── background image ────────────────────────────────────────────────────────
+
+        private bool _bgReady;
+        private string _savedStretch = "Auto";
+        private string _currentPath = string.Empty;
+
+        private async void BgPick_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new Windows.Storage.Pickers.FileOpenPicker
+            {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
+                FileTypeFilter = { new(".png"), new(".jpg"), new(".jpeg"), new(".bmp"), new(".gif"), new(".webp") },
+            };
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+            string path = file.Path;
+            if (string.IsNullOrWhiteSpace(path)) return;
+
+            BackgroundImageService.Save(path, (byte)BgOpacity.Value, _savedStretch);
+            (App.MainWindow as MainWindow)?.ApplyBackgroundImage();
+
+            _bgReady = false;
+            try { BgImageName.Text = System.IO.Path.GetFileName(path); _currentPath = path; }
+            finally { _bgReady = true; }
+        }
+
+        private void BgRemove_Click(object sender, RoutedEventArgs e)
+        {
+            BackgroundImageService.Clear();
+            (App.MainWindow as MainWindow)?.ApplyBackgroundImage();
+
+            _bgReady = false;
+            try
+            {
+                BgImageName.Text = "No image chosen";
+                _currentPath = string.Empty;
+                if (BgStretch.Items.Cast<ComboBoxItem>().Any(i => (string?)i.Tag == "Auto"))
+                    BgStretch.SelectedItem = BgStretch.Items.Cast<ComboBoxItem>().First(i => (string?)i.Tag == "Auto");
+                BgOpacity.Value = 80;
+                _savedStretch = "Auto";
+            }
+            finally { _bgReady = true; }
+        }
+
+        private void BgOpacity_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (!_bgReady) return;
+
+            byte newValue = (byte)Math.Clamp((int)e.NewValue, 0, 100);
+            BackgroundImageService.Save(_currentPath, newValue, _savedStretch);
+            BgOpacityText.Text = $"{newValue}%";
+        }
+
+        private void BgStretch_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
+        {
+            var item = BgStretch.SelectedItem as ComboBoxItem;
+            if (item == null) return;
+            string? tag = item.Tag as string;
+            if (string.IsNullOrWhiteSpace(tag)) return;
+
+            BackgroundImageService.Save(_currentPath, (byte)BgOpacity.Value, tag);
+            _savedStretch = tag;
+            (App.MainWindow as MainWindow)?.ApplyBackgroundImage();
         }
 
         private async void SettingsPage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

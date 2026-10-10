@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using kaliteConfig.Pages;
 using System;
 using System.Linq;
@@ -173,6 +174,7 @@ namespace kaliteConfig
             TopBarMask.Background = _titleMaskBrush;
             _backdropTintBrush = new SolidColorBrush();
             TintLayer.Background = _backdropTintBrush;
+            ApplyBackgroundImage();
             ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
 
             // Explicitly request Windows 11 rounded window corners (the green-check
@@ -350,14 +352,27 @@ namespace kaliteConfig
             // (SelectionChanged/SizeChanged) can compute against a stale layout
             // pass when maximizing/restoring, stranding the pill on the wrong item.
             NavShell.LayoutUpdated += (_, _) => UpdateNavPill();
-            var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
-                .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
-            if (appsItem != null)
-                NavView.SelectedItem = appsItem; // fires SelectionChanged -> navigates to Apps (installer)
-            else
-                ContentFrame.Navigate(typeof(InstallerPage));
+
+            // Lock state first: overlay defaults to Visible in XAML so the first
+            // frame is already covered; collapse it now when verified, before any
+            // navigation triggers entrance transitions.
+            EnforceVerificationLock();
+
+            // Default to the Apps (installer/packages/uninstaller) page on launch.
+            // Skipped entirely when locked: no page ever loads behind the overlay.
+            if (!App.VerificationFailed)
+            {
+                var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
+                    .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
+                if (appsItem != null)
+                    NavView.SelectedItem = appsItem;
+                else if (NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault() is NavigationViewItem first)
+                    NavView.SelectedItem = first;
+            }
+
             NavView.Loaded += async (_, _) => 
             {
+                if (App.VerificationFailed) return;
                 SuppressSidebarTooltips();
                 // Silent login start (tray): never pop a modal over a hidden
                 // window - admin status is also surfaced in Settings.
@@ -369,7 +384,8 @@ namespace kaliteConfig
             };
             // Window has no Loaded event (WinUI 3) - also schedule via Activated so auto-setup
             // is not missed if NavView is already loaded before we subscribe.
-            this.Activated += (_, _) => GuardedActivationAsync(TryRunKaliteOSAutoSetupAsync);
+            // Never scheduled when locked (TryRunKaliteOSAutoSetupAsync also guards).
+            this.Activated += (_, _) => { if (!App.VerificationFailed) GuardedActivationAsync(TryRunKaliteOSAutoSetupAsync); };
             SuppressSidebarTooltips();
         }
 
@@ -512,6 +528,124 @@ namespace kaliteConfig
 
 
 
+        // ── background image helpers ─────────────────────────────────────────────
+
+        /// <summary>Window width in physical pixels, if the window is available.
+        /// Falls back to null so the caller can use a safe default.
+        /// </summary>
+        private int? MaybeWindowPixelWidth()
+        {
+            try
+            {
+                if (AppWindow?.Size.Width > 0)
+                    return (int)AppWindow.Size.Width;
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>Window aspect (width/height) in physical pixels, if available.
+        /// </summary>
+        private double? MaybeWindowAspect()
+        {
+            try
+            {
+                if (AppWindow?.Size.Width > 0 && AppWindow?.Size.Height > 0)
+                    return (double)AppWindow.Size.Width / AppWindow.Size.Height;
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>Decoded aspect (width/height) of a BitmapImage, if its dimensions are
+        /// already populated. Returns null when the image has not decoded yet or the
+        /// dimensions are unavailable.
+        /// </summary>
+        private double? MaybeImageAspect(Microsoft.UI.Xaml.Media.Imaging.BitmapImage bmp)
+        {
+            try
+            {
+                if (bmp?.PixelWidth > 0 && bmp?.PixelHeight > 0)
+                    return (double)bmp.PixelWidth / bmp.PixelHeight;
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>
+        /// Applies the user's background-image preference (file path, opacity,
+        /// stretch) behind the tint layer but above the meteor field. When there
+        /// is no saved image, the layer is hidden and the meteor field shows
+        /// through.
+        ///
+        /// The image is decoded on the UI thread (BitmapImage has UI-thread
+        /// affinity). File I/O is async, but the decode + assignment happens here
+        /// because this method is called on the UI thread at startup and from
+        /// settings changes.
+        /// </summary>
+        public void ApplyBackgroundImage()
+        {
+            var pref = kaliteConfig.Services.BackgroundImageService.Load();
+            if (string.IsNullOrWhiteSpace(pref.Path))
+            {
+                BgImageLayer.Visibility = Visibility.Collapsed;
+                BgImage.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Best-effort: a missing or unreadable file is treated as "no image"
+            // rather than breaking the window.
+            if (!System.IO.File.Exists(pref.Path))
+            {
+                BgImageLayer.Visibility = Visibility.Collapsed;
+                BgImage.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            try
+            {
+                // Decode at screen resolution (full quality for display), capped so a
+                // 4K/ultrawide wallpaper cannot blow up memory. A width at or above the
+                // window's pixel width keeps the image crisp on the backdrop.
+                var winW = (int?)MaybeWindowPixelWidth();
+                var decodeW = winW.HasValue ? Math.Max(256, Math.Min(winW.Value, 2560)) : Math.Max(256, 1920);
+                var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+                bmp.DecodePixelWidth = decodeW;
+                bmp.UriSource = new Uri(pref.Path);
+
+                // Choose the best-looking fit when the user picked Auto. The rule is the
+                // standard "cover with no letterbox" behaviour: keep the image filling edge
+                // to edge, and prefer UniformToFill (cover) unless the image is so tall
+                // that cover would crop an unreasonable share of width, in which case fit
+                // inside (Uniform) and let side margins show (the meteor field shows through
+                // the margins, so this is intentional, not a defect).
+                var stretch = pref.Stretch;
+                if (stretch == "Auto")
+                {
+                    var imgAspect = (double?)MaybeImageAspect(bmp) ?? (double)decodeW / Math.Max(1, decodeW);
+                    var winAspect = (double?)MaybeWindowAspect() ?? (double)Math.Max(1, decodeW) / Math.Max(1, decodeW);
+                    stretch = (imgAspect >= winAspect) ? "UniformToFill" : "Uniform";
+                }
+
+                BgImage.Source = bmp;
+                BgImage.Stretch = stretch switch
+                {
+                    "None" => Microsoft.UI.Xaml.Media.Stretch.None,
+                    "Fill" => Microsoft.UI.Xaml.Media.Stretch.Fill,
+                    "UniformToFill" => Microsoft.UI.Xaml.Media.Stretch.UniformToFill,
+                    _ => Microsoft.UI.Xaml.Media.Stretch.Uniform,
+                };
+                BgImage.Opacity = pref.Opacity / 100.0;
+                BgImage.Visibility = Visibility.Visible;
+                BgImageLayer.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                BgImageLayer.Visibility = Visibility.Collapsed;
+                BgImage.Visibility = Visibility.Collapsed;
+            }
+        }
+
         /// <summary>
         /// Keeps the root background in sync with the material setting, and re-
         /// applies the tint after a theme rewrite. A theme switch replaces the
@@ -608,21 +742,36 @@ namespace kaliteConfig
             var pos = item.TransformToVisual(NavShell).TransformPoint(new Point(0, 0));
             double top = pos.Y + ((item.ActualHeight - NavPill.Height) / 2);
 
-            // Pill sits flush against the highlight box's start (left) edge line.
-            var box = FindDescendant<Border>(item, "BackgroundPill");
+            // The 3px pill aligns flush with the highlight's left edge; its
+            // 18px height remains centered in the 60px item cell.
+            const double pillInset = 0;
+
+            var box = FindDescendant<Border>(item, "ItemBody");
             if (box is null || box.ActualWidth <= 0)
             {
                 return;
             }
 
             var boxPos = box.TransformToVisual(NavShell).TransformPoint(new Point(0, 0));
-            double left = boxPos.X;
+            double left = boxPos.X + pillInset;
             if (Math.Abs(NavPill.Margin.Top - top) > 0.5 || Math.Abs(NavPill.Margin.Left - left) > 0.5)
             {
                 NavPill.Margin = new Thickness(left, top, 0, 0);
-            }
 
-            NavPill.Opacity = 1;
+                // RepositionThemeTransition slides the pill; this independent
+                // opacity animation softens its arrival without resizing cells.
+                var fade = new Storyboard();
+                var opacity = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 1,
+                    Duration = TimeSpan.FromMilliseconds(120),
+                };
+                Storyboard.SetTarget(opacity, NavPill);
+                Storyboard.SetTargetProperty(opacity, "Opacity");
+                fade.Children.Add(opacity);
+                fade.Begin();
+            }
         }
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -678,66 +827,7 @@ namespace kaliteConfig
                 }
 
                 UpdateNavPill(item);
-                PlaySelectPop(item);
             }
-        }
-
-        /// <summary>
-        /// Plays the selection effect on the rail icon. Driven from code (not a
-        /// VSM storyboard) so hovering can neither cancel nor retrigger it.
-        /// Crispness-first: transform scale/rotate re-rasterizes the glyph as a
-        /// bitmap mid-flight (blur), so the scale pop is kept small and the
-        /// effect is carried by an opacity flash (alpha-only, always sharp).
-        /// No-ops if the template isn't applied yet.
-        /// </summary>
-        private static void PlaySelectPop(NavigationViewItem item)
-        {
-            var presenter = FindDescendant<ContentPresenter>(item, "IconPresenter");
-            if (presenter?.RenderTransform is not TransformGroup group
-                || group.Children.Count < 1
-                || group.Children[0] is not ScaleTransform)
-            {
-                return;
-            }
-
-            var board = new Storyboard();
-            var duration = TimeSpan.FromMilliseconds(300);
-
-            DoubleAnimation Track(string property, double from, double to, double amplitude)
-            {
-                var anim = new DoubleAnimation
-                {
-                    From = from,
-                    To = to,
-                    Duration = duration,
-                    EasingFunction = new BackEase { Amplitude = amplitude, EasingMode = EasingMode.EaseOut },
-                };
-                Storyboard.SetTarget(anim, group.Children[0]);
-                Storyboard.SetTargetProperty(anim, property);
-                board.Children.Add(anim);
-                return anim;
-            }
-
-            Track("ScaleX", 0.8, 1, 1.4);
-            Track("ScaleY", 0.8, 1, 1.4);
-
-            // Opacity flash: alpha blending never re-rasterizes, stays razor sharp.
-            // FillBehavior Stop releases back to the Selected state's breathing
-            // loop once the flash finishes (otherwise this HoldEnd value would
-            // smother it).
-            var flash = new DoubleAnimation
-            {
-                From = 1,
-                To = 0.45,
-                Duration = TimeSpan.FromMilliseconds(150),
-                AutoReverse = true,
-                FillBehavior = FillBehavior.Stop,
-            };
-            Storyboard.SetTarget(flash, presenter);
-            Storyboard.SetTargetProperty(flash, "Opacity");
-            board.Children.Add(flash);
-
-            board.Begin();
         }
 
         private bool _kaliteOSAutoSetupRan;
@@ -750,6 +840,7 @@ namespace kaliteConfig
         /// </summary>
         private async Task TryRunKaliteOSAutoSetupAsync()
         {
+            if (App.VerificationFailed) return;
             if (_kaliteOSAutoSetupRan) return;
 
             int isInstalled;
@@ -891,6 +982,31 @@ namespace kaliteConfig
                 await Task.Delay(6000);
                 DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
             }
+        }
+
+        /// <summary>
+        /// Verification lock: overlay defaults to Visible in XAML so the first
+        /// frame is already covered. Collapse it only when verified; when locked
+        /// no page was ever navigated and auto-setup never runs.
+        /// Intentionally generic - it never names what is checked.
+        /// </summary>
+        private void EnforceVerificationLock()
+        {
+            if (!App.VerificationFailed)
+            {
+                VerificationOverlay.Visibility = Visibility.Collapsed;
+                return;
+            }
+            VerificationOverlay.Visibility = Visibility.Visible;
+            // Park content behind the lock so nothing is operable via keyboard.
+            try { NavView.IsEnabled = false; } catch { }
+            try { ContentFrame.IsEnabled = false; } catch { }
+        }
+
+        private void VerificationExit_Click(object sender, RoutedEventArgs e)
+        {
+            try { Application.Current.Exit(); } catch { }
+            try { Environment.Exit(0); } catch { }
         }
 
         private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement

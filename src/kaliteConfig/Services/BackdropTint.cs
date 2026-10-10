@@ -38,8 +38,27 @@ internal static class BackdropTint
     /// <summary>
     /// The app's matte chrome surface - the nav rail and the caption band paint
     /// this, so the rail reads as part of the tool instead of a black bar.
+    ///
+    /// The colour is defined once in the theme (MainWindow.xaml's
+    /// NavigationViewBackground), so this reads it back rather than carrying a
+    /// separate hard-coded copy. When the theme resource is missing for any
+    /// reason, fall back to the documented matte colour.
     /// </summary>
-    public static readonly (byte R, byte G, byte B) Matte = (0x10, 0x15, 0x0F);
+    public static (byte R, byte G, byte B) Matte
+    {
+        get
+        {
+            try
+            {
+                if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(
+                    "NavigationViewBackground", out var obj) &&
+                    obj is Microsoft.UI.Xaml.Media.SolidColorBrush brush)
+                    return (brush.Color.R, brush.Color.G, brush.Color.B);
+            }
+            catch { }
+            return (0x10, 0x15, 0x0F);
+        }
+    }
 
     /// <summary>
     /// Blends the tint over an opaque surface, the way the page area gets its

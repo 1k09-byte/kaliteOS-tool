@@ -144,7 +144,9 @@
                         <FontIcon Glyph="&#xE790;" />
                     </toolkit:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <!-- Swatch doubles as the colour button: what you see is what the window is painted with. -->
+                        <!-- Swatch doubles as the colour button: it shows the picked hue
+                             (what the ColorPicker shows), and the strength slider controls how
+                             strongly that hue is washed over the material. -->
                         <Button x:Name="TintColorButton"
                                 Width="52"
                                 Height="34"
@@ -208,6 +210,82 @@
                         <ComboBoxItem Content="Uncial Antiqua" Tag="UncialAntiqua" FontFamily="ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua" />
                         <ComboBoxItem Content="Cormorant Garamond" Tag="CormorantGaramond" FontFamily="ms-appx:///Assets/Fonts/CormorantGaramond-Regular.ttf#Cormorant Garamond" />
                     </ComboBox>
+                </toolkit:SettingsCard>
+
+                <!--
+                    Background image: a user-chosen picture painted between the animated
+                    meteor field and the backdrop tint, behind the page card. Opacity and
+                    stretch (fit) are user-controlled. Remove clears it back to the meteor
+                    field.
+                -->
+                <toolkit:SettingsCard
+                    Description="A picture behind everything, with a controllable strength and fit. None shows the animated backdrop."
+                    Header="Background image">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE91B;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="BgImageName"
+                                           Text="No image chosen"
+                                           FontSize="13"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="Choose an image file (PNG, JPG, BMP, GIF, WEBP)"
+                                           FontSize="11"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </StackPanel>
+                            <Button x:Name="BgPickButton"
+                                    Grid.Column="1"
+                                    Content="Choose…"
+                                    Click="BgPick_Click"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    MinWidth="84" />
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Stretch" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="BgStretch"
+                                          SelectionChanged="BgStretch_SelectionChanged"
+                                          Width="150"
+                                          Margin="0,2,0,0">
+                                    <ComboBoxItem Content="Auto" Tag="Auto" />
+                                    <ComboBoxItem Content="Uniform to fill" Tag="UniformToFill" />
+                                    <ComboBoxItem Content="Uniform" Tag="Uniform" />
+                                    <ComboBoxItem Content="Fill" Tag="Fill" />
+                                    <ComboBoxItem Content="None" Tag="None" />
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Opacity" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="44" />
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="BgOpacity"
+                                            Minimum="0" Maximum="100" Value="80"
+                                            ValueChanged="BgOpacity_ValueChanged"
+                                            Margin="0,2,0,0" />
+                                    <TextBlock Grid.Column="1"
+                                               x:Name="BgOpacityText"
+                                               Text="80%"
+                                               FontSize="11"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+
+                        <Button Content="Remove background image" Click="BgRemove_Click" />
+                    </StackPanel>
                 </toolkit:SettingsCard>
             </StackPanel>
         </ScrollViewer>
