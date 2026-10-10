@@ -67,3 +67,4 @@ test*.exe
 
 # Vendored tool archives (fetch on demand, don't commit blobs)
 *.zip
+/src/kaliteConfig/Assets/_imgcheck
