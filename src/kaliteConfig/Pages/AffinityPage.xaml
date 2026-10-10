@@ -361,18 +361,22 @@
                                 <TextBlock Text="{x:Bind ViewModel.ChangeCountText, Mode=OneWay}" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{x:Bind ViewModel.RestoreCommand}" IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}">
+                        <!-- Enabled when any device is off the OS defaults (or this session has
+                             tracked changes) - NOT by CanUndo. Tuning applied by
+                             an earlier run leaves an empty undo stack, and the
+                             button has to stay usable to clean that up. -->
+                        <Button Command="{x:Bind ViewModel.RestoreCommand}" IsEnabled="{x:Bind ViewModel.CanRestoreDefaults, Mode=OneWay}"
+                                ToolTipService.ToolTip="Set every device back to IrqPolicyMachineDefault with MSI Priority undefined, then restart them all.">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE777;" />
                                 <TextBlock Text="Restore" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{x:Bind ViewModel.RestartPendingCommand}" IsEnabled="{x:Bind ViewModel.RequiresRestart, Mode=OneWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE72C;" />
-                                <TextBlock Text="Restart devices" />
-                            </StackPanel>
-                        </Button>
+                        <!-- No "Restart devices" button: DevicePolicy / DevicePriority /
+                             the affinity mask are only read when a device starts, so every
+                             write path (Apply, Undo, Redo, Restore) restarts what it
+                             changed by itself. A second manual step is what made writes
+                             look like they had not worked. -->
                     </StackPanel>
                 </Border>
 

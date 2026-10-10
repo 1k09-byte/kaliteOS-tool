@@ -33,6 +33,9 @@ public class OptimizationSessionOrchestrator : IDisposable
     private OptimizationProfile _currentProfile = new();
     private readonly object _lock = new();
 
+    /// <summary>PIDs belonging to the game; the reactive path must never throttle them.</summary>
+    private readonly HashSet<int> _protectedPids = new();
+
     public OptimizationSessionState CurrentState => _state;
     public IEnumerable<ManagedProcessEntry> GetManagedProcesses() => _managed.Values.ToList();
 
@@ -44,13 +47,24 @@ public class OptimizationSessionOrchestrator : IDisposable
         _monitor.ContentionDetected += OnContentionDetected;
     }
 
-    public void StartSession(int gamePid, string gameName, OptimizationProfile profile)
+    /// <param name="protectedPids">The whole game family; name-based Exclusions alone are too coarse.</param>
+    public void StartSession(
+        int gamePid,
+        string gameName,
+        OptimizationProfile profile,
+        IEnumerable<int>? protectedPids = null)
     {
         lock (_lock)
         {
             if (_state.IsActive) return;
 
             _currentProfile = profile ?? new OptimizationProfile();
+            _protectedPids.Clear();
+            if (protectedPids != null)
+            {
+                foreach (int pid in protectedPids) _protectedPids.Add(pid);
+            }
+            _protectedPids.Add(gamePid);
             _state = new OptimizationSessionState
             {
                 IsActive = true,
@@ -109,6 +123,7 @@ public class OptimizationSessionOrchestrator : IDisposable
             _gameThreads.Clear();
             _managed.Clear();
             _hysteresisCounts.Clear();
+            _protectedPids.Clear();
             
             _state = new OptimizationSessionState { IsActive = false };
             StateChanged?.Invoke(this, EventArgs.Empty);
@@ -141,8 +156,9 @@ public class OptimizationSessionOrchestrator : IDisposable
                 int pid = kvp.Key;
                 double cpu = kvp.Value;
 
-                // Skip active game
-                if (pid == _state.ActiveGamePid) continue;
+                // The whole family, not just ActiveGamePid: comparing against one pid let a
+                // session throttle the game's own helpers.
+                if (_protectedPids.Contains(pid)) continue;
 
                 // Never throttle critical / protected / exempt processes or self.
                 string procName = GetProcessNameSafe(pid);

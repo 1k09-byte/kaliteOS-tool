@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace kaliteConfig.Controls;
@@ -98,6 +99,9 @@ public sealed partial class ThreadListDialog : ContentDialog
     private bool _loadingList;
     private bool _endArmed;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _cpuTimer;
+
+    /// <summary>Set while a load is in flight, so the CPU column timer stands down.</summary>
+    private volatile bool _busy;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
     private bool _idealUserPicked;
@@ -119,6 +123,7 @@ public sealed partial class ThreadListDialog : ContentDialog
         _cpuTimer.Interval = TimeSpan.FromSeconds(1);
         _cpuTimer.Tick += (_, _) =>
         {
+            if (_busy) return;
             foreach (var r in Rows)
                 try { r.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(r.Tid); } catch { }
         };
@@ -143,136 +148,89 @@ public sealed partial class ThreadListDialog : ContentDialog
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         => await LoadThreadsAsync();
 
-    /// <summary>
-    /// Fills in the per-row CPU placement: the affinity mask as readable CPU
-    /// numbers, and the thread's preferred (ideal) processor.
-    ///
-    /// Each read is independent and individually guarded, because a process can
-    /// allow a priority query while refusing an affinity one - a protected or
-    /// cross-session thread returns failure rather than faulting the whole list.
-    /// </summary>
-    private void ApplyCpuInfo(ThreadRow row, kaliteConfig.Native.SafeThreadHandle thread)
-    {
-        try
-        {
-            if (NativeMethods.Affinity.GetThreadGroupAffinity(thread, out var affinity))
-            {
-                int coreCount = Math.Max(1, Environment.ProcessorCount);
-                if (affinity.Mask == 0)
-                {
-                    // Zero is not a real mask; it means the thread is free to run
-                    // anywhere, which is what an all-ones mask means in practice.
-                    row.CpuText = $"all {coreCount}";
-                }
-                else
-                {
-                    var parts = new List<string>();
-                    for (int i = 0; i < 64; i++)
-                        if ((affinity.Mask & (1UL << i)) != 0) parts.Add(i.ToString());
-                    row.CpuText = parts.Count > 0 ? string.Join(", ", parts) : "none";
-                }
-            }
-            else row.CpuText = "unknown";
-        }
-        catch { row.CpuText = "unknown"; }
-
-        try
-        {
-            if (NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var ideal))
-            {
-                // Group 0xFF with number 0xFF is the documented "no preference"
-                // sentinel; saying "CPU 255" would be actively misleading.
-                row.IdealCpuText = (ideal.Group == 0xFF && ideal.Number == 0xFF)
-                    ? "none (scheduler picks)"
-                    : $"CPU {ideal.Number}" + (ideal.Group != 0 ? $" (group {ideal.Group})" : "");
-            }
-        }
-        catch { row.IdealCpuText = null; }
-    }
+    /// <summary>Load ownership token, so a Refresh mid-pass supersedes the older load.</summary>
+    private int _loadGeneration;
+    private CancellationTokenSource? _loadCts;
 
     private async Task LoadThreadsAsync()
     {
-        // Suppress the row CheckBox handlers for the whole rebuild: Rows.Clear()
-        // plus re-add recycles every container, and each rebind fires
-        // Checked/Unchecked. See _loadingList.
-        _loadingList = true;
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _loadCts = cts;
+        var token = cts.Token;
+        int generation = ++_loadGeneration;
+        _busy = true;
+
+        // Spinner for the whole pass, so the blank query reads as work in progress.
+        SetLoading(true);
+        EditorStatus("Loading threads…", false);
         try
         {
-            Rows.Clear();
-            SelectRow(null);
-            EditorStatus("Loading threads…", false);
+            // Rows.Clear() plus re-add recycles every container and each rebind fires
+            // the CheckBox handlers; see _loadingList.
+            _loadingList = true;
             try
             {
-                // One pass over the thread list for the CPU-time figures, rather
-                // than per row: Process.Threads materialises every thread on each
-                // access, so reading it inside the loop is quadratic and is
-                // painful on a process with hundreds of threads.
-                double parentCpuSeconds = 0;
-                var cpuSecondsByTid = new Dictionary<int, double>();
-                try
-                {
-                    using var proc = System.Diagnostics.Process.GetProcessById(_pid);
-                    foreach (System.Diagnostics.ProcessThread pt in proc.Threads)
-                    {
-                        double s = pt.TotalProcessorTime.TotalSeconds;
-                        cpuSecondsByTid[pt.Id] = s;
-                        parentCpuSeconds += s;
-                    }
-                }
-                catch { /* the per-row figures just stay blank */ }
+                Rows.Clear();
+                SelectRow(null);
 
-                var threads = await Services.ThreadQueryService.ListThreadsAsync(_pid);
+                // One background pass for every column, from one handle per thread.
+                var details = await Services.ThreadQueryService.ListThreadsDetailedAsync(_pid);
+
+                // The query itself is not cancellable, so check ownership before
+                // touching any UI.
+                if (token.IsCancellationRequested || generation != _loadGeneration) return;
+
+                double parentCpuSeconds = 0;
+                foreach (var d in details) parentCpuSeconds += d.CpuSeconds;
+
+                var suppressed = Services.BoostPreferenceService.Instance;
+
                 // Named threads pin to the top (then TID order); unnamed follow.
-                foreach (var t in threads
+                foreach (var t in details
                     .OrderByDescending(t => !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)")
                     .ThenBy(t => t.Tid))
                 {
+                    if (token.IsCancellationRequested || generation != _loadGeneration) return;
+
                     bool named = !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)";
                     var row = new ThreadRow
                     {
                         Tid = t.Tid,
-                        Base = t.Base,
                         Description = t.Description,
                         StartAddress = t.StartAddress,
-                        CurrentText = t.RelativeText,
                         IsNamed = named,
                         ProcessName = _processName,
+                        // Unopenable threads stay non-editable; unreadable columns
+                        // fall back to their placeholders.
+                        CanEdit = t.PriorityLevel.HasValue,
                     };
 
-                    try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)t.Tid); } catch { row.BoostAllowed = true; }
-                    if (Services.BoostPreferenceService.Instance.IsSuppressed(_processName, t.Tid, t.Description, t.StartAddress))
-                        row.BoostAllowed = false;
-                    try
+                    if (t.PriorityLevel is int level)
                     {
-                        using var h = NativeMethods.Handles.OpenThread(
-                            NativeMethods.ThreadAccess.QueryInformation, false, (uint)t.Tid);
-                        if (h.IsInvalid) throw new UnauthorizedAccessException();
-                        int level = NativeMethods.Priority.GetThreadPriority(h);
                         row.CurrentLevel = level;
                         row.CurrentText = DescribePriority(level);
-
-                        // Which CPUs this thread may use, and which one it would
-                        // prefer. Both are read here rather than in the editor so the
-                        // list answers "what is running where" without a click.
-                        ApplyCpuInfo(row, h);
-
-                        if (cpuSecondsByTid.TryGetValue(t.Tid, out double secs))
-                        {
-                            row.CpuTimeText = secs < 60
-                                ? $"{secs:0.0}s"
-                                : secs < 3600 ? $"{secs / 60:0}m {secs % 60:0}s"
-                                : $"{secs / 3600:0}h {(secs % 3600) / 60:0}m";
-                            if (parentCpuSeconds > 0)
-                                row.CpuShare = Math.Round(100.0 * secs / parentCpuSeconds, 1);
-                        }
                     }
-                    catch
-                    {
-                        row.CanEdit = false;
-                    }
+                    else row.CurrentText = "-";
+
+                    row.BoostAllowed = t.BoostAllowed ?? true;
+                    if (suppressed.IsSuppressed(_processName, t.Tid, t.Description, t.StartAddress))
+                        row.BoostAllowed = false;
+
+                    row.CpuText = FormatAffinity(t.AffinityMask);
+                    row.IdealCpuText = t.IdealCpu is int ic
+                        ? $"CPU {ic}" + (t.IdealGroup is int g && g != 0 ? $" (group {g})" : "")
+                        : "none (scheduler picks)";
+
+                    row.CpuTimeText = FormatCpuSeconds(t.CpuSeconds);
+                    if (parentCpuSeconds > 0)
+                        row.CpuShare = Math.Round(100.0 * t.CpuSeconds / parentCpuSeconds, 1);
+
                     try { row.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(row.Tid); } catch { }
                     Rows.Add(row);
                 }
+
                 if (Rows.Count == 0)
                 {
                     HeaderText.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
@@ -291,19 +249,59 @@ public sealed partial class ThreadListDialog : ContentDialog
                 HeaderText.Text = "Failed to read threads.";
                 EditorStatus(ex.Message, true);
             }
+            finally
+            {
+                // Released only after the last Rows.Add has been pumped through the binding.
+                _loadingList = false;
+            }
         }
         finally
         {
-            // Released only after the last Rows.Add has been pumped through the
-            // binding, otherwise a late rebind would still slip past the guard.
-            _loadingList = false;
-        }
+            // Only the current load may clear the spinner.
+            if (generation == _loadGeneration)
+            {
+                _busy = false;
+                SetLoading(false);
+                cts.Dispose();
+                if (ReferenceEquals(_loadCts, cts)) _loadCts = null;
 
-        // Default selection: tune the first thread without requiring a click.
-        // Refresh clears the selection (Rows.Clear drops it), so this also
-        // re-selects after Refresh list.
-        if (ThreadList.SelectedItem == null && Rows.Count > 0)
-            ThreadList.SelectedItem = Rows[0];
+                // Default to the first thread, after the spinner is down so the
+                // editor does not render behind the overlay.
+                if (ThreadList.SelectedItem == null && Rows.Count > 0)
+                    ThreadList.SelectedItem = Rows[0];
+            }
+        }
+    }
+
+    private void SetLoading(bool on)
+    {
+        try
+        {
+            LoadingRing.IsActive = on;
+            LoadingText.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            LoadingOverlay.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            RefreshButton.IsEnabled = !on;
+        }
+        catch { /* the dialog may be closing */ }
+    }
+
+    /// <summary>"12s", "3m 4s" or "1h 2m".</summary>
+    private static string FormatCpuSeconds(double secs) =>
+        secs < 60 ? $"{secs:0.0}s"
+        : secs < 3600 ? $"{secs / 60:0}m {secs % 60:0}s"
+        : $"{secs / 3600:0}h {(secs % 3600) / 60:0}m";
+
+    /// <summary>An affinity mask as "all 16", "0,2,4" or "none"; null → "unknown".</summary>
+    private static string FormatAffinity(ulong? mask)
+    {
+        if (mask is not ulong m) return "unknown";
+        int coreCount = Math.Max(1, Environment.ProcessorCount);
+        // Zero means the thread is free to run anywhere.
+        if (m == 0) return $"all {coreCount}";
+        var parts = new List<string>();
+        for (int i = 0; i < 64; i++)
+            if ((m & (1UL << i)) != 0) parts.Add(i.ToString());
+        return parts.Count > 0 ? string.Join(", ", parts) : "none";
     }
 
     private async void ThreadList_SelectionChanged(object sender, SelectionChangedEventArgs e)

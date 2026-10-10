@@ -48,15 +48,6 @@ namespace kaliteConfig.Pages
         public SettingsPage()
         {
             InitializeComponent();
-            // Real assembly version - never goes stale like the old hardcoded
-            // "Version 1.0.0" string did.
-            try
-            {
-                var v = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
-                if (v != null)
-                    AboutCard.Description = $"Version {v.ToString()} - View development team and application links";
-            }
-            catch { }
             Loaded += SettingsPage_Loaded;
 
             // App theme / Material are owned and persisted by DevWinUI's ThemeService:
@@ -292,11 +283,5 @@ namespace kaliteConfig.Pages
             }
         }
 
-        private async void AboutCard_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            await AboutDialog.ShowAsync();
         }
-
-
-    }
 }

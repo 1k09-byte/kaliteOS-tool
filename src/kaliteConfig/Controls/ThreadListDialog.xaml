@@ -28,7 +28,11 @@
             </Grid.RowDefinitions>
             <TextBlock x:Name="HeaderText" Grid.Row="0" Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-            <ListView x:Name="ThreadList" Grid.Row="1" MaxHeight="2000" SelectionMode="Single"
+            <!-- Loading state: a spinner over the (still empty) list, so a click
+                 on a process reads as work in progress rather than a hang. It
+                 sits on row 1, on top of the ListView, so the layout never jumps. -->
+            <Grid Grid.Row="1">
+                <ListView x:Name="ThreadList" MaxHeight="2000" SelectionMode="Single"
                       SelectionChanged="ThreadList_SelectionChanged">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
@@ -75,8 +79,19 @@
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
-            </ListView>
-            <Button Grid.Row="2" Content="Refresh list" Click="RefreshButton_Click" HorizontalAlignment="Left" />
+                </ListView>
+
+                <Grid x:Name="LoadingOverlay" Visibility="Collapsed" MinHeight="180"
+                      Background="Transparent">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                        <ProgressRing x:Name="LoadingRing" IsActive="False" Width="42" Height="42" />
+                        <TextBlock x:Name="LoadingText" Text="Loading threads…" Visibility="Collapsed"
+                                   HorizontalAlignment="Center" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+            <Button Grid.Row="2" x:Name="RefreshButton" Content="Refresh list" Click="RefreshButton_Click" HorizontalAlignment="Left" />
         </Grid>
 
         <!-- Per-thread editor -->
