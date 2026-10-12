@@ -53,19 +53,30 @@ internal static class SurfaceTint
     private static readonly Dictionary<string, Color> Base = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Which theme <see cref="Base"/> was captured from. Captures must only
+    /// ever be restored into the same theme's instances: writing dark-theme
+    /// originals into light-theme brushes is exactly how light mode ended up
+    /// with dark cards after a switch.
+    /// </summary>
+    private static bool? BaseLight;
+
+    /// <summary>
     /// Applies the tint to every surface brush. Strength 0 (or no tint) restores
     /// the theme values exactly as they were.
+    /// <paramref name="light"/> selects the Light or Dark theme instances -
+    /// plain root TryGetValue always serves the dark entry, so tinting without
+    /// it would paint off-screen brushes and leave light mode untouched.
     /// </summary>
-    public static void Apply((byte R, byte G, byte B, byte A) tint)
+    public static void Apply((byte R, byte G, byte B, byte A) tint, bool light)
     {
         double k = tint.A / (double)BackdropTint.MaxAlpha;
         if (k <= 0)
         {
-            Reset();
+            Reset(light);
             return;
         }
 
-        foreach (var pair in Brushes())
+        foreach (var pair in Brushes(light))
         {
             Color theme = pair.Value.Color;
             if (!Base.TryGetValue(pair.Key, out Color captured))
@@ -73,6 +84,7 @@ internal static class SurfaceTint
                 Base[pair.Key] = theme;
                 captured = theme;
             }
+            BaseLight = light;
 
             pair.Value.Color = Color.FromArgb(
                 captured.A,
@@ -94,40 +106,35 @@ internal static class SurfaceTint
     /// capture an already-tinted colour as its new "theme" base and blend the tint
     /// on top of itself again.
     /// </summary>
-    public static void ResetCapture()
+    public static void ResetCapture(bool light)
     {
-        // Restore every captured brush to the theme value we captured the first
-        // time we saw it, THEN forget the captures. That leaves the shared brushes
-        // at their real theme values for the next Apply.
-        Reset();
+        // Restore into the captures' OWN theme (the previous one - this runs
+        // before Apply re-captures for the new theme), THEN forget them. That
+        // leaves both themes' brushes at their real values for the next Apply.
+        Reset(BaseLight ?? light);
         Base.Clear();
+        BaseLight = null;
     }
     /// <summary>Restores every captured brush to its theme colour.</summary>
-    public static void Reset()
+    public static void Reset(bool light)
     {
         if (Base.Count == 0) return;
-        foreach (var pair in Brushes())
+        foreach (var pair in Brushes(light))
         {
             if (Base.TryGetValue(pair.Key, out Color theme))
                 pair.Value.Color = theme;
         }
     }
 
-    private static IEnumerable<KeyValuePair<string, SolidColorBrush>> Brushes()
+    private static IEnumerable<KeyValuePair<string, SolidColorBrush>> Brushes(bool light)
     {
-        var resources = Application.Current.Resources;
-        if (resources is null) yield break;
-
         foreach (var key in Keys)
         {
-            // Note: no pattern variable here. A is SolidColorBrush brush declared
-            // inside an iterator's condition is not considered definitely assigned
-            // at the yield (CS0165), so the value is taken through a local.
-            if (!resources.TryGetValue(key, out object? raw)) continue;
-            if (raw is not SolidColorBrush) continue;
-
-            var brush = (SolidColorBrush)raw;
-            yield return new KeyValuePair<string, SolidColorBrush>(key, brush);
+            // Theme-aware instances (the ones live elements resolve), never the
+            // dark Default entry a plain root lookup would serve. A missing key
+            // (e.g. a WinUI fill this theme does not define) is skipped.
+            if (Theming.ThemeHelper.ThemedBrush(key, light) is SolidColorBrush brush)
+                yield return new KeyValuePair<string, SolidColorBrush>(key, brush);
         }
     }
     private static byte Mix(byte theme, byte tint, double k)

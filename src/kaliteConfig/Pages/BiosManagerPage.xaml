@@ -223,8 +223,15 @@
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 TextWrapping="Wrap" />
 
-                            <!-- Metadata: muted, small - must not compete with the editor -->
-                            <Grid ColumnSpacing="10" RowSpacing="3" Margin="0,6,0,0">
+                            <!-- Raw register data (token/offset/width) is BIOS-junk for most people, so it
+                                 is collapsed by default. Still reachable - it is the only way
+                                 to hand-verify an offset before exporting. -->
+                            <Expander x:Name="MetaExpander" Margin="0,6,0,0">
+                                <Expander.Header>
+                                    <TextBlock Text="Technical details" Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                </Expander.Header>
+                                <Grid ColumnSpacing="10" RowSpacing="3" Margin="0,6,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="96" />
                                     <ColumnDefinition Width="*" />
@@ -243,7 +250,8 @@
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.SelectedRow.WidthValueText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="BIOS default" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.SelectedRow.BiosDefaultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
-                            </Grid>
+                                </Grid>
+                            </Expander>
 
                             <!-- The editor gets the most visual weight -->
                             <TextBlock Text="Value" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0" />
@@ -254,7 +262,7 @@
                                 x:Name="ValueCombo"
                                 ItemsSource="{x:Bind ViewModel.SelectedRow.Options, Mode=OneWay}"
                                 SelectedValuePath="RawToken"
-                                DisplayMemberPath="Display"
+                                DisplayMemberPath="FriendlyDisplay"
                                 SelectionChanged="ValueCombo_SelectionChanged"
                                 Visibility="{x:Bind ViewModel.EditingEnumeratedVisibility, Mode=OneWay}"
                                 HorizontalAlignment="Stretch"

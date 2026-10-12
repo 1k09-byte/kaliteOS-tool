@@ -22,7 +22,7 @@ public static class EssentialsBundle
 
     public static List<BundleItem> Items => new()
     {
-        new BundleItem { PackageId = "Mullvad.MullvadBrowser", SourceId = "winget", DisplayName = "Mullvad Browser" },
+        new BundleItem { PackageId = "MullvadVPN.MullvadBrowser", SourceId = "winget", DisplayName = "Mullvad Browser" },
         new BundleItem { PackageId = "voidtools.Everything", SourceId = "winget", DisplayName = "Everything" },
         new BundleItem { PackageId = "7zip.7zip", SourceId = "winget", DisplayName = "7-Zip" },
         new BundleItem { PackageId = "M2Team.NanaZip", SourceId = "winget", DisplayName = "NanaZip" },
@@ -30,14 +30,17 @@ public static class EssentialsBundle
         new BundleItem { PackageId = "Rufus.Rufus", SourceId = "winget", DisplayName = "Rufus" },
         new BundleItem { PackageId = "Ventoy.Ventoy", SourceId = "winget", DisplayName = "Ventoy" },
         new BundleItem { PackageId = "Microsoft.VisualStudioCode", SourceId = "winget", DisplayName = "Visual Studio Code" },
-        new BundleItem { PackageId = "Microsoft.VisualStudio.2022.Community", SourceId = "winget", DisplayName = "Visual Studio 2022 Community" },
+        // Microsoft.VisualStudio.2022.Community no longer resolves: the unversioned
+        // id is Visual Studio Community 2026 (18.x) now, so the 2022-era id is
+        // dead and a bundle seeding on it installs nothing.
+        new BundleItem { PackageId = "Microsoft.VisualStudio.Community", SourceId = "winget", DisplayName = "Visual Studio Community 2026" },
         new BundleItem { PackageId = "Git.Git", SourceId = "winget", DisplayName = "Git" },
-        new BundleItem { PackageId = "Python.Python.3", SourceId = "winget", DisplayName = "Python 3" },
+        new BundleItem { PackageId = "Python.Python.3.14", SourceId = "winget", DisplayName = "Python 3.14" },
         new BundleItem { PackageId = "OBSProject.OBSStudio", SourceId = "winget", DisplayName = "OBS Studio" },
         new BundleItem { PackageId = "MedalB.V.Medal", SourceId = "winget", DisplayName = "Medal" },
         new BundleItem { PackageId = "Bitwarden.Bitwarden", SourceId = "winget", DisplayName = "Bitwarden" },
         new BundleItem { PackageId = "WiresharkFoundation.Wireshark", SourceId = "winget", DisplayName = "Wireshark" },
-        new BundleItem { PackageId = "AnyDeskSoftwareGmbH.AnyDesk", SourceId = "winget", DisplayName = "AnyDesk" },
+        new BundleItem { PackageId = "AnyDesk.AnyDesk", SourceId = "winget", DisplayName = "AnyDesk" },
         new BundleItem { PackageId = "RustDesk.RustDesk", SourceId = "winget", DisplayName = "RustDesk" },
         new BundleItem { PackageId = "Froststrap.Froststrap", SourceId = "winget", DisplayName = "Froststrap" },
     };

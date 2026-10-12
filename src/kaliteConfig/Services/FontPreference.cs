@@ -17,8 +17,9 @@ namespace kaliteConfig.Services;
 /// puts it in front of every piece of text in the app.
 ///
 /// The face is baked into XAML at parse time in three places: the font
-/// resource keys (KaliteFontFamily, XamlAutoFontFamily,
-/// ContentControlThemeFontFamily), the explicit FontFamily setters inside the
+/// resource keys (KaliteFontFamily/KaliteDisplayFontFamily for display type,
+/// XamlAutoFontFamily/ContentControlThemeFontFamily/TextControlThemeFontFamily
+/// for body type), the explicit FontFamily setters inside the
 /// text styles (implicit TextBlock style, the redefined WinUI caption/body/
 /// title styles, the Kalite* styles, KaliteButton and its dependents), and
 /// FontFamily attributes in already-parsed windows. So choosing a font means:
@@ -41,7 +42,12 @@ namespace kaliteConfig.Services;
 /// with Source set" (0x8000FFFF). Root entries shadow merged ones for every
 /// later lookup, so shadowing at the root is both safe and sufficient.
 ///
-/// "Default" is the default WinUI face (Segoe UI). The three bundled fonts
+/// DISPLAY vs BODY: the saved "app font" is the DISPLAY face only (page
+/// titles, section titles, eyebrows via KaliteFontFamily +
+/// KaliteDisplayFontFamily). Body copy, controls and inputs always stay on
+/// Segoe UI Variable/Text - the wide display faces at 12-14px are what made
+/// the UI read as cluttered. So Apply writes the user's pick into the two
+/// display keys and pins the three body keys to Segoe.
 /// (Jim Nightshade, Uncial Antiqua, Cormorant Garamond) are opt-in; the
 /// preference is applied at startup from a saved value, and the shipped XAML
 /// face is converted on first Apply.
@@ -84,8 +90,6 @@ internal static class FontPreference
         "KaliteEyebrow",
         "KaliteButton",
         typeof(Button),             // implicit Button style (KaliteTheme.xaml)
-        "KaliteAccentButton",
-        "AccentButtonStyle",
         "KaliteSubtleButton",
         "KaliteIconButton",
     };
@@ -165,9 +169,19 @@ internal static class FontPreference
 
             // 1. The font keys, shadowed at the root so every later
             //    {StaticResource}/{ThemeResource} lookup resolves the new face.
+            //    Display keys follow the user's pick; body keys are pinned to
+            //    Segoe so controls/inputs/body copy never inherit a wide
+            //    display face (the clutter this overhaul removes).
+            //    TextControlThemeFontFamily is the one people forget: WinUI's
+            //    TextBox/ComboBox/NumericUpDown templates read it, NOT
+            //    ContentControlThemeFontFamily. It is not defined by this app,
+            //    so writing it simply adds it at the root.
             resources["KaliteFontFamily"] = after;
-            resources["XamlAutoFontFamily"] = after;
-            resources["ContentControlThemeFontFamily"] = after;
+            resources["KaliteDisplayFontFamily"] = after;
+            resources["KaliteBodyFontFamily"] = DefaultFace;
+            resources["XamlAutoFontFamily"] = DefaultFace;
+            resources["ContentControlThemeFontFamily"] = DefaultFace;
+            resources["TextControlThemeFontFamily"] = DefaultFace;
 
             // 2. The styles that baked the old face in while the theme loaded.
             Diag("Apply: rewriting styles");
@@ -209,8 +223,8 @@ internal static class FontPreference
                 cloneSet.Add(style);
 
         // ...plus everything that chains into one, transitively. A dependent
-        // without its own FontFamily setter (AccentButtonStyle, the implicit
-        // Button style) would otherwise keep pointing at the stale original.
+        // without its own FontFamily setter (the implicit Button style) would
+        // otherwise keep pointing at the stale original.
         bool grew = true;
         while (grew)
         {

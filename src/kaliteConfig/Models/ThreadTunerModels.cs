@@ -145,26 +145,6 @@ public partial class TunerProcessRow : ObservableObject
         ShowCounters ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 }
 
-public partial class ThreadDiagnosticRow : ObservableObject
-{
-    [ObservableProperty] public partial int Tid { get; set; }
-    [ObservableProperty] public partial string StartAddress { get; set; } = string.Empty;
-    /// <summary>Raw Win32 start address used for reliable module/path lookup.</summary>
-    [ObservableProperty] public partial long StartAddressValue { get; set; }
-    [ObservableProperty] public partial int Base { get; set; }
-    [ObservableProperty] public partial int Dynamic { get; set; }
-    [ObservableProperty] public partial string State { get; set; } = string.Empty;
-    [ObservableProperty] public partial string Description { get; set; } = string.Empty;
-    [ObservableProperty] public partial string Relative { get; set; } = string.Empty;
-    
-    [ObservableProperty] public partial string CpuText { get; set; } = "-";
-    [ObservableProperty] public partial string SwitchesText { get; set; } = "-";
-    [ObservableProperty] public partial string CyclesText { get; set; } = "-";
-    [ObservableProperty] public partial string AffinityText { get; set; } = "Unknown";
-    [ObservableProperty] public partial string BoostText { get; set; } = "Unknown";
-    [ObservableProperty] public partial string EfficiencyText { get; set; } = "Unknown";
-}
-
 /// <summary>
 /// One row in the Thread Tune tab: a single OS thread with a toggleable
 /// priority boost checkbox and the bold parent-process name.
@@ -179,19 +159,6 @@ public partial class ThreadBoostRow : ObservableObject
     [ObservableProperty] public partial bool IsProtected { get; set; }
     /// <summary>True while a SetBoostAsync call is in flight - suppresses re-entry.</summary>
     [ObservableProperty] public partial bool IsBusy { get; set; }
-}
-
-public partial class CoreCell : ObservableObject
-{
-    [ObservableProperty] public partial int Index { get; set; }
-    [ObservableProperty] public partial string Label { get; set; } = string.Empty;
-    [ObservableProperty] public partial bool IsChecked { get; set; }
-    [ObservableProperty] public partial bool IsIdeal { get; set; }
-    [ObservableProperty] public partial int Rank { get; set; }
-    [ObservableProperty] public partial bool IsEnabled { get; set; } = true;
-    [ObservableProperty] public partial ulong CpuSetId { get; set; }
-
-    public Microsoft.UI.Xaml.Visibility IdealVisibility => IsIdeal ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 }
 
 /// <summary>
@@ -537,9 +504,3 @@ public sealed partial class TunerProfile : ObservableObject
     }
 }
 
-public sealed class TunerLogEntry
-{
-    public DateTime Time { get; init; } = DateTime.Now;
-    public string Message { get; init; } = string.Empty;
-    public string TimeText => Time.ToString("HH:mm:ss");
-}

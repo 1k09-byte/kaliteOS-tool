@@ -194,7 +194,6 @@ public sealed partial class SnipOverlayWindow : Window
     private Point _lastCursorPx;  // last known cursor, bitmap pixels
     private int _monX, _monY, _monW, _monH; // captured monitor rect, screen pixels
     private bool _hudVisible;
-    private DateTime _lastHudLog = DateTime.MinValue;
     private readonly Services.SnipRegionLogic.ModifierHoldTracker _mods = new();
 
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out WinPoint lpPoint);
@@ -285,15 +284,21 @@ public sealed partial class SnipOverlayWindow : Window
             if (!fg) this.Activate();
         }
         catch (Exception ex) { OverlayLog("show ERR " + ex.Message); }
-        DrawCanvas.Invalidate();
         // Focus the root grid so keyboard shortcuts work (Escape to close, etc.)
         try { RootGrid.Focus(FocusState.Programmatic); } catch { }
         // Also try focusing the DrawCanvas as a fallback for keyboard input
         try { DrawCanvas?.Focus(FocusState.Programmatic); } catch { }
+        // Settings and the contextual row must be applied BEFORE the first paint.
+        // They used to run after DrawCanvas.Invalidate() above, so the first frame
+        // was drawn with default tools and then had to be invalidated again; the
+        // overlay appeared, blinked, and corrected itself a frame later.
         ApplySavedSettings();
         UpdateFormatRow();
         SetOverlayCursor(Microsoft.UI.Input.InputSystemCursorShape.Cross);
         UpdateHud("show");
+        // One invalidate, after the tool state is final, so the first frame the user
+        // sees is the finished overlay rather than a frame that has to be corrected.
+        DrawCanvas?.Invalidate();
 
         // Entrance polish ONLY. RootGrid must have a ScaleTransform before the
         // storyboard can target (RenderTransform).(ScaleTransform.ScaleX) -
@@ -302,33 +307,29 @@ public sealed partial class SnipOverlayWindow : Window
         // guarantees the overlay stays usable even if the animation fails:
         // Opacity is forced back to 1 so the frozen frame can never be left
         // invisible.
+        //
+        // Opacity only. This used to also animate ScaleX/ScaleY on RootGrid, but
+        // RootGrid is the root of a full-screen overlay whose child is a swap-chain
+        // CanvasControl showing the frozen desktop: scaling it forced the compositor
+        // to re-raster a whole monitor's worth of pixels on every one of those
+        // frames, which delayed the first real paint and read as a stutter on open.
+        // A compositor-driven opacity fade on the same element is a cheap property
+        // animation and gives the same "it appeared" feel.
         try
         {
             var content = (UIElement)RootGrid;
-            RootGrid.RenderTransformOrigin = new Point(0.5, 0.5);
-            RootGrid.RenderTransform = new ScaleTransform { ScaleX = 0.97, ScaleY = 0.97 };
             var sb = new Storyboard();
-            var fade = new DoubleAnimation { From = 0d, To = 1d, Duration = TimeSpan.FromMilliseconds(120) };
+            var fade = new DoubleAnimation { From = 0d, To = 1d, Duration = TimeSpan.FromMilliseconds(90) };
             fade.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
             Storyboard.SetTarget(fade, content);
             Storyboard.SetTargetProperty(fade, "Opacity");
             sb.Children.Add(fade);
-            var scale = new DoubleAnimation { From = 0.97d, To = 1d, Duration = TimeSpan.FromMilliseconds(120) };
-            scale.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-            Storyboard.SetTarget(scale, content);
-            Storyboard.SetTargetProperty(scale, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)");
-            sb.Children.Add(scale);
-            var scaleY = new DoubleAnimation { From = 0.97d, To = 1d, Duration = TimeSpan.FromMilliseconds(120) };
-            scaleY.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-            Storyboard.SetTarget(scaleY, content);
-            Storyboard.SetTargetProperty(scaleY, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)");
-            sb.Children.Add(scaleY);
             sb.Begin();
         }
         catch (Exception ex)
         {
             OverlayLog("entrance anim WARN " + ex.GetType().Name);
-            try { RootGrid.Opacity = 1; RootGrid.RenderTransform = null; } catch { }
+            try { RootGrid.Opacity = 1; } catch { }
         }
     }
 
@@ -350,6 +351,13 @@ public sealed partial class SnipOverlayWindow : Window
         HideTextEditor();
         if (SnipToolbar != null) SnipToolbar.Visibility = Visibility.Collapsed;
         if (ToolbarHost != null) ToolbarHost.Visibility = Visibility.Collapsed;
+        // Keep the PositionToolbar bookkeeping in step with the direct writes above,
+        // or the next capture would think the toolbar is already on screen and skip
+        // re-showing it.
+        _toolbarWasVisible = false;
+        _tbMeasured = false;
+        _lastTbLeft = double.NaN;
+        _lastTbTop = double.NaN;
     }
 
     // WinUI 3 exposes the cursor only as UIElement.ProtectedCursor (protected).
@@ -678,7 +686,7 @@ public sealed partial class SnipOverlayWindow : Window
                 args.DrawingSession.DrawImage(_frame, 0, 0);
             }
 
-            var dimColor = Microsoft.UI.ColorHelper.FromArgb(120, 0, 0, 0);
+            var dimColor = Microsoft.UI.ColorHelper.FromArgb(180, 0, 0, 0);
             float x = (float)Math.Min(_startPoint.X, _endPoint.X);
             float y = (float)Math.Min(_startPoint.Y, _endPoint.Y);
             float w = (float)Math.Abs(_startPoint.X - _endPoint.X);
@@ -1184,20 +1192,60 @@ public sealed partial class SnipOverlayWindow : Window
         return b.X >= x0 - 1 && b.Y >= y0 - 1 && b.X + b.Width <= x0 + w + 1 && b.Y + b.Height <= y0 + h + 1;
     }
 
+    // Cached measure of the toolbar, so a drag never has to force a layout pass.
+    // The toolbar's size only changes when FormatRow is shown/hidden or on first
+    // measure, so UpdateFormatRow invalidates this rather than every move re-measuring.
+    private double _tbW, _tbH;
+    private bool _tbMeasured;
+    // Last values written to the Canvas, so a move that does not change the
+    // toolbar's position costs nothing.
+    private double _lastTbLeft = double.NaN, _lastTbTop = double.NaN;
+    private bool _toolbarWasVisible;
+
+    /// <summary>Drops the cached toolbar size; the next PositionToolbar re-measures.</summary>
+    private void InvalidateToolbarMeasure() => _tbMeasured = false;
+
     private void PositionToolbar()
     {
         float x = (float)Math.Min(_startPoint.X, _endPoint.X);
         float y = (float)Math.Min(_startPoint.Y, _endPoint.Y);
         float w = (float)Math.Abs(_startPoint.X - _endPoint.X);
         float h = (float)Math.Abs(_startPoint.Y - _endPoint.Y);
-        if (w <= 0 || h <= 0) { ToolbarHost.Visibility = Visibility.Collapsed; return; }
+        if (w <= 0 || h <= 0)
+        {
+            // Setting Visibility to the value it already holds still invalidates the
+            // visual tree in WinUI, so only write it on an actual transition.
+            if (_toolbarWasVisible)
+            {
+                ToolbarHost.Visibility = Visibility.Collapsed;
+                _toolbarWasVisible = false;
+            }
+            _lastTbLeft = double.NaN;
+            return;
+        }
         if (_dpiScale <= 0) _dpiScale = 1.0;
 
-        ToolbarHost.Visibility = Visibility.Visible;
-        SnipToolbar.Visibility = Visibility.Visible;
-        ToolbarHost.UpdateLayout();
-        double tbW = ToolbarHost.ActualWidth > 0 ? ToolbarHost.ActualWidth : 560;
-        double tbH = ToolbarHost.ActualHeight > 0 ? ToolbarHost.ActualHeight : 80;
+        if (!_toolbarWasVisible)
+        {
+            ToolbarHost.Visibility = Visibility.Visible;
+            if (SnipToolbar.Visibility != Visibility.Visible)
+                SnipToolbar.Visibility = Visibility.Visible;
+            _toolbarWasVisible = true;
+            _tbMeasured = false;   // first time on screen: measure exactly once
+        }
+
+        // The old code called UpdateLayout() on every pointer move, forcing a full
+        // measure+arrange of the whole toolbar tree (25+ buttons, two flyouts, a
+        // slider and a ColorPicker) per mouse event. Once measured the size is
+        // stable, so only pay for it when something can actually have changed it.
+        if (!_tbMeasured)
+        {
+            ToolbarHost.UpdateLayout();
+            _tbW = ToolbarHost.ActualWidth > 0 ? ToolbarHost.ActualWidth : 560;
+            _tbH = ToolbarHost.ActualHeight > 0 ? ToolbarHost.ActualHeight : 80;
+            _tbMeasured = true;
+        }
+        double tbW = _tbW, tbH = _tbH;
 
         double left = x + w - tbW;
         double top;
@@ -1213,8 +1261,17 @@ public sealed partial class SnipOverlayWindow : Window
         left = Math.Max(8, Math.Min(left, _imgWidth - pxW - 8));
         top = Math.Max(8, Math.Min(top, _imgHeight - pxH - 8));
 
-        Canvas.SetLeft(ToolbarHost, left / _dpiScale);
-        Canvas.SetTop(ToolbarHost, top / _dpiScale);
+        double dipLeft = left / _dpiScale, dipTop = top / _dpiScale;
+        if (dipLeft != _lastTbLeft)
+        {
+            Canvas.SetLeft(ToolbarHost, dipLeft);
+            _lastTbLeft = dipLeft;
+        }
+        if (dipTop != _lastTbTop)
+        {
+            Canvas.SetTop(ToolbarHost, dipTop);
+            _lastTbTop = dipTop;
+        }
     }
 
     private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -1459,6 +1516,32 @@ public sealed partial class SnipOverlayWindow : Window
         catch (Exception ex) { OverlayLog($"PlaceOnMonitor ERR: {ex.Message}"); }
     }
 
+    /// <summary>Position of this overlay's monitor within the multi-monitor capture set.</summary>
+    public int MonitorIndex { get; set; }
+
+    /// <summary>Selects the whole captured monitor as the active region.</summary>
+    public void SelectFullscreen()
+    {
+        _startPoint = new Point(0, 0);
+        _endPoint = new Point(_imgWidth, _imgHeight);
+        _state = Services.SnipCaptureState.Selected;
+        PositionToolbar();
+        DrawCanvas.Invalidate();
+    }
+
+    /// <summary>Selects the whole monitor and copies it to the clipboard.</summary>
+    public void FullscreenCopy()
+    {
+        SelectFullscreen();
+        _ = CopySelectionToClipboardAsync();
+    }
+
+    /// <summary>Enter-picker entry point. Brings this overlay forward; the user then draws the region here.</summary>
+    public void ShowMonitorPicker()
+    {
+        Activate();
+    }
+
     private async void BtnSave_Click(object sender, RoutedEventArgs e)
     {
         byte[] cropped = GetCroppedPixels(out int w, out int h);
@@ -1487,9 +1570,6 @@ public sealed partial class SnipOverlayWindow : Window
         OverlayLog($"toast-suppressed [{title}] {content}");
     }
 
-    private static string EscapeXml(string s) =>
-        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&apos;");
-
     private void BtnTool_Click(object sender, RoutedEventArgs e)
     {
         foreach (var btn in ToolButtons) btn.IsChecked = false;
@@ -1516,6 +1596,9 @@ public sealed partial class SnipOverlayWindow : Window
             or ActiveTool.Ellipse or ActiveTool.Ink or ActiveTool.Highlight
             or ActiveTool.Text or ActiveTool.Number or ActiveTool.Spotlight;
         FormatRow.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        // Showing/hiding the contextual row changes the toolbar's height, so the
+        // cached measure is stale and the next PositionToolbar must re-measure.
+        InvalidateToolbarMeasure();
 
         bool fillApplies = _currentTool is ActiveTool.Rectangle or ActiveTool.Ellipse;
         BtnFillToggle.Visibility = fillApplies ? Visibility.Visible : Visibility.Collapsed;

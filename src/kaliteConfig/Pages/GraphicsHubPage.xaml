@@ -5,40 +5,36 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Required">
 
+    <!-- Tab strip: a SelectorBar, not a top NavigationView. The top NavView
+         always drew a faint divider rule under its tabs and its items stayed
+         small; the SelectorBar takes 18px semibold tabs with generous padding
+         and no rule underneath. Same tab-host pattern as InstallerPage. -->
     <Grid>
-        <NavigationView x:Name="ViewSelector" PaneDisplayMode="Top" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" SelectionChanged="ViewSelector_SelectionChanged"
-                        Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-            <NavigationView.Resources>
-                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
-                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
-                <SolidColorBrush x:Key="NavigationViewBackground" Color="Transparent" />
-                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
-            </NavigationView.Resources>
-            <NavigationView.MenuItems>
-                <NavigationViewItem Content="Drivers" Tag="Drivers" />
-                <NavigationViewItem Content="Overclock" Tag="Overclock" />
-                <!-- The two vendor tabs are named and shown per vendor: NVIDIA's only
-                     on a machine with an NVIDIA GPU, the Radeon one only with an AMD
-                     GPU, both on a machine that has both. Set in code-behind, which
-                     is also where the fallback content lives. -->
-                <NavigationViewItem x:Name="NvidiaTab" Content="NVIDIA" Tag="NVIDIA" />
-                <NavigationViewItem x:Name="RadeonTab" Content="Radeon" Tag="Radeon" />
-                <NavigationViewItem Content="Display" Tag="Display" />
-            </NavigationView.MenuItems>
-            <Frame x:Name="ContentFrame">
-                <Frame.ContentTransitions>
-                    <TransitionCollection>
-                        <NavigationThemeTransition>
-                            <NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                                <EntranceNavigationTransitionInfo />
-                            </NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                        </NavigationThemeTransition>
-                    </TransitionCollection>
-                </Frame.ContentTransitions>
-            </Frame>
-        </NavigationView>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <SelectorBar x:Name="ViewSelector" Grid.Row="0" Margin="40,28,40,4"
+                     SelectionChanged="ViewSelector_SelectionChanged">
+            <SelectorBarItem Tag="Drivers" Text="Drivers" IsSelected="True"
+                             FontSize="18" FontWeight="SemiBold" Padding="24,10" />
+            <SelectorBarItem Tag="Overclock" Text="Overclock"
+                             FontSize="18" FontWeight="SemiBold" Padding="24,10" />
+        </SelectorBar>
+
+        <Frame x:Name="ContentFrame" Grid.Row="1">
+            <Frame.ContentTransitions>
+                <TransitionCollection>
+                    <NavigationThemeTransition>
+                        <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                            <EntranceNavigationTransitionInfo />
+                        </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                    </NavigationThemeTransition>
+                </TransitionCollection>
+            </Frame.ContentTransitions>
+        </Frame>
     </Grid>
 </Page>

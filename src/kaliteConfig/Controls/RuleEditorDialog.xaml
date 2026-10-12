@@ -11,10 +11,9 @@
     PrimaryButtonClick="Dialog_PrimaryClick">
 
     <ContentDialog.PrimaryButtonStyle>
-        <!-- KaliteAccentButton, not WinUI's AccentButtonStyle: the stock style
-             is system blue, so the primary action on a black dialog was the one
-             blue element in the whole app. -->
-        <Style TargetType="Button" BasedOn="{StaticResource KaliteAccentButton}">
+        <!-- Stock WinUI accent button: the primary action follows the OS
+             accent like every other Windows dialog. -->
+        <Style TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="11,5" />
             <Setter Property="MinHeight" Value="32" />

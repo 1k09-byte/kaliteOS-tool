@@ -12,15 +12,6 @@ using System;
 
 namespace kaliteConfig.GpuOverclock.Models
 {
-    /// <summary>Identifies which hardware element a telemetry/control capability refers to.</summary>
-    public enum GpuControlKind
-    {
-        CoreClockOffset,
-        MemoryClockOffset,
-        PowerLimit,
-        TempLimit,
-        FanSpeed,
-    }
 
     /// <summary>
     /// Distinct failure modes the module recognizes. Each maps to a specific,

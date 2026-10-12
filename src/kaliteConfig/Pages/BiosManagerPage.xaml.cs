@@ -23,10 +23,11 @@ namespace kaliteConfig.Pages
 {
     public sealed partial class BiosManagerPage : Page
     {
-        public BiosManagerViewModel ViewModel { get; } = new();
+        public BiosManagerViewModel ViewModel { get; }
 
         public BiosManagerPage()
         {
+            ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<BiosManagerViewModel>(App.Services) ?? new();
             this.InitializeComponent();
             this.DataContext = ViewModel;
         }

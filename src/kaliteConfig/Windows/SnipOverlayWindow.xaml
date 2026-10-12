@@ -214,7 +214,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="Color" VerticalAlignment="Center" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <StackPanel x:Name="SwatchPanel" Orientation="Horizontal" Spacing="4"/>
+                        <StackPanel x:Name="SwatchPanel" Orientation="Horizontal" Spacing="4" Margin="8,0,8,0"/>
                         <Button x:Name="BtnCustomColor" Padding="4" Background="Transparent" BorderThickness="0"
                                 ToolTipService.ToolTip="Custom color" AutomationProperties.Name="Custom color">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xEF3C;" FontSize="14"/>

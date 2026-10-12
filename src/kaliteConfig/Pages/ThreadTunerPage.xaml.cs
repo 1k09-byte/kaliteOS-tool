@@ -27,7 +27,7 @@ namespace kaliteConfig.Pages
     public sealed partial class ThreadTunerPage : Page
     {
         public ThreadTunerViewModel ViewModel { get; }
-        private readonly kaliteConfig.Services.StartupService _startup = new();
+        private readonly global::kaliteConfig.Services.StartupService _startup;
         private bool _syncingStartupToggle;
         private TunerProcessRow? _contextProcessRow;
         private bool _activationAttached;
@@ -35,7 +35,8 @@ namespace kaliteConfig.Pages
         public ThreadTunerPage()
         {
             this.InitializeComponent();
-            this.ViewModel = new ThreadTunerViewModel();
+            this.ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.ThreadTunerViewModel>(App.Services) ?? new ViewModels.ThreadTunerViewModel();
+            _startup = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::kaliteConfig.Services.StartupService>(App.Services);
             this.DataContext = ViewModel;
             
             this.Loaded += ThreadTunerPage_Loaded;
@@ -411,39 +412,6 @@ namespace kaliteConfig.Pages
                 item.Text = string.Equals(label, current, StringComparison.OrdinalIgnoreCase)
                     ? $"{label}  ✓"
                     : label;
-            }
-        }
-
-        private async void Action_ShowSettings(object sender, RoutedEventArgs e)
-        {
-            if (GetContextProcessRow(sender) is not { } row) return;
-            try
-            {
-                ulong affinity = await App.Current.ProcessTuning.GetAffinityAsync(row.Pid);
-                bool boost = await App.Current.ProcessTuning.GetBoostAsync(row.Pid);
-                bool efficiency = await App.Current.ProcessTuning.GetEfficiencyAsync(row.Pid);
-
-                await new ContentDialog
-                {
-                    Title = $"Current settings - {row.Name}",
-                    Content = new TextBlock
-                    {
-                        Text = $"PID: {row.Pid}\nAffinity mask: 0x{affinity:X}\nCPUs: {FormatCpuMask(affinity)}\nPriority boost: {(boost ? "Enabled" : "Disabled")}\nEfficiency mode: {(efficiency ? "Enabled" : "Disabled")}",
-                        TextWrapping = TextWrapping.Wrap,
-                    },
-                    CloseButtonText = "Close",
-                    XamlRoot = this.XamlRoot,
-                }.ShowAsync();
-            }
-            catch (Exception ex)
-            {
-                await new ContentDialog
-                {
-                    Title = "Could not read settings",
-                    Content = new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap },
-                    CloseButtonText = "Close",
-                    XamlRoot = this.XamlRoot,
-                }.ShowAsync();
             }
         }
 

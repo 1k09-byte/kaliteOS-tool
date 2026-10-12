@@ -31,12 +31,12 @@
     },
     {
       "modId": "explorer-details-better-file-sizes",
-      "version": "1.5.1",
+      "version": "1.6",
       "name": "Better file sizes in Explorer details",
       "settings": {
         "calculateFolderSizes": "everything",
         "sortSizesMixFolders": 1,
-        "disableKbOnlySizes": 1,
+        "disableKbOnlySizes": "1",
         "useIecTerms": 0
       }
     },
@@ -80,25 +80,6 @@
       }
     },
     {
-      "modId": "taskbar-dock-animation",
-      "version": "1.9.2",
-      "name": "Taskbar Dock Animation",
-      "settings": {
-        "AnimationType": 0,
-        "MaxScale": 130,
-        "EffectRadius": 100,
-        "SpacingFactor": 50,
-        "BounceDelay": 500,
-        "FocusDuration": 150,
-        "MirrorForTopTaskbar": 0,
-        "DisableVerticalBounce": 0,
-        "TaskbarLabelsMode": 0,
-        "ExcludeSystemButtonsMode": 0,
-        "LerpSpeed": 60,
-        "DisableBounce": 0
-      }
-    },
-    {
       "modId": "taskbar-notification-icons-show-all",
       "version": "1.1",
       "name": "Always show all taskbar tray icons",
@@ -109,14 +90,17 @@
     {
       "modId": "taskbar-restart-explorer",
       "version": "1.0",
-      "name": "Taskbar Restart Explorer"
+      "name": "Taskbar Restart Explorer",
+      "config": {
+        "disabled": true
+      }
     },
     {
       "modId": "windows-11-file-explorer-styler",
       "version": "1.7",
       "name": "Windows 11 File Explorer Styler",
       "settings": {
-        "theme": "Translucent Explorer11",
+        "theme": "MicaBar",
         "backgroundTranslucentEffect": "",
         "backgroundTranslucentEffectRegion": "",
         "styleConstants[0]": "",
@@ -163,7 +147,7 @@
       "version": "1.10",
       "name": "Windows 11 Taskbar Styler",
       "settings": {
-        "theme": "Luminosity_variant_Dock",
+        "theme": "SimplyTransparent",
         "styleConstants[0]": "",
         "controlStyles[0].target": "",
         "controlStyles[0].styles[0]": "",

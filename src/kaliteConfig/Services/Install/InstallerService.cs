@@ -299,6 +299,125 @@ namespace kaliteConfig.Services
             return GetBrowserInstallDirectory(item) != null;
         }
 
+        /// <summary>Flags UpdateAvailable when the installed build is older than the catalog's LatestVersion.</summary>
+        public void DetectUpdate(BrowserInstallItem item)
+        {
+            item.UpdateAvailable = false;
+            if (string.IsNullOrWhiteSpace(item.LatestVersion)) return;
+            if (!IsBrowserInstalled(item)) return;
+
+            string? installed = ReadInstalledVersion(item);
+            if (string.IsNullOrWhiteSpace(installed)) return;
+
+            item.InstalledVersion = installed!;
+            if (CompareVersions(installed!, item.LatestVersion) < 0)
+            {
+                item.UpdateAvailable = true;
+                item.Status = BrowserInstallStatus.UpdateAvailable;
+            }
+        }
+
+        /// <summary>One winget call lists every upgradable package; ids are what the catalog matches on.</summary>
+        public async Task<HashSet<string>> GetUpgradableWingetIdsAsync(CancellationToken ct)
+        {
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "winget",
+                    Arguments = "upgrade --accept-source-agreements --disable-interactivity",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                };
+                using var process = System.Diagnostics.Process.Start(psi);
+                if (process is null) return ids;
+
+                string stdout = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync(ct);
+
+                // winget 1.29 has no --output json for upgrade, so parse the
+                // fixed-width table. The Id column's offset is taken from the
+                // HEADER, not by splitting on whitespace: names contain spaces
+                // ("7-Zip 26.03 (x64)") so a naive token split would read the
+                // version as the id.
+                int idColumn = -1;
+                foreach (string raw in stdout.Split('\n'))
+                {
+                    string line = raw.TrimEnd('\r');
+                    if (idColumn < 0)
+                    {
+                        int i = line.IndexOf("Id", StringComparison.Ordinal);
+                        if (i >= 0 && line.StartsWith("Name", StringComparison.OrdinalIgnoreCase)) idColumn = i;
+                        continue;
+                    }
+
+                    string rest = line.Length > idColumn ? line.Substring(idColumn).Trim() : string.Empty;
+                    if (rest.Length == 0) continue;
+                    int space = rest.IndexOf(' ');
+                    string id = (space >= 0 ? rest.Substring(0, space) : rest).Trim();
+                    if (!LooksLikeWingetId(id)) continue;
+                    ids.Add(id);
+                }
+            }
+            catch { /* no winget or cancellation: fall back to version compare only */ }
+            return ids;
+        }
+
+        /// <summary>A winget id is dotted and uses only id characters; this drops the table's trailing prose lines.</summary>
+        private static bool LooksLikeWingetId(string token)
+        {
+            if (!token.Contains('.') || token[0] == '.' || token[^1] == '.') return false;
+            foreach (char c in token)
+            {
+                bool ok = char.IsLetterOrDigit(c) || c == '.' || c == '_' || c == '-';
+                if (!ok) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Reads the FileVersion of the first InstalledCheckPath entry that exists.</summary>
+        private static string? ReadInstalledVersion(BrowserInstallItem item)
+        {
+            foreach (string raw in item.InstalledCheckPath.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string expanded = Environment.ExpandEnvironmentVariables(raw.Trim());
+                try
+                {
+                    if (File.Exists(expanded))
+                    {
+                        var info = FileVersionInfo.GetVersionInfo(expanded);
+                        if (!string.IsNullOrWhiteSpace(info.ProductVersion)) return info.ProductVersion.Trim();
+                        if (!string.IsNullOrWhiteSpace(info.FileVersion)) return info.FileVersion.Trim();
+                    }
+                }
+                catch { /* a locked or missing binary is simply "unknown" */ }
+            }
+            return null;
+        }
+
+        /// <summary>Dotted-numeric compare; any non-numeric segment sorts as 0 so junk never crashes the scan.</summary>
+        internal static int CompareVersions(string a, string b)
+        {
+            string[] pa = a.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            string[] pb = b.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < Math.Max(pa.Length, pb.Length); i++)
+            {
+                int na = ParseSegment(i < pa.Length ? pa[i] : "0");
+                int nb = ParseSegment(i < pb.Length ? pb[i] : "0");
+                if (na != nb) return na.CompareTo(nb);
+            }
+            return 0;
+        }
+
+        private static int ParseSegment(string s)
+        {
+            string digits = new string(s.TakeWhile(char.IsDigit).ToArray());
+            return int.TryParse(digits, out int v) ? v : 0;
+        }
+
         /// <summary>
         /// Returns Helium User Data directories for the current profile plus every local
         /// user's profile (elevated runs resolve %LOCALAPPDATA% to the admin profile, so
@@ -829,13 +948,26 @@ namespace kaliteConfig.Services
 
         public async Task InstallBrowserAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
         {
+            await RunInstallAsync(item, progress, downloadProgress, errorProgress, ct, isUpdate: false);
+        }
+
+        /// <summary>Reruns the install pipeline over an already-installed entry; vendor installers upgrade in place.</summary>
+        public async Task UpdateBrowserAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
+        {
+            await RunInstallAsync(item, progress, downloadProgress, errorProgress, ct, isUpdate: true);
+        }
+
+        private async Task RunInstallAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct, bool isUpdate)
+        {
             // 1. Check if already installed - still deploy extensions even if browser exists
-            if (IsBrowserInstalled(item))
+            if (IsBrowserInstalled(item) && !isUpdate)
             {
                 DeployExtensions(item);
                 progress.Report(BrowserInstallStatus.AlreadyInstalled);
                 return;
             }
+
+            if (isUpdate) progress.Report(BrowserInstallStatus.Downloading);
 
             // Portable tool (zip payload with no installer): download, extract to tools dir, post-configure
             if (!string.IsNullOrEmpty(item.ToolInstallDir))

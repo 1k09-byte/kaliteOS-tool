@@ -20,16 +20,11 @@ using System.Threading.Tasks;
 namespace kaliteConfig.ViewModels;
 
 /// <summary>
-/// Drives the consumer update banner: startup check against GitHub Releases,
+/// Drives the update banner: startup check against GitHub Releases,
 /// "Update now" flow (download with progress → launch the NSIS setup /S →
 /// exit so the installer can overwrite the files).
-/// Compiled only in the CONSUMER flavor.
 /// </summary>
-#if CONSUMER
 public sealed partial class UpdateViewModel : ObservableObject
-#else
-public sealed partial class UpdateViewModel : ObservableObject // full flavor: never instantiated
-#endif
 {
     private readonly UpdateCheckService _service = new();
     private CancellationTokenSource? _cts;
@@ -235,6 +230,17 @@ public sealed partial class UpdateViewModel : ObservableObject // full flavor: n
             string installerPath = await _service.DownloadAsync(_pending, progress, _cts.Token);
             var info = new FileInfo(installerPath);
             UpdateCheckService.LogDiag($"update: downloaded {info.Name} ({info.Length} bytes) for version {_pending.Version}");
+
+            // Downloading is always allowed - the bytes are already here by this
+            // point on purpose, so a blocked update still leaves the user with the
+            // file rather than nothing. Only LAUNCHING Setup is gated. Same policy
+            // as the installer's own InitializeSetup gate.
+            if (!kaliteConfig.Services.SystemVerificationService.IsVerified())
+            {
+                UpdateCheckService.LogDiag("update: not launching installer, OS gate");
+                StatusText = "kaliteConfig can only run on KaliteOS.";
+                return;
+            }
 
             StatusText = "Launching installer…";
             // Silent Inno upgrade: no Restart Manager (the tray swallows

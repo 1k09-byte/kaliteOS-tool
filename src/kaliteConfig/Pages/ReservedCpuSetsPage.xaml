@@ -68,7 +68,7 @@
                     Style="{StaticResource AccentButtonStyle}"
                     MinWidth="120"
                     Height="36"
-                    Margin="8,0,0,8"
+                    Margin="8,0,0,32"
                     VerticalAlignment="Bottom" />
         </Grid>
 

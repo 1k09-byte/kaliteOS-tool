@@ -102,6 +102,13 @@ namespace kaliteConfig.ViewModels
             UpdateVisibilityFilters();
         }
 
+        /// <summary>Updates stay visible even when installed apps are hidden; hiding an app that needs updating is the bug this avoids.</summary>
+        private bool ShouldShow(BrowserInstallItem item)
+        {
+            if (item.Status == BrowserInstallStatus.UpdateAvailable) return true;
+            return ShowInstalled || (item.Status != BrowserInstallStatus.AlreadyInstalled && item.Status != BrowserInstallStatus.Installed);
+        }
+
         private void UpdateVisibilityFilters()
         {
             // Gallery reference: ItemsRepeater bound to Visible* collections. Installed items
@@ -111,28 +118,28 @@ namespace kaliteConfig.ViewModels
             VisibleBrowsers.Clear();
             foreach (var b in Browsers)
             {
-                b.IsVisible = ShowInstalled || (b.Status != BrowserInstallStatus.AlreadyInstalled && b.Status != BrowserInstallStatus.Installed);
+                b.IsVisible = ShouldShow(b);
                 if (b.IsVisible) VisibleBrowsers.Add(b);
             }
 
             VisibleGameLaunchers.Clear();
             foreach (var gl in GameLaunchers)
             {
-                gl.IsVisible = ShowInstalled || (gl.Status != BrowserInstallStatus.AlreadyInstalled && gl.Status != BrowserInstallStatus.Installed);
+                gl.IsVisible = ShouldShow(gl);
                 if (gl.IsVisible) VisibleGameLaunchers.Add(gl);
             }
 
             VisibleSocialApps.Clear();
             foreach (var sa in SocialApps)
             {
-                sa.IsVisible = ShowInstalled || (sa.Status != BrowserInstallStatus.AlreadyInstalled && sa.Status != BrowserInstallStatus.Installed);
+                sa.IsVisible = ShouldShow(sa);
                 if (sa.IsVisible) VisibleSocialApps.Add(sa);
             }
 
             VisibleUtilities.Clear();
             foreach (var util in Utilities)
             {
-                util.IsVisible = ShowInstalled || (util.Status != BrowserInstallStatus.AlreadyInstalled && util.Status != BrowserInstallStatus.Installed);
+                util.IsVisible = ShouldShow(util);
                 if (util.IsVisible) VisibleUtilities.Add(util);
             }
 
@@ -148,6 +155,11 @@ namespace kaliteConfig.ViewModels
 
         [ObservableProperty]
         public partial string InstallStatusText { get; set; } = string.Empty;
+
+        [ObservableProperty]
+        public partial string UpdateStatusText { get; set; } = string.Empty;
+
+        public bool HasUpdates => Browsers.Concat(GameLaunchers).Concat(SocialApps).Concat(Utilities).Any(i => i.UpdateAvailable);
 
         public InstallerViewModel(IInstallerService installerService)
         {
@@ -498,8 +510,18 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Mullvad Browser",
                 ImagePath = "ms-appx:///Assets/mullvad-logo.png",
-                WingetId = "Mullvad.MullvadBrowser",
-                InstalledCheckPath = @"%PROGRAMFILES%\Mullvad Browser\mullvadbrowser.exe",
+                // Mullvad moved the package to its VPN publisher prefix: the old
+                // Mullvad.MullvadBrowser id no longer resolves ("No package found"),
+                // which is why the install failed at the winget step.
+                WingetId = "MullvadVPN.MullvadBrowser",
+                // 14+ installs per-user under %LocalAppData% (winget manifest:
+                // Scope user, DefaultInstallLocation %LocalAppData%\Mullvad\MullvadBrowser\Release)
+                // and the binary is hyphenated. Older builds used the machine-wide
+                // %ProgramFiles% folder and mullvadbrowser.exe. All four candidates
+                // are listed because the check is a semicolon list and the first hit
+                // wins - without the new ones a successful install still read as
+                // "not installed" and the entry offered to install again.
+                InstalledCheckPath = @"%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvad-browser.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvadbrowser.exe;%PROGRAMFILES%\Mullvad Browser\mullvad-browser.exe;%PROGRAMFILES%\Mullvad Browser\mullvadbrowser.exe",
                 Description = "Privacy-focused browser from Mullvad and the Tor Project, built to resist fingerprinting."
             };
 
@@ -703,7 +725,9 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "AnyDesk",
                 ImagePath = "ms-appx:///Assets/anydesk-logo.png",
-                WingetId = "AnyDeskSoftwareGmbH.AnyDesk",
+                // AnyDeskSoftwareGmbH.AnyDesk no longer resolves; the package
+                // moved to the AnyDesk.AnyDesk id.
+                WingetId = "AnyDesk.AnyDesk",
                 InstalledCheckPath = @"%PROGRAMFILES%\AnyDesk\AnyDesk.exe",
                 Description = "Fast remote desktop access."
             });
@@ -750,9 +774,58 @@ namespace kaliteConfig.ViewModels
 
             // Sync the initial UI filter state to match the model (Show installed by default – fixed disappearance bug)
             UpdateVisibilityFilters();
-            
+
+            _ = DetectUpdatesAsync();
+
             // Fix: prepopulate SelectedBrowser so ContentDialog x:Bind doesn't throw NRE on initialization.
             SelectedBrowser = VisibleBrowsers.FirstOrDefault();
+        }
+
+        /// <summary>Installed probe off-thread; the service call touches the filesystem.</summary>
+        private bool IsBrowserInstalledSafe(BrowserInstallItem item)
+        {
+            try { return _installerService.IsBrowserInstalled(item); }
+            catch { return false; }
+        }
+
+        /// <summary>Off-thread version scan; file-version reads across ~40 entries must not stall first paint.</summary>
+        private async Task DetectUpdatesAsync()
+        {
+            try
+            {
+                var all = Browsers.Concat(GameLaunchers).Concat(SocialApps).Concat(Utilities).ToList();
+                var upgradable = await _installerService.GetUpgradableWingetIdsAsync(CancellationToken.None);
+
+                var flagged = await Task.Run(() =>
+                {
+                    foreach (var item in all)
+                    {
+                        bool wingetSaysYes = !string.IsNullOrEmpty(item.WingetId)
+                                              && upgradable.Contains(item.WingetId);
+                        if (wingetSaysYes && IsBrowserInstalledSafe(item))
+                        {
+                            item.UpdateAvailable = true;
+                            item.Status = BrowserInstallStatus.UpdateAvailable;
+                        }
+                        else
+                        {
+                            _installerService.DetectUpdate(item);
+                        }
+                    }
+                    return all.Where(i => i.UpdateAvailable).ToList();
+                });
+
+                if (flagged.Count == 0) return;
+
+                var dq = kaliteConfig.App.MainWindow!.DispatcherQueue;
+                dq.TryEnqueue(() =>
+                {
+                    UpdateStatusText = $"{flagged.Count} update{(flagged.Count == 1 ? "" : "s")} available";
+                    UpdateVisibilityFilters();
+                    OnPropertyChanged(nameof(HasUpdates));
+                });
+            }
+            catch { /* a scan failure must never break the Apps page */ }
         }
 
         [RelayCommand]
@@ -799,6 +872,56 @@ namespace kaliteConfig.ViewModels
             IsInstalling = false;
             _cts.Dispose();
             _cts = null;
+        }
+
+        [RelayCommand]
+        private async Task UpdateBrowserAsync(BrowserInstallItem? item)
+        {
+            if (item is null) return;
+            SelectedBrowser = item;
+
+            _cts = new CancellationTokenSource();
+            IsInstalling = true;
+            InstallStatusText = "Updating...";
+
+            var progress = new Progress<BrowserInstallStatus>(status =>
+            {
+                item.Status = status;
+                InstallStatusText = item.StatusText;
+                if (status is BrowserInstallStatus.Installed or BrowserInstallStatus.Failed)
+                {
+                    IsInstalling = false;
+                    UpdateVisibilityFilters();
+                }
+            });
+            var downloadProgress = new Progress<double>(val =>
+            {
+                item.DownloadProgress = val;
+                InstallStatusText = $"Downloading... ({val:F1}%)";
+            });
+            var errorProgress = new Progress<string>(error => item.ErrorMessage = error);
+
+            try
+            {
+                await _installerService.UpdateBrowserAsync(item, progress, downloadProgress, errorProgress, _cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                item.ErrorMessage = "Cancelled";
+                item.Status = BrowserInstallStatus.UpdateAvailable;
+                UpdateVisibilityFilters();
+            }
+            catch (Exception ex)
+            {
+                item.ErrorMessage = ex.Message;
+                item.Status = BrowserInstallStatus.Failed;
+            }
+            finally
+            {
+                IsInstalling = false;
+                _cts.Dispose();
+                _cts = null;
+            }
         }
 
         [RelayCommand]

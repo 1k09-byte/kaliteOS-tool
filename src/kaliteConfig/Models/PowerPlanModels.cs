@@ -29,6 +29,8 @@ public sealed partial class PowerScheme : ObservableObject
     public partial bool IsBuiltIn { get; set; }
     
     public ObservableCollection<PowerSubgroup> Subgroups { get; } = new();
+
+    public ObservableCollection<PowerSubgroup> FilteredSubgroups { get; } = new();
 }
 
 public sealed partial class PowerSubgroup : ObservableObject
@@ -39,8 +41,14 @@ public sealed partial class PowerSubgroup : ObservableObject
     public partial string Name { get; set; } = string.Empty;
     [ObservableProperty]
     public partial string Description { get; set; } = string.Empty;
-    
+
+    [ObservableProperty]
+    public partial bool IsExpanded { get; set; } = false;
+
     public ObservableCollection<PowerSetting> Settings { get; } = new();
+
+    /// <summary>What the inner ItemsRepeater binds to; swapping this is far cheaper than toggling item Visibility.</summary>
+    public ObservableCollection<PowerSetting> FilteredSettings { get; } = new();
 }
 
 public sealed partial class PowerSetting : ObservableObject

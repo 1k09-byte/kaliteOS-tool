@@ -616,7 +616,11 @@ namespace kaliteConfig.ViewModels
                 item.Status = GpuDriverStatus.Failed;
             }
 
-            _ = dialog.ShowAsync();
+            // Same reason as the Apps install dialog: this one also keeps
+            // changing content while it is open (log, progress, status), so it
+            // is held centred for the whole install instead of being placed
+            // once and left to drift.
+            _ = Services.DialogCenterLock.KeepCenteredAsync(dialog);
 
             item.Status = GpuDriverStatus.Downloading;
             DialogStatus($"Downloading the official package ({item.LatestVersion}) from nvidia.com…");

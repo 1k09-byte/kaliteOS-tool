@@ -42,9 +42,7 @@
                 HorizontalAlignment="Stretch"
                 Spacing="{StaticResource SettingsCardSpacing}">
 
-                <!-- Consumer update banner (hidden unless a newer GitHub release exists).
-                     Wired in code-behind only for the CONSUMER flavor - the full
-                     flavor leaves Vm null and never checks, so this stays closed. -->
+                <!-- Update banner (hidden unless a newer GitHub release exists). -->
                 <InfoBar Title="{x:Bind Vm.BannerTitle, Mode=OneWay}"
                          Message="{x:Bind Vm.Notes, Mode=OneWay}"
                          IsOpen="{x:Bind Vm.IsAvailable, Mode=OneWay}"
@@ -255,7 +253,6 @@
                                           SelectionChanged="BgStretch_SelectionChanged"
                                           Width="150"
                                           Margin="0,2,0,0">
-                                    <ComboBoxItem Content="Auto" Tag="Auto" />
                                     <ComboBoxItem Content="Uniform to fill" Tag="UniformToFill" />
                                     <ComboBoxItem Content="Uniform" Tag="Uniform" />
                                     <ComboBoxItem Content="Fill" Tag="Fill" />

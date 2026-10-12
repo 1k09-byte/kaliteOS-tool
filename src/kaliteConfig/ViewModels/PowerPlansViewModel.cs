@@ -26,6 +26,88 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     public ObservableCollection<PowerScheme> Schemes { get; } = new();
 
     [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
+
+    partial void OnSearchTextChanged(string value) => ScheduleFilter();
+
+    partial void OnSelectedSchemeChanged(PowerScheme? value) => ApplySettingFilter();
+
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _filterTimer;
+
+    /// <summary>Debounces typing; filtering on every keystroke thrashed the nested ItemsRepeaters.</summary>
+    private void ScheduleFilter()
+    {
+        try
+        {
+            if (_uiDispatcher is null) { ApplySettingFilter(); return; }
+
+            _filterTimer?.Stop();
+            if (_filterTimer is null)
+            {
+                _filterTimer = _uiDispatcher.CreateTimer();
+                _filterTimer.Interval = TimeSpan.FromMilliseconds(250);
+                _filterTimer.IsRepeating = false;
+                _filterTimer.Tick += (_, _) => { _filterTimer.Stop(); ApplySettingFilter(); };
+            }
+            _filterTimer.Start();
+        }
+        catch
+        {
+            ApplySettingFilter();
+        }
+    }
+
+    /// <summary>Rebuilds the filtered collections; swapping ItemsSource beats toggling item Visibility, which re-laid-out the tree per item.</summary>
+    public void ApplySettingFilter()
+    {
+        try
+        {
+            string q = (SearchText ?? string.Empty).Trim();
+            PowerScheme? scheme = SelectedScheme;
+
+            scheme?.FilteredSubgroups.Clear();
+            if (scheme is not null)
+            {
+                foreach (PowerSubgroup group in scheme.Subgroups)
+                {
+                    bool groupMatches = q.Length == 0
+                        || group.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                        || (group.Description?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);
+
+                    group.FilteredSettings.Clear();
+                    foreach (PowerSetting setting in group.Settings)
+                    {
+                        bool match = groupMatches
+                            || setting.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                            || (setting.Description?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);
+                        if (match) group.FilteredSettings.Add(setting);
+                    }
+
+                    if (q.Length == 0 || group.FilteredSettings.Count > 0)
+                    {
+                        scheme.FilteredSubgroups.Add(group);
+                        // A match inside a COLLAPSED subgroup is invisible, so a
+                        // search used to show the group name and nothing else.
+                        if (q.Length > 0 && !group.IsExpanded) group.IsExpanded = true;
+                    }
+                }
+            }
+
+            OnPropertyChanged(nameof(HasNoSettingMatches));
+        }
+        catch
+        {
+            /* a filter pass must never take the page (and the app) down */
+        }
+    }
+
+    public bool HasNoSettingMatches =>
+        !string.IsNullOrWhiteSpace(SearchText)
+        && SelectedScheme is not null
+        && SelectedScheme.Subgroups.Count > 0
+        && SelectedScheme.FilteredSubgroups.Count == 0;
+
+    [ObservableProperty]
     public partial PowerScheme? SelectedScheme { get; set; }
 
     [ObservableProperty]
@@ -138,6 +220,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
             var schemes = await Task.Run(() => _service.GetAllSchemes(new Progress<string>(s => ReportStatus(s))));
             Schemes.Clear();
             foreach (var s in schemes) Schemes.Add(s);
+            ApplySettingFilter();
             if (SelectedScheme == null && Schemes.Count > 0)
                 SelectedScheme = Schemes.FirstOrDefault(s => s.IsActive) ?? Schemes.First();
         }
@@ -168,6 +251,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
             var schemes = await Task.Run(() => _service.GetAllSchemes(status));
             Schemes.Clear();
             foreach (var s in schemes) Schemes.Add(s);
+            ApplySettingFilter();
             
             if (SelectedScheme == null && Schemes.Count > 0)
                 SelectedScheme = Schemes.FirstOrDefault(s => s.IsActive) ?? Schemes.First();

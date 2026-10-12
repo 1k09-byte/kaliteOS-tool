@@ -130,6 +130,15 @@ public sealed class WindhawkImportService
         }
         status?.Report($"Backup looks valid: {expected.Count} mod(s), {backup.Mods.Count} listed in the file.");
 
+        // Mods the backup itself declares disabled ("config": {"disabled": true}).
+        // Windhawk imports them exactly that way, so "installed but disabled" is
+        // the requested end state for them, not a failed import - the bundled
+        // KaliteOS set ships taskbar-restart-explorer this way.
+        var declaredDisabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var mod in backup.Mods)
+            if (!string.IsNullOrWhiteSpace(mod.ModId) && mod.Config?.Disabled == true)
+                declaredDisabled.Add(mod.ModId);
+
         // 2. Apply. data import is the supported, complete path - it carries app
         //    settings, each mod's config and each mod's runtime settings.
         status?.Report("Applying the backup via Windhawk...");
@@ -163,6 +172,18 @@ public sealed class WindhawkImportService
 
             if (!state.Enabled)
             {
+                if (declaredDisabled.Contains(modId))
+                {
+                    // Intentionally off in the bundled config: imported fine.
+                    result.Imported++;
+                    result.Outcomes.Add(new WindhawkModImportOutcome(
+                        modId, true,
+                        state.Version is null
+                            ? "imported (disabled by the bundled config)"
+                            : $"v{state.Version} (disabled by the bundled config)"));
+                    continue;
+                }
+
                 result.Skipped++;
                 result.Outcomes.Add(new WindhawkModImportOutcome(
                     modId, false, "Installed but disabled - Windhawk will not apply it until it is enabled."));

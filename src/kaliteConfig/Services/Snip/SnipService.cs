@@ -19,7 +19,6 @@ public sealed class SnipService : IDisposable
 {
     private readonly SnipHotkeyService _hotkey = new();
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
-    private readonly MultiMonitorCaptureService _multiMonitorCapture = new();
     private kaliteConfig.Views.SnipOverlayWindow? _overlay;
     private List<kaliteConfig.Views.SnipOverlayWindow>? _overlays;
 
@@ -414,6 +413,59 @@ public sealed class SnipService : IDisposable
         });
     }
 
+    /// <summary>Monitor rects of the live capture session (sorted left-to-right),
+    /// for the overlay's Enter picker.</summary>
+    public static List<(int X, int Y, int W, int H)> MonitorAreas { get; private set; } = new();
+    /// <summary>Index into <see cref="MonitorAreas"/> holding the cursor when capture started.</summary>
+    public static int CursorMonitorIndex { get; private set; }
+
+    /// <summary>Shows the Enter picker on the cursor monitor's overlay and
+    /// focuses it: keyboard focus otherwise lands on whichever overlay won
+    /// the activation race (usually the secondary), stranding the picker on
+    /// the wrong screen.</summary>
+    public void ShowPickerOnCursorMonitor()
+    {
+        var ov = _overlays;
+        if (ov is null || ov.Count == 0) return;
+        int idx = (CursorMonitorIndex >= 0 && CursorMonitorIndex < ov.Count) ? CursorMonitorIndex : 0;
+        try
+        {
+            var target = ov[idx];
+            target.DispatcherQueue.TryEnqueue(() =>
+            {
+                try { target.Activate(); target.ShowMonitorPicker(); }
+                catch (Exception ex) { Log("cursor-picker ERR " + ex.Message); }
+            });
+        }
+        catch (Exception ex) { Log("cursor-picker ERR " + ex.Message); }
+    }
+
+    /// <summary>Arms a fullscreen region on the cursor monitor's overlay
+    /// (same focus race as the picker).</summary>
+    public void SelectFullscreenOnCursorMonitor()
+    {
+        var ov = _overlays;
+        if (ov is null || ov.Count == 0) return;
+        int idx = (CursorMonitorIndex >= 0 && CursorMonitorIndex < ov.Count) ? CursorMonitorIndex : 0;
+        try
+        {
+            var target = ov[idx];
+            target.DispatcherQueue.TryEnqueue(() =>
+            {
+                try { target.Activate(); target.SelectFullscreen(); }
+                catch (Exception ex) { Log("cursor-fullscreen ERR " + ex.Message); }
+            });
+        }
+        catch (Exception ex) { Log("cursor-fullscreen ERR " + ex.Message); }
+    }
+    public void CaptureMonitorFullscreen(int index)
+    {
+        var ov = _overlays;
+        if (ov is null || index < 0 || index >= ov.Count) return;
+        try { ov[index].FullscreenCopy(); }
+        catch (Exception ex) { Log("monitor-fullscreen ERR " + ex.Message); }
+    }
+
     /// <summary>The capture itself, run off the UI thread once old overlays are gone.</summary>
     private void BeginCapture()
     {
@@ -446,6 +498,9 @@ public sealed class SnipService : IDisposable
             }
             Log($"Cursor at ({cursor.X},{cursor.Y}) on monitor {cursorMonitorIndex}");
         }
+        // Published for the overlay Enter picker (rects + which holds the cursor).
+        MonitorAreas = areas;
+        CursorMonitorIndex = cursorMonitorIndex;
 
         // Every monitor is captured before any overlay is created and shown.
         //
@@ -459,26 +514,50 @@ public sealed class SnipService : IDisposable
             System.Threading.Tasks.Task.Run(() => SnipCaptureHelper.CaptureScreenSlice(area.X, area.Y, area.W, area.H))
         ).ToList();
 
-        System.Threading.Tasks.Task.Run(async () =>
+        // Fire-and-forget, but deliberately NOT wrapped in an extra Task.Run: the captures
+        // are already on the thread pool and WhenAll's continuation resumes on one too, so
+        // the outer Task.Run only added a thread hop and an unobserved Task nobody could
+        // ever await or catch.
+        _ = CreateOverlaysAsync(areas, captureTasks, foregroundApp, cursorMonitorIndex);
+    }
+
+    /// <summary>
+    /// Waits for every monitor's frozen frame, then creates and activates the overlays on
+    /// the UI thread. Extracted so the work has a real Task and its failures surface in
+    /// crash.log instead of vanishing into a discarded Task.
+    /// </summary>
+    private async System.Threading.Tasks.Task CreateOverlaysAsync(
+        List<(int X, int Y, int W, int H)> areas,
+        List<System.Threading.Tasks.Task<byte[]>> captureTasks,
+        string foregroundApp,
+        int cursorMonitorIndex)
+    {
+        try
         {
-            try
+            Log($"Starting capture for {areas.Count} monitors");
+            var pixelArrays = await System.Threading.Tasks.Task.WhenAll(captureTasks).ConfigureAwait(false);
+            Log($"Capture complete, creating {pixelArrays.Length} overlays");
+
+            if (_dispatcherQueue is null)
             {
-                Log($"Starting capture for {areas.Count} monitors");
-                var pixelArrays = await System.Threading.Tasks.Task.WhenAll(captureTasks);
-                Log($"Capture complete, creating {pixelArrays.Length} overlays");
-                
-                // Create overlays on UI thread
-                _dispatcherQueue?.TryEnqueue(() =>
+                LastCaptureError = "Cannot open the snip overlay: the UI dispatcher queue is not available.";
+                Log("ERROR no dispatcher queue; cannot create overlays");
+                return;
+            }
+
+            // Create overlays on UI thread
+            var queued = _dispatcherQueue.TryEnqueue(() =>
+            {
+                _overlays = new List<kaliteConfig.Views.SnipOverlayWindow>();
+                for (int i = 0; i < areas.Count; i++)
                 {
-                    _overlays = new List<kaliteConfig.Views.SnipOverlayWindow>();
-                    for (int i = 0; i < areas.Count; i++)
-                    {
                         var (x, y, w, h) = areas[i];
                         var pixels = pixelArrays[i];
                         Log($"Creating overlay {i}: pos=({x},{y}) size={w}x{h} pixels={pixels.Length}");
                         
                         var overlay = new kaliteConfig.Views.SnipOverlayWindow();
                         overlay.LoadBitmap(pixels, w, h);
+                        overlay.MonitorIndex = i;
                         overlay.SourceApp = foregroundApp;
                         overlay.PlaceOnMonitor(x, y, w, h);
                         overlay.Closed += (_, _) =>
@@ -505,6 +584,14 @@ public sealed class SnipService : IDisposable
                     LastCaptureError = "";
                     Log($"All {_overlays.Count} overlays created");
                 });
+
+                // A dropped enqueue means no overlay ever appears and the capture looks
+                // like it simply did not start, so say so instead of failing silently.
+                if (!queued)
+                {
+                    LastCaptureError = "Cannot open the snip overlay: the UI thread did not accept the request.";
+                    Log("ERROR TryEnqueue rejected overlay creation");
+                }
             }
             catch (Exception ex)
             {
@@ -512,7 +599,6 @@ public sealed class SnipService : IDisposable
                 Log($"Capture error: {ex}");
                 _dispatcherQueue?.TryEnqueue(() => CaptureFailed?.Invoke(LastCaptureError));
             }
-        });
     }
 
     /// <summary>Raised (on the UI thread) when a capture could not start, with the real reason.</summary>

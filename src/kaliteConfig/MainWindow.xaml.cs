@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using kaliteConfig.Pages;
+using kaliteConfig.Services.Navigation;
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -52,6 +53,20 @@ namespace kaliteConfig
         /// costs nothing: after the last attempt the timer is dropped and the
         /// next close/minimize will try again.
         /// </summary>
+        // Top inset for the full-height nav shell.
+        // The shell runs under the floating title bar.
+        // Starts the NavigationView below the caption strip.
+        // Driven by the TitleBar's real height.
+        private void SyncNavTopInset()
+        {
+            try
+            {
+                double top = titleBar?.ActualHeight ?? 0;
+                if (top > 0) NavView.Margin = new Thickness(0, top, 0, 0);
+            }
+            catch { }
+        }
+
         private void ScheduleTrayRetry()
         {
             const int maxAttempts = 12;
@@ -168,14 +183,44 @@ namespace kaliteConfig
             // The tint layer owns its own brush (never a shared theme resource),
             // so the saved colour can be swapped in without re-resolving
             // anything or fighting a theme-dictionary swap.
-            // The masks own their brushes too: their colours are derived from the
+            // The rail mask owns its brush too: its colour is derived from the
             // tint rather than hard-coded, so the tint reaches the chrome.
             NavRailMask.Background = _railMaskBrush;
-            TopBarMask.Background = _titleMaskBrush;
+            // Caption band brush (built here, not XAML: the colour has to
+            // track the tint-blended chrome, which only exists at runtime).
+            //
+            // BOTH stops carry the chrome colour. The wash used to ramp from
+            // chrome to fully transparent so there would be no seam under the
+            // caption strip, but with a backdrop material active (Acrylic /
+            // Mica render BEHIND the XAML) every transparent pixel in that band
+            // let the material show through, and the title bar grew a bright
+            // line across it - worst at the bottom edge of the band, exactly
+            // where the ramp reached zero alpha. It only showed up with no
+            // background image, because a chosen image is painted RowSpan=2
+            // and covers the material, hiding the leak.
+            //
+            // So the band is opaque chrome end to end, which is also what the
+            // nav rail does (NavRailMask). The band/page boundary underneath is
+            // a small dark step rather than a bright band across the title bar,
+            // and it matches the rail-to-page edge the app already ships.
+            _titleFadeBrush.StartPoint = new Windows.Foundation.Point(0, 0);
+            _titleFadeBrush.EndPoint = new Windows.Foundation.Point(0, 1);
+            _titleFadeBrush.GradientStops.Add(new GradientStop { Color = Microsoft.UI.Colors.Transparent, Offset = 0 });
+            _titleFadeBrush.GradientStops.Add(new GradientStop { Color = Microsoft.UI.Colors.Transparent, Offset = 1 });
+            TitleFade.Background = _titleFadeBrush;
             _backdropTintBrush = new SolidColorBrush();
             TintLayer.Background = _backdropTintBrush;
             ApplyBackgroundImage();
             ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
+            // Content spans the full window under the floating title bar:
+            // keep the nav shell clear of the caption-button strip using
+            // the TitleBar's measured height, not a guessed constant.
+            try
+            {
+                titleBar.SizeChanged += (_, _) => SyncNavTopInset();
+                SyncNavTopInset();
+            }
+            catch { }
 
             // Explicitly request Windows 11 rounded window corners (the green-check
             // shape in the reference) instead of inheriting whatever the default
@@ -364,10 +409,15 @@ namespace kaliteConfig
             {
                 var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
                     .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
+                // The launch-time selection is not a user navigation, so the rail
+                // pop is suppressed for it - the app would otherwise spring the
+                // first icon before the window is even on screen.
+                _suppressRailPop = true;
                 if (appsItem != null)
                     NavView.SelectedItem = appsItem;
                 else if (NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault() is NavigationViewItem first)
                     NavView.SelectedItem = first;
+                _suppressRailPop = false;
             }
 
             NavView.Loaded += async (_, _) => 
@@ -487,44 +537,94 @@ namespace kaliteConfig
         public void ApplyBackdropTint((byte R, byte G, byte B, byte A) tint)
         {
             if (_backdropTintBrush is null) return;
-
+            bool isLight = RootGrid.ActualTheme == ElementTheme.Light;
+            // Light-mode damper: the same tint strength that reads as a wash
+            // over dark matte floods near-white surfaces and takes over the
+            // whole theme. Scale the alpha down (40%) so light mode keeps a
+            // whisper of the hue. Everything downstream - overlay wash,
+            // SurfaceTint, rail washes - keys off this one value.
+            if (isLight)
+                tint = (tint.R, tint.G, tint.B, (byte)(tint.A * 0.4));
             _backdropTintBrush.Color = Windows.UI.Color.FromArgb(tint.A, tint.R, tint.G, tint.B);
+            // Surfaces first: this recolors the shared card brushes in place.
+            kaliteConfig.Services.SurfaceTint.Apply(tint, isLight);
 
-            // The chrome carries the same tint, blended into the matte surface it
-            // is painted with. Those surfaces stay opaque on purpose - the meteor
-            // backdrop drifts behind the whole window, and a translucent rail let
-            // its streaks smear through the icons and labels. Blending keeps them
-            // opaque while still taking the tint, so the colour reaches the rail
-            // and the caption band as well as the page field.
-            var chrome = kaliteConfig.Services.BackdropTint.Blended(
-                kaliteConfig.Services.BackdropTint.Matte, tint);
-            var chromeColor = Windows.UI.Color.FromArgb(255, chrome.R, chrome.G, chrome.B);
-
-            _railMaskBrush.Color = chromeColor;
-            _titleMaskBrush.Color = chromeColor;
-
+            // ONE COLOUR FOR THE WHOLE WINDOW.
+            //
+            // The page background brush is Transparent in this theme, so the
+            // page area shows the window's own backdrop - the material, the
+            // meteor field, or the chosen picture. The side nav and the title
+            // bar used to paint their own opaque colours on top of that, and
+            // because they were three different values (rail card colour,
+            // caption matte, page backdrop) the window read as a stack of
+            // boxes in mismatched shades rather than one surface.
+            //
+            // They now paint nothing at all: rail mask collapsed, pane fills
+            // clear, caption band clear. All three areas therefore show the
+            // SAME backdrop by construction - with a picture it reaches every
+            // edge, without one the meteor field drifts continuously through
+            // the nav and the caption strip - and there is no opaque band for
+            // the backdrop material to brighten into a line.
+            NavRailMask.Visibility = Visibility.Collapsed;
+            var paneColor = Microsoft.UI.Colors.Transparent;
+            if (_titleFadeBrush.GradientStops.Count >= 2)
+            {
+                _titleFadeBrush.GradientStops[0].Color = Microsoft.UI.Colors.Transparent;
+                _titleFadeBrush.GradientStops[1].Color = Microsoft.UI.Colors.Transparent;
+            }
             var rail = NavView.Resources;
             if (rail is null) return;
-
-            // The rail paints from the NavigationView's own fill rather than from
-            // the mask over it, so the tint has to reach the brushes it resolves.
+            // The rail paints from the NavigationView's own fill.
             if (rail["NavigationViewBackground"] is SolidColorBrush navBackground)
-                navBackground.Color = chromeColor;
+                navBackground.Color = paneColor;
             if (rail["NavigationViewDefaultPaneBackground"] is SolidColorBrush paneBackground)
-                paneBackground.Color = chromeColor;
+                paneBackground.Color = paneColor;
             if (rail["NavigationViewExpandedPaneBackground"] is SolidColorBrush expandedPaneBackground)
-                expandedPaneBackground.Color = chromeColor;
-
-            // The inside of the UI: the shared theme brushes every card, panel and
-            // hairline paints from are recoloured in place, so the tint reaches the
-            // surfaces themselves and not only the gaps between them. Text and
-            // icon colours are untouched - they are never a "surface".
-            kaliteConfig.Services.SurfaceTint.Apply(tint);
+                expandedPaneBackground.Color = paneColor;
+            // Item plates carry the tint hue, never a fixed ink. They live in the
+            // theme dictionaries now (per-theme Light/Dark washes), so the tint
+            // writes into application resources where ThemeResource lookups
+            // resolve - not into NavView.Resources, which no longer owns them.
+            // No tint chosen yet keeps the theme's neutral wash: white ink on
+            // dark, black ink on light (from RootGrid's live theme, never a
+            // hardcoded assumption about which theme is active).
+            byte ink = isLight ? (byte)0x00 : (byte)0xFF;
+            byte wr = tint.A > 0 ? tint.R : ink;
+            byte wg = tint.A > 0 ? tint.G : ink;
+            byte wb = tint.A > 0 ? tint.B : ink;
+            SetRailWash("RailHighlightSelectedBrush", 0x4D, wr, wg, wb);
+            SetRailWash("RailHighlightHoverBrush", 0x38, wr, wg, wb);
+            SetRailWash("RailHighlightPressedBrush", 0x2E, wr, wg, wb);
+        }
+        // Writes one rail wash brush into the ACTIVE theme's instance (the one
+        // live plates resolve). A plain root lookup would serve the dark entry
+        // and paint off-screen in light mode.
+        private void SetRailWash(string key, byte a, byte r, byte g, byte b)
+        {
+            try
+            {
+                var brush = kaliteConfig.Services.Theming.ThemeHelper.ThemedBrush(
+                    key, RootGrid.ActualTheme == ElementTheme.Light);
+                if (brush is not null)
+                    brush.Color = Windows.UI.Color.FromArgb(a, r, g, b);
+            }
+            catch { }
+        }
+        // Live card color from the ACTIVE theme's dictionary instance (the one
+        // live chrome resolves). Plain root TryGetValue serves the dark
+        // Default entry no matter the theme - the stuck-dark rail in light
+        // mode. Tint included: SurfaceTint mutates these instances in place.
+        private Windows.UI.Color CurrentCardColor()
+        {
+            var brush = kaliteConfig.Services.Theming.ThemeHelper.ThemedBrush(
+                "CardBackgroundFillColorDefaultBrush",
+                RootGrid.ActualTheme == ElementTheme.Light);
+            return brush?.Color ?? Windows.UI.Color.FromArgb(0xB3, 0x12, 0x12, 0x12);
         }
 
         private SolidColorBrush _backdropTintBrush = new();
         private readonly SolidColorBrush _railMaskBrush = new();
-        private readonly SolidColorBrush _titleMaskBrush = new();
+        private readonly LinearGradientBrush _titleFadeBrush = new();
 
 
 
@@ -584,6 +684,14 @@ namespace kaliteConfig
         /// settings changes.
         /// </summary>
         public void ApplyBackgroundImage()
+        {
+            LoadBackgroundImage();
+            // The rail chrome follows the image (open rail vs matte rail),
+            // so refresh it after the layer visibility settles.
+            ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
+        }
+
+        private void LoadBackgroundImage()
         {
             var pref = kaliteConfig.Services.BackgroundImageService.Load();
             if (string.IsNullOrWhiteSpace(pref.Path))
@@ -647,6 +755,27 @@ namespace kaliteConfig
         }
 
         /// <summary>
+        /// Applies only the opacity, without touching the bitmap.
+        ///
+        /// ApplyBackgroundImage re-decodes the file from disk on every call, so
+        /// driving it from the opacity slider meant a full decode + flicker on
+        /// every value change - and the slider handler avoided calling it
+        /// altogether, so dragging it moved the label and rewrote the store while
+        /// the window never repainted. That is the whole bug: the value was being
+        /// saved correctly and simply never read back until something else
+        /// happened to reload the image.
+        ///
+        /// BgImageLayer is the transparent host that gives the layer its hit-test
+        /// and z-order slot, so only the Image itself carries the opacity.
+        /// </summary>
+        public void ApplyBackgroundImageOpacity(byte opacityPercent)
+        {
+            // Clamp in int, not byte: Math.Clamp is overloaded for both and a
+            // byte argument makes the call ambiguous.
+            BgImage.Opacity = Math.Clamp((int)opacityPercent, 0, 100) / 100.0;
+        }
+
+        /// <summary>
         /// Keeps the root background in sync with the material setting, and re-
         /// applies the tint after a theme rewrite. A theme switch replaces the
         /// shared surface brushes with the new theme's values, so the captured
@@ -655,8 +784,20 @@ namespace kaliteConfig
         /// </summary>
         private void OnThemeChanged()
         {
-            RootGrid.Background = null;
-            kaliteConfig.Services.SurfaceTint.ResetCapture();
+            // Opaque root only when there is no system backdrop.
+            // None material shows the desktop through transparent pixels.
+            // Dark gets black, light gets white, from the live theme.
+            // A material keeps transparency so Mica and Acrylic render.
+            try
+            {
+                if (SystemBackdrop is null)
+                    RootGrid.Background = new SolidColorBrush(RootGrid.ActualTheme == ElementTheme.Light
+                        ? Microsoft.UI.Colors.White
+                        : Microsoft.UI.Colors.Black);
+                else RootGrid.Background = null;
+            }
+            catch { }
+            kaliteConfig.Services.SurfaceTint.ResetCapture(RootGrid.ActualTheme == ElementTheme.Light);
             ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
         }
 
@@ -707,6 +848,30 @@ namespace kaliteConfig
             HideNavScrollbars(NavView);
         }
 
+        /// <summary>
+        /// The rail item's plate, i.e. the <c>ItemBody</c> border inside
+        /// RailNavItemStyle's template.
+        ///
+        /// Memoised per item because this runs on NavShell.LayoutUpdated - a
+        /// layout pass happens on plenty of things a pointer sweep sets off, and
+        /// FindDescendant is a recursive visual-tree walk, so doing it every pass
+        /// meant walking the selected item's whole subtree continuously while the
+        /// user moved along the rail. A template is not re-realised while the item
+        /// stays alive, so one lookup per item is enough.
+        /// </summary>
+        private NavigationViewItem? _railBodyOwner;
+        private Border? _railBodyBox;
+
+        private Border? RailItemBody(NavigationViewItem item)
+        {
+            if (!ReferenceEquals(_railBodyOwner, item))
+            {
+                _railBodyOwner = item;
+                _railBodyBox = FindDescendant<Border>(item, "ItemBody");
+            }
+            return _railBodyBox;
+        }
+
         private static void HideNavScrollbars(DependencyObject root)
         {
             int count = VisualTreeHelper.GetChildrenCount(root);
@@ -726,10 +891,9 @@ namespace kaliteConfig
 
         /// <summary>
         /// Moves the shared <c>NavPill</c> to the vertical center of the selected
-        /// rail item. Margin changes are glide-animated by the pill's
-        /// <c>RepositionThemeTransition</c>. Runs on every layout pass but only
-        /// assigns when the target actually moved (epsilon guard), so the
-        /// assignment itself can't cause a layout loop. No-ops before first layout.
+        /// rail item. Runs on every layout pass but only assigns when the target
+        /// actually moved (epsilon guard), so the assignment itself can't cause a
+        /// layout loop. No-ops before first layout.
         /// </summary>
         private void UpdateNavPill(NavigationViewItem? item = null)
         {
@@ -743,91 +907,335 @@ namespace kaliteConfig
             double top = pos.Y + ((item.ActualHeight - NavPill.Height) / 2);
 
             // The 3px pill aligns flush with the highlight's left edge; its
-            // 18px height remains centered in the 60px item cell.
+            // 18px height remains centered in the item cell.
             const double pillInset = 0;
 
-            var box = FindDescendant<Border>(item, "ItemBody");
+            var box = RailItemBody(item);
             if (box is null || box.ActualWidth <= 0)
+            {
+                return;
+            }
+
+            // A glide already in flight lands on the slot it started for, so
+            // retargeting here would restart it on every layout pass of the
+            // incoming page. Let it finish instead; the completion callback
+            // re-runs this method and corrects any residual drift in one short
+            // follow-up glide.
+            if (_navPillGlide is not null)
             {
                 return;
             }
 
             var boxPos = box.TransformToVisual(NavShell).TransformPoint(new Point(0, 0));
             double left = boxPos.X + pillInset;
-            if (Math.Abs(NavPill.Margin.Top - top) > 0.5 || Math.Abs(NavPill.Margin.Left - left) > 0.5)
-            {
-                NavPill.Margin = new Thickness(left, top, 0, 0);
 
-                // RepositionThemeTransition slides the pill; this independent
-                // opacity animation softens its arrival without resizing cells.
-                var fade = new Storyboard();
-                var opacity = new DoubleAnimation
-                {
-                    From = 0,
-                    To = 1,
-                    Duration = TimeSpan.FromMilliseconds(120),
-                };
-                Storyboard.SetTarget(opacity, NavPill);
-                Storyboard.SetTargetProperty(opacity, "Opacity");
-                fade.Children.Add(opacity);
-                fade.Begin();
+            // Where the pill is actually PAINTED, which is the layout slot plus
+            // the live travel offset. Comparing that (not just the slot) is what
+            // makes the guard idempotent: once the glide settles at zero, every
+            // later layout pass sees no delta and does nothing.
+            double renderedLeft = NavPill.Margin.Left + NavPillShift.X;
+            double renderedTop = NavPill.Margin.Top + NavPillShift.Y;
+
+            bool needsMove = Math.Abs(renderedTop - top) > 0.5 || Math.Abs(renderedLeft - left) > 0.5;
+            bool firstPlacement = !_navPillPlaced;
+
+            if (!needsMove && !firstPlacement)
+            {
+                return;
             }
+
+            // Travel distance for the glide: the painted position relative to the
+            // NEW slot. Reading it live (rather than diffing two slots) is what lets
+            // a re-target mid-glide continue smoothly from the current offset.
+            double offsetY = renderedTop - top;
+            double offsetX = renderedLeft - left;
+
+            // Layout slot jumps instantly; only the offset above is animated, so the
+            // pill appears to travel rather than teleport.
+            NavPill.Margin = new Thickness(left, top, 0, 0);
+            AnimateNavPillToRest(offsetX, offsetY, firstPlacement);
+        }
+
+        private Storyboard? _navPillGlide;
+        private bool _navPillPlaced;
+
+        /// <summary>
+        /// Animates <c>NavPillShift</c> from the supplied offset back to (0,0) so the
+        /// pill glides from where it currently sits to the slot its Margin was just
+        /// snapped to. Opacity dips slightly for the duration of the travel, which
+        /// makes a long jump across the rail legible as movement rather than a jump,
+        /// and settles back to fully opaque on arrival.
+        /// </summary>
+        private void AnimateNavPillToRest(double offsetX, double offsetY, bool fadeInOnly)
+        {
+            _navPillGlide?.Stop();
+            _navPillGlide = null;
+
+            if (!fadeInOnly && Math.Abs(offsetX) <= 0.5 && Math.Abs(offsetY) <= 0.5)
+            {
+                NavPillShift.X = 0;
+                NavPillShift.Y = 0;
+                _navPillPlaced = true;
+                NavPill.Opacity = 1;
+                return;
+            }
+
+            var sb = new Storyboard();
+
+            // The very first placement has no previous row to travel from, so it
+            // only fades in - gliding from the window origin would read as the pill
+            // flying in from nowhere on launch.
+            if (fadeInOnly)
+            {
+                sb.Children.Add(PillAnimation(NavPill, "Opacity", 0, 1, NavPillFadeDuration));
+            }
+            else
+            {
+                sb.Children.Add(PillAnimation(NavPillShift, "Y", offsetY, 0, NavPillGlideDuration));
+                sb.Children.Add(PillAnimation(NavPillShift, "X", offsetX, 0, NavPillGlideDuration));
+                sb.Children.Add(PillAnimation(NavPill, "Opacity", 0.55, 1, NavPillGlideDuration));
+            }
+
+            // Completed, not a timer: if the storyboard is stopped early the
+            // callback never runs, which is exactly when we do NOT want the
+            // handler to think the pill has settled.
+            sb.Completed += (_, _) =>
+            {
+                _navPillGlide = null;
+                NavPillShift.X = 0;
+                NavPillShift.Y = 0;
+                // Re-check: the row may have moved while we were travelling
+                // (page load, pane resize). Any drift now resolves in one
+                // short follow-up glide instead of leaving the pill stranded.
+                UpdateNavPill();
+            };
+
+            _navPillGlide = sb;
+            _navPillPlaced = true;
+            sb.Begin();
+        }
+
+        private static readonly TimeSpan NavPillGlideDuration = TimeSpan.FromMilliseconds(190);
+        private static readonly TimeSpan NavPillFadeDuration = TimeSpan.FromMilliseconds(160);
+
+        private static DoubleAnimation PillAnimation(DependencyObject target, string property, double from, double to, TimeSpan duration)
+        {
+            var anim = new DoubleAnimation
+            {
+                From = from,
+                To = to,
+                Duration = new Duration(duration),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                EnableDependentAnimation = true,
+            };
+            Storyboard.SetTarget(anim, target);
+            Storyboard.SetTargetProperty(anim, property);
+            return anim;
         }
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
+            var nav = App.Services.GetService(typeof(INavigationService)) as INavigationService;
+            nav?.Attach(ContentFrame);
             if (args.IsSettingsSelected)
             {
-                ContentFrame.Navigate(typeof(SettingsPage));
+                nav?.Navigate(PageKey.Settings);
                 UpdateNavPill();
+                AnimateRailItemPop(args.SelectedItem as NavigationViewItem);
                 return;
             }
 
             if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
             {
-                switch (tag)
-                {
-                    case "AppsPage":
-                         ContentFrame.Navigate(typeof(InstallerPage));
-                         break;
-                    case "GraphicsPage":
-                         ContentFrame.Navigate(typeof(GraphicsHubPage));
-                         break;
-
-                    case "GamingPage":
-                         ContentFrame.Navigate(typeof(AffinityPage));
-                         break;
-                    case "PriorityBoostsPage":
-                         ContentFrame.Navigate(typeof(PriorityBoostsPage));
-                         break;
-                      case "ThreadTunerPage":
-                         ContentFrame.Navigate(typeof(ThreadTunerPage));
-                         break;
-                     case "SnipPage":
-                         ContentFrame.Navigate(typeof(SnipPage));
-                         break;
-                    case "NetworkPage":
-                         ContentFrame.Navigate(typeof(NetworkPage));
-                         break;case "BenchmarkPage":
-                        ContentFrame.Navigate(typeof(BenchmarkPage));
-                         break;
-
-                    case "WindowsSettingsPage":
-                         ContentFrame.Navigate(typeof(WindowsSettingsHubPage));
-                         break;
-                    case "BiosManagerPage":
-                         ContentFrame.Navigate(typeof(BiosManagerPage));
-                         break;
-                    case "PowerPlansPage":
-                         ContentFrame.Navigate(typeof(PowerPlansPage));
-                         break;
-                    case "Settings":
-                         ContentFrame.Navigate(typeof(SettingsPage));
-                         break;
-                }
-
+                nav?.Navigate(NavigationService.KeyForTag(tag));
                 UpdateNavPill(item);
+                AnimateRailItemPop(item);
             }
+        }
+
+        // ---------------------------------------------------------------------
+        // RAIL SELECTION ANIMATION
+        //
+        // The rail item template (RailNavItemStyle in MainWindow.xaml) exposes
+        // two animated transforms: IconScale (uniform scale about the glyph
+        // centre) and ItemShift (vertical translate of the icon+caption cell).
+        // They are driven from here rather than from a VisualState because a
+        // VisualState can only ease between two static values - it cannot
+        // express "squash, then overshoot past rest, then settle", which is the
+        // shape that reads as a springy pop.
+        // ---------------------------------------------------------------------
+
+        private static readonly TimeSpan RailPopDuration = TimeSpan.FromMilliseconds(240);
+
+        private Storyboard? _railPopStoryboard;
+        private NavigationViewItem? _railPopItem;
+        private bool _suppressRailPop;
+
+        /// <summary>
+        /// Plays the rail selection animation on <paramref name="item"/>: the icon
+        /// squashes toward 0.82, springs past rest to 1.10 and settles back to 1,
+        /// while the caption lifts ~3px and settles. Runs on every rail selection
+        /// change, including a rapid second click - in that case the in-flight pop
+        /// is dropped back to rest on the previous item first, so no icon can be
+        /// stranded mid-squish.
+        /// </summary>
+        private void AnimateRailItemPop(NavigationViewItem? item)
+        {
+            if (item is null || _suppressRailPop)
+            {
+                return;
+            }
+
+            var iconScale = RailIconScale(item);
+            var itemShift = RailItemShift(item);
+            if (iconScale is null && itemShift is null)
+            {
+                return;
+            }
+
+            // Abort any pop still in flight. If it was a different item, snap that
+            // one back to rest so its icon is not left frozen between keyframes.
+            if (_railPopStoryboard is not null)
+            {
+                _railPopStoryboard.Stop();
+                _railPopStoryboard = null;
+                if (!ReferenceEquals(_railPopItem, item))
+                {
+                    ResetRailPop(_railPopItem);
+                }
+            }
+            _railPopItem = item;
+
+            // Re-assert the start values: a stop mid-flight leaves the transform on
+            // whatever keyframe it was on, and the storyboard's first keyframe needs
+            // to begin from a known state.
+            if (iconScale is not null)
+            {
+                iconScale.ScaleX = 1;
+                iconScale.ScaleY = 1;
+            }
+            if (itemShift is not null)
+            {
+                itemShift.Y = 0;
+            }
+
+            var sb = new Storyboard();
+            if (iconScale is not null)
+            {
+                sb.Children.Add(SquishAnimation(iconScale, "ScaleX"));
+                sb.Children.Add(SquishAnimation(iconScale, "ScaleY"));
+            }
+            if (itemShift is not null)
+            {
+                sb.Children.Add(LiftAnimation(itemShift));
+            }
+
+            sb.Completed += (_, _) => _railPopStoryboard = null;
+
+            _railPopStoryboard = sb;
+            sb.Begin();
+        }
+
+        /// <summary>
+        /// Reads a rail item's animated transforms out of its template. Transforms are
+        /// not visual-tree children, so the usual visual walk cannot reach them: the
+        /// owning element is found by name and its RenderTransform is unwrapped.
+        /// Both return null for an item that does not use RailNavItemStyle, which
+        /// every caller already tolerates.
+        /// </summary>
+        private static ScaleTransform? RailIconScale(NavigationViewItem item)
+        {
+            return FindDescendant<FrameworkElement>(item, "IconPresenter")?.RenderTransform as ScaleTransform;
+        }
+
+        private static TranslateTransform? RailItemShift(NavigationViewItem item)
+        {
+            return FindDescendant<FrameworkElement>(item, "ItemStack")?.RenderTransform as TranslateTransform;
+        }
+
+        private static void ResetRailPop(NavigationViewItem? item)
+        {
+            if (item is null)
+            {
+                return;
+            }
+
+            if (RailIconScale(item) is ScaleTransform scale)
+            {
+                scale.ScaleX = 1;
+                scale.ScaleY = 1;
+            }
+            if (RailItemShift(item) is TranslateTransform shift)
+            {
+                shift.Y = 0;
+            }
+        }
+
+        /// <summary>
+        /// The squish curve, as keyframes: rest -> compressed -> slight overshoot ->
+        /// rest. SplineDoubleKeyFrame is required over Discrete so the segments are
+        /// interpolated; each segment carries its own KeySpline, because a single
+        /// easing function cannot both rush into the squash and ease out of the
+        /// settle.
+        /// </summary>
+        private static DoubleAnimationUsingKeyFrames SquishAnimation(ScaleTransform target, string property)
+        {
+            var anim = new DoubleAnimationUsingKeyFrames
+            {
+                Duration = new Duration(RailPopDuration),
+                EnableDependentAnimation = true,
+            };
+
+            // Fractions of the total 240ms: compress by ~70ms, spring out by ~92ms,
+            // settle in the remaining ~78ms.
+            anim.KeyFrames.Add(SquishKeyFrame(0.00, 1.00, 0.1, 0.0, 0.4, 1.0));
+            anim.KeyFrames.Add(SquishKeyFrame(0.30, 0.82, 0.3, 0.0, 0.2, 1.0));
+            anim.KeyFrames.Add(SquishKeyFrame(0.68, 1.10, 0.2, 0.0, 0.3, 1.0));
+            anim.KeyFrames.Add(SquishKeyFrame(1.00, 1.00, 0.4, 0.0, 0.6, 1.0));
+
+            Storyboard.SetTarget(anim, target);
+            Storyboard.SetTargetProperty(anim, property);
+            return anim;
+        }
+
+        /// <summary>
+        /// The caption's lift: up and back past its rest position a touch before
+        /// settling, mirroring the icon's overshoot so the two read as one motion.
+        /// </summary>
+        private static DoubleAnimationUsingKeyFrames LiftAnimation(TranslateTransform target)
+        {
+            var anim = new DoubleAnimationUsingKeyFrames
+            {
+                Duration = new Duration(RailPopDuration),
+                EnableDependentAnimation = true,
+            };
+
+            anim.KeyFrames.Add(SquishKeyFrame(0.00, 0.0, 0.1, 0.0, 0.4, 1.0));
+            anim.KeyFrames.Add(SquishKeyFrame(0.30, -3.0, 0.3, 0.0, 0.2, 1.0));
+            anim.KeyFrames.Add(SquishKeyFrame(0.70, 0.8, 0.2, 0.0, 0.3, 1.0));
+            anim.KeyFrames.Add(SquishKeyFrame(1.00, 0.0, 0.4, 0.0, 0.6, 1.0));
+
+            Storyboard.SetTarget(anim, target);
+            Storyboard.SetTargetProperty(anim, "Y");
+            return anim;
+        }
+
+        private static SplineDoubleKeyFrame SquishKeyFrame(double at, double value, double x1, double y1, double x2, double y2)
+        {
+            // WinUI's KeySpline has no (x1,y1,x2,y2) constructor; the control points
+            // are settable Point properties.
+            var spline = new KeySpline
+            {
+                ControlPoint1 = new Point(x1, y1),
+                ControlPoint2 = new Point(x2, y2),
+            };
+
+            return new SplineDoubleKeyFrame
+            {
+                KeyTime = TimeSpan.FromTicks((long)(RailPopDuration.Ticks * at)),
+                Value = value,
+                KeySpline = spline,
+            };
         }
 
         private bool _kaliteOSAutoSetupRan;

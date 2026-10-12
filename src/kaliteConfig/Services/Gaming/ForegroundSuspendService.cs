@@ -82,12 +82,6 @@ public sealed class ForegroundSuspendService : IDisposable
         public DateTime WhenUtc { get; set; }
     }
 
-    private sealed class SuspendSettings
-    {
-        public List<string> Games { get; set; } = new();
-        public bool Auto { get; set; }
-    }
-
     private static string SettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "kaliteConfig", "suspend-mode.json");

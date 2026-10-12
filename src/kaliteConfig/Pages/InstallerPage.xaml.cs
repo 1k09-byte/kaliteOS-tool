@@ -23,7 +23,7 @@ namespace kaliteConfig.Pages
 
         public InstallerPage()
         {
-            ViewModel = new InstallerViewModel(new Services.InstallerService());
+            ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.InstallerViewModel>(App.Services) ?? new InstallerViewModel(new Services.InstallerService());
             InitializeComponent();
             // No manual card stagger: the previous Opacity/Translation loop could
             // strand cards at partial opacity (async, uncancelled on navigate-away,
@@ -100,9 +100,18 @@ namespace kaliteConfig.Pages
         private async Task ShowBrowserDetailsDialogAsync(BrowserInstallItem browser)
         {
             ViewModel.SelectedBrowser = browser;
-
+            // Fresh open, fresh status: a previous failure must never leak into
+            // this showing (and the status line is an element now, never a
+            // Content swap, so the dialog cannot be gutted anymore).
+            DialogStatusText.Visibility = Visibility.Collapsed;
+            DialogStatusText.Text = string.Empty;
             // Dialog lives in Page.Resources: XamlRoot must be attached per show.
             BrowserDetailsDialog.XamlRoot = this.XamlRoot;
+            // Held for the whole showing: the install keeps feeding this dialog
+            // (progress text, status row, error line) and without the lock each
+            // of those changes walks the dialog away from the middle of the
+            // screen. Freed as soon as the dialog closes.
+            using var centerLock = Services.DialogCenterLock.Attach(BrowserDetailsDialog);
             await BrowserDetailsDialog.ShowAsync();
         }
 
@@ -112,7 +121,13 @@ namespace kaliteConfig.Pages
         private async void DialogProgressBtn_Click(object sender, RoutedEventArgs e)
         {
             if (ViewModel.SelectedBrowser == null) return;
-            try { await ViewModel.InstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser); }
+            try
+            {
+                if (ViewModel.SelectedBrowser.Status == BrowserInstallStatus.UpdateAvailable)
+                    await ViewModel.UpdateBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
+                else
+                    await ViewModel.InstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
+            }
             catch (Exception ex) { ShowStatus("Install failed", ex.Message); }
         }
 
@@ -127,12 +142,8 @@ namespace kaliteConfig.Pages
         {
             try
             {
-                BrowserDetailsDialog.Content = new TextBlock
-                {
-                    Text = $"{title}: {message}",
-                    TextWrapping = TextWrapping.Wrap,
-                };
-                BrowserDetailsDialog.CloseButtonText = "Close";
+                DialogStatusText.Text = $"{title}: {message}";
+                DialogStatusText.Visibility = Visibility.Visible;
             }
             catch
             {
@@ -143,7 +154,9 @@ namespace kaliteConfig.Pages
         // Static converter methods for x:Bind in DataTemplate
         public static Visibility IsInstalledToVisibility(BrowserInstallStatus status)
         {
-            return status == BrowserInstallStatus.Installed || status == BrowserInstallStatus.AlreadyInstalled
+            return status == BrowserInstallStatus.Installed
+                || status == BrowserInstallStatus.AlreadyInstalled
+                || status == BrowserInstallStatus.UpdateAvailable
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
@@ -159,6 +172,14 @@ namespace kaliteConfig.Pages
                 ? Visibility.Collapsed
                 : Visibility.Visible;
         }
+
+        /// <summary>Button caption: the same row is Install or Update depending on what is proven.</summary>
+        public static string StatusToActionLabel(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.UpdateAvailable ? "Update" : "Install";
+
+        /// <summary>Hides the green tick while an update is pending; a tick next to "Update available" reads as up to date.</summary>
+        public static Visibility StatusShowsTickVisibility(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.UpdateAvailable ? Visibility.Collapsed : Visibility.Visible;
 
         /// <summary>
         /// Cards stay clean: no static "Install" caption while states are being

@@ -47,8 +47,9 @@
                 above; merged dictionaries resolve before sibling content.
             -->
             <Style TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
-                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="LineHeight" Value="20" />
             </Style>
 
             <!-- Other app resources here -->

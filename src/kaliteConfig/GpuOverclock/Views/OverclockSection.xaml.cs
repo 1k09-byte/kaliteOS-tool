@@ -341,25 +341,25 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private int _vfDragIndex = -1;
         private double _vfGrabDelta;
+        private int _vfDragStartOffset;
 
         private void VfCurveCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
+            _vfDragIndex = -1;
             if (!Vm.HasVfCurve || Vm.VfPoints.Count == 0) return;
             var canvas = (Canvas)sender;
             var pos = e.GetCurrentPoint(canvas).Position;
-            _vfDragIndex = VfNearestIndex(pos.X);
-            if (_vfDragIndex >= 0 && TryGetVfPlotGeom(out var g))
-            {
-                // Relative grab so the first movement doesn't snap the point
-                // to the cursor line when the grip does not touch the point.
-                var row = Vm.VfPoints[_vfDragIndex];
-                _vfGrabDelta = pos.Y - g.Y(row.EffectiveMHz);
-                canvas.CapturePointer(e.Pointer);
-            }
-            else
-            {
-                _vfDragIndex = -1;
-            }
+            // Miss (empty space, axis labels) grabs nothing and handles nothing,
+            // so the ScrollViewer can still scroll from the canvas.
+            int hit = VfHitTest(pos);
+            if (hit < 0 || !TryGetVfPlotGeom(out var g)) return;
+            _vfDragIndex = hit;
+            var row = Vm.VfPoints[_vfDragIndex];
+            _vfDragStartOffset = row.OffsetMHz;
+            // Relative grab so the first movement doesn't snap the point
+            // to the cursor line when the grip does not touch the point.
+            _vfGrabDelta = pos.Y - g.Y(row.EffectiveMHz);
+            canvas.CapturePointer(e.Pointer);
             e.Handled = true;
         }
 
@@ -367,13 +367,33 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             if (_vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
             var canvas = (Canvas)sender;
-            var pos = e.GetCurrentPoint(canvas).Position;
+            var point = e.GetCurrentPoint(canvas);
+            // Capture can be lost mid-gesture (window deactivates, touch
+            // reroutes): without this, every later hover rewrite offsets
+            // with no button held. Only an in-contact pointer may edit.
+            if (!point.IsInContact) { _vfDragIndex = -1; return; }
+            var pos = point.Position;
 
             if (!TryGetVfPlotGeom(out var g)) return;
             double frac = 1.0 - ((pos.Y - _vfGrabDelta) - g.PlotT) / Math.Max(1.0, g.PlotH);
             frac = Math.Clamp(frac, 0.0, 1.0);
             var row = Vm.VfPoints[_vfDragIndex];
-            row.OffsetMHz = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo)) - row.BaseFrequencyMHz;
+            int want = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo)) - row.BaseFrequencyMHz;
+            // Monotonic envelope: the dragged point may touch its neighbours
+            // but never cross them, so a drag can no longer sculpt a curve the
+            // release commit has to reject (the old code let every drag cross,
+            // then errored on release - on flat-top boost tables that meant
+            // nearly every upward drag failed). Equal is allowed, matching the
+            // validator. An inverted envelope (neighbours already crossed from
+            // a bad base read) skips the assignment; release reports it.
+            int lo = Math.Min(row.MinOffsetMHz, row.MaxOffsetMHz);
+            int hi = Math.Max(row.MinOffsetMHz, row.MaxOffsetMHz);
+            if (_vfDragIndex > 0)
+                lo = Math.Max(lo, Vm.VfPoints[_vfDragIndex - 1].EffectiveMHz - row.BaseFrequencyMHz);
+            if (_vfDragIndex < Vm.VfPoints.Count - 1)
+                hi = Math.Min(hi, Vm.VfPoints[_vfDragIndex + 1].EffectiveMHz - row.BaseFrequencyMHz);
+            if (lo <= hi)
+                row.OffsetMHz = Math.Clamp(want, lo, hi);
             RedrawVfCurve();
             e.Handled = true;
         }
@@ -540,15 +560,24 @@ namespace kaliteConfig.GpuOverclock.Views
             VfAxisCenter.Text = $"{pts.Count} points · {g.FLo}–{g.FHi} MHz envelope";
         }
 
-        private int VfNearestIndex(double x)
+        /// <summary>
+        /// Dot hit-test: the press must land near an actual dot. The old
+        /// nearest-X-always version grabbed a point from anywhere on the canvas,
+        /// so stray presses yanked the line and release auto-committed the
+        /// damage to the driver.
+        /// </summary>
+        private int VfHitTest(Windows.Foundation.Point pos)
         {
             if (!TryGetVfPlotGeom(out var g)) return -1;
             var pts = Vm.VfPoints;
-            int best = 0;
+            int best = -1;
             double bestDist = double.MaxValue;
             for (int i = 0; i < pts.Count; i++)
             {
-                double d = Math.Abs(g.X(pts[i].VoltageMv) - x);
+                double dx = Math.Abs(g.X(pts[i].VoltageMv) - pos.X);
+                double dy = Math.Abs(g.Y(pts[i].EffectiveMHz) - pos.Y);
+                if (dx > 28 || dy > 60) continue;
+                double d = dx + dy;
                 if (d < bestDist) { bestDist = d; best = i; }
             }
             return best;
@@ -557,18 +586,31 @@ namespace kaliteConfig.GpuOverclock.Views
         private void VfCurveCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
             if (_vfDragIndex < 0) return;
+            int idx = _vfDragIndex;
             _vfDragIndex = -1;
             try { ((Canvas)sender).ReleasePointerCapture(e.Pointer); } catch { }
+            if (idx < 0 || idx >= Vm.VfPoints.Count) return;
+            var row = Vm.VfPoints[idx];
+            // Tap without a move: nothing changed, so skip the driver write
+            // and the safety-machine churn entirely.
+            if (row.OffsetMHz == _vfDragStartOffset) { e.Handled = true; return; }
             // Commit on release: validates monotonicity, then routes through
-            // the same safety state machine as every other control.
+            // the same safety state machine as every other control. A rejected
+            // curve snaps the dragged point back: the old code kept the invalid
+            // value in the row, so the graph displayed a curve that was never
+            // applied and every later Apply kept failing on it.
             Vm.ApplyVfCurveEdits();
+            if (!string.IsNullOrEmpty(Vm.VfCurveError))
+                row.OffsetMHz = _vfDragStartOffset;
             e.Handled = true;
         }
 
         private void VfCurveCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
         {
-            // Drag aborted (touch canceled, capture lost): drop the in-flight
-            // edits visually by re-syncing rows from the last committed state.
+            // Drag aborted (touch canceled, capture lost): put the dragged
+            // point back where the gesture found it.
+            if (_vfDragIndex >= 0 && _vfDragIndex < Vm.VfPoints.Count)
+                Vm.VfPoints[_vfDragIndex].OffsetMHz = _vfDragStartOffset;
             _vfDragIndex = -1;
         }
 
@@ -684,15 +726,18 @@ namespace kaliteConfig.GpuOverclock.Views
             }
         }
 
-        private int FanNearestIndex(double x)
+        private int FanHitTest(Windows.Foundation.Point pos)
         {
             if (!TryGetFanPlotGeom(out var g)) return -1;
             var rows = Vm.CurvePoints;
-            int best = 0;
+            int best = -1;
             double bestDist = double.MaxValue;
             for (int i = 0; i < rows.Count; i++)
             {
-                double d = Math.Abs(g.X(rows[i].TempC) - x);
+                double dx = Math.Abs(g.X(rows[i].TempC) - pos.X);
+                double dy = Math.Abs(g.Y(rows[i].FanPercent) - pos.Y);
+                if (dx > 28 || dy > 60) continue;
+                double d = dx + dy;
                 if (d < bestDist) { bestDist = d; best = i; }
             }
             return best;
@@ -700,18 +745,25 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void FanCurveCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
+            _fanDragIndex = -1;
             if (Vm.CurvePoints.Count == 0) return;
             var canvas = (Canvas)sender;
-            _fanDragIndex = FanNearestIndex(e.GetCurrentPoint(canvas).Position.X);
-            if (_fanDragIndex >= 0) canvas.CapturePointer(e.Pointer);
+            // Miss grabs nothing and handles nothing (scroll still works).
+            int hit = FanHitTest(e.GetCurrentPoint(canvas).Position);
+            if (hit < 0) return;
+            _fanDragIndex = hit;
+            canvas.CapturePointer(e.Pointer);
             e.Handled = true;
         }
 
         private void FanCurveCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
             if (_fanDragIndex < 0 || _fanDragIndex >= Vm.CurvePoints.Count) return;
+            var point = e.GetCurrentPoint((Canvas)sender);
+            // See VF handler: never edit on a hover after lost capture.
+            if (!point.IsInContact) { _fanDragIndex = -1; return; }
             if (!TryGetFanPlotGeom(out var g)) return;
-            var pos = e.GetCurrentPoint((Canvas)sender).Position;
+            var pos = point.Position;
             double frac = 1.0 - (pos.Y - g.PlotT) / Math.Max(1.0, g.PlotH);
             // Table rows are int %; the setter path is identical to typing.
             Vm.CurvePoints[_fanDragIndex].FanPercent = (int)Math.Round(Math.Clamp(frac, 0.0, 1.0) * 100.0);

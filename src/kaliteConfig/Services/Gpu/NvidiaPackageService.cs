@@ -125,7 +125,6 @@ namespace kaliteConfig.Services
         #region WinVerifyTrust interop
 
         private const uint ERROR_SUCCESS = 0;
-        private static readonly Guid DriverActionId = new("{F750E6C3-38EE-11D1-85E5-00C04FC295EE}"); // driver packages
         private static readonly Guid WinTrustActionGenericV2 = new("{00AAC56B-CD44-11D0-8CC2-00C04FC295EE}");
 
         [StructLayout(LayoutKind.Sequential)]

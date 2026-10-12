@@ -24,7 +24,7 @@ namespace kaliteConfig.Pages
         public GpuDriversPage()
         {
             this.InitializeComponent();
-            this.ViewModel = new GpuDriversViewModel();
+            this.ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<GpuDriversViewModel>(App.Services) ?? new GpuDriversViewModel();
             this.DataContext = ViewModel;
 
             // Kick off hardware detection as soon as the page loads, then

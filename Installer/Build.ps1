@@ -8,6 +8,7 @@
 .EXAMPLE
   .\Build.ps1
   .\Build.ps1 -Configuration Release -Runtime win-x64
+  .\Build.ps1 -SkipOsCheck   (dev/CI on a non-KaliteOS box)
 #>
 param(
     [string]$Configuration = "Release",
@@ -19,7 +20,10 @@ param(
     # different builds — the app then died in MainWindow.InitializeComponent
     # on every launch. Release/installer builds always start clean; pass
     # -Clean:$false only for a faster throwaway local check.
-    [bool]$Clean = $true
+    [bool]$Clean = $true,
+    # The installer refuses to run off KaliteOS. Pass -SkipOsCheck to compile
+    # the bypass in; default is OFF so release installers carry the gate.
+    [switch]$SkipOsCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -90,7 +94,12 @@ Write-Host "--> ISCC $issFile ..."
 $stagingDir = Join-Path $env:TEMP "kaliteConfig-setup-staging"
 if (Test-Path -LiteralPath $stagingDir) { Remove-Item -LiteralPath $stagingDir -Recurse -Force }
 New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
-& $iscc "/DPublishDir=$publishDir" "/DMyAppVersion=$version" "/O$stagingDir" $issFile
+$isccDefines = @("/DPublishDir=$publishDir", "/DMyAppVersion=$version", "/O$stagingDir")
+if ($SkipOsCheck) {
+    Write-Warning "OS gate compiled OUT (-SkipOsCheck). Do not ship this build."
+    $isccDefines += "/DAllowNonKaliteOS"
+}
+& $iscc @isccDefines $issFile
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed." }
 
 $staged = Join-Path $stagingDir "kaliteConfig-Setup-$version.exe"

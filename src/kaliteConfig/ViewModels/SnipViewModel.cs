@@ -177,11 +177,27 @@ public partial class GalleryItem : ObservableObject
 
     public string FavoriteGlyph => IsFavorite ? "\uE735" : "\uE734";
 
+    /// <summary>
+    /// The star is HOVER-ONLY. It used to also show whenever the item was a
+    /// favourite, which meant a permanently-visible badge in the corner of
+    /// every favourited thumbnail - a permanent overlay on the picture, and it
+    /// is now a per-item action sitting on the thumbnail rather than part of the
+    /// caption. A favourited tile is still obvious from the gold star the
+    /// moment you hover it, and the "Favorites only" filter is the persistent
+    /// way to see them.
+    /// </summary>
     public Microsoft.UI.Xaml.Visibility StarVisibility =>
-        (IsFavorite || IsHover) ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        IsHover ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    /// <summary>
+    /// Full opacity once favourited (so the gold reads as "done"), dimmed while
+    /// merely hovered so an un-favourited tile's action does not compete with
+    /// the picture.
+    /// </summary>
     public double StarOpacity => IsFavorite ? 1.0 : 0.6;
-    public Microsoft.UI.Xaml.Media.Brush StarBrush =>
-        new Microsoft.UI.Xaml.Media.SolidColorBrush(IsFavorite ? Microsoft.UI.Colors.Gold : Microsoft.UI.Colors.White);
+    public Microsoft.UI.Xaml.Media.Brush StarBrush => IsFavorite
+        ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gold)
+        : Services.Theming.ThemeHelper.SecondaryText();
     /// <summary>The tile's single frame: accent when selected, transparent otherwise.
     /// There is exactly one border, so selection can never look doubled.</summary>
     public Microsoft.UI.Xaml.Media.Brush TileBorder

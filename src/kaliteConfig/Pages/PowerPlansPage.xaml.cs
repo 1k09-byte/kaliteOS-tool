@@ -28,11 +28,6 @@ namespace kaliteConfig.Pages
             };
         }
 
-        private void BackToHub_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            Frame.Navigate(typeof(WindowsSettingsHubPage));
-        }
-
         private async void NewPlan_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             if (ViewModel.Schemes.Count == 0) return;

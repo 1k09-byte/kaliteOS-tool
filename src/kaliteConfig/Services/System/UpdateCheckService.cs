@@ -33,18 +33,13 @@ namespace kaliteConfig.Services;
 ///   Installer/Build-Consumer.ps1 produces via kaliteConfig-Consumer.iss).
 /// - Every network call is best-effort: a timeout/404/rate-limit never
 ///   blocks startup or surfaces an error; the app just runs as-is.
-/// - Compiled only in the CONSUMER flavor (see csproj ConsumerBuild group).
 /// </summary>
-#if CONSUMER
 public sealed class UpdateCheckService
-#else
-public sealed class UpdateCheckService // full flavor: type exists but is unused
-#endif
 {
     public const string Owner = "1k09-byte";
     public const string RepoName = "kaliteOS-tool";
     public const string ReleasesApiUrl = $"https://api.github.com/repos/{Owner}/{RepoName}/releases/latest";
-    // Single flavor now: releases carry the FULL installer. Accept both
+    // Releases carry the full installer. Accept both
     // names so older releases remain updatable-to.
     private const string AssetNamePrefix = "kaliteConfig-Setup-";
     private const string LegacyAssetNamePrefix = "kaliteConfig-Consumer-Setup-";
@@ -685,10 +680,4 @@ public sealed class UpdateCheckService // full flavor: type exists but is unused
         return tempPath;
     }
 
-    private static string FirstParagraph(string? markdown)
-    {
-        if (string.IsNullOrWhiteSpace(markdown)) return string.Empty;
-        var para = markdown.Replace("\r\n", "\n").Split("\n\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        return para.Length > 220 ? para[..217] + "…" : para.Trim();
-    }
 }

@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml;
 using kaliteConfig.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace kaliteConfig.ViewModels;
 
@@ -32,22 +33,65 @@ public sealed partial class BiosSettingRow : ObservableObject
     {
         Item = item;
         _valueText = item.Value;
+        _sectionText = item.MenuPath.Length == 0
+            ? "(unsectioned)"
+            : string.Join(" › ", item.MenuPath);
     }
 
     // ---- display fields (immutable per document) ----
 
     public string Name => Item.SetupQuestion;
     public string HelpText => Item.HelpString ?? string.Empty;
-    public string SectionText => Item.MenuPath.Length == 0
-        ? "(unsectioned)"
-        : string.Join(" › ", Item.MenuPath);
+    private readonly string _sectionText;
+    public string SectionText => _sectionText;
     public string TokenLineText => string.IsNullOrEmpty(Item.Token) ? "-" : $"Token {Item.Token}";
     public string TokenValueText => string.IsNullOrEmpty(Item.Token) ? "-" : Item.Token;
     public string OffsetValueText => string.IsNullOrEmpty(Item.Offset) ? "-" : Item.Offset;
     public string WidthValueText => string.IsNullOrEmpty(Item.Width) ? "-" : Item.Width;
     public string BiosDefaultText => string.IsNullOrEmpty(Item.BiosDefault) ? "-" : Item.BiosDefault;
     public bool IsEnumerated => Item.HasEnumeratedOptions;
-    public IReadOnlyList<BiosOption> Options => Item.Options ?? Array.Empty<BiosOption>();
+
+    /// <summary>Options with friendly labels filled in for bare 0/1 tokens on enable/disable style items.</summary>
+    public IReadOnlyList<BiosOption> Options => _options ??= BuildOptions();
+
+    private IReadOnlyList<BiosOption>? _options;
+
+    private static readonly string[] OnLabels = { "Enabled", "On", "True" };
+    private static readonly string[] OffLabels = { "Disabled", "Off", "False" };
+
+    private IReadOnlyList<BiosOption> BuildOptions()
+    {
+        if (Item.Options is null) return Array.Empty<BiosOption>();
+        bool binary = LooksLikeBooleanSetting();
+        if (!binary) return Item.Options;
+
+        System.Collections.Generic.List<BiosOption> built = new(Item.Options.Count);
+        foreach (BiosOption option in Item.Options)
+        {
+            built.Add(option.Label is null && IsBinaryToken(option.RawToken)
+                ? option with { Label = IsOnToken(option.RawToken) ? OnLabels[0] : OffLabels[0] }
+                : option);
+        }
+        return built;
+    }
+
+    private bool LooksLikeBooleanSetting()
+    {
+        foreach (string term in new[] { "enable", "disable" })
+        {
+            if (Name.Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
+            if (HelpText.Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    private static bool IsBinaryToken(string token)
+    {
+        string t = token.Trim();
+        return t is "0" or "1" or "00" or "01";
+    }
+
+    private static bool IsOnToken(string token) => token.Trim() is "1" or "01";
 
     /// <summary>Matches a search query against name, token, help text and current value.</summary>
     public bool Matches(string query)
@@ -93,7 +137,20 @@ public sealed partial class BiosSettingRow : ObservableObject
 
     // ---- state ----
 
-    public string ValueDisplay => Item.Value;
+    /// <summary>Shows the option's label ("Enabled"), not its raw token ("1"), for enumerated settings.</summary>
+    public string ValueDisplay
+    {
+        get
+        {
+            string value = Item.Value;
+            foreach (BiosOption option in Options)
+            {
+                if (string.Equals(option.RawToken, value, StringComparison.OrdinalIgnoreCase))
+                    return string.IsNullOrWhiteSpace(option.Label) ? value : option.Label;
+            }
+            return value;
+        }
+    }
     public bool IsModified => Item.IsModified;
     public Visibility ModifiedVisibility => IsModified ? Visibility.Visible : Visibility.Collapsed;
 

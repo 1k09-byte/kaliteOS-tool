@@ -110,7 +110,10 @@ namespace kaliteConfig.GpuOverclock.Models
         /// frequency must not decrease as voltage increases. Submitting a
         /// non-monotonic curve to the driver produces instability
         /// disproportionate to the actual clock delta, so this is checked
-        /// client-side before any commit is allowed.
+        /// client-side before any commit is allowed. 1 MHz of slack: the base
+        /// table is queried in kHz and rounded to MHz, so a stock curve can dip
+        /// by a digit with zero offsets - rejecting that would error every
+        /// commit (including Reset) on an untouched curve.
         /// </summary>
         public bool ValidateMonotonic(IReadOnlyList<int> edited, out string? error)
         {
@@ -118,7 +121,7 @@ namespace kaliteConfig.GpuOverclock.Models
             {
                 int prev = Points[i - 1].BaseFrequencyMHz + (i - 1 < edited.Count ? edited[i - 1] : 0);
                 int cur = Points[i].BaseFrequencyMHz + (i < edited.Count ? edited[i] : 0);
-                if (cur < prev)
+                if (cur + 1 < prev)
                 {
                     error = $"Point {i + 1} ({Points[i].VoltageMv} mV) would run below point {i} " +
                             $"({prev} MHz > {cur} MHz). Frequency must not decrease as voltage rises.";

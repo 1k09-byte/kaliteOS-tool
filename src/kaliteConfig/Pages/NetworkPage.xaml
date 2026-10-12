@@ -114,6 +114,10 @@
             <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="3" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
             <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
+            <!-- Advanced / Offloads / SysW edit raw driver registry values. -->
+            <CheckBox x:Name="ShowAdvancedToggle" Content="Show advanced (registry-level) settings"
+                      IsChecked="True" Checked="ShowAdvancedToggle_Changed" Unchecked="ShowAdvancedToggle_Changed"
+                      ToolTipService.ToolTip="Advanced, Offloads and System-wide tabs" />
             <!-- Same picker chrome as the Startup page's "Sources" list: the
                  default ListViewItem template draws the rounded selection pill
                  with the accent bar, so no ItemContainerStyle is applied here.
@@ -183,13 +187,15 @@
                         <StackPanel Spacing="8">
                             <ItemsControl ItemsSource="{x:Bind ViewModel.DriverRows, Mode=OneWay}" ItemTemplate="{StaticResource LabelValueTemplate}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Adapter properties (Control Panel)" Click="ControlPanelProps_Click"
+                                        ToolTipService.ToolTip="Opens the classic Control Panel dialog for this adapter, including its Advanced driver settings" />
                                 <Button Content="Open Device Manager for this adapter" Click="DeviceManager_Click"/>
                                 <Button Content="Copy driver info" Click="CopyDriver_Click"/>
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </TabViewItem>
-                <TabViewItem IsClosable="False" Header="Advanced">
+                <TabViewItem x:Name="AdvancedTab" IsClosable="False" Header="Advanced">
                     <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Every setting the driver exposes, matched by RegistryKeyword. Editing needs elevation; changes apply after preview + restart."
@@ -215,7 +221,7 @@
                         </StackPanel>
                     </ScrollViewer>
                 </TabViewItem>
-                <TabViewItem IsClosable="False" Header="Offloads">
+                <TabViewItem x:Name="OffloadsTab" IsClosable="False" Header="Offloads">
                     <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
                         <StackPanel Spacing="8">
                             <TextBlock Text="RSS, checksum, LSO and buffer settings. Read-only view with editing where the driver allows it."
@@ -257,7 +263,7 @@
                         </StackPanel>
                     </ScrollViewer>
                 </TabViewItem>
-                <TabViewItem IsClosable="False" Header="SysW" ToolTipService.ToolTip="System-wide network settings">
+                <TabViewItem x:Name="SysWTab" IsClosable="False" Header="SysW" ToolTipService.ToolTip="System-wide network settings">
                     <Grid Padding="0,12,12,12" ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="248" MinWidth="200"/>

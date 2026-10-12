@@ -196,8 +196,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         });
     }
 
-    private readonly HashSet<int> _seenUnnamedTids = new HashSet<int>();
-
     [ObservableProperty]
     public partial TunerProcessRow? SelectedProcess { get; set; }
 

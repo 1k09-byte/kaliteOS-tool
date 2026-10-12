@@ -23,6 +23,9 @@ namespace kaliteConfig.Models;
 public sealed record BiosOption(string RawToken, string? Label)
 {
     public string Display => Label is null ? RawToken : $"{Label} ({RawToken})";
+
+    /// <summary>Label alone, so the picker never shows raw tokens to the user.</summary>
+    public string FriendlyDisplay => string.IsNullOrWhiteSpace(Label) ? RawToken : Label!;
 }
 
 /// <summary>Inclusive numeric range for items whose Options express "low .. high".</summary>

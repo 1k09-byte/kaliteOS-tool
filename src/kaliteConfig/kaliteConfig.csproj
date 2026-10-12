@@ -97,6 +97,8 @@
     <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
+    <ProjectReference Include="..\kaliteConfig.Core\kaliteConfig.Core.csproj" Condition="Exists('..\kaliteConfig.Core\kaliteConfig.Core.csproj')" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.11" />
@@ -111,13 +113,6 @@
   -->
   <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
-  </PropertyGroup>
-
-  <!--  Single flavor: the full/dev app with the built-in updater. There is
-        no separate consumer build anymore — one exe, one installer, one
-        update channel. The updater compiles unconditionally. -->
-  <PropertyGroup>
-    <DefineConstants>$(DefineConstants);CONSUMER</DefineConstants>
   </PropertyGroup>
 
   <!--  The bundled SCEWIN tool (Assets\scewin\SCEWIN_64.exe + driver .sys
@@ -232,7 +227,7 @@
         ("Version 0.3.0" from Major.Minor.Build) and the installer
         filename (from Build.ps1) all pick it up. -->
   <PropertyGroup>
-    <Version>0.3.0.24</Version>
+    <Version>0.3.0.27</Version>
     <AssemblyTitle>kaliteConfig</AssemblyTitle>
     <AssemblyProduct>kaliteConfig</AssemblyProduct>
     <AssemblyVersion>$(Version)</AssemblyVersion>

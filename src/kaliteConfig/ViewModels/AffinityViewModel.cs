@@ -35,8 +35,6 @@ namespace kaliteConfig.ViewModels
         public ObservableCollection<AffinityDeviceItem> NetworkDevices { get; } = new();
         public ObservableCollection<AffinityDeviceItem> UsbDevices { get; } = new();
         public ObservableCollection<AffinityDeviceItem> AudioDevices { get; } = new();
-        public ObservableCollection<AffinityDeviceItem> NvmeDevices { get; } = new();
-        public ObservableCollection<AffinityDeviceItem> StorageDevices { get; } = new();
 
         [ObservableProperty]
         public partial AffinityDeviceItem? SelectedDevice { get; set; }
@@ -56,12 +54,6 @@ namespace kaliteConfig.ViewModels
 
         [ObservableProperty]
         public partial bool IsAudioExpanded { get; set; } = true;
-
-        [ObservableProperty]
-        public partial bool IsNvmeExpanded { get; set; } = true;
-
-        [ObservableProperty]
-        public partial bool IsStorageExpanded { get; set; } = true;
 
         // -- Change tracking -------------------------------------------------
 
@@ -301,8 +293,6 @@ namespace kaliteConfig.ViewModels
                 case "Network": IsNetworkExpanded = !IsNetworkExpanded; break;
                 case "Usb": IsUsbExpanded = !IsUsbExpanded; break;
                 case "Audio": IsAudioExpanded = !IsAudioExpanded; break;
-                case "Nvme": IsNvmeExpanded = !IsNvmeExpanded; break;
-                case "Storage": IsStorageExpanded = !IsStorageExpanded; break;
             }
         }
 
@@ -367,14 +357,12 @@ namespace kaliteConfig.ViewModels
                         case "Network": NetworkDevices.Add(device); break;
                         case "Usb": UsbDevices.Add(device); break;
                         case "Audio": AudioDevices.Add(device); break;
-                        case "Nvme": NvmeDevices.Add(device); break;
-                        case "Storage": StorageDevices.Add(device); break;
                     }
                 }
 
                 if (selectedId is not null)
                 {
-                    SelectedDevice = GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices).Concat(NvmeDevices).Concat(StorageDevices)
+                    SelectedDevice = GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices)
                         .FirstOrDefault(d => string.Equals(d.DeviceInstanceId, selectedId, StringComparison.OrdinalIgnoreCase));
                     if (SelectedDevice is null && wasPresent)
                     {
@@ -701,8 +689,7 @@ namespace kaliteConfig.ViewModels
 
         /// <summary>Every listed device, across all categories.</summary>
         private IEnumerable<AffinityDeviceItem> AllDevices()
-            => GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices)
-                .Concat(AudioDevices).Concat(NvmeDevices).Concat(StorageDevices);
+            => GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices);
 
         /// <summary>
         /// Puts one device back to IrqPolicyMachineDefault with priority

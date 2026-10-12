@@ -41,7 +41,7 @@
         <DataTemplate x:Key="InstallerCardTemplate" x:DataType="models:BrowserInstallItem">
             <Button
                 x:Name="CardRoot"
-                Height="220"
+                Height="192"
                 Margin="0,0,0,0"
                 Padding="0"
                 HorizontalAlignment="Stretch"
@@ -59,11 +59,11 @@
                 <Button.ScaleTransition>
                     <Vector3Transition Duration="0:0:0.3" />
                 </Button.ScaleTransition>
-                <Grid Padding="16" UseLayoutRounding="True">
+                <Grid Padding="14" UseLayoutRounding="True">
                     <StackPanel
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        Spacing="8">
+                        Spacing="10">
                         <!-- Large app icon (no fallback glyph behind images). -->
                         <Grid HorizontalAlignment="Center" Width="48" Height="48">
                             <Image HorizontalAlignment="Center" Width="48" Height="48"
@@ -91,33 +91,34 @@
             </Button>
         </DataTemplate>
 
-        <!-- COMPACT VIEW: one single-line row per app - 24px icon, name, status
-             right-aligned. Many more entries fit on screen than the card grid,
-             which is the point when scanning for one specific app. -->
+        <!-- COMPACT VIEW: one roomy row per app - 32px icon, semibold name,
+             status right-aligned. Rows run 56px tall with breathing room so the
+             list fills the page instead of rattling around in it. -->
         <DataTemplate x:Key="InstallerCompactTemplate" x:DataType="models:BrowserInstallItem">
-            <Button Height="40"
-                    Margin="0,0,0,2"
-                    Padding="10,0"
+            <Button Height="56"
+                    Margin="0,0,0,6"
+                    Padding="14,0"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Background="Transparent"
                     BorderThickness="0"
-                    CornerRadius="3"
+                    CornerRadius="6"
                     Click="BrowserCard_Click"
                     Tag="{x:Bind}"
                     Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
-                <Grid ColumnSpacing="12">
+                <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Image Width="24" Height="24" VerticalAlignment="Center"
+                    <Image Width="32" Height="32" VerticalAlignment="Center"
                            Source="{x:Bind ImagePath, Converter={StaticResource AssetPathConverter}}" />
                     <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center"
+                               FontSize="15" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="2" FontSize="12" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="2" FontSize="13" VerticalAlignment="Center"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Text="{x:Bind StatusText, Mode=OneWay}" />
                 </Grid>
@@ -133,7 +134,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="36,24,36,0" ColumnSpacing="16">
+        <Grid Grid.Row="0" Margin="40,28,40,0" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -163,7 +164,7 @@
 
         <Grid x:Name="InstallPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
         <ScrollViewer
-            Padding="36,0,36,24"
+            Padding="40,0,40,28"
             VerticalScrollBarVisibility="Auto"
             VerticalScrollMode="Auto">
             <StackPanel
@@ -180,16 +181,16 @@
                          Severity="Informational" IsOpen="True" IsClosable="False"
                          Visibility="{x:Bind ViewModel.NothingToInstall, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 <!-- Web Browsers Section -->
-                <StackPanel Spacing="16">
+                <StackPanel Spacing="20">
                     <TextBlock Text="Web Browsers" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="BrowserGrid" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="200"
-                                             MinItemHeight="220"
-                                             MinColumnSpacing="12"
-                                             MinRowSpacing="12"
+                            <UniformGridLayout MinItemWidth="184"
+                                             MinItemHeight="192"
+                                             MinColumnSpacing="16"
+                                             MinRowSpacing="16"
                                              Orientation="Horizontal"
                                              ItemsJustification="Start"
                                              ItemsStretch="None" />
@@ -201,16 +202,16 @@
                 </StackPanel>
 
                 <!-- Game Launchers Section -->
-                <StackPanel Spacing="16">
+                <StackPanel Spacing="20">
                     <TextBlock Text="Game Launchers" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="LauncherGrid" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="200"
-                                             MinItemHeight="220"
-                                             MinColumnSpacing="12"
-                                             MinRowSpacing="12"
+                            <UniformGridLayout MinItemWidth="184"
+                                             MinItemHeight="192"
+                                             MinColumnSpacing="16"
+                                             MinRowSpacing="16"
                                              Orientation="Horizontal"
                                              ItemsJustification="Start"
                                              ItemsStretch="None" />
@@ -222,16 +223,16 @@
                 </StackPanel>
 
                 <!-- Socials & Communication Section -->
-                <StackPanel Spacing="16">
+                <StackPanel Spacing="20">
                     <TextBlock Text="Socials &amp; Communication" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="SocialGrid" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="200"
-                                             MinItemHeight="220"
-                                             MinColumnSpacing="12"
-                                             MinRowSpacing="12"
+                            <UniformGridLayout MinItemWidth="184"
+                                             MinItemHeight="192"
+                                             MinColumnSpacing="16"
+                                             MinRowSpacing="16"
                                              Orientation="Horizontal"
                                              ItemsJustification="Start"
                                              ItemsStretch="None" />
@@ -243,16 +244,16 @@
                 </StackPanel>
 
                 <!-- Utilities Section -->
-                <StackPanel Spacing="16">
+                <StackPanel Spacing="20">
                     <TextBlock Text="Utilities" Style="{StaticResource KaliteSectionTitle}" />
                     <ItemsRepeater x:Name="UtilityGrid" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="200"
-                                             MinItemHeight="220"
-                                             MinColumnSpacing="12"
-                                             MinRowSpacing="12"
+                            <UniformGridLayout MinItemWidth="184"
+                                             MinItemHeight="192"
+                                             MinColumnSpacing="16"
+                                             MinRowSpacing="16"
                                              Orientation="Horizontal"
                                              ItemsJustification="Start"
                                              ItemsStretch="None" />
@@ -270,13 +271,42 @@
              animate themselves; the hosted page itself needs no extra effect. -->
         <local:UninstallerPage x:Name="UninstallPanel" Grid.Row="2" Visibility="Collapsed" />
         
-        <!-- ContentDialog moved inside the visual tree to resolve XamlRoot / Binding cycle crashes -->
+        <!-- ContentDialog moved inside the visual tree to resolve XamlRoot / Binding cycle crashes.
+
+             Its GEOMETRY IS FIXED ON PURPOSE (min==max width, fixed-height
+             scroll host, reserved-height status rows). A ContentDialog is
+             positioned once, when ShowAsync runs; anything that resizes its
+             content afterwards - the progress button swapping to its long
+             "Downloading... (43.7%)" caption, the status line appearing, an
+             error line appearing - re-lays the dialog out around that stale
+             position, so it visibly crawls out of the middle of the screen and
+             reads as broken for the whole install. A dialog whose size cannot
+             change cannot drift, so the size simply never changes here: the
+             progress text and the error line got their own permanently
+             reserved rows and the button got a fixed width with a short
+             "Working..." caption. -->
         <ContentDialog x:Name="BrowserDetailsDialog"
                        Style="{StaticResource DefaultContentDialogStyle}"
                        Title="{x:Null}"
                        PrimaryButtonText=""
                        CloseButtonText="{x:Bind local:InstallerPage.GetCloseButtonText(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
                        Grid.RowSpan="3">
+            <ContentDialog.Resources>
+                <!-- min == max, so the dialog measures to exactly this width at
+                     open and stays there no matter what the content wants. -->
+                <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
+                <x:Double x:Key="ContentDialogMaxWidth">560</x:Double>
+            </ContentDialog.Resources>
+            <!-- Fixed height: the scroll host is the one element allowed to
+                 clip overflow, and because its height is constant the dialog
+                 height is constant too.
+                 Padding right reserves the scrollbar's lane, so when the
+                 vertical bar appears (long extension lists) it slides in beside
+                 the content instead of drawing on top of the Install button. -->
+            <ScrollViewer Height="420"
+                          Padding="0,0,16,0"
+                          VerticalScrollBarVisibility="Auto"
+                          VerticalScrollMode="Auto">
             <StackPanel Spacing="16">
                 <!-- Title Panel -->
                 <StackPanel Orientation="Horizontal" Spacing="12">
@@ -303,11 +333,28 @@
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
 
-                <!-- Status Checkmark (only visible if installed) -->
-                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}">
-                    <FontIcon Glyph="&#xE73E;" FontSize="16" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                <!-- Status Checkmark (only visible if installed). Height is
+                     fixed because this row appears and disappears with the
+                     install state, and a row that changes height moves the
+                     dialog. The space is simply always reserved. -->
+                <StackPanel Orientation="Horizontal" Spacing="8" Height="22" Visibility="{x:Bind local:InstallerPage.IsInstalledToVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}">
+                    <FontIcon Glyph="&#xE73E;" FontSize="16" Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                              Visibility="{x:Bind local:InstallerPage.StatusShowsTickVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}" />
                     <TextBlock Text="{x:Bind ViewModel.SelectedBrowser.StatusText, Mode=OneWay}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
                 </StackPanel>
+
+                <!-- Live install progress, in its own permanently reserved line.
+                     It used to be the button's CheckedContent, where a caption
+                     like "Downloading... (43.7%)" made the button - and with it
+                     the whole dialog - jump in width the moment the install
+                     started. -->
+                <TextBlock Height="18"
+                           FontSize="12"
+                           TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="{x:Bind ViewModel.InstallStatusText, Mode=OneWay}"
+                           Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                 <!-- Action Button at bottom (aligned right, mimicking dialog button).
                      The Uninstall button was removed at the user's request: it was
@@ -316,8 +363,9 @@
                      happens on the Uninstall tab. -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                     <dev:ProgressButton x:Name="DialogProgressBtn"
-                                        Content="Install"
-                                        CheckedContent="{x:Bind ViewModel.InstallStatusText, Mode=OneWay}"
+                                        Width="170"
+                                        Content="{x:Bind local:InstallerPage.StatusToActionLabel(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
+                                        CheckedContent="Working..."
                                         IsChecked="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
                                         IsIndeterminateProgressRing="false"
                                         ProgressRingVisibility="Collapsed"
@@ -325,7 +373,20 @@
                                         Visibility="{x:Bind local:InstallerPage.StatusToNotInstalledVisibility(ViewModel.SelectedBrowser.Status), Mode=OneWay}"
                                         Click="DialogProgressBtn_Click"/>
                 </StackPanel>
+                <!-- Install failure line: a dedicated element so reporting an error
+                     never replaces Content. The old ShowStatus swapped the whole
+                     StackPanel for one TextBlock (and overwrote the bound
+                     CloseButtonText), gutting the dialog for every later open. -->
+                <TextBlock x:Name="DialogStatusText"
+                           Height="40"
+                           MaxLines="2"
+                           Visibility="Collapsed"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           FontSize="13"
+                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
             </StackPanel>
+            </ScrollViewer>
         </ContentDialog>
     </Grid>
 </Page>

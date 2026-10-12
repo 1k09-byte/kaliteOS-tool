@@ -33,62 +33,6 @@ public enum CpuBoundState
     NotDetected,
 }
 
-/// <summary>
-/// Per-window CPU-bound detection state machine. Deliberately NOT part of
-/// <see cref="GamingModeService"/>, which is shared app-wide: each Threads
-/// window samples its own target process, so each owns its own detector.
-/// Three consecutive samples at >= 50% of one core count as "CPU-bound" -
-/// that is the regime where raising priority actually changes scheduling.
-/// </summary>
-public sealed class CpuBoundDetector
-{
-    // Detection: 3 samples x ~2 s tick = ~6 s of sustained load.
-    private const int HotSampleThreshold = 3;
-    // Percent of a SINGLE core. A single-threaded game pegging one core reads
-    // ~100 here even on a 32-thread machine.
-    private const double HotPercentThreshold = 50.0;
-
-    private int _hotSamples;
-    private bool _cpuBound;
-
-    public bool IsCpuBound => _cpuBound;
-
-    /// <summary>
-    /// Feeds one whole-process CPU sample (percent of one core). The first
-    /// call only seeds and returns Sampling.
-    /// </summary>
-    public CpuBoundState Observe(double cpuPercentOfOneCore)
-    {
-        if (cpuPercentOfOneCore < 0)
-        {
-            // Invalid sample (process died, access denied): don't reset the streak.
-            return _cpuBound ? CpuBoundState.Detected : CpuBoundState.Sampling;
-        }
-
-        if (cpuPercentOfOneCore >= HotPercentThreshold)
-        {
-            _hotSamples++;
-        }
-        else
-        {
-            _hotSamples = 0;
-        }
-
-        _cpuBound = _hotSamples >= HotSampleThreshold;
-
-        return _cpuBound ? CpuBoundState.Detected
-             : _hotSamples > 0 ? CpuBoundState.Sampling
-             : CpuBoundState.NotDetected;
-    }
-
-    /// <summary>Resets the detection streak (e.g. on manual restore).</summary>
-    public void Reset()
-    {
-        _hotSamples = 0;
-        _cpuBound = false;
-    }
-}
-
 /// <summary>How one <see cref="GamingModeService.AcquireAsync"/> call ended.</summary>
 public enum GamingModeOutcome
 {

@@ -68,3 +68,7 @@ test*.exe
 # Vendored tool archives (fetch on demand, don't commit blobs)
 *.zip
 /src/kaliteConfig/Assets/_imgcheck
+
+# IDE / agent scratch state
+/.freebuff/
+/src/out/

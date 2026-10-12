@@ -71,7 +71,20 @@ namespace kaliteConfig.Models
         public partial bool IsIndeterminate { get; set; } = false;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusText))]
         public partial BrowserInstallStatus Status { get; set; } = BrowserInstallStatus.NotInstalled;
+
+        /// <summary>True once an installed entry is proven older than LatestVersion.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusText))]
+        public partial bool UpdateAvailable { get; set; } = false;
+
+        [ObservableProperty]
+        public partial string InstalledVersion { get; set; } = string.Empty;
+
+        /// <summary>Newest version the catalog knows of; empty means "cannot tell", so no update is ever claimed.</summary>
+        [ObservableProperty]
+        public partial string LatestVersion { get; set; } = string.Empty;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
@@ -85,7 +98,8 @@ namespace kaliteConfig.Models
             BrowserInstallStatus.NotInstalled => "Install",
             BrowserInstallStatus.Downloading => $"Downloading {InstallProgress:F0}%",
             BrowserInstallStatus.Installing => "Installing...",
-            BrowserInstallStatus.AlreadyInstalled => "Already installed",
+            BrowserInstallStatus.AlreadyInstalled => UpdateAvailable ? "Update available" : "Already installed",
+            BrowserInstallStatus.UpdateAvailable => "Update",
             BrowserInstallStatus.Installed => "Done",
             BrowserInstallStatus.Failed => "Failed",
             _ => ""
@@ -117,6 +131,7 @@ namespace kaliteConfig.Models
         Installing,
         AlreadyInstalled,
         Installed,
+        UpdateAvailable,
         Failed
     }
 }

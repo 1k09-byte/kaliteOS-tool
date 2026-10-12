@@ -24,7 +24,7 @@ namespace kaliteConfig.Pages
 
         public AffinityPage()
         {
-            ViewModel = new AffinityViewModel();
+            ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<AffinityViewModel>(App.Services) ?? new AffinityViewModel();
             InitializeComponent();
             Loaded += AffinityPage_Loaded;
         }
@@ -39,22 +39,6 @@ namespace kaliteConfig.Pages
             {
                 await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
             }
-        }
-
-        /// <summary>Opens the live CPU dialog: every device and the exact CPU
-        /// it is on at that moment - pinned or not. Shown as an in-app
-        /// ContentDialog so it lives inside the page context.</summary>
-        private async void LiveCpu_Click(object sender, RoutedEventArgs e)
-        {
-            var devices = new System.Collections.Generic.List<AffinityDeviceItem>();
-            devices.AddRange(ViewModel.GraphicsDevices);
-            devices.AddRange(ViewModel.NetworkDevices);
-            devices.AddRange(ViewModel.UsbDevices);
-            devices.AddRange(ViewModel.AudioDevices);
-            devices.AddRange(ViewModel.NvmeDevices);
-            devices.AddRange(ViewModel.StorageDevices);
-            var dialog = new kaliteConfig.Views.DeviceCpuWindow(devices);
-            await dialog.ShowAsync(XamlRoot);
         }
 
         private async void DeviceRow_Click(object sender, RoutedEventArgs e)

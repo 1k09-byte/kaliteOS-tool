@@ -32,8 +32,47 @@ internal static class BackdropTint
     /// </summary>
     public const byte MaxAlpha = 160;
 
+    /// <summary>
+    /// Alpha the opaque chrome - nav rail and caption band - is painted at.
+    ///
+    /// Not 255. An opaque pane hides the window backdrop outright, which is why
+    /// switching Material appeared to do nothing: the rail, the caption band and
+    /// the NavigationView pane fills were all fully opaque, so Mica/Acrylic never
+    /// showed through them no matter what the material setting said. At 85% the
+    /// matte identity still reads as matte, but the backdrop is visible behind it
+    /// and the setting becomes live.
+    ///
+    /// This has to match KaliteTheme.xaml's KaliteChromeSurfaceBrush alpha - the
+    /// two are the same surface, and ApplyBackdropTint rewrites the brush from
+    /// here on every tint change.
+    /// </summary>
+    public const byte ChromeAlpha = 0xD9;
+
     /// <summary>No tint at all: fully transparent, so nothing changes until asked for.</summary>
     public static readonly (byte R, byte G, byte B, byte A) None = (0x00, 0x00, 0x00, 0x00);
+
+    /// <summary>
+    /// The tint offered when the user has not picked one: the app's accent blue.
+    ///
+    /// This must be a real colour and NOT <c>(0,0,0)</c>. "No tint" is stored as
+    /// black with zero alpha, so any code that seeded the picker or the swatch
+    /// straight from <see cref="Load"/> handed it black - and the user then saved
+    /// that black back at whatever strength they dragged the slider to. A black
+    /// wash over this app's near-black chrome is invisible, so the symptom was
+    /// "the slider moves, the file changes, the window does not".
+    /// </summary>
+    public static readonly (byte R, byte G, byte B) DefaultColor = (0x1B, 0x3A, 0x6B);
+
+    /// <summary>
+    /// The colour a stored tint should be DISPLAYED as: <see cref="DefaultColor"/>
+    /// when nothing usable is stored, otherwise the stored channels.
+    ///
+    /// Black counts as unset, not as a choice, because a black wash over the
+    /// matte chrome is a visual no-op - keeping it would leave the picker and the
+    /// window disagreeing with each other and the user with no way out.
+    /// </summary>
+    public static (byte R, byte G, byte B) ColorOf((byte R, byte G, byte B, byte A) tint)
+        => tint.A == 0 || (tint.R == 0 && tint.G == 0 && tint.B == 0) ? DefaultColor : (tint.R, tint.G, tint.B);
 
     /// <summary>
     /// The app's matte chrome surface - the nav rail and the caption band paint
@@ -56,7 +95,7 @@ internal static class BackdropTint
                     return (brush.Color.R, brush.Color.G, brush.Color.B);
             }
             catch { }
-            return (0x10, 0x15, 0x0F);
+            return (0x0A, 0x0A, 0x0A);
         }
     }
 

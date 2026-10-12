@@ -26,31 +26,8 @@
     </Page.DataContext>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <!-- BreadcrumbBar header -->
-        <Border Margin="28,20,28,12" Padding="16,12" Style="{StaticResource PowerCard}"><Grid ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button Grid.Column="0" Click="BackToHub_Click" VerticalAlignment="Center"
-                    Style="{StaticResource SubtleButtonStyle}" ToolTipService.ToolTip="Back to Windows Settings">
-                <FontIcon Glyph="&#xE72B;" FontSize="14" />
-            </Button>
-            <StackPanel Grid.Column="1" Spacing="2">
-                <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                    <Run Text="Windows Settings" /><Run Text="  ›  Power Plans" FontWeight="SemiBold" />
-                </TextBlock>
-                <TextBlock Text="Power Plans" Style="{StaticResource KalitePageTitle}" />
-            </StackPanel>
-        </Grid></Border>
-
         <!-- Main Layout -->
-        <Grid Grid.Row="1" ColumnSpacing="18" Padding="28,0,28,24">
+        <Grid ColumnSpacing="18" Padding="28,0,28,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="320" /> <!-- Master -->
                 <ColumnDefinition Width="*" />   <!-- Details -->
@@ -86,7 +63,7 @@
                     <InfoBar Message="{Binding ErrorMessage}" Severity="Warning" IsOpen="True" Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" IsClosable="False" />
                 </StackPanel>
 
-                        <ListView Grid.Row="1" 
+                        <ListView Grid.Row="1"
                           ItemsSource="{Binding Schemes}" 
                           SelectedItem="{Binding SelectedScheme, Mode=TwoWay}"
                           SelectionMode="Single"
@@ -110,6 +87,21 @@
             <!-- Details View (Subgroups & Settings) -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,16,0">
                 <StackPanel Spacing="16" Visibility="{Binding SelectedScheme, Converter={StaticResource NullToVisibilityConverter}}">
+
+                    <!-- Settings search: filters the subgroup/setting tree below, not the plan list. -->
+                    <Grid>
+                        <TextBox Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="Search settings…"
+                                 ToolTipService.ToolTip="Filter this plan's settings by name or description" />
+                        <FontIcon Glyph="&#xE721;" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,10,0" IsHitTestVisible="False"
+                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    </Grid>
+
+                    <TextBlock Text="No settings match that search."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" HorizontalAlignment="Center"
+                               Visibility="{Binding HasNoSettingMatches, Converter={StaticResource BoolToVisibilityConverter}}" />
                     
                     <!-- Selected Scheme Header -->
                     <Border Background="{ThemeResource LayerFillColorDefaultBrush}" 
@@ -153,10 +145,11 @@
                     </Border>
                     
                     <!-- Settings Hierarchy -->
-                    <ItemsRepeater ItemsSource="{Binding SelectedScheme.Subgroups}">
+                    <ItemsRepeater ItemsSource="{Binding SelectedScheme.FilteredSubgroups}">
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="models:PowerSubgroup">
-                                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,12">
+                                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,12"
+                                          IsExpanded="{Binding IsExpanded, Mode=TwoWay}">
                                     <Expander.Header>
                                         <Grid>
                                             <StackPanel>
@@ -166,7 +159,7 @@
                                         </Grid>
                                     </Expander.Header>
                                     
-                                    <ItemsRepeater ItemsSource="{Binding Settings}">
+                                    <ItemsRepeater ItemsSource="{Binding FilteredSettings}">
                                         <ItemsRepeater.ItemTemplate>
                                             <DataTemplate x:DataType="models:PowerSetting">
                                                 <toolkit:SettingsCard Header="{Binding Name}" Description="{Binding Description}" Margin="0,0,0,4">

@@ -86,6 +86,74 @@ Filename: "{app}\{#MyAppExe}"; Parameters: "--tray"; Description: "Launch {#MyAp
 const
   BM_CLICK = $00F5;
 
+  { Returns true only on a KaliteOS build; never reports WHICH markers were checked. }
+function IsKaliteOS: Boolean;
+var
+  I: Integer;
+  SubKey: array[0..3] of String;
+  ValueName: array[0..3] of String;
+  Expected: array[0..3] of String;
+  Actual: String;
+begin
+  Result := False;
+
+  { Must mirror Assets\verify.reg - the file that DEFINES a KaliteOS machine -
+    and SystemVerificationService, which parses that same file at runtime.
+
+    These four, and only these four. This list used to also demand
+    OEMInformation\SupportHours and SupportURL, which verify.reg never writes,
+    so a machine stamped purely by that reg was refused by the installer here
+    AND then refused again by the app: the setup refused to install, and an
+    already-installed app showed "kaliteConfig can only run on KaliteOS".
+    Checking a value the stamp does not define is a hole in both directions. }
+  SubKey[0] := 'SOFTWARE\Microsoft\Windows NT\CurrentVersion';
+  ValueName[0] := 'EditionSubVersion';
+  Expected[0] := 'KaliteOS';
+
+  SubKey[1] := 'SOFTWARE\Microsoft\Windows NT\CurrentVersion';
+  ValueName[1] := 'RegisteredOrganization';
+  Expected[1] := 'Kalite';
+
+  SubKey[2] := 'SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation';
+  ValueName[2] := 'Manufacturer';
+  Expected[2] := 'Kal';
+
+  SubKey[3] := 'SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation';
+  ValueName[3] := 'Model';
+  Expected[3] := 'KaliteOS';
+
+  for I := 0 to 3 do
+  begin
+    Actual := '';
+    if not RegQueryStringValue(HKLM64, SubKey[I], ValueName[I], Actual) then
+      Exit;
+    if CompareText(Actual, Expected[I]) <> 0 then
+      Exit;
+  end;
+
+  Result := True;
+end;
+
+{ Download is always allowed; only running Setup is gated, with one fixed sentence. }
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+#ifdef AllowNonKaliteOS
+  { Dev/CI escape hatch, compiled OUT of release builds so it is absent from the shipped installer. }
+  Exit;
+#else
+  if not IsKaliteOS then
+  begin
+    { MsgBox + False, NOT Result := 'text'. InitializeSetup is declared Boolean,
+      so a string Result coerces non-empty -> True and the gate silently never
+      fires. Only the String-typed hooks (PrepareToInstall, NextButtonClick)
+      return a message that way. }
+    MsgBox('kaliteConfig can only run on KaliteOS.', mbError, MB_OK);
+    Result := False;
+  end;
+#endif
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if (CurPageID = wpWelcome) or (CurPageID = wpReady) then

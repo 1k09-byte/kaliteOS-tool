@@ -22,8 +22,17 @@ namespace kaliteConfig.Services
         private const string KernelSessionKey = @"SYSTEM\CurrentControlSet\Control\Session Manager\kernel";
         private const string ValueName = "ReservedCpuSets";
         
+        // Legacy second Run entry. It launched the same exe a second time just to
+        // re-assert the mask, so a user who enabled this got TWO entries in
+        // Task Manager > Startup for one app. Retired: the --tray launch already
+        // starts the app at login and now applies the mask itself. The name is
+        // kept only so existing installs can have the orphan deleted.
         private const string RunKeyPath = @"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValueName = "kaliteConfig_ReservedCpuSets";
+
+        // The "apply at startup" preference now lives beside the mask it applies,
+        // under the same key as DesiredKeyPath above.
+        private const string ApplyAtStartupValueName = "ReservedCpuSetsApplyAtStartup";
 
         // Desired mask, so a startup launch can re-assert the reservation even
         // when the OS dropped the live kernel value across a reboot.
@@ -154,46 +163,39 @@ namespace kaliteConfig.Services
 
         public bool GetApplyAtStartup()
         {
+            // Self-heal: an install that predates the consolidation still has the
+            // second Run entry. Report the preference from the new value, but drop
+            // the orphan first or Task Manager keeps showing the duplicate forever.
+            RemoveLegacyRunEntry();
             try
             {
-                using var key = Registry.LocalMachine.OpenSubKey(RunKeyPath, false);
+                using var key = Registry.LocalMachine.OpenSubKey(DesiredKeyPath, false);
                 if (key != null)
                 {
-                    var value = key.GetValue(RunValueName) as string;
-                    return !string.IsNullOrEmpty(value);
+                    var value = key.GetValue(ApplyAtStartupValueName);
+                    return value is int i && i != 0;
                 }
             }
             catch { }
             return false;
         }
 
+        private static void RemoveLegacyRunEntry()
+        {
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(RunKeyPath, true);
+                key?.DeleteValue(RunValueName, false);
+            }
+            catch { }
+        }
+
         public void SetApplyAtStartup(bool enabled)
         {
-            using var key = Registry.LocalMachine.CreateSubKey(RunKeyPath, true);
-            if (key == null)
-            {
-                throw new UnauthorizedAccessException("Cannot open Run key. Run as Administrator.");
-            }
-
-            if (enabled)
-            {
-                // Point to the executable with a silent argument.
-                // Assuming the main EXECUTABLE is mapping correctly via Process.GetCurrentProcess().MainModule
-                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
-                if (!string.IsNullOrEmpty(exePath))
-                {
-                    // Quote the path and append argument
-                    string command = $"\"{exePath}\" --apply-reserved-cpus";
-                    key.SetValue(RunValueName, command, RegistryValueKind.String);
-                }
-            }
-            else
-            {
-                if (key.GetValue(RunValueName) != null)
-                {
-                    key.DeleteValue(RunValueName, false);
-                }
-            }
+            RemoveLegacyRunEntry();
+            using var key = Registry.LocalMachine.CreateSubKey(DesiredKeyPath, true)
+                ?? throw new UnauthorizedAccessException("Cannot write settings key. Run as Administrator.");
+            key.SetValue(ApplyAtStartupValueName, enabled ? 1 : 0, RegistryValueKind.DWord);
         }
     }
 }

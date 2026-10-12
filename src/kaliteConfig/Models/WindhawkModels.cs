@@ -92,6 +92,19 @@ public sealed class WindhawkEngineSettings
     public bool? InjectIntoGames { get; set; }
 }
 
+/// <summary>
+/// Per-mod "config" block in a backup: whether the mod is installed but
+/// disabled. The bundled KaliteOS set ships taskbar-restart-explorer this way
+/// (it is a one-shot tool, not a mod meant to stay loaded), so the import
+/// verification has to know the difference between "disabled because the
+/// bundled config says so" and "failed to enable".
+/// </summary>
+public sealed class WindhawkModConfig
+{
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+}
+
 /// <summary>One mod entry inside a windhawk-user-data-v1 backup.</summary>
 public sealed class WindhawkModEntry
 {
@@ -111,6 +124,13 @@ public sealed class WindhawkModEntry
     /// </summary>
     [JsonPropertyName("settings")]
     public Dictionary<string, object?>? Settings { get; set; }
+
+    /// <summary>
+    /// Installed/enabled state carried by the backup itself. Null when the file
+    /// says nothing about it (the mod is then expected to end up enabled).
+    /// </summary>
+    [JsonPropertyName("config")]
+    public WindhawkModConfig? Config { get; set; }
 }
 
 /// <summary>Per-mod import outcome, used for the end-of-import summary.</summary>

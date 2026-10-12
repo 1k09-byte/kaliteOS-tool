@@ -26,7 +26,7 @@ namespace kaliteConfig.Pages
         public PriorityBoostsPage()
         {
             this.InitializeComponent();
-            this.ViewModel = new ThreadTunerViewModel();
+            this.ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.ThreadTunerViewModel>(App.Services) ?? new ViewModels.ThreadTunerViewModel();
             this.DataContext = ViewModel;
 
             this.Loaded += Page_Loaded;

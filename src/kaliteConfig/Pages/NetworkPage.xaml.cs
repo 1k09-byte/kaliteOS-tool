@@ -198,6 +198,28 @@ public sealed partial class NetworkPage : Page
         catch (Exception ex) { OnBanner("Could not open Device Manager", ex.Message); }
     }
 
+    /// <summary>Opens the classic Control Panel adapter list, which is the only supported way to reach its Properties sheet.</summary>
+    private void ControlPanelProps_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string? guid = ViewModel.SelectedAdapter?.Guid;
+            var psi = new System.Diagnostics.ProcessStartInfo("control.exe", "ncpa.cpl")
+            {
+                UseShellExecute = true,
+            };
+            System.Diagnostics.Process.Start(psi);
+
+            string name = string.IsNullOrWhiteSpace(ViewModel.SelectedAdapter?.Name)
+                ? "your adapter" : ViewModel.SelectedAdapter!.Name;
+            OnBanner("Network Connections opened",
+                string.IsNullOrWhiteSpace(guid)
+                    ? "Double-click the adapter, then Properties -> Advanced for its driver settings."
+                    : $"Select \"{name}\", then Properties -> Advanced for its driver settings.");
+        }
+        catch (Exception ex) { OnBanner("Could not open Control Panel", ex.Message); }
+    }
+
     private void CopyDriver_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -212,6 +234,15 @@ public sealed partial class NetworkPage : Page
 
     private void NetTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        try
+        {
+            // A collapsed tab must never be the selected one: hiding a selected
+            // tab leaves the TabView showing nothing with no way to recover.
+            if (NetTabs.SelectedItem is TabViewItem { Visibility: not Visibility.Visible } hidden)
+                NetTabs.SelectedIndex = 0;
+        }
+        catch { }
+
         try
         {
             bool stats = ReferenceEquals(NetTabs.SelectedItem, StatsTab);
@@ -440,6 +471,19 @@ public sealed partial class NetworkPage : Page
         try { await ViewModel.CompareAsync().ConfigureAwait(true); }
         catch (Exception ex) { OnBanner("Compare failed", ex.Message); }
     }
+
+    /// <summary>Reveals the registry-level tabs on demand; they stay collapsed until asked for.</summary>
+    private void ShowAdvancedToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        // x:Name fields are null while InitializeComponent is still running, and
+        // setting IsChecked="True" in XAML fires Checked right there - before the
+        // TabView below this toggle has been constructed. Without this guard the
+        // page threw NRE on every navigation.
+        if (AdvancedTab is null || OffloadsTab is null || SysWTab is null) return;
+
+        Visibility v = ShowAdvancedToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        AdvancedTab.Visibility = v;
+        OffloadsTab.Visibility = v;
+        SysWTab.Visibility = v;
+    }
 }
-
-

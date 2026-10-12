@@ -55,8 +55,6 @@ public sealed class TrayIconService : IDisposable
     private const uint LR_LOADFROMFILE = 0x10;
     private const uint MF_STRING = 0x0000;
     private const uint MF_SEPARATOR = 0x0800;
-    private const uint MF_POPUP = 0x00000010;
-    private const uint MF_DISABLED = 0x00000002;
     private const uint MF_GRAYED = 0x00000001;
     private const uint TPM_RETURNCMD = 0x0100;
     private const uint TPM_RIGHTBUTTON = 0x0002;
@@ -66,11 +64,6 @@ public sealed class TrayIconService : IDisposable
     private const uint ID_VERSION = 99;
     private const uint ID_OPEN = 100;
     private const uint ID_TAKE_SNIP = 101;
-    private const uint ID_SNIP_REGION = 102;
-    private const uint ID_SNIP_WINDOW = 103;
-    private const uint ID_SNIP_FULLSCREEN = 104;
-    private const uint ID_SNIP_FREEFORM = 105;
-    private const uint ID_SNIP_DELAYED = 106;
     private const uint ID_SEPARATOR1 = 107;
     private const uint ID_EXIT = 108;
 

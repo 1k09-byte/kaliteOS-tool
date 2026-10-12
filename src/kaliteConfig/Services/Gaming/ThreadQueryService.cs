@@ -60,7 +60,6 @@ public sealed class LiveThreadDetail
 /// </summary>
 public sealed class ThreadQueryService
 {
-    private static readonly ProtectedProcessService _protectedProcessService = new();
 
     /// <summary>System Informer style: "Time critical", "Below normal", "Custom (3)", "Custom (-4)".</summary>
     public static string FormatRelative(int level) => level switch

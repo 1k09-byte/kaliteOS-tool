@@ -269,7 +269,23 @@ namespace kaliteConfig.GpuOverclock.Services
             string pnp = ReadString(gpu, GpuPnpString);
             Fn<GpuTypeFn>(gpu, GpuType)(gpu, out _);
             Fn<GpuIsExternalFn>(gpu, GpuIsExternal)(gpu, out byte external);
-            Fn<GpuVramFn>(gpu, GpuTotalVram)(gpu, out uint vramMb);
+            // The TotalVRAM call's return code used to be ignored: on APUs and
+            // on cards whose VBIOS hides the counter it fails (or answers 0),
+            // and the overclock page showed "shared memory" for a discrete
+            // card. Worse, a throwing counter skipped the whole adapter below.
+            // Honor the code, contain the throw, and fall back to the
+            // display-class registry's qwMemorySize - the same QWORD source the
+            // drivers page reads - matched by PNP id. Overclock-side only; the
+            // drivers page is deliberately untouched.
+            uint vramMb = 0;
+            try
+            {
+                if (Fn<GpuVramFn>(gpu, GpuTotalVram)(gpu, out uint adlxMb) == 0)
+                    vramMb = adlxMb;
+            }
+            catch { vramMb = 0; }
+            if (vramMb == 0)
+                vramMb = ReadRegistryVramMb(pnp);
 
             return new AmdGpuTuningSupport(
                 Name: name,
@@ -286,6 +302,70 @@ namespace kaliteConfig.GpuOverclock.Services
         {
             if (tuning == IntPtr.Zero) return false;
             return Fn<IsSupportedFn>(tuning, index)(tuning, gpu, out byte ok) == 0 && ok != 0;
+        }
+
+        private const string DisplayClassKey =
+            @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
+
+        /// <summary>
+        /// Registry fallback for total VRAM (MB) when ADLX answers 0 or fails.
+        /// Reads the adapter's HardwareInformation.qwMemorySize QWORD (bytes),
+        /// which stays correct past 4 GB where WMI AdapterRAM wraps. Matched by
+        /// PNP id prefix, same trick as the drivers page (whose code path this
+        /// does not touch).
+        /// </summary>
+        private static uint ReadRegistryVramMb(string pnpId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(pnpId)) return 0;
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    DisplayClassKey, writable: false);
+                if (key is null) return 0;
+                foreach (var sub in key.GetSubKeyNames())
+                {
+                    using var child = key.OpenSubKey(sub);
+                    if (child is null) continue;
+                    if (child.GetValue("MatchingDeviceId")?.ToString() is not string matching ||
+                        !MatchesPnpId(matching, pnpId))
+                        continue;
+                    object? raw = child.GetValue("HardwareInformation.qwMemorySize")
+                        ?? child.GetValue("HardwareInformation.MemorySize");
+                    long bytes = raw switch
+                    {
+                        int i => i,
+                        uint u => u,
+                        long l => l,
+                        byte[] b when b.Length >= 8 => BitConverter.ToInt64(b, 0),
+                        byte[] b when b.Length == 4 => BitConverter.ToInt32(b, 0),
+                        string s when long.TryParse(s, out long v) => v,
+                        _ => 0,
+                    };
+                    if (bytes > 0) return (uint)(bytes / 1024 / 1024);
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        /// <summary>
+        /// PNP-id prefix comparison (both directions) with a ven_/dev_ core
+        /// fallback, so casing and separator differences between boards and
+        /// Windows sessions do not break the match.
+        /// </summary>
+        private static bool MatchesPnpId(string matching, string pnpId)
+        {
+            if (string.IsNullOrEmpty(matching) || string.IsNullOrEmpty(pnpId)) return false;
+            if (pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase)) return true;
+            if (matching.StartsWith(pnpId, StringComparison.OrdinalIgnoreCase)) return true;
+            static string Core(string s)
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(
+                    s, @"ven_[0-9a-f]{4}[&_]dev_[0-9a-f]{4}",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                return m.Success ? m.Value.ToLowerInvariant() : s.Replace('\\', '_').ToLowerInvariant();
+            }
+            return string.Equals(Core(matching), Core(pnpId), StringComparison.Ordinal);
         }
 
         private static string ReadString(IntPtr iface, int index)
