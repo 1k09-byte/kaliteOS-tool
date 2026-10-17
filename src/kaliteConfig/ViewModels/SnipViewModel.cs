@@ -153,7 +153,6 @@ public partial class GalleryItem : ObservableObject
             if (SetProperty(ref _isHover, value))
             {
                 OnPropertyChanged(nameof(StarVisibility));
-                OnPropertyChanged(nameof(StarOpacity));
             }
         }
     }
@@ -194,7 +193,6 @@ public partial class GalleryItem : ObservableObject
     /// merely hovered so an un-favourited tile's action does not compete with
     /// the picture.
     /// </summary>
-    public double StarOpacity => IsFavorite ? 1.0 : 0.6;
     public Microsoft.UI.Xaml.Media.Brush StarBrush => IsFavorite
         ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gold)
         : Services.Theming.ThemeHelper.SecondaryText();
