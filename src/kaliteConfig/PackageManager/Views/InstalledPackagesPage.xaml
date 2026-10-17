@@ -33,7 +33,7 @@
             <AutoSuggestBox Grid.Column="0" PlaceholderText="Filter installed..." QueryIcon="Find"
                             Text="{x:Bind Vm.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Reload" Style="{StaticResource AccentButtonStyle}"
+            <Button Grid.Column="1" Content="Reload"
                     Command="{x:Bind Vm.LoadCommand}" VerticalAlignment="Center" />
         </Grid>
 

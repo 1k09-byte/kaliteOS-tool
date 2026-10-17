@@ -41,7 +41,7 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <Button Content="{x:Bind ActionLabel, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}"
+                    <Button Content="{x:Bind ActionLabel, Mode=OneWay}"
                             Command="{x:Bind ActionCommand, Mode=OneWay}" CommandParameter="{x:Bind Package, Mode=OneWay}"
                             Click="ActionButton_Click"
                             Visibility="{x:Bind local:PackageRow.BoolToVis(ShowAction), Mode=OneWay}" />
@@ -79,7 +79,7 @@
                 <Run Text="{x:Bind Package.DisplayName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="  " />
                 <Run Text="{x:Bind Package.VersionLine, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </TextBlock>
-            <Button Grid.Column="2" Content="{x:Bind ActionLabel, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}"
+            <Button Grid.Column="2" Content="{x:Bind ActionLabel, Mode=OneWay}"
                     Command="{x:Bind ActionCommand, Mode=OneWay}" CommandParameter="{x:Bind Package, Mode=OneWay}"
                     Click="ActionButton_Click"
                     Visibility="{x:Bind local:PackageRow.BoolToVis(ShowAction), Mode=OneWay}" />
@@ -112,7 +112,7 @@
                 <TextBlock Text="{x:Bind Package.SourceLabel, Mode=OneWay}" FontSize="11"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="{x:Bind ActionLabel, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}"
+                    <Button Content="{x:Bind ActionLabel, Mode=OneWay}"
                             Command="{x:Bind ActionCommand, Mode=OneWay}" CommandParameter="{x:Bind Package, Mode=OneWay}"
                             Click="ActionButton_Click"
                             Visibility="{x:Bind local:PackageRow.BoolToVis(ShowAction), Mode=OneWay}" />

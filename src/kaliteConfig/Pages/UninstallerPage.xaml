@@ -310,7 +310,7 @@
                                 <TextBlock Text="{Binding SelectedApp.UninstallString}" FontSize="11" TextWrapping="Wrap"
                                            IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
-                            <Button Content="Uninstall" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                            <Button Content="Uninstall" HorizontalAlignment="Stretch"
                                     Click="DetailsUninstall_Click" />
                             <Button Content="Force Remove..." HorizontalAlignment="Stretch" Click="DetailsForceRemove_Click" />
                             <Button Content="Open install folder" HorizontalAlignment="Stretch" Command="{Binding OpenInstallFolderCommand}" />
@@ -451,7 +451,7 @@
                                         <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" TextWrapping="Wrap"
                                                    IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <Button Content="Remove package" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                                    <Button Content="Remove package" HorizontalAlignment="Stretch"
                                             Click="DetailsRemoveDriver_Click" />
                                     <TextBlock Text="{Binding DriverActionStatus}" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"

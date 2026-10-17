@@ -129,7 +129,7 @@
                     <Grid x:Name="IdealCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                     <Button Content="Apply ideal processor" Click="IdealApply_Click" HorizontalAlignment="Left" />
 
-                    <Button Content="Make permanent (save as rule)" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Click="PermanentButton_Click"
+                    <Button Content="Make permanent (save as rule)" HorizontalAlignment="Left" Click="PermanentButton_Click"
                             ToolTipService.ToolTip="Saves priority, Eco, the ticked affinity CPUs and the picked ideal CPU as an auto-apply rule - no need to press Apply first; the rule also takes effect immediately" />
 
                     <TextBlock Text="Danger zone" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
