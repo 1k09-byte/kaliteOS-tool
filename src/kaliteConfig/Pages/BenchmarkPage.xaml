@@ -153,13 +153,13 @@
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="12,10" Margin="0,0,0,8">
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.LoadTargetsCommand}" VerticalAlignment="Center"
+                <Button Command="{x:Bind ViewModel.LoadTargetsCommand}" VerticalAlignment="Center"
                         ToolTipService.ToolTip="Refresh process list">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE72C;" FontSize="14" /><TextBlock Text="Refresh" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                 <Button CornerRadius="8" Command="{x:Bind ViewModel.UseForegroundCommand}" VerticalAlignment="Center"
+                 <Button Command="{x:Bind ViewModel.UseForegroundCommand}" VerticalAlignment="Center"
                          ToolTipService.ToolTip="Target the focused game window.">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE7B8;" FontSize="14" /><TextBlock Text="Use foreground" VerticalAlignment="Center" />
@@ -175,13 +175,13 @@
                 <NumberBox CornerRadius="8" Value="{x:Bind ViewModel.CountdownSec, Mode=TwoWay}" Minimum="0" Maximum="30"
                            VerticalAlignment="Center" SpinButtonPlacementMode="Compact" Width="130"
                            PlaceholderText="Countdown (s)" ToolTipService.ToolTip="Countdown in seconds before capture starts." />
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.StartCaptureCommand}" VerticalAlignment="Center"
+                <Button Command="{x:Bind ViewModel.StartCaptureCommand}" VerticalAlignment="Center"
                         Style="{StaticResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE768;" FontSize="14" /><TextBlock Text="Start capture" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.StopCaptureCommand}" VerticalAlignment="Center"
+                <Button Command="{x:Bind ViewModel.StopCaptureCommand}" VerticalAlignment="Center"
                         ToolTipService.ToolTip="Stop the running capture">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE71A;" FontSize="14" /><TextBlock Text="Stop" VerticalAlignment="Center" />
@@ -194,7 +194,7 @@
                     <NumberBox CornerRadius="8" Value="{x:Bind ViewModel.AutoAbRuns, Mode=TwoWay}" Minimum="1" Maximum="10"
                                SpinButtonPlacementMode="Compact" Width="84" VerticalAlignment="Center"
                                PlaceholderText="Pairs" ToolTipService.ToolTip="Number of off/on run pairs." />
-                    <Button CornerRadius="8" Command="{x:Bind ViewModel.RunAutoAbCommand}" VerticalAlignment="Center"
+                    <Button Command="{x:Bind ViewModel.RunAutoAbCommand}" VerticalAlignment="Center"
                             ToolTipService.ToolTip="Run the A/B pair loop now">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE7C3;" FontSize="14" /><TextBlock Text="Run now" VerticalAlignment="Center" />
@@ -275,19 +275,19 @@
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource BenchCard}" Padding="12,8" Margin="0,0,0,8">
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.RefreshRunsCommand}"
+                <Button Command="{x:Bind ViewModel.RefreshRunsCommand}"
                         ToolTipService.ToolTip="Reload saved runs">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE72C;" FontSize="14" /><TextBlock Text="Refresh" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.AddToCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
+                <Button Command="{x:Bind ViewModel.AddToCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
                         ToolTipService.ToolTip="Add the selected run to the Compare tab">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE8E5;" FontSize="14" /><TextBlock Text="Add to compare" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.DeleteRunCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
+                <Button Command="{x:Bind ViewModel.DeleteRunCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
                         ToolTipService.ToolTip="Delete the selected run">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE74D;" FontSize="14" /><TextBlock Text="Delete" VerticalAlignment="Center" />
@@ -337,7 +337,7 @@
             <StackPanel Grid.Row="2" Grid.Column="1" Spacing="8">
                 <TextBlock Text="Comment" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBox CornerRadius="8" Text="{x:Bind ViewModel.CommentDraft, Mode=TwoWay}" TextWrapping="Wrap" />
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.SaveCommentCommand}">
+                <Button Command="{x:Bind ViewModel.SaveCommentCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE70E;" FontSize="14" /><TextBlock Text="Save comment" VerticalAlignment="Center" />
                     </StackPanel>
@@ -460,18 +460,18 @@
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                        Margin="0,0,0,8" />
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.SetBaselineCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
+                <Button Command="{x:Bind ViewModel.SetBaselineCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}"
                         ToolTipService.ToolTip="Use the selected run as the comparison baseline">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE915;" FontSize="14" /><TextBlock Text="Set baseline" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.RemoveFromCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}">
+                <Button Command="{x:Bind ViewModel.RemoveFromCompareCommand}" CommandParameter="{x:Bind ViewModel.SelectedRun, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE738;" FontSize="14" /><TextBlock Text="Remove" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button CornerRadius="8" Command="{x:Bind ViewModel.ClearCompareCommand}">
+                <Button Command="{x:Bind ViewModel.ClearCompareCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE894;" FontSize="14" /><TextBlock Text="Clear" VerticalAlignment="Center" />
                     </StackPanel>
@@ -525,33 +525,33 @@
                 </TransitionCollection>
             </Border.Transitions>
             <StackPanel Spacing="8">
-            <Button CornerRadius="8" Command="{x:Bind ViewModel.ExportCsvCommand}" HorizontalAlignment="Left">
+            <Button Command="{x:Bind ViewModel.ExportCsvCommand}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xEDE1;" FontSize="14" /><TextBlock Text="Export frames CSV" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button CornerRadius="8" Command="{x:Bind ViewModel.ExportJsonCommand}" HorizontalAlignment="Left">
+            <Button Command="{x:Bind ViewModel.ExportJsonCommand}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xEDE1;" FontSize="14" /><TextBlock Text="Export report JSON" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button CornerRadius="8" Command="{x:Bind ViewModel.ImportCsvCommand}" HorizontalAlignment="Left">
+            <Button Command="{x:Bind ViewModel.ImportCsvCommand}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8B5;" FontSize="14" /><TextBlock Text="Import PresentMon CSV" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button CornerRadius="8" Command="{x:Bind ViewModel.ImportJsonCommand}" HorizontalAlignment="Left">
+            <Button Command="{x:Bind ViewModel.ImportJsonCommand}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8B5;" FontSize="14" /><TextBlock Text="Import CapFrameX JSON" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button CornerRadius="8" Click="SavePngReport_Click" HorizontalAlignment="Left"
+            <Button Click="SavePngReport_Click" HorizontalAlignment="Left"
                     ToolTipService.ToolTip="Renders the Analysis tab (graph + stats) to a shareable PNG. Open a run in Analysis first.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xEB9F;" FontSize="14" /><TextBlock Text="Save PNG report" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button CornerRadius="8" Command="{x:Bind ViewModel.CopyStatsTableCommand}" HorizontalAlignment="Left">
+            <Button Command="{x:Bind ViewModel.CopyStatsTableCommand}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8C8;" FontSize="14" /><TextBlock Text="Copy stats table" VerticalAlignment="Center" />
                 </StackPanel>

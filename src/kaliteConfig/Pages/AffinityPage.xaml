@@ -13,14 +13,9 @@
         <DataTemplate x:Key="AffinityTableRowTemplate" x:DataType="models:AffinityDeviceItem">
             <Button
                 Margin="0,0,0,0"
-                Padding="0"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
-                Background="Transparent"
-                BorderThickness="0"
-                MinWidth="0"
-                MinHeight="0"
                 Click="DeviceRow_Click"
                 Tag="{x:Bind}">
                     <Grid Padding="12,14" ColumnSpacing="12">
@@ -408,11 +403,8 @@
 
                             <!-- Graphics group -->
                             <Button
-                                Padding="12,8"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
                                 CommandParameter="Graphics"
                                 Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}">
@@ -437,11 +429,8 @@
 
                             <!-- Network group -->
                             <Button
-                                Padding="12,8"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
                                 CommandParameter="Network"
                                 Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}">
@@ -466,11 +455,8 @@
 
                             <!-- USB group -->
                             <Button
-                                Padding="12,8"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
                                 CommandParameter="Usb"
                                 Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}">
@@ -495,11 +481,8 @@
 
                             <!-- Audio group -->
                             <Button
-                                Padding="12,8"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
                                 Command="{x:Bind ViewModel.ToggleGroupCommand}"
                                 CommandParameter="Audio"
                                 Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}">

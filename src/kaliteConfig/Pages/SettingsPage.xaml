@@ -146,9 +146,6 @@
                              (what the ColorPicker shows), and the strength slider controls how
                              strongly that hue is washed over the material. -->
                         <Button x:Name="TintColorButton"
-                                Width="52"
-                                Height="34"
-                                Padding="0"
                                 ToolTipService.ToolTip="Pick a tint colour">
                             <Button.Flyout>
                                 <Flyout Opened="TintFlyout_Opened" Closed="TintFlyout_Closed">
@@ -238,8 +235,7 @@
                                     Grid.Column="1"
                                     Content="Choose…"
                                     Click="BgPick_Click"
-                                    Style="{StaticResource AccentButtonStyle}"
-                                    MinWidth="84" />
+                                    Style="{StaticResource AccentButtonStyle}" />
                         </Grid>
 
                         <Grid>
