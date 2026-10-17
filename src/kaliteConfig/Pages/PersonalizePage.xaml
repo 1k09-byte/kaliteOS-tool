@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="kaliteConfig.Pages.PersonalizePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:kaliteConfig.Converters"
+    Background="Transparent"
+    NavigationCacheMode="Enabled"
+    Loaded="OnLoaded"
+    Unloaded="OnUnloaded">
+
+    <Page.Resources>
+        <converters:ImageFileThumbnailConverter x:Key="ThumbnailConverter" />
+        <Style x:Key="PersonalizeCard" TargetType="Border" BasedOn="{StaticResource KaliteCard}" />
+    </Page.Resources>
+
+    <ScrollViewer>
+        <StackPanel Padding="28,0,28,24" Spacing="16">
+
+            <!-- Page header -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Personalize" Style="{StaticResource TitleLargeTextBlockStyle}" />
+                <TextBlock Text="Change how Windows looks and feels. Every section can be reset, and everything can be reverted to how it was before this app changed it."
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!-- Global revert -->
+            <Button Content="Revert everything to how it was before this app changed it"
+                    Click="RevertEverything_Click" />
+
+            <!-- Status and warnings -->
+            <InfoBar IsOpen="{Binding StatusOpen, Mode=TwoWay}"
+                     Severity="{Binding StatusSeverity}"
+                     Message="{Binding StatusMessage}"
+                     IsClosable="True" />
+            <InfoBar IsOpen="{Binding IsHighContrast}"
+                     Severity="Informational"
+                     Title="High contrast is on"
+                     Message="Some appearance settings won't visibly apply while a high contrast theme is active." />
+
+            <!-- Section switcher -->
+            <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
+                <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
+                <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />
+                <SelectorBarItem x:Name="ColorsItem" Text="Colors" Tag="colors" />
+            </SelectorBar>
+
+            <!-- ============================ Wallpaper ============================ -->
+            <StackPanel x:Name="WallpaperSection" Spacing="16">
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Desktop wallpaper" Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Header="Monitor" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Monitors}"
+                                      SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}"
+                                      DisplayMemberPath="Label" />
+                            <ComboBox Grid.Column="1" Header="Fit" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Fits}"
+                                      SelectedItem="{Binding SelectedFit, Mode=TwoWay}" />
+                        </Grid>
+
+                        <!-- Live preview. Tile, Center and Span are approximations. -->
+                        <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                CornerRadius="4" Height="240" HorizontalAlignment="Stretch">
+                            <Image x:Name="PreviewImage" Stretch="UniformToFill"
+                                   AutomationProperties.Name="Wallpaper preview" />
+                        </Border>
+                        <TextBlock Text="Preview is approximate. Tile, Center and Span are shown as an estimate."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Add image..." Click="AddWallpaper_Click" />
+                            <Button Content="Apply wallpaper" Command="{Binding ApplyWallpaperCommand}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            <Button Content="Remove from library" Command="{Binding RemoveSelectedWallpaperCommand}" />
+                            <Button Content="Restore wallpaper section" Command="{Binding RevertWallpaperSectionCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Solid background color" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="Shown behind the wallpaper where it does not cover the screen. The current color is not read back from Windows yet."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <ColorPicker Color="{Binding BackgroundColor, Mode=TwoWay}"
+                                     IsAlphaEnabled="False" IsAlphaSliderVisible="False"
+                                     IsColorChannelTextInputVisible="True" IsHexInputVisible="True" />
+                        <Button Content="Apply background color" Command="{Binding ApplyBackgroundColorCommand}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Wallpaper library" Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                        <StackPanel x:Name="LibraryEmptyState" Spacing="4" HorizontalAlignment="Center" Padding="0,24">
+                            <SymbolIcon Symbol="Pictures" HorizontalAlignment="Center" />
+                            <TextBlock Text="No wallpapers yet" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Add an image to build your library."
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <GridView x:Name="LibraryGrid"
+                                  ItemsSource="{Binding Library}"
+                                  SelectedItem="{Binding SelectedWallpaper, Mode=TwoWay}"
+                                  SelectionMode="Single" MaxHeight="420"
+                                  AutomationProperties.Name="Wallpaper library">
+                            <GridView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Spacing="4" Width="160">
+                                        <Image Width="160" Height="90" Stretch="UniformToFill"
+                                               Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
+                                               AutomationProperties.Name="{Binding OriginalName}" />
+                                        <TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ============================= Cursor ============================== -->
+            <StackPanel x:Name="CursorSection" Spacing="16" Visibility="Collapsed">
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Pointer" Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                        <NumberBox Header="Pointer size" Value="{Binding PointerSize, Mode=TwoWay}"
+                                   Minimum="32" Maximum="256" SpinButtonPlacementMode="Inline"
+                                   SmallChange="16" LargeChange="32" />
+                        <!-- PERSONALIZE-REVIEW: pointer size range 32-256 is taken from the Windows cursor size model; verify against the running build. -->
+
+                        <Slider Header="Pointer speed" Value="{Binding PointerSpeed, Mode=TwoWay}"
+                                Minimum="1" Maximum="20" StepFrequency="1" TickFrequency="1" />
+
+                        <ToggleSwitch Header="Enhance pointer precision"
+                                      IsOn="{Binding EnhancedPrecision, Mode=TwoWay}"
+                                      OnContent="On" OffContent="Off" />
+
+                        <NumberBox Header="Pointer trails (0 turns trails off)"
+                                   Value="{Binding Trails, Mode=TwoWay}"
+                                   Minimum="0" Maximum="12" SpinButtonPlacementMode="Inline" />
+
+                        <NumberBox Header="Lines to scroll per notch"
+                                   Value="{Binding WheelLines, Mode=TwoWay}"
+                                   Minimum="1" Maximum="100" SpinButtonPlacementMode="Inline" />
+
+                        <NumberBox Header="Text cursor (caret) thickness"
+                                   Value="{Binding CaretWidth, Mode=TwoWay}"
+                                   Minimum="1" Maximum="20" SpinButtonPlacementMode="Inline" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Apply cursor settings" Click="ApplyCursor_Click"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            <Button Content="Reset pointer to Windows default" Command="{Binding ResetCursorToDefaultsCommand}" />
+                            <Button Content="Restore cursor section" Click="RevertCursor_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Cursor scheme" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="Choose a folder of .cur and .ani files. Each file is mapped to a standard pointer role by its name."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SchemeFolder}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Choose scheme folder..." Click="PickCursorFolder_Click" />
+                            <Button Content="Apply scheme" Click="ApplyScheme_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Try it here" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBox PlaceholderText="Type here to see the text cursor" />
+                        <HyperlinkButton Content="A link to hover over" NavigateUri="https://learn.microsoft.com/windows/" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ============================ Colors ============================== -->
+            <StackPanel x:Name="ColorsSection" Spacing="16" Visibility="Collapsed">
+                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Mode and effects" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ToggleSwitch Header="App mode" IsOn="{Binding AppsUseLight, Mode=TwoWay}"
+                                      OnContent="Light" OffContent="Dark" />
+                        <ToggleSwitch Header="Windows mode (taskbar and Start)" IsOn="{Binding SystemUsesLight, Mode=TwoWay}"
+                                      OnContent="Light" OffContent="Dark" />
+                        <ToggleSwitch Header="Transparency effects" IsOn="{Binding Transparency, Mode=TwoWay}"
+                                      OnContent="On" OffContent="Off" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Apply colors" Command="{Binding ApplyColorsCommand}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            <Button Content="Reset colors to Windows defaults" Command="{Binding ResetColorsToDefaultsCommand}" />
+                            <Button Content="Restore colors section" Command="{Binding RevertColorsSectionCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
