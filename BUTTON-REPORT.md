@@ -53,6 +53,7 @@ Branch: `style/stock-buttons` (from `master` @ cac1385). Progress is tracked in 
 | `Pages/ThreadTunerPage.xaml:263` | Row chevron resets MinWidth/MinHeight/Padding so it fits the fixed 12x16 indent slot. The stock 32px minimum height would break row alignment. |
 | `Themes/KaliteTheme.xaml:345` | `DefaultContentDialogStyle` keeps its FontFamily. That is typography, which is out of scope. The stock Background was removed. |
 | `ViewModels/BenchmarkViewModel.cs:635` | Merged Start capture / Stop pair. |
+| `GpuOverclock/Views/OverclockSection.xaml` (Keep button) | Keep is stock, not accent. The risk gate can show at the same time, because the VM does not gate apply on `RiskAccepted`, and a view may have one accent button. The risk gate keeps its accent. |
 
 ### Not tagged in code, logged here
 
@@ -64,10 +65,18 @@ Run:
 - Build: `dotnet build src/kaliteConfig/kaliteConfig.csproj`, exit 0, 0 warnings, 0 errors.
 - Grep for removed style names: no matches.
 - Grep for TODO/FIXME/XXX on the branch diff: none.
-- Grep for `BUTTON-REVIEW`: 11 source comments. Each has a resolution in the table above.
+- Grep for `BUTTON-REVIEW`: 12 source comments. Each has a resolution in the table above.
+- Accent count per XAML file: every file has one `AccentButtonStyle` use per view, after the Keep fix. Files with more than one use are checked per view.
 
 Not run (limitations, not passes):
-- **Gallery references:** no per-decision references were checked against the WinUI gallery in this environment, so none are cited. Decisions are based on the stock control defaults.
+Gallery references (WinUI Gallery, `microsoft/WinUI-Gallery` `main`; the repo pins `WindowsAppSdkPackageVersion` 2.5.4-experimental in `standalone.props`, not a release tag):
+- **Button and accent style:** `WinUIGallery/Samples/Button/ButtonPage.xaml` and `ButtonBuiltInStyles.txt` show `AccentButtonStyle` and `SubtleButtonStyle`. The gallery does not state the one-accent-per-view rule. That rule comes from this task.
+- **ToggleButton, one label that follows state (benchmark capture, speed test):** no precedent. `WinUIGallery/Samples/ToggleButton/ToggleButtonPage.xaml` uses a fixed label and a separate On/Off text. The label-follows-state pattern is this project's choice.
+- **ContentDialog defaults:** `WinUIGallery/Samples/ContentDialog/ContentDialogPage.xaml` sets `DefaultButton` to `Primary`. The `PrimaryButtonStyle` use in dialogs was not confirmed.
+- **HyperlinkButton (snip status-bar link):** `WinUIGallery/Samples/HyperlinkButton/HyperlinkButtonPage.xaml`.
+- **Accent and Keep decisions (OverclockSection):** not covered by the gallery. Based on the one-accent rule.
+
+Not run (limitations, not passes):
 - **Light, dark, and high contrast rendering:** not verified. The app could not be launched and screenshotted here. This needs a manual check.
 - **Feature walkthrough:** the merged toggles and the converted lookalikes were checked by reading code and building. They were not run through the UI.
 

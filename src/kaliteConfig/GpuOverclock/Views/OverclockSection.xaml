@@ -65,8 +65,8 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Content="Keep" Style="{StaticResource AccentButtonStyle}"
-                            Command="{x:Bind Vm.ConfirmChangesCommand}" />
+                    <!-- BUTTON-REVIEW: Keep is stock, not accent. The risk gate below can be visible at the same time (the VM does not gate apply on RiskAccepted), and a view may have only one accent button. -->
+                    <Button Content="Keep" Command="{x:Bind Vm.ConfirmChangesCommand}" />
                     <Button Content="Revert now" Command="{x:Bind Vm.RevertNowCommand}" />
                 </StackPanel>
             </Grid>
