@@ -11,22 +11,6 @@
           PointerCaptureLost="RootGrid_PointerCaptureLost"
           PointerCanceled="RootGrid_PointerCanceled">
         <Grid.Resources>
-        <Style x:Key="SnipToolButton" TargetType="ToggleButton">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-        <Style x:Key="SnipActionButton" TargetType="Button">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
         <Style x:Key="SnipGlyph" TargetType="FontIcon">
             <Setter Property="FontFamily" Value="{ThemeResource SymbolThemeFontFamily}"/>
             <Setter Property="FontSize" Value="16"/>
@@ -52,56 +36,56 @@
                         CornerRadius="8" Padding="6">
                     <StackPanel Orientation="Horizontal" Spacing="2">
                         <!-- Tools group: radio behavior, exactly one active -->
-                        <ToggleButton x:Name="BtnToolSelect" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolSelect" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Select (V)" AutomationProperties.Name="Select tool"
                                       Tag="Select">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8B0;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolArrow" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolArrow" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Arrow (A)" AutomationProperties.Name="Arrow tool" Tag="Arrow">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE72A;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolLine" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolLine" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Line (L)" AutomationProperties.Name="Line tool" Tag="Line">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE738;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolRect" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolRect" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Rectangle (R)" AutomationProperties.Name="Rectangle tool" Tag="Rectangle">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE73A;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolEllipse" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolEllipse" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Ellipse (O)" AutomationProperties.Name="Ellipse tool" Tag="Ellipse">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xEA3A;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolInk" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolInk" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Pen (P)" AutomationProperties.Name="Pen tool" Tag="Ink">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xED63;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolHighlight" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolHighlight" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Highlighter (H)" AutomationProperties.Name="Highlighter tool" Tag="Highlight">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xED64;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolText" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolText" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Text (T)" AutomationProperties.Name="Text tool" Tag="Text">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8D2;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolNumber" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolNumber" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Number badge (N)" AutomationProperties.Name="Number badge tool" Tag="Number">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xEC1B;"/>
                         </ToggleButton>
-                        <ToggleButton x:Name="BtnToolBlur" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolBlur" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Blur / Pixelate (B)" AutomationProperties.Name="Blur tool" Tag="Blur">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE734;"/>
                         </ToggleButton>
-                        <Button x:Name="BtnAutoRedact" Style="{StaticResource SnipActionButton}" Click="BtnAutoRedact_Click"
+                        <Button x:Name="BtnAutoRedact" Click="BtnAutoRedact_Click"
                                 ToolTipService.ToolTip="Auto-Redact PII (Passwords, Emails, IPs)" AutomationProperties.Name="Auto-Redact">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE7A0;"/>
                         </Button>
-                        <ToggleButton x:Name="BtnToolSpotlight" Style="{StaticResource SnipToolButton}" Click="BtnTool_Click"
+                        <ToggleButton x:Name="BtnToolSpotlight" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Spotlight (S)" AutomationProperties.Name="Spotlight tool" Tag="Spotlight">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE890;"/>
                         </ToggleButton>
-                        <Button x:Name="BtnToolSticker" Style="{StaticResource SnipActionButton}"
+                        <Button x:Name="BtnToolSticker"
                                 ToolTipService.ToolTip="Sticker (K)" AutomationProperties.Name="Sticker tool">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE899;"/>
                             <Button.Flyout>
@@ -132,7 +116,7 @@
                         <Border Style="{StaticResource SnipSeparator}"/>
 
                         <!-- Resize group: exact size for the selected sticker/shape -->
-                        <Button x:Name="BtnResize" Style="{StaticResource SnipActionButton}"
+                        <Button x:Name="BtnResize"
                                 ToolTipService.ToolTip="Resize selected sticker/shape" AutomationProperties.Name="Resize selection">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE799;"/>
                             <Button.Flyout>
@@ -155,11 +139,11 @@
                         <Border Style="{StaticResource SnipSeparator}"/>
 
                         <!-- History group -->
-                        <Button x:Name="BtnUndo" Style="{StaticResource SnipActionButton}" Click="BtnUndo_Click"
+                        <Button x:Name="BtnUndo" Click="BtnUndo_Click"
                                 ToolTipService.ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE7A7;"/>
                         </Button>
-                        <Button x:Name="BtnRedo" Style="{StaticResource SnipActionButton}" Click="BtnRedo_Click"
+                        <Button x:Name="BtnRedo" Click="BtnRedo_Click"
                                 ToolTipService.ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE7A6;"/>
                         </Button>
@@ -167,25 +151,25 @@
                         <Border Style="{StaticResource SnipSeparator}"/>
 
                         <!-- Output group -->
-                        <Button x:Name="BtnOcr" Style="{StaticResource SnipActionButton}" Click="BtnOcr_Click"
+                        <Button x:Name="BtnOcr" Click="BtnOcr_Click"
                                 ToolTipService.ToolTip="Copy text / OCR" AutomationProperties.Name="Copy text OCR">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8FE;"/>
                         </Button>
-                        <Button x:Name="BtnPin" Style="{StaticResource SnipActionButton}" Click="BtnPin_Click"
+                        <Button x:Name="BtnPin" Click="BtnPin_Click"
                                 ToolTipService.ToolTip="Pin to screen" AutomationProperties.Name="Pin to screen">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE718;"/>
                         </Button>
-                        <Button x:Name="BtnSave" Style="{StaticResource SnipActionButton}" Click="BtnSave_Click"
+                        <Button x:Name="BtnSave" Click="BtnSave_Click"
                                 ToolTipService.ToolTip="Save (Ctrl+S)" AutomationProperties.Name="Save snip">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE74E;"/>
                         </Button>
-                        <Button x:Name="BtnCopy" Style="{StaticResource SnipActionButton}" Click="BtnCopy_Click"
+                        <Button x:Name="BtnCopy" Click="BtnCopy_Click"
                                 ToolTipService.ToolTip="Copy (Enter)" AutomationProperties.Name="Copy snip">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8C8;"/>
                         </Button>
 
                         <!-- Instant copy toggle: check badge instead of tool highlight -->
-                        <ToggleButton x:Name="BtnInstantMode" Style="{StaticResource SnipToolButton}" Click="BtnInstantMode_Click"
+                        <ToggleButton x:Name="BtnInstantMode" Click="BtnInstantMode_Click"
                                       ToolTipService.ToolTip="Instant copy: OFF" AutomationProperties.Name="Instant copy toggle">
                             <Grid>
                                 <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8C8;"/>
@@ -200,7 +184,7 @@
 
                         <Border Style="{StaticResource SnipSeparator}"/>
 
-                        <Button x:Name="BtnClose" Style="{StaticResource SnipActionButton}" Click="BtnClose_Click"
+                        <Button x:Name="BtnClose" Click="BtnClose_Click"
                                 ToolTipService.ToolTip="Close (Esc)" AutomationProperties.Name="Close snip overlay">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE711;"/>
                         </Button>
@@ -215,7 +199,7 @@
                         <TextBlock Text="Color" VerticalAlignment="Center" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <StackPanel x:Name="SwatchPanel" Orientation="Horizontal" Spacing="4" Margin="8,0,8,0"/>
-                        <Button x:Name="BtnCustomColor" Padding="4" Background="Transparent" BorderThickness="0"
+                        <Button x:Name="BtnCustomColor"
                                 ToolTipService.ToolTip="Custom color" AutomationProperties.Name="Custom color">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xEF3C;" FontSize="14"/>
                             <Button.Flyout>
@@ -238,7 +222,7 @@
                                  Fill="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center"/>
 
                         <Border x:Name="FillSeparator" Style="{StaticResource SnipSeparator}"/>
-                        <ToggleButton x:Name="BtnFillToggle" Padding="4" Background="Transparent" BorderThickness="0"
+                        <ToggleButton x:Name="BtnFillToggle"
                                       ToolTipService.ToolTip="Fill shape" AutomationProperties.Name="Fill shape"
                                       Checked="BtnFillToggle_Changed" Unchecked="BtnFillToggle_Changed">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xEA3B;" FontSize="14"/>

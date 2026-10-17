@@ -6,15 +6,6 @@
     xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml">
 
     <UserControl.Resources>
-        <Style x:Key="PreviewChromeButtonStyle" TargetType="Button">
-            <Setter Property="MinWidth" Value="34"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Padding" Value="8,0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
         <Style x:Key="PreviewBadgeStyle" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"/>
             <Setter Property="BorderBrush" Value="{ThemeResource SurfaceStrokeColorDefaultBrush}"/>
@@ -69,13 +60,13 @@
         <Border x:Name="ZoomChrome" Style="{StaticResource PreviewBadgeStyle}"
                 HorizontalAlignment="Right" VerticalAlignment="Bottom">
             <StackPanel Orientation="Horizontal" Spacing="2">
-                <Button Style="{StaticResource PreviewChromeButtonStyle}" Content="&#x2212;" Click="ZoomOut_Click"
+                <Button Content="&#x2212;" Click="ZoomOut_Click"
                         ToolTipService.ToolTip="Zoom out (Ctrl+-)" AutomationProperties.Name="Zoom out"/>
-                <Button Style="{StaticResource PreviewChromeButtonStyle}" Content="Fit" Click="ZoomFit_Click"
+                <Button Content="Fit" Click="ZoomFit_Click"
                         ToolTipService.ToolTip="Fit the whole image (Ctrl+0)" AutomationProperties.Name="Fit to window"/>
-                <Button Style="{StaticResource PreviewChromeButtonStyle}" Content="100%" Click="ZoomActual_Click"
+                <Button Content="100%" Click="ZoomActual_Click"
                         ToolTipService.ToolTip="Actual size: one image pixel per screen pixel (Ctrl+1)" AutomationProperties.Name="Actual size"/>
-                <Button Style="{StaticResource PreviewChromeButtonStyle}" Content="+" Click="ZoomIn_Click"
+                <Button Content="+" Click="ZoomIn_Click"
                         ToolTipService.ToolTip="Zoom in (Ctrl++)" AutomationProperties.Name="Zoom in"/>
                 <TextBlock x:Name="ZoomLabel" Text="100%" MinWidth="52" TextAlignment="Center" FontSize="12"
                            VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
