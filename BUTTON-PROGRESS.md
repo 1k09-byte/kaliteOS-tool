@@ -22,9 +22,9 @@ Branch: `style/stock-buttons` (from `master` @ cac1385)
 | Step 5: merge paired buttons | committed |
 | Step 6: remove hover/press animations | committed |
 | Step 7: button lookalikes | committed |
-| Step 8: dialogs to ContentDialog/Flyout | not started |
-| Static checks and final build | not started |
-| `BUTTON-REPORT.md` | not started |
+| Step 8: dialogs to ContentDialog/Flyout | committed (all button-opened dialogs are ContentDialog or Flyout; review items logged) |
+| Static checks and final build | done (0 warnings, 0 errors; no TODO added) |
+| `BUTTON-REPORT.md` | done (manual visual checks listed as limitations) |
 
 ## Step 5: merge paired buttons
 - Status: committed
