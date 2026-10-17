@@ -357,7 +357,7 @@ public sealed partial class SnipPage : Page
         catch { }
     }
 
-    private void ToastCard_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    private void ToastCard_Click(object sender, RoutedEventArgs e)
     {
         // Tapping dismisses early.
         try { _toastTimer?.Stop(); ToastOut.Begin(); } catch { }
@@ -1376,7 +1376,7 @@ public sealed partial class SnipPage : Page
 
     private void ClearFilters_Click(object sender, RoutedEventArgs e) => ViewModel.ClearFiltersCommand.Execute(null);
 
-    private void StatusBarPrtScn_Tapped(object sender, TappedRoutedEventArgs e) => SelectHubTag("Settings");
+    private void StatusBarPrtScn_Click(object sender, RoutedEventArgs e) => SelectHubTag("Settings");
 
     private void DetailsEdit_Click(object sender, RoutedEventArgs e)
     {

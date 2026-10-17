@@ -835,8 +835,9 @@
              <StackPanel Orientation="Horizontal" Spacing="16">
                  <TextBlock Text="{x:Bind ViewModel.StatusBarRegistrationText, Mode=OneWay}" Foreground="{x:Bind ViewModel.StatusBarHotkeyBrush, Mode=OneWay}" VerticalAlignment="Center"
                             ToolTipService.ToolTip="{x:Bind ViewModel.StatusBarHotkeyTooltip, Mode=OneWay}"/>
-                 <TextBlock Text="{x:Bind ViewModel.StatusBarHijackText, Mode=OneWay}" Foreground="{x:Bind ViewModel.StatusBarPrtScnBrush, Mode=OneWay}" VerticalAlignment="Center"
-                            ToolTipService.ToolTip="{x:Bind ViewModel.StatusBarPrtScnTooltip, Mode=OneWay}" Tapped="StatusBarPrtScn_Tapped"/>
+                 <!-- BUTTON-REVIEW: was a TextBlock with Tapped (navigates to Settings). Now a stock HyperlinkButton; Padding reset so it sits on the status line. -->
+                 <HyperlinkButton Content="{x:Bind ViewModel.StatusBarHijackText, Mode=OneWay}" Foreground="{x:Bind ViewModel.StatusBarPrtScnBrush, Mode=OneWay}" VerticalAlignment="Center" Padding="0"
+                                 ToolTipService.ToolTip="{x:Bind ViewModel.StatusBarPrtScnTooltip, Mode=OneWay}" Click="StatusBarPrtScn_Click"/>
                  <Border Background="#33C4A483" CornerRadius="4" Padding="8,2" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.ElevationBadgeVisibility, Mode=OneWay}"
                          ToolTipService.ToolTip="The app runs elevated: drag-and-drop to non-elevated apps (Explorer, Discord) is blocked by Windows. Use Copy Image / Copy File instead.">
                      <TextBlock Text="{x:Bind ViewModel.ElevationBadgeText, Mode=OneWay}" FontSize="11" Foreground="#FFC4A483"/>
@@ -846,19 +847,20 @@
         </Border>
 
         <!-- Slide-in toast card: bottom-right, 3 s, optional (see Settings) -->
-        <Border x:Name="ToastCard" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+        <!-- BUTTON-REVIEW: was a Border with Tapped (tap to dismiss). Now a stock Button so keyboard, focus and pointer handling are standard. -->
+        <Button x:Name="ToastCard" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom" HorizontalContentAlignment="Stretch"
                 Margin="0,0,24,84" MaxWidth="360" Visibility="Collapsed" Canvas.ZIndex="10"
                 Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1"
-                CornerRadius="8" Padding="14,10" Tapped="ToastCard_Tapped">
-            <Border.RenderTransform>
+                CornerRadius="8" Padding="14,10" Click="ToastCard_Click">
+            <Button.RenderTransform>
                 <TranslateTransform x:Name="ToastShift" Y="24"/>
-            </Border.RenderTransform>
+            </Button.RenderTransform>
             <StackPanel Spacing="2">
                 <TextBlock x:Name="ToastTitle" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                 <TextBlock x:Name="ToastMessage" Style="{ThemeResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </StackPanel>
-        </Border>
+        </Button>
     </Grid>
 </Page>
