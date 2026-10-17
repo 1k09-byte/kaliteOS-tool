@@ -496,6 +496,12 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Personalize" Tag="PersonalizePage" AutomationProperties.Name="Personalize Windows Appearance" Padding="0">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE771;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Windows" Tag="WindowsSettingsPage" AutomationProperties.Name="Windows Tuning" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
