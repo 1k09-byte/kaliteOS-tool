@@ -337,6 +337,10 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] public partial string SpeedUp { get; set; } = "-";
     [ObservableProperty] public partial int SpeedProgress { get; set; }
     [ObservableProperty] public partial bool SpeedRunning { get; set; }
+
+    // One button for the speed-test start/cancel pair: its label follows SpeedRunning.
+    partial void OnSpeedRunningChanged(bool value) => OnPropertyChanged(nameof(SpeedButtonText));
+    public string SpeedButtonText => SpeedRunning ? "Cancel" : "Start";
     [ObservableProperty] public partial NetAdapterInfo? CompareAdapter { get; set; }
     [ObservableProperty] public partial bool ConfirmRiskyEdit { get; set; }
 

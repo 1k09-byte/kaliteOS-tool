@@ -463,8 +463,8 @@
                         <StackPanel Spacing="16">
                             <TextBlock Text="Speed test" Style="{StaticResource KaliteSectionTitle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="Start" Click="SpeedStart_Click" VerticalAlignment="Bottom"/>
-                                <Button Content="Cancel" Click="SpeedCancel_Click" VerticalAlignment="Bottom"/>
+                                <!-- BUTTON-REVIEW: Start and Cancel are one toggle; the label follows SpeedRunning. -->
+                                <Button Content="{x:Bind ViewModel.SpeedButtonText, Mode=OneWay}" Click="SpeedToggle_Click" VerticalAlignment="Bottom"/>
                                 <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
                                 <TextBlock Text="/" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>

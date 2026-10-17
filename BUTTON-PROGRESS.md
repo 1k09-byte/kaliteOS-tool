@@ -13,26 +13,29 @@ Branch: `style/stock-buttons` (from `master` @ cac1385)
 | Area | Status |
 |---|---|
 | Step 0: branch, baseline, SDK record | committed |
-| Step 1: inventory (`BUTTON-INVENTORY.md`) | in progress |
+| Step 1: inventory (`BUTTON-INVENTORY.md`) | committed |
 | Step 2: nav guard (`Themes/SideNavResources.xaml`) | not started |
 | Step 3: global button layer in `Themes/KaliteTheme.xaml` and `App.xaml` | not started |
 | Step 4: per-page stock look (Pages/) | not started |
 | Step 4: per-page stock look (GpuOverclock/, PackageManager/, Controls/) | not started |
 | Step 4: per-page stock look (Snip windows and controls) | not started |
-| Step 5: merge paired buttons | not started |
-| Step 6: remove hover/press animations | not started |
-| Step 7: button lookalikes | not started |
+| Step 5: merge paired buttons | committed |
+| Step 6: remove hover/press animations | committed |
+| Step 7: button lookalikes | committed |
 | Step 8: dialogs to ContentDialog/Flyout | not started |
 | Static checks and final build | not started |
 | `BUTTON-REPORT.md` | not started |
 
 ## Step 5: merge paired buttons
-- Status: committed in this batch (see git log)
+- Status: committed
 - Benchmark: Start capture + Stop merged into `ToggleCaptureCommand` (BenchmarkViewModel.cs). Label and glyph follow `IsCapturing`. Accent dropped, since the merged button cannot hold one accent in both states. BUTTON-REVIEW logged in BenchmarkPage.xaml and BenchmarkViewModel.cs.
+- Speed test: Start + Cancel merged into `SpeedToggle_Click` (NetworkPage) with `SpeedButtonText` (NetworkViewModel). BUTTON-REVIEW logged in NetworkPage.xaml and NetworkPage.xaml.cs.
+- ThreadList: Suspend/Resume was already one button (label follows `Suspended`). No change.
+- Checked, not merged: PackageRow Action + Cancel (both visible while running), Apply/Cancel dialog pairs, ThreadTuner flyout Suspend/Resume (menu items, not a button pair).
 - Other pairs: see BUTTON-REPORT.md.
 
 ## Step 6: hover/press animations
-- Status: committed in this batch (see git log)
+- Status: committed
 - Snip tile favourite-star hover (`Tile_PointerEntered/Exited`) kept: it switches star visibility, not an animation. BUTTON-REVIEW logged in SnipPage.xaml.cs.
 - Benchmark card `PointerPressed` kept: cards hold nested controls, so a Button would nest interactive children. BUTTON-REVIEW logged in BenchmarkPage.xaml.cs.
 

@@ -351,13 +351,13 @@ public sealed partial class NetworkPage : Page
         catch { }
     }
 
-    private async void SpeedStart_Click(object sender, RoutedEventArgs e)
+    // BUTTON-REVIEW: merged Start/Cancel pair; the same button starts a run or cancels it.
+    private async void SpeedToggle_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.SpeedRunning) { ViewModel.CancelSpeedTest(); return; }
         try { await ViewModel.StartSpeedTestAsync().ConfigureAwait(true); }
         catch (Exception ex) { OnBanner("Speed test failed", ex.Message); }
     }
-
-    private void SpeedCancel_Click(object sender, RoutedEventArgs e) => ViewModel.CancelSpeedTest();
 
     private void SysChangedOnly_Changed(object sender, RoutedEventArgs e)
     {
