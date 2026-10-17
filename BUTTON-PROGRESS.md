@@ -28,3 +28,9 @@ Branch: `style/stock-buttons` (from `master` @ cac1385)
 
 ## Status legend
 not started / in progress / committed
+
+## Step 2: nav guard
+- Status: committed
+- Added src/kaliteConfig/Themes/SideNavResources.xaml (frozen copy of KaliteButton + implicit Button rule, SideNav* keys).
+- MainWindow.xaml: NavigationView.Resources wrapped in ResourceDictionary and merges SideNavResources.xaml.
+- Build: 0 warnings, 0 errors.

@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Side navigation button resources.
+
+    NAV GUARD (button reset): the side navigation is out of scope for the
+    button reset. Before the global Button style was removed from
+    App.xaml / KaliteTheme.xaml, these values were what every Button inside
+    the NavigationView resolved to. They are copied here verbatim and merged
+    into NavigationView.Resources in MainWindow.xaml, so the nav's effective
+    button resources do not change. Do not restyle these for the global
+    button reset; this file is the frozen nav copy.
+
+    Source: KaliteButton, implicit Button style, and the four
+    KaliteButton*Brush tokens in Themes/KaliteTheme.xaml at the baseline
+    commit 6467ae2.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FFE9E9E9" />
+            <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FFDFDFDF" />
+            <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FFC4C4C4" />
+            <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FFA8A8A8" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FF262626" />
+            <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FF2E2E2E" />
+            <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FF464646" />
+            <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FF5C5C5C" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FF262626" />
+            <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FF2E2E2E" />
+            <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FF464646" />
+            <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FF5C5C5C" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <Style x:Key="SideNavKaliteButton" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource KaliteButtonFillBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource KaliteButtonStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource KaliteControlRadius}" />
+        <Setter Property="Padding" Value="16,9" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.14" />
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.14" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Surface.Background" Value="{ThemeResource KaliteButtonFillHoverBrush}" />
+                                        <Setter Target="Surface.BorderBrush" Value="{ThemeResource KaliteButtonStrokeHoverBrush}" />
+                                    </VisualState.Setters>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.14" />
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.14" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Surface.Background" Value="{ThemeResource AccentFillColorTertiaryBrush}" />
+                                        <Setter Target="Surface.BorderBrush" Value="{ThemeResource AccentFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.97" Duration="0:0:0.06">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0.97" Duration="0:0:0.06">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Surface.Opacity" Value="0.42" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="FocusStates">
+                                <VisualState x:Name="Unfocused" />
+                                <VisualState x:Name="Focused">
+                                    <VisualState.Setters>
+                                        <Setter Target="FocusRing.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Surface"
+                                RenderTransformOrigin="0.5,0.5"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1" />
+                            </Border.RenderTransform>
+                            <ContentPresenter x:Name="Content"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Padding="{TemplateBinding Padding}"
+                                              FontSize="{TemplateBinding FontSize}"
+                                              FontFamily="{TemplateBinding FontFamily}"
+                                              FontWeight="{TemplateBinding FontWeight}"
+                                              Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <Border x:Name="FocusRing" Margin="1" BorderThickness="1"
+                                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                CornerRadius="{TemplateBinding CornerRadius}" Visibility="Collapsed"
+                                IsHitTestVisible="False" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="Button" BasedOn="{StaticResource SideNavKaliteButton}" />
+
+</ResourceDictionary>

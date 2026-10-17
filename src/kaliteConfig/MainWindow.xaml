@@ -160,6 +160,12 @@
             SelectionChanged="NavView_SelectionChanged">
             
             <NavigationView.Resources>
+              <ResourceDictionary>
+                <!-- Nav guard: frozen copy of the pre-reset Button look for the nav
+                     subtree only (see Themes/SideNavResources.xaml). -->
+                <ResourceDictionary.MergedDictionaries>
+                    <ResourceDictionary Source="ms-appx:///Themes/SideNavResources.xaml" />
+                </ResourceDictionary.MergedDictionaries>
                 <!--
                     The rail deliberately used to pin itself to WinUI's Segoe face:
                     a local ContentControlThemeFontFamily plus an empty
@@ -443,6 +449,7 @@
                         </Setter.Value>
                     </Setter>
                 </Style>
+              </ResourceDictionary>
             </NavigationView.Resources>
             
             <NavigationView.MenuItems>
