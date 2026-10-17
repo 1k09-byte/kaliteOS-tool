@@ -26,8 +26,24 @@ Branch: `style/stock-buttons` (from `master` @ cac1385)
 | Static checks and final build | not started |
 | `BUTTON-REPORT.md` | not started |
 
+## Step 5: merge paired buttons
+- Status: committed in this batch (see git log)
+- Benchmark: Start capture + Stop merged into `ToggleCaptureCommand` (BenchmarkViewModel.cs). Label and glyph follow `IsCapturing`. Accent dropped, since the merged button cannot hold one accent in both states. BUTTON-REVIEW logged in BenchmarkPage.xaml and BenchmarkViewModel.cs.
+- Other pairs: see BUTTON-REPORT.md.
+
+## Step 6: hover/press animations
+- Status: committed in this batch (see git log)
+- Snip tile favourite-star hover (`Tile_PointerEntered/Exited`) kept: it switches star visibility, not an animation. BUTTON-REVIEW logged in SnipPage.xaml.cs.
+- Benchmark card `PointerPressed` kept: cards hold nested controls, so a Button would nest interactive children. BUTTON-REVIEW logged in BenchmarkPage.xaml.cs.
+
 ## Status legend
 not started / in progress / committed
+
+## Step 4: per-page stock look (accent cleanup, installer, lookalikes)
+- Status: committed (9e5cdfb, 557e52d, 6925b81)
+- 9e5cdfb: one accent button per view kept (overclock risk gate, pending-changes Keep, Gaming mode toggle, Update now, Update selection, New Bundle, New Plan, Start capture); other buttons use stock default.
+- 557e52d: InstallerPage card style removed (unreferenced; had custom opacity/scale transitions).
+- 6925b81: BiosManager value pill (Border+Tapped) and ThreadTuner row chevron (FontIcon+Tapped) converted to stock Button with Click handlers.
 
 ## Step 2: nav guard
 - Status: committed

@@ -144,7 +144,16 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     /// </summary>
     public static bool CaptureInProgress { get; private set; }
 
-    partial void OnIsCapturingChanged(bool value) => CaptureInProgress = value;
+    partial void OnIsCapturingChanged(bool value)
+    {
+        CaptureInProgress = value;
+        OnPropertyChanged(nameof(CaptureButtonText));
+        OnPropertyChanged(nameof(CaptureButtonGlyph));
+    }
+
+    // One button for the capture start/stop pair: its label and glyph follow IsCapturing.
+    public string CaptureButtonText => IsCapturing ? "Stop" : "Start capture";
+    public string CaptureButtonGlyph => IsCapturing ? "\uE71A" : "\uE768";
 
     [ObservableProperty]
     public partial string CaptureStateText { get; set; } = "Idle";
@@ -621,6 +630,14 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     private void StopCapture()
     {
         try { _captureCts?.Cancel(); } catch { }
+    }
+
+    // BUTTON-REVIEW: merged Start capture / Stop pair. They were mutually exclusive by state, so one toggle replaces both.
+    [RelayCommand]
+    private async Task ToggleCaptureAsync()
+    {
+        if (IsCapturing) StopCapture();
+        else await StartCaptureAsync();
     }
 
     [RelayCommand]

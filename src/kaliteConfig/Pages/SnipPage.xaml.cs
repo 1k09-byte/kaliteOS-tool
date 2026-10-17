@@ -1139,6 +1139,7 @@ public sealed partial class SnipPage : Page
         return null;
     }
 
+    // BUTTON-REVIEW: hover-reveal of the favourite star is kept. It is a visibility state, not an animation, and removing it would change which stars are shown.
     private void Tile_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is GalleryItem item)
