@@ -25,19 +25,6 @@
             </Style.Setters>
         </Style>
 
-        <!-- Card button style: square card with themed background, border, corner radius -->
-        <Style x:Key="BrowserCardButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="160" />
-            <Setter Property="Height" Value="160" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="CornerRadius" Value="5" />
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
-
         <DataTemplate x:Key="InstallerCardTemplate" x:DataType="models:BrowserInstallItem">
             <Button
                 x:Name="CardRoot"
@@ -47,12 +34,6 @@
                 Click="BrowserCard_Click"
                 Tag="{x:Bind}"
                 Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
-                <Button.OpacityTransition>
-                    <ScalarTransition Duration="0:0:0.3" />
-                </Button.OpacityTransition>
-                <Button.ScaleTransition>
-                    <Vector3Transition Duration="0:0:0.3" />
-                </Button.ScaleTransition>
                 <Grid Padding="14" UseLayoutRounding="True">
                     <StackPanel
                         HorizontalAlignment="Center"
