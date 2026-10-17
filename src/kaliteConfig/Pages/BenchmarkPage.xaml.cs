@@ -61,18 +61,6 @@ namespace kaliteConfig.Pages
             return Application.Current.Resources[key] as Brush ?? new SolidColorBrush(fallback);
         }
 
-        private static Brush ThemeBrush(string key)
-        {
-            try
-            {
-                if (Application.Current.Resources.TryGetValue(key, out var value)
-                    && value is Brush brush)
-                    return brush;
-            }
-            catch { }
-            return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        }
-
         private void BenchmarkCard_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (sender is not FrameworkElement element) return;
