@@ -76,13 +76,13 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind Label}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6,2"
+                <Button Grid.Column="1"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Click="SensitiveValue_Click" ToolTipService.ToolTip="Tap to reveal / hide sensitive values">
                     <TextBlock Text="{x:Bind DisplayValue, Mode=OneWay}" TextWrapping="Wrap"
                                ToolTipService.ToolTip="{x:Bind DisplayValue, Mode=OneWay}"/>
                 </Button>
-                <Button Grid.Column="2" Content="Copy" Click="CopyRow_Click" Padding="8,2"
+                <Button Grid.Column="2" Content="Copy" Click="CopyRow_Click"
                         ToolTipService.ToolTip="Copy this value"/>
             </Grid>
         </DataTemplate>
@@ -145,7 +145,7 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <Button Content="Refresh" Click="Refresh_Click" CornerRadius="3" HorizontalAlignment="Stretch"/>
+            <Button Content="Refresh" Click="Refresh_Click" HorizontalAlignment="Stretch"/>
             <TextBlock Text="{x:Bind ViewModel.ElevationText, Mode=OneWay}" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
             <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>

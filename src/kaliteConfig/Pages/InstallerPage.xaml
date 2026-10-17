@@ -41,16 +41,10 @@
         <DataTemplate x:Key="InstallerCardTemplate" x:DataType="models:BrowserInstallItem">
             <Button
                 x:Name="CardRoot"
-                Height="192"
                 Margin="0,0,0,0"
-                Padding="0"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
                 Click="BrowserCard_Click"
-                CornerRadius="3"
                 Tag="{x:Bind}"
                 Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
                 <Button.OpacityTransition>
@@ -95,15 +89,11 @@
              status right-aligned. Rows run 56px tall with breathing room so the
              list fills the page instead of rattling around in it. -->
         <DataTemplate x:Key="InstallerCompactTemplate" x:DataType="models:BrowserInstallItem">
-            <Button Height="56"
+            <Button
                     Margin="0,0,0,6"
-                    Padding="14,0"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    CornerRadius="6"
                     Click="BrowserCard_Click"
                     Tag="{x:Bind}"
                     Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">

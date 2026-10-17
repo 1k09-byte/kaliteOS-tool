@@ -112,10 +112,10 @@
                 <ComboBoxItem Content="Installed" />
             </ComboBox>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">
-                <ToggleButton CornerRadius="12" x:Name="ChipAll" Content="All" Tag="0" IsChecked="True" Click="FilterChip_Click" />
-                <ToggleButton CornerRadius="12" x:Name="ChipDesktop" Content="Desktop" Tag="1" Click="FilterChip_Click" />
-                <ToggleButton CornerRadius="12" x:Name="ChipStore" Content="Store" Tag="2" Click="FilterChip_Click" />
-                <ToggleButton CornerRadius="12" x:Name="ChipNoUn" Content="No uninstaller" Tag="3" Click="FilterChip_Click" />
+                <ToggleButton x:Name="ChipAll" Content="All" Tag="0" IsChecked="True" Click="FilterChip_Click" />
+                <ToggleButton x:Name="ChipDesktop" Content="Desktop" Tag="1" Click="FilterChip_Click" />
+                <ToggleButton x:Name="ChipStore" Content="Store" Tag="2" Click="FilterChip_Click" />
+                <ToggleButton x:Name="ChipNoUn" Content="No uninstaller" Tag="3" Click="FilterChip_Click" />
             </StackPanel>
         </Grid>
         </Border>
@@ -125,7 +125,7 @@
         <Border Grid.Row="2" Margin="28,12,28,12" Style="{StaticResource RemoverCard}" Padding="12,8"
                 Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
         <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button CornerRadius="12" Content="Export list..." Command="{Binding ExportListCommand}" />
+            <Button Content="Export list..." Command="{Binding ExportListCommand}" />
             <CheckBox Content="Show system components" Margin="8,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ShowSystem, Mode=TwoWay}"
                       ToolTipService.ToolTip="Include Windows system components in the list" />
             <TextBlock x:Name="SelectionText" Text="" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -332,10 +332,10 @@
                                 <TextBlock Text="{Binding SelectedApp.UninstallString}" FontSize="11" TextWrapping="Wrap"
                                            IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
-                            <Button CornerRadius="12" Content="Uninstall" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                            <Button Content="Uninstall" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
                                     Click="DetailsUninstall_Click" />
-                            <Button CornerRadius="12" Content="Force Remove..." HorizontalAlignment="Stretch" Click="DetailsForceRemove_Click" />
-                            <Button CornerRadius="12" Content="Open install folder" HorizontalAlignment="Stretch" Command="{Binding OpenInstallFolderCommand}" />
+                            <Button Content="Force Remove..." HorizontalAlignment="Stretch" Click="DetailsForceRemove_Click" />
+                            <Button Content="Open install folder" HorizontalAlignment="Stretch" Command="{Binding OpenInstallFolderCommand}" />
                             <TextBlock Text="{Binding ActionStatus}" FontSize="12" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Visibility="{Binding ActionStatus, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
@@ -364,7 +364,7 @@
                             </Grid.ColumnDefinitions>
                             <AutoSuggestBox CornerRadius="12" Grid.Column="0" PlaceholderText="Search provider, name, class, INF..." QueryIcon="Find"
                                             Text="{Binding DriverSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
-                            <Button CornerRadius="12" Grid.Column="1" Content="Refresh" Command="{Binding LoadDriversCommand}" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadDriversCommand}" VerticalAlignment="Center" />
                         </Grid>
                         </Border>
                         <Grid Grid.Row="1" Margin="12,0,8,6">
@@ -474,7 +474,7 @@
                                         <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" TextWrapping="Wrap"
                                                    IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <Button CornerRadius="12" Content="Remove package" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                                    <Button Content="Remove package" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
                                             Click="DetailsRemoveDriver_Click" />
                                     <TextBlock Text="{Binding DriverActionStatus}" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -557,7 +557,7 @@
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
                             <TextBlock Text="{Binding StartupSummaryText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
-                            <Button CornerRadius="12" Content="Refresh" Command="{Binding LoadStartupCommand}" VerticalAlignment="Center" />
+                            <Button Content="Refresh" Command="{Binding LoadStartupCommand}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
@@ -600,8 +600,7 @@
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
-                                                    <Button CornerRadius="12" Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
-                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}" VerticalAlignment="Center"
                                                             ToolTipService.ToolTip="Delete this entry">
                                                         <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                                                     </Button>
@@ -649,8 +648,7 @@
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
-                                                    <Button CornerRadius="12" Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
-                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}" VerticalAlignment="Center"
                                                             ToolTipService.ToolTip="Delete this entry">
                                                         <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                                                     </Button>
@@ -699,8 +697,7 @@
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
-                                                    <Button CornerRadius="12" Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
-                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}" VerticalAlignment="Center"
                                                             ToolTipService.ToolTip="Delete this service (cannot be undone here)">
                                                         <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                                                     </Button>
@@ -748,8 +745,7 @@
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
-                                                    <Button CornerRadius="12" Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
-                                                            Background="Transparent" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"
+                                                    <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}" VerticalAlignment="Center"
                                                             ToolTipService.ToolTip="Delete this task">
                                                         <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                                                     </Button>
