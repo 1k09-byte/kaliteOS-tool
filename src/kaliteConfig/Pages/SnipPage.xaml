@@ -30,63 +30,19 @@
             <Setter Property="Padding" Value="20"/>
         </Style>
 
-        <!-- Shared ItemContainerStyle to disable default selection/focus visuals -->
+        <!-- Layout-only ItemContainerStyle: stock selection, pointer-over and focus visuals are kept -->
         <Style x:Key="SnipCardContainerStyle" TargetType="GridViewItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="0"/>
-            <Setter Property="FocusVisualSecondaryThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="GridViewItem">
-                        <ContentPresenter x:Name="ContentPresenter"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        ContentTemplate="{TemplateBinding ContentTemplate}"
-                                        ContentTransitions="{TemplateBinding ContentTransitions}"
-                                        Content="{TemplateBinding Content}"
-                                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                        Padding="{TemplateBinding Padding}"
-                                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
         <Style x:Key="SnipCardContainerStyleListView" TargetType="ListViewItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="0"/>
-            <Setter Property="FocusVisualSecondaryThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <ContentPresenter x:Name="ContentPresenter"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        ContentTemplate="{TemplateBinding ContentTemplate}"
-                                        ContentTransitions="{TemplateBinding ContentTransitions}"
-                                        Content="{TemplateBinding Content}"
-                                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                        Padding="{TemplateBinding Padding}"
-                                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
         <!-- Slide-in toast (3 s): bottom-right card for capture/save/import/copy notes -->
