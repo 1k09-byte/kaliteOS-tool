@@ -93,11 +93,6 @@
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#40000000" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#30000000" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#26000000" />
-            <!-- Light button plate: raised light grey, dark text comes from the theme primary. -->
-            <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FFE9E9E9" />
-            <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FFDFDFDF" />
-            <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FFC4C4C4" />
-            <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FFA8A8A8" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -177,11 +172,6 @@
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
-            <!-- Button plate: dark raised surface, paired with the Light-dict values. -->
-            <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FF262626" />
-            <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FF2E2E2E" />
-            <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FF464646" />
-            <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FF5C5C5C" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -238,11 +228,6 @@
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
-            <!-- Button plate: dark raised surface, paired with the Light-dict values. -->
-            <SolidColorBrush x:Key="KaliteButtonFillBrush" Color="#FF262626" />
-            <SolidColorBrush x:Key="KaliteButtonFillHoverBrush" Color="#FF2E2E2E" />
-            <SolidColorBrush x:Key="KaliteButtonStrokeBrush" Color="#FF464646" />
-            <SolidColorBrush x:Key="KaliteButtonStrokeHoverBrush" Color="#FF5C5C5C" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -465,147 +450,6 @@
         </Setter>
     </Style>
 
-    <!--  Buttons: Fluent proportions with our own finish.
-
-          WinUI's stock Button has no BackgroundPointerOver/Pressed dependency
-          properties - hover and press live in its default template's visual
-          states. So the hover/press fills are supplied by a template here. That
-          is also what lets the shape be genuinely ours: the Fluent 4px radius
-          (so it sits next to built-in controls without a seam) with a flat,
-          hairline-stroked fill instead of Fluent's soft elevation pill, and a
-          33px target instead of 32 so dense toolbars breathe by a pixel.
-
-          The fill is a SOLID raised plate. Fluent's translucent control fills
-          (and our old card-secondary fill) vanish against the translucent
-          cards - the button read as a see-through outline. This is the matte
-          surface one clear step above a card, with a hairline that carries it. -->
-    <!-- NOTE: there is deliberately no house-green accent brush trio here.
-         Accent actions use WinUI's stock AccentButtonStyle (OS accent fill),
-         so no KaliteAccent* brushes exist to keep in sync. -->
-
-    <!-- NOTE: KaliteButton* plate brushes are NOT defined here. They live in
-         each theme dictionary (Light raised grey / Dark raised charcoal) and
-         the templates read them as ThemeResource, so a root-level copy would
-         freeze every button on one ink across theme switches. -->
-
-    <Style x:Key="KaliteButton" TargetType="Button">
-        <Setter Property="Background" Value="{ThemeResource KaliteButtonFillBrush}" />
-        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource KaliteButtonStrokeBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource KaliteControlRadius}" />
-        <Setter Property="Padding" Value="16,9" />
-        <Setter Property="MinHeight" Value="36" />
-        <Setter Property="FontSize" Value="14" />
-        <!-- Body face: buttons are UI chrome, not display type. Uncial at
-             button size blurred labels and made every toolbar shout. -->
-        <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="UseSystemFocusVisuals" Value="True" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid Background="Transparent">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal">
-                                    <!-- Eases the press dip back out when the pointer
-                                         leaves after a click. No From: it starts at
-                                         whatever the press left behind. -->
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.14" />
-                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.14" />
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="PointerOver">
-                                    <VisualState.Setters>
-                                        <Setter Target="Surface.Background" Value="{ThemeResource KaliteButtonFillHoverBrush}" />
-                                        <Setter Target="Surface.BorderBrush" Value="{ThemeResource KaliteButtonStrokeHoverBrush}" />
-                                    </VisualState.Setters>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.14" />
-                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.14" />
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Pressed">
-                                    <VisualState.Setters>
-                                        <Setter Target="Surface.Background" Value="{ThemeResource AccentFillColorTertiaryBrush}" />
-                                        <Setter Target="Surface.BorderBrush" Value="{ThemeResource AccentFillColorSecondaryBrush}" />
-                                    </VisualState.Setters>
-                                    <!-- Press dip: the surface contracts to 97% under the
-                                         pointer and springs back on release, so a click has
-                                         physical feedback on top of the colour change. No From
-                                         (starts at current value); the state's storyboard is
-                                         stopped on release, and Normal/PointerOver ease back
-                                         to 1 from wherever this left off. Kept at 3% so the
-                                         label never reads as moving - a transform scale
-                                         re-rasterises text mid-flight and blurs it. -->
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.97" Duration="0:0:0.06">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                        <DoubleAnimation Storyboard.TargetName="Surface" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0.97" Duration="0:0:0.06">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Disabled">
-                                    <VisualState.Setters>
-                                        <Setter Target="Surface.Opacity" Value="0.42" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-                            <VisualStateGroup x:Name="FocusStates">
-                                <VisualState x:Name="Unfocused" />
-                                <VisualState x:Name="Focused">
-                                    <VisualState.Setters>
-                                        <Setter Target="FocusRing.Visibility" Value="Visible" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                        <Border x:Name="Surface"
-                                RenderTransformOrigin="0.5,0.5"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius}">
-                            <Border.RenderTransform>
-                                <ScaleTransform ScaleX="1" ScaleY="1" />
-                            </Border.RenderTransform>
-                            <ContentPresenter x:Name="Content"
-                                              Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              ContentTransitions="{TemplateBinding ContentTransitions}"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                              Padding="{TemplateBinding Padding}"
-                                              FontSize="{TemplateBinding FontSize}"
-                                              FontFamily="{TemplateBinding FontFamily}"
-                                              FontWeight="{TemplateBinding FontWeight}"
-                                              Foreground="{TemplateBinding Foreground}" />
-                        </Border>
-                        <Border x:Name="FocusRing" Margin="1" BorderThickness="1"
-                                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                                CornerRadius="{TemplateBinding CornerRadius}" Visibility="Collapsed"
-                                IsHitTestVisible="False" />
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- Shared controls: an asymmetric square-corner profile, like the cut edge
-         on a tool chassis. Replaces WinUI's default rounded capsule consistently. -->
-    <Style TargetType="Button" BasedOn="{StaticResource KaliteButton}" />
-    <!-- Built-in controls already consume ControlCornerRadius. Override the
-         shared token in the theme dictionaries rather than replacing their
-         default templates (which keeps caret, validation, and automation states). -->
-
     <!--  Stagger entrance for list items: every ItemsRepeater in the app fades
           and slides up on first show, so page content never hard-cuts in. The
           20px vertical offset is small enough to read as a settling motion
@@ -619,28 +463,6 @@
                 </TransitionCollection>
             </Setter.Value>
         </Setter>
-    </Style>
-
-    <!-- No AccentButtonStyle override on purpose: accent actions resolve to
-         WinUI's stock accent button (OS accent fill, default template), so
-         primary actions look like every other Windows app. A house-green
-         accent style lived here before and is gone: ~30 call sites reference
-         AccentButtonStyle and all of them follow automatically. -->
-
-    <Style x:Key="KaliteSubtleButton" TargetType="Button" BasedOn="{StaticResource KaliteButton}">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="10,5" />
-    </Style>
-
-    <!--  Icon button: a square hit target, no border until hovered. Used for the
-          small square affordances that carry the new pattern language. -->
-    <Style x:Key="KaliteIconButton" TargetType="Button" BasedOn="{StaticResource KaliteButton}">
-        <Setter Property="Width" Value="32" />
-        <Setter Property="Height" Value="32" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
     </Style>
 
 </ResourceDictionary>

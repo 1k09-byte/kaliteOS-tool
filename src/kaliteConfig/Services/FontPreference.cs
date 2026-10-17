@@ -21,7 +21,7 @@ namespace kaliteConfig.Services;
 /// XamlAutoFontFamily/ContentControlThemeFontFamily/TextControlThemeFontFamily
 /// for body type), the explicit FontFamily setters inside the
 /// text styles (implicit TextBlock style, the redefined WinUI caption/body/
-/// title styles, the Kalite* styles, KaliteButton and its dependents), and
+/// title styles, and the Kalite* styles), and
 /// FontFamily attributes in already-parsed windows. So choosing a font means:
 ///
 ///   1. startup: rewrite the resource keys and CLONE every style that carries
@@ -88,10 +88,6 @@ internal static class FontPreference
         "KalitePageTitle",
         "KaliteSectionTitle",
         "KaliteEyebrow",
-        "KaliteButton",
-        typeof(Button),             // implicit Button style (KaliteTheme.xaml)
-        "KaliteSubtleButton",
-        "KaliteIconButton",
     };
 
     private static string PrefPath => Path.Combine(

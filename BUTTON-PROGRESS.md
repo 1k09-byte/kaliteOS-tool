@@ -34,3 +34,10 @@ not started / in progress / committed
 - Added src/kaliteConfig/Themes/SideNavResources.xaml (frozen copy of KaliteButton + implicit Button rule, SideNav* keys).
 - MainWindow.xaml: NavigationView.Resources wrapped in ResourceDictionary and merges SideNavResources.xaml.
 - Build: 0 warnings, 0 errors.
+
+## Step 3: global button layer
+- Status: committed
+- KaliteTheme.xaml: removed KaliteButton, implicit Button style, KaliteSubtleButton, KaliteIconButton (incl. hover/press Storyboards, ControlTemplate), and KaliteButtonFill/Stroke(+Hover) brushes in Light/Dark/Default. ControlCornerRadius token kept (shared, stock value).
+- FontPreference.cs: removed KaliteButton/Subtle/Icon and typeof(Button) from StyleKeys; buttons still follow the font via ContentControlThemeFontFamily (rewritten by FontPreference).
+- RuleEditorDialog.xaml: removed PrimaryButtonStyle/CloseButtonStyle based on KaliteButton (stock ContentDialog buttons now).
+- Build: 0 warnings, 0 errors.
