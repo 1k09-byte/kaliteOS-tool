@@ -149,7 +149,7 @@ namespace kaliteConfig.Pages
 
         // ---- quick edit (used when the detail pane is collapsed below 1000px) ----
 
-        private void ValuePill_Tapped(object sender, TappedRoutedEventArgs e)
+        private void ValuePill_Click(object sender, RoutedEventArgs e)
         {
             if (this.ActualWidth < 1000 &&
                 ((FrameworkElement)sender).DataContext is BiosSettingRow row)

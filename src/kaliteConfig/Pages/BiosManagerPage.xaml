@@ -182,14 +182,11 @@
                                 <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{x:Bind TokenLineText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             </StackPanel>
-                            <!-- Current value pill; tap opens a quick editor when the detail pane is collapsed -->
-                            <Border
+                            <!-- Current value; click opens a quick editor when the detail pane is collapsed -->
+                            <Button
                                 Grid.Column="2"
-                                CornerRadius="12"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                Padding="12,4"
                                 VerticalAlignment="Center"
-                                Tapped="ValuePill_Tapped">
+                                Click="ValuePill_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <Ellipse
                                         Width="7"
@@ -199,7 +196,7 @@
                                         Visibility="{x:Bind ModifiedVisibility, Mode=OneWay}" />
                                     <TextBlock Text="{x:Bind ValueDisplay, Mode=OneWay}" FontWeight="SemiBold" />
                                 </StackPanel>
-                            </Border>
+                            </Button>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>

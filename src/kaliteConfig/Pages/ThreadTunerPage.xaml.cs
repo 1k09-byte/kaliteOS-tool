@@ -169,12 +169,11 @@ namespace kaliteConfig.Pages
         private int _lastSelectedPid = -1;
 
         /// <summary>Disclosure chevron on a process row: expand / collapse its children.</summary>
-        private void RowChevron_Tapped(object sender, TappedRoutedEventArgs e)
+        private void RowChevron_Click(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement { DataContext: TunerProcessRow row })
             {
                 ViewModel.ToggleExpanded(row);
-                e.Handled = true; // don't also trigger the row's double-tap
             }
         }
 

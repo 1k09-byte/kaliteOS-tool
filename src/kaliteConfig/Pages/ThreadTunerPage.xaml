@@ -260,12 +260,17 @@
                                      rows would pull their icons left, out of line
                                      with the parents' icons. -->
                                 <Grid Width="12" Height="16" VerticalAlignment="Center">
-                                    <FontIcon Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" FontSize="10"
-                                              Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              Visibility="{x:Bind HasChildrenVis, Mode=OneWay}"
-                                              Tapped="RowChevron_Tapped"
-                                              ToolTipService.ToolTip="Expand or collapse child processes" />
+                                    <!-- BUTTON-REVIEW: MinWidth/MinHeight/Padding reset so the stock button fits the fixed 12x16 tree-indent slot; without it the stock 32px minimum height breaks row alignment. -->
+                                    <Button
+                                        MinWidth="0"
+                                        MinHeight="0"
+                                        Padding="0"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="{x:Bind HasChildrenVis, Mode=OneWay}"
+                                        Click="RowChevron_Click"
+                                        ToolTipService.ToolTip="Expand or collapse child processes">
+                                        <FontIcon Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" FontSize="10" />
+                                    </Button>
                                 </Grid>
                                 <!-- Icon slot is a fixed-size box either way, so
                                      names align down the column. With no extracted
