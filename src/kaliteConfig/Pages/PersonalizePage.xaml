@@ -197,28 +197,6 @@
                 </Border>
             </StackPanel>
 
-            <!-- ============================ Colors ============================== -->
-            <StackPanel x:Name="ColorsSection" Spacing="16" Visibility="Collapsed">
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Mode and effects" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <ToggleSwitch Header="App mode" IsOn="{Binding AppsUseLight, Mode=TwoWay}"
-                                      OnContent="Light" OffContent="Dark" />
-                        <ToggleSwitch Header="Windows mode (taskbar and Start)" IsOn="{Binding SystemUsesLight, Mode=TwoWay}"
-                                      OnContent="Light" OffContent="Dark" />
-                        <ToggleSwitch Header="Transparency effects" IsOn="{Binding Transparency, Mode=TwoWay}"
-                                      OnContent="On" OffContent="Off" />
-
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Apply colors" Command="{Binding ApplyColorsCommand}"
-                                    Style="{StaticResource AccentButtonStyle}" />
-                            <Button Content="Reset colors to Windows defaults" Command="{Binding ResetColorsToDefaultsCommand}" />
-                            <Button Content="Restore colors section" Command="{Binding RevertColorsSectionCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-
         </StackPanel>
     </ScrollViewer>
 </Page>
