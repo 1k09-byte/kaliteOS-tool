@@ -1,15 +1,24 @@
 # Personalize progress
 
-| Phase | Status | Commit |
-|---|---|---|
-| 0 Setup (branch, baseline, facts) | committed | 74f3e40 (empty baseline) |
-| 1 Plan (PERSONALIZE-PLAN.md) | in progress | - |
-| 2 Core infrastructure | not started | - |
-| 3 Services | not started | - |
-| 4 UI and nav entry | not started | - |
-| 5 Profiles (JSON) | not started | - |
-| 6 Hardening and static checks | not started | - |
-| 7 Report | not started | - |
+Branch: `feature/personalize`. Baseline build: 14 warnings, 0 errors.
 
-Baseline: build 0 errors, 14 warnings (commit 74f3e40).
-Working tree had ~89 pre-existing uncommitted changes before this work. They are NOT committed here; only Personalize files are staged per phase.
+| Phase | Status |
+|---|---|
+| 0 Setup (branch, baseline, facts) | committed |
+| 1 Plan (PERSONALIZE-PLAN.md) | committed |
+| 2 Core infrastructure (interop, HKCU registry, snapshot, applier, capability, presets) | committed |
+| 3 Services (wallpaper, cursor, colors, shell tweaks, visual effects) | in progress |
+| 4 UI page, nav item, DI registration | not started |
+| 5 Profiles (save/apply/export/import) | not started |
+| 6 Hardening and static checks | not started |
+| 7 PERSONALIZE-REPORT.md | not started |
+
+Phase 2 files live in `src/kaliteConfig/Services/Personalize/`:
+- `Native/NativeMethods.cs`: hand-written P/Invoke (no CsWin32 in this project)
+- `Native/HkcuRegistry.cs`: HKCU-only registry access (refuses HKLM)
+- `Native/SystemNotifier.cs`: WM_SETTINGCHANGE and DWM color broadcasts (bounded timeout)
+- `SettingDefinition.cs`: `SettingDef`, `SettingResult`
+- `SnapshotStore.cs`: original-value snapshots in `%LOCALAPPDATA%\kaliteConfig\personalize\snapshot.json`
+- `SettingApplier.cs`: apply, verify, roll back, revert
+- `WindowsCapabilityService.cs`: real build (RtlGetVersion), packaging, policy locks, high contrast
+- `PersonalizationPresets.cs`: accent swatch data and ABGR conversion
