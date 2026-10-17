@@ -342,8 +342,8 @@
         <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
     </Style>
     <Style x:Key="DefaultContentDialogStyle" TargetType="ContentDialog" BasedOn="{StaticResource KaliteSnap.ContentDialog}">
+        <!-- BUTTON-REVIEW: FontFamily kept on the dialog style. It is typography, which is out of scope for the button reset. The stock Background was removed. -->
         <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
-        <Setter Property="Background" Value="{ThemeResource ContentDialogBackground}" />
     </Style>
 
     <!-- DISPLAY STYLES ONLY: the only places Uncial Antiqua is used.
@@ -379,7 +379,6 @@
         <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
     </Style>
 
-    <CornerRadius x:Key="KaliteControlRadius">4</CornerRadius>
     <!-- Rail plates stay squarish on purpose: a 2px cut keeps the
          tool-chassis edge. Larger radii turned the rail items into pills
          and made hover read as a bubble, not a plate. -->
