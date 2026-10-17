@@ -23,6 +23,10 @@ public sealed class WallpaperLibraryItem
     public string FileName { get; set; } = "";
     public string OriginalName { get; set; } = "";
     public DateTime AddedUtc { get; set; }
+
+    /// <summary>Runtime-only absolute path for thumbnails; never persisted.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string FullPath { get; set; } = "";
 }
 
 public sealed class WallpaperLibraryState
@@ -82,7 +86,8 @@ public sealed class WallpaperService : IWallpaperService
 
     // ---- Library --------------------------------------------------------------
 
-    public IReadOnlyList<WallpaperLibraryItem> Library() => LoadState().Items.OrderBy(i => i.AddedUtc).ToList();
+    public IReadOnlyList<WallpaperLibraryItem> Library() => LoadState().Items.OrderBy(i => i.AddedUtc)
+        .Select(i => { i.FullPath = FilePathFor(i); return i; }).ToList();
 
     public IReadOnlyList<WallpaperLibraryItem> Recent()
     {
