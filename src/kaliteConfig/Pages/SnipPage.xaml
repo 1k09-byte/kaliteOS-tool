@@ -426,7 +426,7 @@
                                                                   above the image and the blank-frame badge, and
                                                                   top-left so it never collides with that badge on the
                                                                   right. -->
-                                                             <Button Margin="4" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{x:Bind ToggleFavoriteCommand}" Visibility="{x:Bind StarVisibility, Mode=OneWay}" Opacity="{x:Bind StarOpacity, Mode=OneWay}">
+                                                             <Button Margin="4" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{x:Bind ToggleFavoriteCommand}" Visibility="{x:Bind StarVisibility, Mode=OneWay}">
                                                                  <FontIcon Glyph="{x:Bind FavoriteGlyph}" FontSize="14" Foreground="{x:Bind StarBrush, Mode=OneWay}"/>
                                                              </Button>
                                                          </Grid>
