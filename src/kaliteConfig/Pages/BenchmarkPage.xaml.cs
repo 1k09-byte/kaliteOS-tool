@@ -61,6 +61,7 @@ namespace kaliteConfig.Pages
             return Application.Current.Resources[key] as Brush ?? new SolidColorBrush(fallback);
         }
 
+        // BUTTON-REVIEW: benchmark cards stay Border + PointerPressed. They are selectable cards that hold other controls, so a Button would nest interactive children.
         private void BenchmarkCard_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (sender is not FrameworkElement element) return;

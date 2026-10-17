@@ -123,16 +123,11 @@
                 <NumberBox CornerRadius="8" Value="{x:Bind ViewModel.CountdownSec, Mode=TwoWay}" Minimum="0" Maximum="30"
                            VerticalAlignment="Center" SpinButtonPlacementMode="Compact" Width="130"
                            PlaceholderText="Countdown (s)" ToolTipService.ToolTip="Countdown in seconds before capture starts." />
-                <Button Command="{x:Bind ViewModel.StartCaptureCommand}" VerticalAlignment="Center"
-                        Style="{StaticResource AccentButtonStyle}">
+                <!-- BUTTON-REVIEW: Start capture and Stop merged into one toggle. Label and glyph follow IsCapturing. Accent dropped: the merged button cannot hold one accent in both states. -->
+                <Button Command="{x:Bind ViewModel.ToggleCaptureCommand}" VerticalAlignment="Center"
+                        ToolTipService.ToolTip="Start a capture, or stop the running one">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE768;" FontSize="14" /><TextBlock Text="Start capture" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button Command="{x:Bind ViewModel.StopCaptureCommand}" VerticalAlignment="Center"
-                        ToolTipService.ToolTip="Stop the running capture">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE71A;" FontSize="14" /><TextBlock Text="Stop" VerticalAlignment="Center" />
+                        <FontIcon Glyph="{x:Bind ViewModel.CaptureButtonGlyph, Mode=OneWay}" FontSize="14" /><TextBlock Text="{x:Bind ViewModel.CaptureButtonText, Mode=OneWay}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Border Width="1" Height="20" Background="{ThemeResource DividerStrokeColorDefaultBrush}" VerticalAlignment="Center" Margin="4,0" />
