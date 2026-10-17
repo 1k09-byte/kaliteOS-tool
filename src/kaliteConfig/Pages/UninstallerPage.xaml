@@ -32,29 +32,8 @@
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="RemoverFlatListItemStyle" TargetType="ListViewItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,4" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />
-            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
-            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <ContentPresenter Background="Transparent"
-                                          Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          ContentTransitions="{TemplateBinding ContentTransitions}"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          Padding="{TemplateBinding Padding}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
     </Page.Resources>
 
@@ -195,8 +174,7 @@
                         <DataTemplate x:DataType="models:UninstallerItem">
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                    BorderThickness="1" CornerRadius="12" Padding="12,10"
-                                    PointerEntered="UninstallerCard_PointerEntered" PointerExited="UninstallerCard_PointerExited">
+                                    BorderThickness="1" CornerRadius="12" Padding="12,10">
                                 <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="40" />
@@ -389,8 +367,7 @@
                                 <DataTemplate x:DataType="models:DriverPackageItem">
                                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                            BorderThickness="1" CornerRadius="12" Padding="12,10"
-                                            PointerEntered="UninstallerCard_PointerEntered" PointerExited="UninstallerCard_PointerExited">
+                                            BorderThickness="1" CornerRadius="12" Padding="12,10">
                                         <Grid ColumnSpacing="8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="3*" />
