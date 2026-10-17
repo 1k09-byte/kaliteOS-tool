@@ -84,4 +84,23 @@ internal static class NativeMethods
     // compatibility shim would make Environment.OSVersion report an older one.
     [DllImport("ntdll.dll")]
     internal static extern int RtlGetVersion(ref OSVERSIONINFOEX versionInfo);
+
+    // LoadImage with LR_LOADFROMFILE: used to prove a .cur/.ani file really loads
+    // before anything is applied (LoadImage docs, winuser.h).
+    public const uint IMAGE_CURSOR = 2;
+    public const uint LR_LOADFROMFILE = 0x00000010;
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern IntPtr LoadImage(IntPtr hInst, string name, uint type, int cx, int cy, uint fuLoad);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyCursor(IntPtr hCursor);
+
+    // Shell item helpers used to point IDesktopWallpaper::SetSlideshow at a folder
+    // (shlobj_core.h: SHParseDisplayName, SHCreateShellItemArrayFromIDLists).
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern int SHParseDisplayName(string name, IntPtr bindingContext, out IntPtr pidl, uint sfgaoIn, out uint psfgaoOut);
+
+    [DllImport("shell32.dll", SetLastError = true)]
+    public static extern int SHCreateShellItemArrayFromIDLists(uint cidl, IntPtr[] rgpidl, out IntPtr ppsiItemArray);
 }

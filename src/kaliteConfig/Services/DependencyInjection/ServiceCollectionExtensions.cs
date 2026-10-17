@@ -1,5 +1,6 @@
 using System;
 using kaliteConfig.Services.Navigation;
+using kaliteConfig.Services.Personalize;
 using kaliteConfig.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,8 +32,20 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<WindhawkInstallerService>();
         s.AddSingleton<INavigationService, NavigationService>();
 
+        // Personalize: one snapshot store and applier shared by all appearance services.
+        s.AddSingleton<SnapshotStore>();
+        s.AddSingleton<SettingApplier>();
+        s.AddSingleton<WindowsCapabilityService>();
+        s.AddSingleton<ThemeSettingsService>();
+        s.AddSingleton<IThemeSettingsService>(sp => sp.GetRequiredService<ThemeSettingsService>());
+        s.AddSingleton<WallpaperService>();
+        s.AddSingleton<IWallpaperService>(sp => sp.GetRequiredService<WallpaperService>());
+        s.AddSingleton<ICursorService>(sp => new CursorService(
+            sp.GetRequiredService<SettingApplier>(),
+            System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(SnapshotStore.DefaultPath())!, "cursors")));
+
         // ViewModels: transient — fresh state per navigation.
-        s.AddTransient<BenchmarkViewModel>();
         s.AddTransient<AffinityViewModel>();
         s.AddTransient<NetworkViewModel>();
         s.AddTransient<InstallerViewModel>();
