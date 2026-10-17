@@ -73,24 +73,6 @@ namespace kaliteConfig.Pages
             return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         }
 
-        private void BenchmarkCard_PointerEntered(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Border card)
-            {
-                card.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
-                card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
-            }
-        }
-
-        private void BenchmarkCard_PointerExited(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Border card)
-            {
-                card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush");
-                card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush");
-            }
-        }
-
         private void BenchmarkCard_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (sender is not FrameworkElement element) return;

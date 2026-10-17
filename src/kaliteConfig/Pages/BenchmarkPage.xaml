@@ -24,58 +24,6 @@
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
-        <Style x:Key="BenchFlatListItemStyle" TargetType="ListViewItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,1" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />
-            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
-            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <!-- Deliberately the same shape as the process list
-                         (ProcessCardItemStyle in ThreadTunerPage.xaml): a rounded
-                         RowSurface that carries the hover and selection fills.
-                         The previous bare ContentPresenter had no visual states
-                         at all, so hovering a benchmark row did nothing and the
-                         two lists in the app looked like different products. -->
-                    <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="RowSurface" Background="Transparent" CornerRadius="8" Margin="0,1">
-                            <ContentPresenter Background="Transparent"
-                                              Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              ContentTransitions="{TemplateBinding ContentTransitions}"
-                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Padding="{TemplateBinding Padding}"
-                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Selected">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Page.Resources>
 
 
@@ -219,12 +167,10 @@
                       Background="{ThemeResource LayerFillColorDefaultBrush}"
                       BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="6"
                       SelectedItem="{x:Bind ViewModel.SelectedTarget, Mode=TwoWay}"
-                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0"
-                      ItemContainerStyle="{StaticResource BenchFlatListItemStyle}">
+                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:TunerProcessRow">
-                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8"
-                                PointerEntered="BenchmarkCard_PointerEntered" PointerExited="BenchmarkCard_PointerExited" PointerPressed="BenchmarkCard_PointerPressed">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerPressed="BenchmarkCard_PointerPressed">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" />
@@ -319,11 +265,10 @@
             </Border>
             <ListView CornerRadius="12" Grid.Row="2" Grid.Column="0" ItemsSource="{x:Bind ViewModel.Runs, Mode=OneWay}"
                       SelectedItem="{x:Bind ViewModel.SelectedRun, Mode=TwoWay}"
-                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0"
-                      ItemContainerStyle="{StaticResource BenchFlatListItemStyle}">
+                      SelectionMode="Single" ShowsScrollingPlaceholders="False" Margin="0,0,12,0">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:BenchmarkRun">
-                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerEntered="BenchmarkCard_PointerEntered" PointerExited="BenchmarkCard_PointerExited" PointerPressed="BenchmarkCard_PointerPressed">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerPressed="BenchmarkCard_PointerPressed">
                             <StackPanel Spacing="1">
                             <TextBlock FontSize="12" FontWeight="SemiBold" Text="{x:Bind Game}" />
                             <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
@@ -494,7 +439,7 @@
                 <ListView CornerRadius="12" Grid.Column="1" ItemsSource="{x:Bind ViewModel.CompareRows, Mode=OneWay}" SelectionMode="None">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:CompareRow">
-                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerEntered="BenchmarkCard_PointerEntered" PointerExited="BenchmarkCard_PointerExited" PointerPressed="BenchmarkCard_PointerPressed">
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8" PointerPressed="BenchmarkCard_PointerPressed">
                             <StackPanel Spacing="1">
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="{x:Bind Name}" />
                                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{x:Bind ShortLabel}" />

@@ -14,55 +14,6 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter" />
         
-        <!-- Table rows: flat, hairline-separated lines, but with softened
-             corners - RowSurface is rounded so the hover/selection fill
-             curves instead of being a sharp rectangle. No full outline
-             around the row: the fill is the only highlight. -->
-        <Style x:Key="ProcessCardItemStyle" TargetType="ListViewItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
-            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="RowSurface" Background="Transparent" CornerRadius="8" Margin="0,1">
-                            <ContentPresenter Background="Transparent"
-                                              Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              ContentTransitions="{TemplateBinding ContentTransitions}"
-                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Padding="{TemplateBinding Padding}"
-                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Selected">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <!-- Rule Row Template -->
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
             <Border Margin="12,4" Padding="14,10" CornerRadius="8"
@@ -247,8 +198,7 @@
                      carries the same 18px so columns stay aligned. -->
             <Grid Grid.Row="2">
             <ListView x:Name="ProcessesGrid" Margin="28,0,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
-                      Background="Transparent" BorderThickness="0" Padding="0,0,18,0"
-                      ItemContainerStyle="{StaticResource ProcessCardItemStyle}">
+                      Background="Transparent" BorderThickness="0" Padding="0,0,18,0">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:TunerProcessRow">
                         <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" CornerRadius="8">
