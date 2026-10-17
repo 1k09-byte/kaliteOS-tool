@@ -7,8 +7,8 @@ Branch: `feature/personalize`. Baseline build: 14 warnings, 0 errors.
 | 0 Setup (branch, baseline, facts) | committed |
 | 1 Plan (PERSONALIZE-PLAN.md) | committed |
 | 2 Core infrastructure (interop, HKCU registry, snapshot, applier, capability, presets) | committed |
-| 3 Services (wallpaper, cursor, colors, shell tweaks, visual effects) | in progress |
-| 4 UI page, nav item, DI registration | not started |
+| 3 Services (wallpaper, cursor, colors, shell tweaks, visual effects) | committed |
+| 4 UI page, nav item, DI registration | committed |
 | 5 Profiles (save/apply/export/import) | not started |
 | 6 Hardening and static checks | not started |
 | 7 PERSONALIZE-REPORT.md | not started |
