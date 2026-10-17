@@ -235,7 +235,7 @@
                                     Grid.Column="1"
                                     Content="Choose…"
                                     Click="BgPick_Click"
-                                    Style="{StaticResource AccentButtonStyle}" />
+ />
                         </Grid>
 
                         <Grid>

@@ -34,7 +34,7 @@
             <AutoSuggestBox Grid.Column="0" PlaceholderText="Filter updates..." QueryIcon="Find"
                             Text="{x:Bind Vm.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Reload" Style="{StaticResource AccentButtonStyle}"
+            <Button Grid.Column="1" Content="Reload"
                     Command="{x:Bind Vm.LoadCommand}" VerticalAlignment="Center" />
             <Button Grid.Column="2" Content="Export CSV" VerticalAlignment="Center"
                     Click="ExportCsv_Click" />
