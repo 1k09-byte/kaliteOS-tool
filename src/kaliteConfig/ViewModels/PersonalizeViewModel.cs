@@ -49,12 +49,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     // last color chosen in this session.
     [ObservableProperty] public partial Color BackgroundColor { get; set; } = Color.FromArgb(255, 0, 0, 0);
 
-    // ---- Colors and theme ---------------------------------------------------
-    [ObservableProperty] public partial bool AppsUseLight { get; set; } = true;
-    [ObservableProperty] public partial bool SystemUsesLight { get; set; } = true;
-    [ObservableProperty] public partial bool Transparency { get; set; } = true;
-    [ObservableProperty] public partial bool TitleBarAccent { get; set; }
-
     // ---- Cursor -------------------------------------------------------------
     // Doubles so NumberBox and Slider can bind directly; cast to int when applying.
     [ObservableProperty] public partial double PointerSize { get; set; } = 32;
@@ -77,11 +71,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     public void Reload()
     {
         var theme = _theme.Current();
-        AppsUseLight = theme.AppsUseLight;
-        SystemUsesLight = theme.SystemUsesLight;
-        Transparency = theme.Transparency;
-        TitleBarAccent = theme.TitleBarAccent;
-
         PointerSize = _cursor.CurrentPointerSize();
         var mouse = _cursor.CurrentMouse();
         PointerSpeed = mouse.PointerSpeed;
@@ -155,20 +144,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     [RelayCommand]
     private void RevertWallpaperSection() =>
         Report(_wallpaper.RevertSection(), "Wallpaper restored to how it was before this app changed it.");
-
-    // ---- Colors -------------------------------------------------------------
-    [RelayCommand]
-    private void ApplyColors() =>
-        Report(_theme.Apply(new ThemeOptions(AppsUseLight, SystemUsesLight, Transparency, TitleBarAccent)),
-               "Colors applied.");
-
-    [RelayCommand]
-    private void ResetColorsToDefaults() =>
-        Report(_theme.ResetToWindowsDefaults(), "Colors reset to Windows defaults.");
-
-    [RelayCommand]
-    private void RevertColorsSection() =>
-        Report(_theme.RevertSection(), "Colors restored to how they were before this app changed them.");
 
     // ---- Cursor -------------------------------------------------------------
     /// <summary>Applies the cursor size, mouse and caret values. The page then asks the user to keep them.</summary>

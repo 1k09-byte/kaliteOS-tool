@@ -104,7 +104,6 @@ public sealed partial class PersonalizePage : Page
         var tag = (sender.SelectedItem as SelectorBarItem)?.Tag as string;
         WallpaperSection.Visibility = tag == "wallpaper" ? Visibility.Visible : Visibility.Collapsed;
         CursorSection.Visibility = tag == "cursor" ? Visibility.Visible : Visibility.Collapsed;
-        ColorsSection.Visibility = tag == "colors" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ---- Wallpaper pickers ------------------------------------------------------------
