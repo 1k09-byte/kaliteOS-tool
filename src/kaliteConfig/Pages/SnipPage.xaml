@@ -22,26 +22,12 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="5"/>
         </Style>
-        <Style x:Key="RecentActionStyle" TargetType="Button">
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Width" Value="28"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Background" Value="#99202020"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="8"/>
-        </Style>
         <Style x:Key="SnipSurface" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="Padding" Value="20"/>
-        </Style>
-        <Style x:Key="SnipActionButton" TargetType="Button">
-            <Setter Property="CornerRadius" Value="3"/>
-            <Setter Property="Padding" Value="12,8"/>
         </Style>
 
         <!-- Shared ItemContainerStyle to disable default selection/focus visuals -->
@@ -264,10 +250,10 @@
                                                       </StackPanel>
                                                   </StackPanel>
                                                   <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Spacing="4">
-                                                      <Button Style="{StaticResource RecentActionStyle}" Content="&#xE8C8;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentCopy_Click" ToolTipService.ToolTip="Copy image" AutomationProperties.Name="Copy image"/>
-                                                      <Button Style="{StaticResource RecentActionStyle}" Content="&#xE70F;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentEdit_Click" ToolTipService.ToolTip="Edit in Snip" AutomationProperties.Name="Edit snip"/>
-                                                      <Button Style="{StaticResource RecentActionStyle}" Content="&#xE8BB;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentFolder_Click" ToolTipService.ToolTip="Show in folder" AutomationProperties.Name="Show in folder"/>
-                                                      <Button Style="{StaticResource RecentActionStyle}" Content="&#xE74D;" FontFamily="{ThemeResource SymbolThemeFontFamily}" Click="RecentDelete_Click" ToolTipService.ToolTip="Delete" AutomationProperties.Name="Delete snip"/>
+                                                      <Button Click="RecentCopy_Click" ToolTipService.ToolTip="Copy image" AutomationProperties.Name="Copy image"><FontIcon Glyph="&#xE8C8;"/></Button>
+                                                      <Button Click="RecentEdit_Click" ToolTipService.ToolTip="Edit in Snip" AutomationProperties.Name="Edit snip"><FontIcon Glyph="&#xE70F;"/></Button>
+                                                      <Button Click="RecentFolder_Click" ToolTipService.ToolTip="Show in folder" AutomationProperties.Name="Show in folder"><FontIcon Glyph="&#xE8BB;"/></Button>
+                                                      <Button Click="RecentDelete_Click" ToolTipService.ToolTip="Delete" AutomationProperties.Name="Delete snip"><FontIcon Glyph="&#xE74D;"/></Button>
                                                   </StackPanel>
                                               </Grid>
                                          </Border>
@@ -318,7 +304,7 @@
 
                              <InfoBar x:Name="GalleryInfoBar" Grid.Row="1" Margin="0,0,0,8" IsOpen="False" IsClosable="True" Severity="Success">
                                  <InfoBar.ActionButton>
-                                     <Button Style="{StaticResource SnipActionButton}" Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
+                                     <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
                                  </InfoBar.ActionButton>
                              </InfoBar>
 
@@ -467,8 +453,8 @@
                                                                  <TextBlock Text="{x:Bind Card.ShortErrorText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                              TextWrapping="Wrap" TextAlignment="Center" FontSize="11" MaxLines="3"
                                                                              ToolTipService.ToolTip="{x:Bind Card.FullErrorText, Mode=OneWay}"/>
-                                                                 <Button Content="Retry" FontSize="11" Click="CardRetry_Click" Visibility="{x:Bind Card.RetryVisibility, Mode=OneWay}"/>
-                                                                 <Button Content="Remove from gallery" FontSize="11" Click="CardRemoveMissing_Click" Visibility="{x:Bind Card.RemoveMissingVisibility, Mode=OneWay}"/>
+                                                                 <Button Content="Retry" Click="CardRetry_Click" Visibility="{x:Bind Card.RetryVisibility, Mode=OneWay}"/>
+                                                                 <Button Content="Remove from gallery" Click="CardRemoveMissing_Click" Visibility="{x:Bind Card.RemoveMissingVisibility, Mode=OneWay}"/>
                                                              </StackPanel>
                                                              <!-- Blank-frame warning badge -->
                                                              <Border Visibility="{x:Bind Card.BlankBadgeVisibility, Mode=OneWay}" Background="#CC3A3A00" CornerRadius="10"
@@ -484,7 +470,7 @@
                                                                   above the image and the blank-frame badge, and
                                                                   top-left so it never collides with that badge on the
                                                                   right. -->
-                                                             <Button BorderThickness="0" Background="#66000000" CornerRadius="16" Width="30" Height="30" Margin="4" Padding="0" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{x:Bind ToggleFavoriteCommand}" Visibility="{x:Bind StarVisibility, Mode=OneWay}" Opacity="{x:Bind StarOpacity, Mode=OneWay}">
+                                                             <Button Margin="4" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{x:Bind ToggleFavoriteCommand}" Visibility="{x:Bind StarVisibility, Mode=OneWay}" Opacity="{x:Bind StarOpacity, Mode=OneWay}">
                                                                  <FontIcon Glyph="{x:Bind FavoriteGlyph}" FontSize="14" Foreground="{x:Bind StarBrush, Mode=OneWay}"/>
                                                              </Button>
                                                          </Grid>
@@ -570,8 +556,8 @@
                                                                  <TextBlock Text="{x:Bind SizeText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                                                                  <TextBlock Text="{x:Bind ResolutionText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                                                              </StackPanel>
-                                                             <Button Content="Retry" FontSize="11" HorizontalAlignment="Left" Click="CardRetry_Click" Visibility="{x:Bind Card.RetryVisibility, Mode=OneWay}"/>
-                                                             <Button Content="Remove from gallery" FontSize="11" HorizontalAlignment="Left" Click="CardRemoveMissing_Click" Visibility="{x:Bind Card.RemoveMissingVisibility, Mode=OneWay}"/>
+                                                             <Button Content="Retry" HorizontalAlignment="Left" Click="CardRetry_Click" Visibility="{x:Bind Card.RetryVisibility, Mode=OneWay}"/>
+                                                             <Button Content="Remove from gallery" HorizontalAlignment="Left" Click="CardRemoveMissing_Click" Visibility="{x:Bind Card.RemoveMissingVisibility, Mode=OneWay}"/>
                                                          </StackPanel>
                                                      </Grid>
                                                  </Border>
@@ -675,14 +661,14 @@
                                                              <MenuFlyoutItem Text="Open" Command="{x:Bind ViewModel.SelectedGalleryItem.OpenCommand, Mode=OneWay}"/>
                                                          </MenuFlyout>
                                                      </StackPanel.ContextFlyout>
-                                                     <Button Content="Open" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.OpenCommand, Mode=OneWay}"/>
-                                                     <Button Content="Copy path" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.CopyPathCommand, Mode=OneWay}"/>
-                                                     <Button Content="Copy text (OCR)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.CopyTextCommand, Mode=OneWay}"/>
-                                                     <Button Content="Rename" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.RenameCommand, Mode=OneWay}"/>
-                                                     <Button Content="Favorite" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.ToggleFavoriteCommand, Mode=OneWay}"/>
-                                                     <Button Content="Show in folder" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.OpenContainingFolderCommand, Mode=OneWay}"/>
-                                                     <Button Content="Pin to screen" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Click="DetailsPin_Click"/>
-                                                     <Button Content="Delete" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,2" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Command="{x:Bind ViewModel.SelectedGalleryItem.DeleteCommand, Mode=OneWay}"/>
+                                                     <Button Content="Open" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.OpenCommand, Mode=OneWay}"/>
+                                                     <Button Content="Copy path" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.CopyPathCommand, Mode=OneWay}"/>
+                                                     <Button Content="Copy text (OCR)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.CopyTextCommand, Mode=OneWay}"/>
+                                                     <Button Content="Rename" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.RenameCommand, Mode=OneWay}"/>
+                                                     <Button Content="Favorite" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.ToggleFavoriteCommand, Mode=OneWay}"/>
+                                                     <Button Content="Show in folder" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.OpenContainingFolderCommand, Mode=OneWay}"/>
+                                                     <Button Content="Pin to screen" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Click="DetailsPin_Click"/>
+                                                     <Button Content="Delete" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,2" Command="{x:Bind ViewModel.SelectedGalleryItem.DeleteCommand, Mode=OneWay}"/>
                                                  </StackPanel>
                                              </StackPanel>
                                          </StackPanel>
