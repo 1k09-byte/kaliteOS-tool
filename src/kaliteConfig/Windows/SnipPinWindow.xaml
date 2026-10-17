@@ -11,7 +11,7 @@
             <Grid>
                 <Image x:Name="PinnedImage" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 <Button VerticalAlignment="Top" HorizontalAlignment="Right"
-                        Margin="4" Opacity="0.6" Click="BtnClose_Click">
+                        Margin="4" Click="BtnClose_Click">
                     <FontIcon Glyph="&#xE711;" FontSize="12"/>
                 </Button>
             </Grid>

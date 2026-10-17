@@ -710,7 +710,8 @@
                         <TextBlock Text="You can only run this toolkit on KaliteOS."
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" FontSize="13" TextAlignment="Center" HorizontalAlignment="Center" />
-                        <Button Content="Exit" Click="VerificationExit_Click" HorizontalAlignment="Center" MinWidth="140" />
+                        <!-- BUTTON-REVIEW: the gate stays a hand-built Border, not a ContentDialog. It must cover the window from the first frame (before code-behind runs), and a ContentDialog cannot be shown that early. Only the Exit button is stock. -->
+                        <Button Content="Exit" Click="VerificationExit_Click" HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>
             </Grid>
