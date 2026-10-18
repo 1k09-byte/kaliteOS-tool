@@ -21,9 +21,6 @@
         <converters:ZeroVisibilityConverter x:Key="ZeroVisibilityConverter" />
         <converters:NonZeroVisibilityConverter x:Key="NonZeroToVisibilityConverter" />
         <Style x:Key="PersonalizeCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
-        <SolidColorBrush x:Key="GridViewItemBackgroundSelected" Color="Transparent" />
-        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPointerOver" Color="Transparent" />
-        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPressed" Color="Transparent" />
         <SolidColorBrush x:Key="GridViewItemBorderBrushSelected" Color="Transparent" />
         <SolidColorBrush x:Key="GridViewItemBorderBrushSelectedPointerOver" Color="Transparent" />
         <SolidColorBrush x:Key="GridViewItemBorderBrushSelectedPressed" Color="Transparent" />
