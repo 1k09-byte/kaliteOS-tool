@@ -163,20 +163,23 @@
                                   AutomationProperties.Name="Wallpaper library">
                             <GridView.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Spacing="4" Width="180">
-                                        <Border Width="180" Height="101" CornerRadius="8"
-                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                                            <Border.BackgroundTransition>
-                                                <BrushTransition />
-                                            </Border.BackgroundTransition>
-                                            <Image Width="180" Height="101" Stretch="UniformToFill"
-                                                   Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
-                                                   AutomationProperties.Name="{Binding OriginalName}" />
-                                        </Border>
-                                        <TextBlock Text="{Binding OriginalName}"
-                                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
+                                    <Border Width="180" CornerRadius="8"
+                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="0">
+                                            <Border Height="101" CornerRadius="7,7,0,0"
+                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                                <Image Stretch="UniformToFill" HorizontalAlignment="Stretch"
+                                                       Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
+                                                       AutomationProperties.Name="{Binding OriginalName}" />
+                                            </Border>
+                                            <TextBlock Text="{Binding OriginalName}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Padding="10,8,10,10" />
+                                        </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </GridView.ItemTemplate>
                         </GridView>
@@ -358,25 +361,32 @@
                                   Visibility="{Binding LibraryEmpty, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
                             <GridView.ItemTemplate>
                                 <DataTemplate x:DataType="live:LiveWallpaperItem">
-                                    <StackPanel Spacing="4" Width="180">
-                                        <StackPanel.ContextFlyout>
+                                    <Border Width="180" CornerRadius="8"
+                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1">
+                                        <Border.ContextFlyout>
                                             <MenuFlyout>
                                                 <MenuFlyoutItem Text="Set on all monitors" Click="LiveSetAll_Click" />
                                                 <MenuFlyoutItem Text="Rename" Click="LiveRename_Click" />
                                                 <MenuFlyoutItem Text="Remove" Click="LiveRemove_Click" />
                                             </MenuFlyout>
-                                        </StackPanel.ContextFlyout>
-                                        <Border Width="180" Height="101" CornerRadius="8"
-                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                                            <Image Width="180" Height="101" Stretch="UniformToFill"
-                                                   Source="{x:Bind Thumb, Mode=OneTime}"
-                                                   AutomationProperties.Name="{x:Bind Name}" />
-                                        </Border>
-                                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource CaptionTextBlockStyle}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind KindText}" Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    </StackPanel>
+                                        </Border.ContextFlyout>
+                                        <StackPanel Spacing="0">
+                                            <Border Height="101" CornerRadius="7,7,0,0"
+                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                                <Image Stretch="UniformToFill" HorizontalAlignment="Stretch"
+                                                       Source="{x:Bind Thumb, Mode=OneTime}"
+                                                       AutomationProperties.Name="{x:Bind Name}" />
+                                            </Border>
+                                            <StackPanel Spacing="2" Padding="10,8,10,10">
+                                                <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{x:Bind KindText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </GridView.ItemTemplate>
                         </GridView>
