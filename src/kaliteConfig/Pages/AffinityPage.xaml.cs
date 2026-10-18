@@ -40,7 +40,17 @@ namespace kaliteConfig.Pages
         private async void DeviceRow_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.Tag is not AffinityDeviceItem device) return;
+            await OpenDeviceAsync(device);
+        }
 
+        private async void DeviceRow_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is AffinityDeviceItem device)
+                await OpenDeviceAsync(device);
+        }
+
+        private async Task OpenDeviceAsync(AffinityDeviceItem device)
+        {
             try
             {
                 await ViewModel.LoadDeviceDetailsAsync(device);
