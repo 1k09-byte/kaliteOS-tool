@@ -9,8 +9,6 @@
     <ResourceDictionary.ThemeDictionaries>
 
         <ResourceDictionary x:Key="Light">
-            <Color x:Key="KaliteChromeSurfaceColor">#FFF2F2F2</Color>
-            <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FFF2F2F2" />
 
             <SolidColorBrush x:Key="TextFillColorPrimaryBrush"   Color="#FF1A1A1A" />
             <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#FF5A5A5A" />
@@ -47,9 +45,6 @@
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
             <SolidColorBrush x:Key="AppForegroundColor" Color="#FF000000" />
-            <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#40000000" />
-            <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#30000000" />
-            <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#26000000" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -59,8 +54,6 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
-            <Color x:Key="KaliteChromeSurfaceColor">#FF0A0A0A</Color>
-            <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FF0A0A0A" />
 
             <SolidColorBrush x:Key="ContentDialogBackground"     Color="#FF0A0A0A" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark1" Color="#FF0A0A0A" />
@@ -97,9 +90,6 @@
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
             <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
-            <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
-            <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
-            <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -109,8 +99,6 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Default">
-            <Color x:Key="KaliteChromeSurfaceColor">#FF0A0A0A</Color>
-            <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FF0A0A0A" />
 
             <SolidColorBrush x:Key="ContentDialogBackground" Color="#FF0A0A0A" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark1" Color="#FF0A0A0A" />
@@ -141,9 +129,6 @@
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
             <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
-            <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
-            <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
-            <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
             <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
@@ -157,7 +142,6 @@
     <FontFamily x:Key="KaliteBodyFontFamily">Segoe UI Variable Text, Segoe UI, sans-serif</FontFamily>
 
     <FontFamily x:Key="XamlAutoFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
-    <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
 
     <Style x:Key="KaliteSnap.Caption" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}" />
     <Style x:Key="KaliteSnap.Body" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}" />
@@ -222,8 +206,6 @@
         <Setter Property="CharacterSpacing" Value="120" />
         <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
     </Style>
-
-    <CornerRadius x:Key="KaliteRailPlateRadius">3</CornerRadius>
     <CornerRadius x:Key="KaliteCardRadius">8</CornerRadius>
     <CornerRadius x:Key="KaliteChipRadius">2</CornerRadius>
     <CornerRadius x:Key="ControlCornerRadius">4,4,4,4</CornerRadius>
