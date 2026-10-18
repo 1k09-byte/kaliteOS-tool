@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         s.AddTransient<AffinityViewModel>();
         s.AddTransient<NetworkViewModel>();
         s.AddTransient<InstallerViewModel>();
+        s.AddTransient<PersonalizeViewModel>();
         s.AddTransient<PowerPlansViewModel>();
         s.AddTransient<ThreadTunerViewModel>();
         s.AddTransient<SnipViewModel>();
