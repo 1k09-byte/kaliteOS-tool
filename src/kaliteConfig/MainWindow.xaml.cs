@@ -246,9 +246,10 @@ namespace kaliteConfig
             {
                 try
                 {
-                    await System.Threading.Tasks.Task.Delay(System.TimeSpan.FromSeconds(2));
+                    await System.Threading.Tasks.Task.Delay(System.TimeSpan.FromSeconds(8));
                     var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
-                    if (live is not null) await live.TryResumeOnLaunchAsync();
+                    if (live is not null && live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Stopped)
+                        await live.TryResumeOnLaunchAsync();
                 }
                 catch { }
             });
