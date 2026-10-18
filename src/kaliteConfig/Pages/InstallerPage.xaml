@@ -23,21 +23,47 @@
         </Style>
 
         <DataTemplate x:Key="InstallerCompactTemplate" x:DataType="models:BrowserInstallItem">
-            <Grid Margin="0,0,0,6" ColumnSpacing="8">
+            <Grid Margin="0,0,0,6" ColumnSpacing="8"
+                  Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup>
+                        <VisualState x:Name="NarrowRow">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="0" />
+                            </VisualState.StateTriggers>
+                            <VisualState.Setters>
+                                <Setter Target="InfoColumn.(Grid.Row)" Value="1" />
+                                <Setter Target="InfoColumn.(Grid.Column)" Value="0" />
+                                <Setter Target="ActionColumn.(Grid.Row)" Value="1" />
+                                <Setter Target="ActionColumn.(Grid.Column)" Value="1" />
+                                <Setter Target="ActionColumn.HorizontalAlignment" Value="Right" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState x:Name="WideRow">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="720" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Button Grid.Column="0"
+                <Button x:Name="InfoColumn"
+                    Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     CornerRadius="8"
                     Padding="12,8"
                     Click="BrowserCard_Click"
-                    Tag="{x:Bind}"
-                    Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
+                    Tag="{x:Bind}">
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -56,23 +82,23 @@
                 </Grid>
                 </Button>
 
-                <Button Grid.Column="1"
-                    x:Name="RowAction"
-                    VerticalAlignment="Center"
-                    MinWidth="88"
-                    Click="RowAction_Click"
-                    Tag="{x:Bind}"
-                    Style="{StaticResource AccentButtonStyle}"
-                    Content="{x:Bind local:InstallerPage.RowActionLabel(Status), Mode=OneWay}"
-                    Visibility="{x:Bind local:InstallerPage.RowActionVisibility(Status), Mode=OneWay}" />
-
-                <ProgressRing Grid.Column="1"
-                    x:Name="RowBusy"
-                    Width="20"
-                    Height="20"
-                    VerticalAlignment="Center"
-                    IsActive="True"
-                    Visibility="{x:Bind local:InstallerPage.BusyVisibility(Status), Mode=OneWay}" />
+                <StackPanel x:Name="ActionColumn" Grid.Row="1" Grid.Column="1"
+                            Orientation="Horizontal" Spacing="8" Margin="0,8,0,0"
+                            HorizontalAlignment="Stretch">
+                    <Button x:Name="RowAction"
+                        MinWidth="88"
+                        HorizontalAlignment="Stretch"
+                        Click="RowAction_Click"
+                        Tag="{x:Bind}"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Content="{x:Bind local:InstallerPage.RowActionLabel(Status), Mode=OneWay}"
+                        Visibility="{x:Bind local:InstallerPage.RowActionVisibility(Status), Mode=OneWay}" />
+                    <ProgressRing x:Name="RowBusy"
+                        Width="20"
+                        Height="20"
+                        IsActive="True"
+                        Visibility="{x:Bind local:InstallerPage.BusyVisibility(Status), Mode=OneWay}" />
+                </StackPanel>
             </Grid>
         </DataTemplate>
 
