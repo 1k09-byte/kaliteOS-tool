@@ -291,20 +291,22 @@ public sealed partial class LiveWallpaperViewModel : ObservableObject
             return;
         }
         IsStarting = true;
+        string? startError = null;
         try
         {
             var (ok, error) = await _engine.StartAsync(targets).ConfigureAwait(true);
-            if (!ok)
-            {
-                StatusText = error ?? "The wallpaper could not start.";
-                StatusSeverity = InfoBarSeverity.Error;
-            }
+            if (!ok) startError = error ?? "The wallpaper could not start.";
         }
         finally
         {
             IsStarting = false;
         }
         RefreshState();
+        if (startError is not null)
+        {
+            StatusText = startError;
+            StatusSeverity = InfoBarSeverity.Error;
+        }
     }
 
     [RelayCommand]
