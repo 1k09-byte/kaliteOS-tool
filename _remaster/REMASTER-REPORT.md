@@ -430,3 +430,111 @@ rows carry their own `CardBorder` and show no native pointer-over or selection. 
 to a `ListView` means rewriting `PushToRow`, `RefreshRealizedRows` and `Repeater_ElementPrepared`
 plus the grid-mode `UniformGridLayout` mapping in `ApplyLayout` — a row-realization and
 virtualization refactor that still needs to be verified by running the app.
+
+---
+
+# Addendum 3 — Install-row action button and Apps row hover
+
+## Commits
+| Commit | Contents |
+|---|---|
+| `433470f` | Add direct one-click Install and Update button to install page rows |
+| `b5f8bec` | Convert Apps package list to stock ListView for native row hover and selection |
+
+Debug x64 build **0 errors, 0 warnings**.
+
+## Direct one-click Install on install-page rows — `433470f`
+
+Previously every install row was a `Button` whose only action was `BrowserCard_Click`, which
+opened `BrowserDetailsDialog`; the actual install lived behind
+`DialogProgressBtn_Click` inside that dialog. So installing meant click row → dialog →
+Install.
+
+Each row now carries a direct action button that runs the same ViewModel command as the
+dialog, with no dialog in the path.
+
+**Why the templates were restructured:** a `Button` cannot contain another `Button`, and the
+row root *is* a `Button`. Both templates now have a `Grid` root with two sibling columns —
+the existing row button in column 0 (unchanged content, `BrowserCard_Click`, `Tag`), and the
+action button plus a busy `ProgressRing` in column 1.
+
+Card template: the action button sits bottom-centre of the card, visible only when an action
+is available. Compact template: the action sits in a trailing column with `MinWidth="88"`.
+
+| Detail | Value |
+|---|---|
+| Style | `{StaticResource AccentButtonStyle}` — the single accent per view |
+| Label | `RowActionLabel(status)` → `"Update"` when `UpdateAvailable`, else `"Install"` |
+| Visibility | `RowActionVisibility(status)` → shown for `NotInstalled`, `UpdateAvailable`, `Failed`; collapsed while `Downloading`, `Installing`, `Installed`, `AlreadyInstalled` |
+| Busy | `ProgressRing` bound through `BusyVisibility(status)`, so the button is replaced by a spinner while work runs |
+| Command selection | Same rule as the dialog: `UpdateBrowserCommand` when `UpdateAvailable`, otherwise `InstallBrowserCommand` |
+| Re-entrancy | `btn.IsEnabled = false` for the duration, restored in `finally` |
+
+`BrowserInstallItem`, both ViewModel commands, `BrowserCard_Click`, `BrowserDetailsDialog`
+and `DialogProgressBtn_Click` are untouched. `StatusToActiveVisibility`,
+`StatusToNotInstalledVisibility` and `BoolToVis` are unchanged.
+
+## Apps rows: native hover and selection — `b5f8bec`
+
+This closes the item I had twice deferred. `PackageListView` no longer uses an
+`ItemsRepeater` — it uses a stock `ListView`, so rows get real `ListViewItem` containers with
+native pointer-over, selected and focus visuals.
+
+**Why the previous deferral was wrong to keep:** an `ItemsRepeater` has no item container at
+all, so no amount of restyling inside it can produce hover. Converting it was the only
+option.
+
+| Before | After |
+|---|---|
+| `ScrollViewer` wrapping an `ItemsRepeater` | `ListView` with its own scrolling — also removes a `ScrollViewer` wrapping a virtualizing panel |
+| `Repeater_ElementPrepared` (ItemsRepeater event) | `PackageList_ContainerContentChanging` (`ListViewBase`, `ContainerContentChangingEventArgs`) |
+| `UniformGridLayout { MinItemWidth = 240, MinColumnSpacing = 12, MinRowSpacing = 12 }` for grid mode | two `ItemsPanelTemplate` resources swapped via `ItemsPanel`: `ItemsStackPanel` for list, `ItemsWrapGrid ItemWidth="248" ItemHeight="168"` for grid |
+| `Repeater.TryGetElement(i)` for refresh | `_pushedRows` list of already-pushed rows, re-pushed on `RefreshRealizedRows` |
+| `CardBorder` painted `CardBackgroundFillColorDefaultBrush` + stroke, `CornerRadius="10"` | fill and stroke removed, `CornerRadius` → `{ThemeResource ControlCornerRadius}`, so the item container's hover paints through in grid mode too |
+| — | `HorizontalContentAlignment="Stretch"` so each row fills the item width |
+| — | `ScrollViewer.VerticalScrollMode="Auto"`, `HorizontalScrollMode="Disabled"` for correct virtualization |
+
+`PushToRow` is byte-for-byte the same logic: the same `ActionLabel`/`Installed`/`Update`
+resolution, the same `ShowAction`, `ActionCommand`, `CancelCommand` assignment and the same
+three event re-wirings. All eight `PackageListView` dependency properties are unchanged, so
+every parent page binding still works.
+
+### WinUI 3 API differences hit while converting
+`ItemPrepared` and `RealizedItems()` are UWP-only and do not exist in WinUI 3, and
+`ListView` has no settable `ItemsPanelTemplate` (it is `ItemsControl.ItemsPanel`), and
+`ContainerContentChangingEventArgs` has no `ItemContainerPrepared` event. The build errors
+drove these choices rather than guesswork.
+
+## Still outstanding — not done
+
+Honest list of everything from the original brief that remains:
+
+1. **34 of 37 pages have not been remade.** Only the Apps page, Uninstaller page and
+   Installer page row templates have been touched. Untouched pages include
+   `SnipPage` (826), `OverclockSection` (679), `NetworkPage` (500), `AffinityPage` (492),
+   `ThreadTunerPage` (368), `BiosManagerPage` (349), `GpuDriversPage` (258),
+   `PowerPlansPage` (262), `PriorityBoostsPage` (225), `SettingsPage` (266),
+   `PersonalizePage` (140), `ReservedCpuSetsPage`, `WindowsSettingsHubPage`,
+   `GraphicsHubPage`, `OverclockPage`, all `PackageManager` sub-pages, all four Snip windows,
+   and the dialogs `RuleEditorDialog`, `ThreadListDialog`, `NvidiaComponentPickerDialog`.
+2. **~1,700 `FontSize` attributes** still set fixed sizes instead of the stock type ramp.
+   The Uninstaller page and these two install templates were converted; the rest were not.
+3. **~160 literal `CornerRadius` values** remain on other pages (26 were fixed on the
+   Uninstaller page, 1 here).
+4. **~90 hardcoded colour constructions in C#** — `BenchmarkPage.xaml.cs` went with the
+   benchmark removal, which cleared 20 of them; `SnipOverlayWindow.xaml.cs` (19),
+   `MainWindow.xaml.cs` (12), `OverclockSection.xaml.cs` (9), `SnipViewModel` (7) and the
+   rest are untouched. These sit in canvas chart and annotation drawing code that rule 2
+   protects.
+5. **Dialogs** — 22 `ContentDialog` hosts not yet reviewed for stock conformance.
+6. **Font preference feature is inert for body text** — `FontPreference.cs` is untouched and
+   its resource keys survive, but nothing applies the font to stock controls. Product call
+   still open.
+7. **No visual verification.** The app has never been run in this session. Nothing in this
+   report asserts light/dark/high-contrast, scaling, focus or hover appearance.
+
+## Recommended order for the remaining work
+`SnipPage`, `NetworkPage`, `AffinityPage`, `ThreadTunerPage` and `GpuDriversPage` are the
+five largest untouched pages and would give the most visible change per commit. Then the
+typography sweep across the remaining files, then the C# colour extraction in the chart and
+overlay drawing code, then the dialogs. Each as its own commit with a green build.
