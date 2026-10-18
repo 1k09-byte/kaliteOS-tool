@@ -19,6 +19,8 @@ namespace kaliteConfig.PackageManager.Views
 {
     public sealed partial class DiscoverPackagesPage : Page
     {
+        private static readonly string[] InstallerExtensions = { ".crx", ".xpi", ".exe", ".msi" };
+
         public DiscoverPackagesViewModel Vm { get; } = new();
 
         public DiscoverPackagesPage()
@@ -46,91 +48,74 @@ namespace kaliteConfig.PackageManager.Views
                 Vm.ViewMode = (PackageViewMode)mode;
         }
 
-        private void ResultsList_InfoRequested(object sender, PackageInfo package)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = package.DisplayName,
-                Content = new TextBlock
-                {
-                    Text = $"ID: {package.Id}\n" +
-                           $"Installed: {OrDash(package.InstalledVersion)}\n" +
-                           $"Available: {OrDash(package.AvailableVersion)}\n" +
-                           $"Source: {package.SourceLabel}\n" +
-                           $"Publisher: {OrDash(package.Publisher)}\n\n" +
-                           (string.IsNullOrWhiteSpace(package.Description) ? "No description." : package.Description),
-                    TextWrapping = TextWrapping.Wrap,
-                    IsTextSelectionEnabled = true,
-                },
-                CloseButtonText = "Close",
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot,
-            };
-            _ = dialog.ShowAsync();
-        }
-
-        private static string OrDash(string? s) => string.IsNullOrWhiteSpace(s) ? "-" : s.Trim();
-
         private void ResultsList_SelectionToggled(object sender, PackageInfo package)
         {
             Vm.NotifySelectionChanged();
         }
 
-        private async void AddToBundle_Click(object sender, RoutedEventArgs e)
+        private void DropBox_DragOver(object sender, DragEventArgs e)
         {
-            var selection = Vm.Filtered.Where(p => p.IsSelected).ToList();
-            if (selection.Count == 0)
-            {
-                Vm.StatusLine = "Nothing selected.";
-                return;
-            }
-            var nameBox = new TextBox { PlaceholderText = "Bundle name", Text = $"Bundle {DateTime.Now:yyyy-MM-dd}" };
-            var dialog = new ContentDialog
-            {
-                Title = $"Add {selection.Count} package{(selection.Count == 1 ? "" : "s")} to bundle",
-                Content = nameBox,
-                PrimaryButtonText = "Add",
-                CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot,
-            };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-            string name = nameBox.Text.Trim();
-            if (name.Length == 0) return;
-            try
-            {
-                var bundle = Vm.AddToBundle(selection, name);
-                Vm.StatusLine = $"'{bundle.Name}' now holds {bundle.Items.Count} package{(bundle.Items.Count == 1 ? "" : "s")}.";
-            }
-            catch (Exception ex)
-            {
-                Vm.StatusLine = $"Could not save bundle: {ex.Message}";
-            }
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = "Install";
         }
 
-        private async void ManualInstall_Click(object sender, RoutedEventArgs e)
+        private async void DropBox_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems)) return;
+            var items = await e.DataView.GetStorageItemsAsync();
+            var paths = items.OfType<Windows.Storage.StorageFile>().Select(f => f.Path).ToList();
+            LaunchInstallers(paths);
+        }
+
+        private async void DropBox_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
         {
             try
             {
                 var picker = new Windows.Storage.Pickers.FileOpenPicker();
                 if (App.MainWindow != null)
                     WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));
-                picker.FileTypeFilter.Add(".exe");
-                picker.FileTypeFilter.Add(".msi");
-                var file = await picker.PickSingleFileAsync();
-                if (file is null) return;
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = file.Path,
-                    UseShellExecute = true,
-                    Verb = "runas",
-                });
-                Vm.StatusLine = $"Launched {file.Name} (follow its own installer UI).";
+                foreach (var ext in InstallerExtensions) picker.FileTypeFilter.Add(ext);
+                var files = await picker.PickMultipleFilesAsync();
+                LaunchInstallers(files.Select(f => f.Path).ToList());
             }
             catch (Exception ex)
             {
-                Vm.StatusLine = $"Manual install failed: {ex.Message}";
+                Vm.StatusLine = $"Could not open file picker: {ex.Message}";
             }
+        }
+
+        private void LaunchInstallers(System.Collections.Generic.IList<string> paths)
+        {
+            var accepted = paths
+                .Where(p => InstallerExtensions.Contains(System.IO.Path.GetExtension(p).ToLowerInvariant()))
+                .ToList();
+            if (accepted.Count == 0)
+            {
+                Vm.StatusLine = "Only .crx, .xpi, .exe and .msi files can be installed here.";
+                return;
+            }
+            foreach (var path in accepted)
+            {
+                string ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                try
+                {
+                    // Browser extensions open in their browser, which asks the user to confirm.
+                    // Installers run elevated, as before.
+                    bool isExtension = ext is ".crx" or ".xpi";
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = path,
+                        UseShellExecute = true,
+                        Verb = isExtension ? "" : "runas",
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Vm.StatusLine = $"Could not start {System.IO.Path.GetFileName(path)}: {ex.Message}";
+                    return;
+                }
+            }
+            Vm.StatusLine = $"Started {accepted.Count} installer{(accepted.Count == 1 ? "" : "s")}; follow each prompt.";
         }
     }
 }

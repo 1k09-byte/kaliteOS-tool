@@ -46,9 +46,38 @@ namespace kaliteConfig.Pages
                 added.IsSelected = true;
         }
 
+        // Pressing the already-selected row again collapses the details card. The press is
+        // sampled before ListViewItem updates its selection, and the clear runs after the
+        // item's own release handling so it is not immediately re-selected.
+        private UninstallerItem? _pressedApp;
+        private bool _appPressWasSelected;
+
+        private void AppRow_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            _pressedApp = (sender as FrameworkElement)?.DataContext as UninstallerItem;
+            _appPressWasSelected = _pressedApp != null && ReferenceEquals(_pressedApp, AppList.SelectedItem);
+        }
+
+        private void AppRow_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_appPressWasSelected || _pressedApp is null || !ReferenceEquals(_pressedApp, AppList.SelectedItem)) return;
+            _appPressWasSelected = false;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                AppList.SelectedItem = null;
+                ViewModel.SelectedApp = null;
+            });
+        }
+
+        // Closing the pane tears down the card that hosts the close button, so the
+        // change is deferred until the click has finished dispatching.
         private void DetailsClose_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
-            AppList.SelectedItems.Clear();
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                AppList.SelectedItem = null;
+                ViewModel.SelectedApp = null;
+            });
         }
 
         private async void DetailsUninstall_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -85,6 +114,35 @@ namespace kaliteConfig.Pages
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             await ViewModel.ForceRemoveCommand.ExecuteAsync(null);
+        }
+
+        private DriverPackageItem? _pressedDriver;
+        private bool _driverPressWasSelected;
+
+        private void DriverRow_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            _pressedDriver = (sender as FrameworkElement)?.DataContext as DriverPackageItem;
+            _driverPressWasSelected = _pressedDriver != null && ReferenceEquals(_pressedDriver, DriverList.SelectedItem);
+        }
+
+        private void DriverRow_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_driverPressWasSelected || _pressedDriver is null || !ReferenceEquals(_pressedDriver, DriverList.SelectedItem)) return;
+            _driverPressWasSelected = false;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                DriverList.SelectedItem = null;
+                ViewModel.SelectedDriver = null;
+            });
+        }
+
+        private void DetailsCloseDriver_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                DriverList.SelectedItem = null;
+                ViewModel.SelectedDriver = null;
+            });
         }
 
         private void DriverList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
@@ -135,6 +193,29 @@ namespace kaliteConfig.Pages
                 _startupAutoloaded = true;
                 _ = ViewModel.LoadStartupCommand.ExecuteAsync(null);
             }
+        }
+
+        private static readonly SolidColorBrush TransparentRowBrush =
+            new(Microsoft.UI.Colors.Transparent);
+
+        private void StartupRow_PointerEntered(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, "StartupRowHoverBrush");
+
+        private void StartupRow_PointerExited(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, null);
+
+        private void StartupRow_PointerPressed(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, "StartupRowPressedBrush");
+
+        private void StartupRow_PointerReleased(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, "StartupRowHoverBrush");
+
+        private void SetStartupRowSurface(object sender, string? brushKey)
+        {
+            if (sender is not Border row) return;
+            row.Background = brushKey is null
+                ? TransparentRowBrush
+                : Resources[brushKey] as Brush ?? TransparentRowBrush;
         }
 
         private async void DeleteStartupEntry_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

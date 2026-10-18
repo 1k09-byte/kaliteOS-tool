@@ -138,7 +138,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
         new StartupSectionVm("Services",
             "User-mode services only (own process, shared process, interactive). Checked = automatic start, unchecked = start mode Disabled."),
         new StartupSectionVm("Scheduled Tasks",
-            "Non-Microsoft scheduled tasks. Unchecked = task disabled; the trash button deletes the task itself."),
+            "Scheduled tasks. Unchecked = task disabled; the trash button deletes the task itself. Microsoft tasks stay hidden until the filter below is unchecked."),
     };
 
     [ObservableProperty]
@@ -163,7 +163,8 @@ public sealed partial class UninstallerViewModel : ObservableObject
     private Microsoft.UI.Xaml.Visibility SourceVis(int index) => StartupSectionIndex == index
         ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    public Microsoft.UI.Xaml.Visibility MicrosoftFilterVis => SourceVis(2);
+    public Microsoft.UI.Xaml.Visibility MicrosoftFilterVis =>
+        StartupSectionIndex is 2 or 3 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
     public Microsoft.UI.Xaml.Visibility EmptyVis => CurrentStartupEntries.Count == 0
         ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -191,7 +192,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
     [ObservableProperty]
     public partial string StartupSearchQuery { get; set; } = string.Empty;
     [ObservableProperty]
-    public partial bool HideMicrosoftServices { get; set; } = true;
+    public partial bool HideMicrosoftEntries { get; set; } = true;
     [ObservableProperty]
     public partial string StartupSummaryText { get; set; } = "Startup entries not scanned yet.";
     [ObservableProperty]
@@ -202,7 +203,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public partial bool StartupLoaded { get; set; }
 
     partial void OnStartupSearchQueryChanged(string value) => UpdateStartupFilter();
-    partial void OnHideMicrosoftServicesChanged(bool value) => UpdateStartupFilter();
+    partial void OnHideMicrosoftEntriesChanged(bool value) => UpdateStartupFilter();
 
     private bool _suppressStartupToggle;
 
@@ -210,9 +211,8 @@ public sealed partial class UninstallerViewModel : ObservableObject
     {
         FilterStartupList(StartupHkcu, FilteredHkcu);
         FilterStartupList(StartupHklm, FilteredHklm);
-        FilterStartupList(StartupServices, FilteredServices,
-            e => !HideMicrosoftServices || !StartupManagerService.IsMicrosoftCompany(e.Company));
-        FilterStartupList(StartupTasks, FilteredTasks);
+        FilterStartupList(StartupServices, FilteredServices, KeepMicrosoftFilter);
+        FilterStartupList(StartupTasks, FilteredTasks, KeepMicrosoftFilter);
         int total = StartupHkcu.Count + StartupHklm.Count + StartupServices.Count + StartupTasks.Count;
         int shown = FilteredHkcu.Count + FilteredHklm.Count + FilteredServices.Count + FilteredTasks.Count;
         StartupSummaryText = $"{shown} shown • {total} startup entries";
@@ -230,6 +230,9 @@ public sealed partial class UninstallerViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(EmptyVis));
     }
+
+    private bool KeepMicrosoftFilter(StartupEntry entry) =>
+        !HideMicrosoftEntries || !StartupManagerService.IsMicrosoftCompany(entry.Company);
 
     private void FilterStartupList(
         ObservableCollection<StartupEntry> source,

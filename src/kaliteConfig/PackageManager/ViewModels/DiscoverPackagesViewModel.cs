@@ -143,20 +143,4 @@ public sealed partial class DiscoverPackagesViewModel : PackageListViewModelBase
         return outcomes;
     }
 
-    public PackageBundle AddToBundle(IEnumerable<PackageInfo> selection, string bundleName)
-    {
-        var bundle = Module.Bundles.LoadAll()
-            .FirstOrDefault(b => b.Name.Equals(bundleName, StringComparison.OrdinalIgnoreCase))
-            ?? new PackageBundle { Name = bundleName };
-        var known = bundle.Items.Select(i => i.SourceId + "\u0001" + i.PackageId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in selection)
-        {
-            string key = p.SourceId + "\u0001" + p.Id;
-            if (known.Add(key))
-                bundle.Items.Add(new BundleItem { PackageId = p.Id, SourceId = p.SourceId, DisplayName = p.DisplayName });
-        }
-        Module.Bundles.Save(bundle);
-        return bundle;
-    }
 }

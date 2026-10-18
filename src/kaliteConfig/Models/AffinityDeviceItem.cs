@@ -67,7 +67,8 @@ namespace kaliteConfig.Models
         public partial string SelectedThreadCountText { get; set; } = string.Empty;
 
         [ObservableProperty]
-        public partial bool IsProcessorMaskExpanded { get; set; } = true;
+        // Starts collapsed so the dialog's Apply/Cancel row stays visible without scrolling.
+        public partial bool IsProcessorMaskExpanded { get; set; }
 
         public System.Collections.ObjectModel.ObservableCollection<ProcessorCoreGroup> CoreGroups { get; } = new();
 

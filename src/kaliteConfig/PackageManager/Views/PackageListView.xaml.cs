@@ -71,6 +71,16 @@ namespace kaliteConfig.PackageManager.Views
             DependencyProperty.Register(nameof(ShowAction), typeof(bool), typeof(PackageListView),
                 new PropertyMetadata(true, (d, _) => ((PackageListView)d).RefreshRealizedRows()));
 
+        public bool ShowInfo
+        {
+            get => (bool)GetValue(ShowInfoProperty);
+            set => SetValue(ShowInfoProperty, value);
+        }
+
+        public static readonly DependencyProperty ShowInfoProperty =
+            DependencyProperty.Register(nameof(ShowInfo), typeof(bool), typeof(PackageListView),
+                new PropertyMetadata(true, (d, _) => ((PackageListView)d).RefreshRealizedRows()));
+
         public ICommand? ActionCommand
         {
             get => (ICommand?)GetValue(ActionCommandProperty);
@@ -128,6 +138,7 @@ namespace kaliteConfig.PackageManager.Views
                 row.ActionLabel = ActionLabel;
             }
             row.ShowAction = ShowAction;
+            row.ShowInfo = ShowInfo;
             row.ActionCommand = ActionCommand;
             row.CancelCommand = CancelCommand;
             row.ActionRequested += OnRowForwarded;

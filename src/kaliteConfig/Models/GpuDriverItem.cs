@@ -85,6 +85,8 @@ namespace kaliteConfig.Models
         [NotifyPropertyChangedFor(nameof(CheckActionText))]
         [NotifyPropertyChangedFor(nameof(IsCheckEnabled))]
         [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
+        [NotifyPropertyChangedFor(nameof(StateLabel))]
+        [NotifyPropertyChangedFor(nameof(StateGlyph))]
         public partial GpuDriverStatus Status { get; set; } = GpuDriverStatus.NotChecked;
 
         [ObservableProperty]
@@ -132,6 +134,34 @@ namespace kaliteConfig.Models
 
         public bool IsCheckEnabled => Status is not (
             GpuDriverStatus.UpToDate or GpuDriverStatus.Downloading or GpuDriverStatus.Installing);
+
+        /// <summary>Short, colour-free state word for the status pill beside the version.</summary>
+        public string StateLabel => Status switch
+        {
+            GpuDriverStatus.UpToDate => "Up to date",
+            GpuDriverStatus.UpdateAvailable => "Update available",
+            GpuDriverStatus.NotInstalled => "Not installed",
+            GpuDriverStatus.NotChecked => "Not checked",
+            GpuDriverStatus.Downloading => "Downloading",
+            GpuDriverStatus.Installing => "Installing",
+            GpuDriverStatus.Installed => "Installed",
+            GpuDriverStatus.Failed => "Failed",
+            GpuDriverStatus.ManualActionRequired => "Action needed",
+            _ => "Unknown"
+        };
+
+        public string StateGlyph => Status switch
+        {
+            GpuDriverStatus.UpToDate => "\uE73E",
+            GpuDriverStatus.UpdateAvailable => "\uE895",
+            GpuDriverStatus.NotInstalled => "\uE7B8",
+            GpuDriverStatus.Downloading => "\uE896",
+            GpuDriverStatus.Installing => "\uE895",
+            GpuDriverStatus.Installed => "\uE73E",
+            GpuDriverStatus.Failed => "\uE783",
+            GpuDriverStatus.ManualActionRequired => "\uE7BA",
+            _ => "\uE946"
+        };
 
         [ObservableProperty]
         public partial bool IsSlimmerBusy { get; set; }

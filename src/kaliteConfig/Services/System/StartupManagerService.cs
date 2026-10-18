@@ -313,6 +313,10 @@ public sealed class StartupManagerService
     internal static bool IsMicrosoftCompany(string? company) =>
         (company ?? "").IndexOf("Microsoft", StringComparison.OrdinalIgnoreCase) >= 0;
 
+    internal static bool IsMicrosoftTask(string? taskName) =>
+        (taskName ?? "").TrimStart('\\').StartsWith("Microsoft\\", StringComparison.OrdinalIgnoreCase)
+        || (taskName ?? "").Trim('\\').Equals("Microsoft", StringComparison.OrdinalIgnoreCase);
+
     private static string? SetServiceEnabled(string serviceName, bool enabled)
     {
         try
@@ -354,9 +358,28 @@ public sealed class StartupManagerService
         try { csv = await RunSchtasksAsync("/query /fo csv /v", 30_000, ct).ConfigureAwait(false); }
         catch { return list; }
         var rows = ParseTaskListCsv(csv);
+        // Tasks in the \Microsoft subtree are kept (the list can show or hide them), but
+        // their trigger XML is not worth a schtasks round-trip each, so they are built
+        // straight from the CSV row instead of the per-task query below.
+        var result = new List<StartupEntry>();
+        var detailed = new List<(string Name, string State, string Command)>();
+        foreach (var row in rows)
+        {
+            if (!IsMicrosoftTask(row.Name)) { detailed.Add(row); continue; }
+            result.Add(new StartupEntry
+            {
+                Kind = StartupEntryKind.ScheduledTask,
+                Id = row.Name,
+                Name = row.Name.TrimStart('\\'),
+                EntryType = "-",
+                Command = row.Command,
+                IsEnabled = TaskEnabled(row.State),
+                Company = "Microsoft",
+            });
+        }
         using var gate = new SemaphoreSlim(4);
         var bag = new ConcurrentBag<StartupEntry>();
-        await Task.WhenAll(rows.Select(async row =>
+        await Task.WhenAll(detailed.Select(async row =>
         {
             await gate.WaitAsync(ct).ConfigureAwait(false);
             try
@@ -376,7 +399,8 @@ public sealed class StartupManagerService
             catch {  }
             finally { gate.Release(); }
         })).ConfigureAwait(false);
-        return bag.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        result.AddRange(bag);
+        return result.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static async Task<string?> SetTaskEnabledAsync(string taskName, bool enabled)
@@ -476,9 +500,6 @@ public sealed class StartupManagerService
             if (fields.Count <= need) continue;
             string name = fields[nameIdx].Trim();
             if (name.Length == 0) continue;
-            if (name.StartsWith(@"\Microsoft\", StringComparison.OrdinalIgnoreCase)
-                || name.Equals(@"\Microsoft", StringComparison.OrdinalIgnoreCase))
-                continue;
             rows.Add((
                 name,
                 stateIdx < fields.Count ? fields[stateIdx].Trim() : "",

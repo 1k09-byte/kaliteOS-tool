@@ -17,7 +17,7 @@ public sealed class CursorService : ICursorService
     private const uint SpiFlags = NativeMethods.SPIF_UPDATEINIFILE | NativeMethods.SPIF_SENDCHANGE;
     private const long MaxCursorBytes = 2 * 1024 * 1024;
 
-    public const int MinPointerSize = 32;
+    public const int MinPointerSize = 16;
     public const int MaxPointerSize = 128;
     public const int MinCaretWidth = 1;
     public const int MaxCaretWidth = 20;
@@ -156,7 +156,7 @@ public sealed class CursorService : ICursorService
 
     private IEnumerable<(string Root, string Source)> PackRoots()
     {
-        yield return (Path.Combine(Path.GetDirectoryName(_store.TrimEnd('\\'))!, "cursor-packs"), "My packs");
+        yield return (Path.Combine(_store.TrimEnd('\\'), "cursor-packs"), "My packs");
 
         string? dir = AppContext.BaseDirectory;
         for (int i = 0; i < 4 && dir is not null; i++)
@@ -237,7 +237,7 @@ public sealed class CursorService : ICursorService
             return Fail("cursor.size", $"Pointer size must be between {MinPointerSize} and {MaxPointerSize}.");
         return _applier.Apply(new[]
         {
-            new SettingDef("cursor.size", CursorsKey, "CursorBaseSize", Microsoft.Win32.RegistryValueKind.DWord, size, ReloadCursors),
+            new SettingDef("cursor.size", CursorsKey, "CursorBaseSize", Microsoft.Win32.RegistryValueKind.DWord, size, SyncPointerSize),
         });
     }
 
@@ -299,7 +299,16 @@ public sealed class CursorService : ICursorService
     }
 
     private static bool ReloadCursors() =>
-        NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETCURSORS, 0, IntPtr.Zero, SpiFlags);
+        NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETCURSORS, 0, IntPtr.Zero, NativeMethods.SPIF_SENDCHANGE);
+
+    // SPI_SETCURSORS alone does not resize the pointer; Windows only picks up CursorBaseSize
+    // when the undocumented 0x2029 action is called with the pixel size. Reload cursors after it.
+    private static bool SyncPointerSize()
+    {
+        int size = ReadInt(CursorsKey, "CursorBaseSize", 32);
+        NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETCURSORSIZE, 0, new IntPtr(size), 0);
+        return ReloadCursors();
+    }
 
     private static bool SyncSpeed() =>
         NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETMOUSESPEED, 0,

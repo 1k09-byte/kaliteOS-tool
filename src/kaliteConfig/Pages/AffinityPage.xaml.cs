@@ -185,5 +185,7 @@ namespace kaliteConfig.Pages
         }
 
         public static bool Not(bool val) => !val;
+
+        public static string CountText(int count) => count.ToString();
     }
 }

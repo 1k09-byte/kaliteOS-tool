@@ -117,7 +117,12 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     [ObservableProperty] public partial MonitorChoice? SelectedMonitor { get; set; }
     [ObservableProperty] public partial Color BackgroundColor { get; set; } = Color.FromArgb(255, 0, 0, 0);
 
-    [ObservableProperty] public partial double PointerSize { get; set; } = 32;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PointerSizeText))]
+    public partial double PointerSize { get; set; } = 32;
+    public string PointerSizeText => $"{Math.Round(PointerSize):0} px";
+    public double PointerSizeMin => CursorService.MinPointerSize;
+    public double PointerSizeMax => CursorService.MaxPointerSize;
     [ObservableProperty] public partial double PointerSpeed { get; set; } = 10;
     [ObservableProperty] public partial bool EnhancedPrecision { get; set; }
     [ObservableProperty] public partial double Trails { get; set; }
@@ -247,6 +252,10 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     [RelayCommand]
     private void RevertWallpaperSection() =>
         Report(_wallpaper.RevertSection(), "Wallpaper restored to how it was before this app changed it.");
+
+    [RelayCommand]
+    private void ApplyPointerSize() =>
+        Report(_cursor.ApplyPointerSize((int)Math.Round(PointerSize)), "Pointer size applied.");
 
     public IReadOnlyList<SettingResult> ApplyCursorOptions()
     {
