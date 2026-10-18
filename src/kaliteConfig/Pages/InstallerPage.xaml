@@ -83,9 +83,9 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Margin="40,28,40,0" Text="Apps" Style="{StaticResource TitleLargeTextBlockStyle}" />
+        <TextBlock Grid.Row="0" Margin="40,24,40,0" Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
 
-        <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="36,12,36,8"
+        <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="40,8,40,0"
                      HorizontalAlignment="Left"
                      SelectionChanged="MainSelectorBar_SelectionChanged">
             <SelectorBarItem x:Name="TabInstall" Text="Install" IsSelected="True" />
@@ -93,7 +93,7 @@
         </SelectorBar>
 
         <Grid x:Name="InstallPanel" Grid.Row="2">
-            <ScrollViewer Padding="40,0,40,28" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
+            <ScrollViewer Padding="40,4,40,28" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
                 <Grid x:Name="CategoryGrid" MaxWidth="1400" Margin="0,8,0,32" RowSpacing="16" ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
