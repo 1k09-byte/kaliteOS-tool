@@ -26,7 +26,7 @@
     </Page.DataContext>
 
     <Grid>
-        <Grid ColumnSpacing="18" Padding="28,0,28,24">
+        <Grid ColumnSpacing="12" Padding="28,8,28,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="320" />
                 <ColumnDefinition Width="*" />
@@ -41,17 +41,22 @@
                 </StackPanel>
             </Grid>
 
-            <Border Grid.Column="0" Style="{StaticResource PowerCard}" Padding="14"><Grid>
+            <Border Grid.Column="0" Style="{StaticResource PowerCard}" Padding="12"><Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 
-                <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,12">
+                <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,8">
                     <TextBlock Text="Power Schemes" Style="{StaticResource BodyStrongTextBlockStyle}" />
                     <Button Content="New Plan" Click="NewPlan_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
                             ToolTipService.ToolTip="Create a new plan from a base, with your own name and description" />
                     <Button Content="Refresh" Command="{Binding LoadSchemesCommand}" HorizontalAlignment="Stretch" />
+                    <Button Content="Import Plan (.pow)" Command="{Binding ImportSchemeCommand}" HorizontalAlignment="Stretch" />
+                    <Button Content="Unhide all settings" Command="{Binding UnhideAllSettingsCommand}" HorizontalAlignment="Stretch"
+                            ToolTipService.ToolTip="Clears only the hidden flag on power settings (needs admin). Laptop-safe: OEM overlay bits are preserved. Re-lists the schemes afterwards." />
+                    <Button Content="Repair Control Panel plans" Command="{Binding RestoreDefaultSchemesCommand}" HorizontalAlignment="Stretch"
+                            ToolTipService.ToolTip="Fixes 'power plan information isn't available' (powercfg /restoredefaultschemes). Use if Advanced settings shows empty. Needs admin." />
                     <InfoBar Message="{Binding ErrorMessage}" Severity="Warning" IsOpen="True" Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" IsClosable="False" />
                 </StackPanel>
 
@@ -75,8 +80,8 @@
                 </ListView>
             </Grid></Border>
 
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,16,0">
-                <StackPanel Spacing="16" Visibility="{Binding SelectedScheme, Converter={StaticResource NullToVisibilityConverter}}">
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+                <StackPanel Spacing="12" Visibility="{Binding SelectedScheme, Converter={StaticResource NullToVisibilityConverter}}">
 
                     <Grid>
                         <TextBox Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -96,15 +101,16 @@
                             BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" 
                             BorderThickness="1" 
                             CornerRadius="5"
-                            Padding="20">
+                            Padding="12">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,16,0">
-                                <TextBlock Text="{Binding SelectedScheme.Name}" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding SelectedScheme.Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <TextBox Text="{Binding SelectedScheme.Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" FontSize="24" FontWeight="SemiBold" BorderThickness="0" Background="Transparent" />
+                                <TextBox Text="{Binding SelectedScheme.Description, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0" Background="Transparent" />
+                                <TextBlock Text="{Binding SelectedScheme.Id}" FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" Margin="8,8,0,0" />
                             </StackPanel>
                             
                             <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
@@ -112,6 +118,14 @@
                                         Command="{Binding SetActiveSchemeCommand}" 
                                         CommandParameter="{Binding SelectedScheme}" 
                                         IsEnabled="{Binding SelectedScheme.IsActive, Converter={StaticResource InvertedBoolConverter}}" 
+                                        HorizontalAlignment="Stretch" />
+                                <Button Content="Export Scheme (.pow)" 
+                                        Command="{Binding ExportSchemeCommand}" 
+                                        CommandParameter="{Binding SelectedScheme}" 
+                                        HorizontalAlignment="Stretch" />
+                                <Button Content="Duplicate Scheme" 
+                                        Command="{Binding DuplicateSchemeCommand}" 
+                                        CommandParameter="{Binding SelectedScheme}" 
                                         HorizontalAlignment="Stretch" />
                                 <Button Content="Delete Scheme" 
                                         Command="{Binding DeleteSchemeCommand}" 
