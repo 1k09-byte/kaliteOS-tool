@@ -8,6 +8,7 @@
 // sublicense, or sell copies of the source code in any form, in whole or in part,
 // without the express written permission of the copyright holder.
 // ==============================================================================
+using System.Threading.Tasks;
 using System;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
@@ -46,6 +47,8 @@ public sealed partial class SnipTrayWindow : Window
     private DispatcherTimer _timer;
     private SoftwareBitmap _img;
     private Windows.Storage.StorageFile? _file;
+    private Windows.Storage.Streams.RandomAccessStreamReference? _dragBitmap;
+    private Task? _dragBitmapTask;
 
     public SnipTrayWindow(SoftwareBitmap img, Windows.Storage.StorageFile? file = null)
     {
@@ -139,6 +142,28 @@ public sealed partial class SnipTrayWindow : Window
         PreviewImage.Source = source;
     }
 
+    private void PrepareDragBitmap()
+    {
+        if (_img is null || _dragBitmapTask is not null) return;
+        _dragBitmapTask = EncodeDragBitmapAsync();
+    }
+
+    private async Task EncodeDragBitmapAsync()
+    {
+        try
+        {
+            var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+            var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
+            encoder.SetSoftwareBitmap(_img);
+            await encoder.FlushAsync();
+            stream.Seek(0);
+            _dragBitmap = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream);
+        }
+        catch
+        {
+        }
+    }
+
     private void OnDragStarting(UIElement sender, DragStartingEventArgs args)
     {
         var dp = args.Data;
@@ -146,27 +171,18 @@ public sealed partial class SnipTrayWindow : Window
         {
             dp.SetStorageItems(new[] { _file });
         }
-        
-        try
+
+        PrepareDragBitmap();
+        if (_dragBitmap is not null)
         {
-            var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-            var encoderTask = BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream).AsTask();
-            encoderTask.Wait();
-            var encoder = encoderTask.Result;
-            encoder.SetSoftwareBitmap(_img);
-            var flushTask = encoder.FlushAsync().AsTask();
-            flushTask.Wait();
-            stream.Seek(0);
-            dp.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
-        }
-        catch (Exception)
-        {
+            dp.SetBitmap(_dragBitmap);
         }
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         _timer.Stop();
+        PrepareDragBitmap();
         var pt = e.GetCurrentPoint(this.Content).Position;
         _logic.PointerPressed((float)pt.X, (float)pt.Y, DateTime.Now);
         ((UIElement)sender).CapturePointer(e.Pointer);
