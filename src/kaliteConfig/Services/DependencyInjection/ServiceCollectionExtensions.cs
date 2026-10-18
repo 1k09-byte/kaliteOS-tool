@@ -29,6 +29,12 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<WindhawkInstallerService>();
         s.AddSingleton<INavigationService, NavigationService>();
 
+        s.AddSingleton<LiveWallpaper.IDesktopHostService, LiveWallpaper.DesktopHostService>();
+        s.AddSingleton<LiveWallpaper.IWallpaperPowerMonitor, LiveWallpaper.WallpaperPowerMonitor>();
+        s.AddSingleton<LiveWallpaper.ILiveLibraryService, LiveWallpaper.LiveLibraryService>();
+        s.AddSingleton<LiveWallpaper.ILiveWallpaperEngine, LiveWallpaper.LiveWallpaperEngine>();
+        s.AddTransient<LiveWallpaperViewModel>();
+
         s.AddSingleton<SnapshotStore>();
         s.AddSingleton<SettingApplier>();
         s.AddSingleton<WindowsCapabilityService>();

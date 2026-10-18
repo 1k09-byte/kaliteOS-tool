@@ -59,7 +59,11 @@ public sealed record LiveWallpaperItem(
     string Name,
     string Path,
     string? PreviewPath,
-    DateTime AddedUtc);
+    DateTime AddedUtc)
+{
+    public Microsoft.UI.Xaml.Media.ImageSource? Thumb { get; set; }
+    public string KindText => Kind.ToString();
+}
 
 public sealed record LivePropertyDef(
     string Key,

@@ -4,6 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:kaliteConfig.Converters"
+    xmlns:live="using:kaliteConfig.Services.LiveWallpaper"
+    xmlns:vm="using:kaliteConfig.ViewModels"
     Background="Transparent"
     NavigationCacheMode="Enabled"
     Loaded="OnLoaded"
@@ -35,6 +37,7 @@
             <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
                 <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
                 <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />
+                <SelectorBarItem x:Name="LiveItem" Text="Live" Tag="live" />
             </SelectorBar>
 
             <Button Content="Revert everything to how it was before this app changed it"
@@ -240,6 +243,232 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="LiveSection" Spacing="12" Visibility="Collapsed">
+                <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                    <StackPanel Spacing="8">
+                        <ToggleSwitch Header="Live wallpaper" IsOn="{Binding FeatureEnabled, Mode=TwoWay}"
+                                      OnContent="On" OffContent="Off" />
+                        <TextBlock Text="Live wallpaper is experimental and stays off until you turn it on."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        <ToggleSwitch Header="Resume on launch" IsOn="{Binding ResumeOnLaunch, Mode=TwoWay}"
+                                      OnContent="On" OffContent="Off" />
+                        <InfoBar Severity="Informational" IsOpen="True" IsClosable="False"
+                                 Message="Live wallpaper stops when the app closes." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Now playing" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <InfoBar Severity="{Binding StatusSeverity}" Message="{Binding StatusText}"
+                                 IsOpen="True" IsClosable="False" />
+                        <TextBlock Text="{Binding GateReason}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
+                                   Visibility="{Binding GateReason, Converter={StaticResource NullToVisibilityConverter}}" />
+                        <ComboBox Header="Targets" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding TargetLabels}"
+                                  SelectedIndex="{Binding TargetModeIndex, Mode=TwoWay}" />
+                        <ComboBox Header="Wallpaper" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding Items}" DisplayMemberPath="Name"
+                                  SelectedItem="{Binding SameItem, Mode=TwoWay}"
+                                  Visibility="{Binding SameOrSpanVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        <ItemsControl ItemsSource="{Binding Assignments}"
+                                      Visibility="{Binding PerMonitorVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LiveAssignmentRow">
+                                    <Grid ColumnSpacing="12" Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind MonitorLabel}" VerticalAlignment="Center"
+                                                   Style="{StaticResource BodyTextBlockStyle}" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding DataContext.Items, ElementName=LiveSection}"
+                                                  DisplayMemberPath="Name"
+                                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Header="Monitor" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Monitors}" DisplayMemberPath="Label"
+                                      SelectedItem="{Binding SelectedMonitorChoice, Mode=TwoWay}" />
+                            <Button Grid.Column="1" Content="Set selected on monitor"
+                                    Command="{Binding SetSelectedOnMonitorCommand}"
+                                    VerticalAlignment="Bottom" HorizontalAlignment="Stretch" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Start" Command="{Binding StartCommand}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            <Button Content="Stop" Command="{Binding StopCommand}"
+                                    IsEnabled="{Binding PauseEnabled}" />
+                            <Button Content="{Binding PauseButtonText}" Command="{Binding TogglePauseCommand}"
+                                    IsEnabled="{Binding PauseEnabled}" />
+                            <ProgressRing IsActive="{Binding IsStarting}" Width="20" Height="20"
+                                          VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Live library" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <CommandBar DefaultLabelPosition="Right">
+                            <AppBarButton Icon="Add" Label="Video file" Click="LiveAddVideo_Click" />
+                            <AppBarButton Icon="NewFolder" Label="HTML folder" Click="LiveAddFolder_Click" />
+                            <AppBarButton Icon="Download" Label="Package" Click="LiveAddPackage_Click" />
+                            <AppBarButton Icon="Delete" Label="Remove" Command="{Binding RemoveSelectedCommand}" />
+                        </CommandBar>
+                        <GridView ItemsSource="{Binding Items}"
+                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                                  SelectionMode="Single" IsItemClickEnabled="True" ItemClick="LiveLibrary_ItemClick"
+                                  AllowDrop="True" Drop="LiveLibrary_Drop" DragOver="LiveLibrary_DragOver"
+                                  MaxHeight="320" AutomationProperties.Name="Live wallpaper library"
+                                  Visibility="{Binding LibraryEmpty, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="live:LiveWallpaperItem">
+                                    <StackPanel Spacing="4" Width="180">
+                                        <StackPanel.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuFlyoutItem Text="Set on all monitors" Click="LiveSetAll_Click" />
+                                                <MenuFlyoutItem Text="Rename" Click="LiveRename_Click" />
+                                                <MenuFlyoutItem Text="Remove" Click="LiveRemove_Click" />
+                                            </MenuFlyout>
+                                        </StackPanel.ContextFlyout>
+                                        <Image Width="180" Height="101" Stretch="UniformToFill"
+                                               Source="{x:Bind Thumb, Mode=OneTime}"
+                                               AutomationProperties.Name="{x:Bind Name}" />
+                                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind KindText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                        <StackPanel Spacing="8" HorizontalAlignment="Center"
+                                    Visibility="{Binding LibraryEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <FontIcon Glyph="&#xE91B;" FontSize="32"
+                                      Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                      HorizontalAlignment="Center" />
+                            <TextBlock Text="No live wallpapers yet" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Add a video file, an HTML folder, or a package. You can also drop files here."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       HorizontalAlignment="Center" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Playback" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ComboBox Header="Scaling" HorizontalAlignment="Stretch"
+                                  SelectedIndex="{Binding ScaleIndex, Mode=TwoWay}">
+                            <ComboBoxItem Content="Fill" />
+                            <ComboBoxItem Content="Fit" />
+                            <ComboBoxItem Content="Stretch" />
+                            <ComboBoxItem Content="Center" />
+                        </ComboBox>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Volume" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Slider Minimum="0" Maximum="1" StepFrequency="0.01"
+                                    Value="{Binding Volume, Mode=TwoWay}"
+                                    AutomationProperties.Name="Volume" />
+                            <ToggleSwitch Header="Mute" IsOn="{Binding Muted, Mode=TwoWay}"
+                                          OnContent="Muted" OffContent="Audible" />
+                        </StackPanel>
+                        <ComboBox Header="Playback rate" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding RateLabels}"
+                                  SelectedIndex="{Binding RateIndex, Mode=TwoWay}" />
+                        <ComboBox Header="Frame-rate cap" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding FrameCapLabels}"
+                                  SelectedIndex="{Binding FrameCapIndex, Mode=TwoWay}" />
+                        <TextBlock Text="The frame-rate cap applies to HTML wallpapers. Video plays at its own rate."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock Text="Smart pause" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="8">
+                        <ToggleSwitch Header="Pause while a fullscreen app or game is in the foreground (on by default)"
+                                      IsOn="{Binding PauseOnFullscreen, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                        <ToggleSwitch Header="Pause while on battery power (on by default)"
+                                      IsOn="{Binding PauseOnBattery, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                        <ToggleSwitch Header="Pause while Energy Saver is active (on by default)"
+                                      IsOn="{Binding PauseOnEnergySaver, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                        <ToggleSwitch Header="Pause when the desktop is fully covered (off by default)"
+                                      IsOn="{Binding PauseWhenCovered, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                        <TextBlock Text="Playback also pauses while the session is locked, the display is off, or in a remote session."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          Visibility="{Binding HasManifestProps, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Expander.Header>
+                        <TextBlock Text="Wallpaper properties" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    </Expander.Header>
+                    <ItemsControl ItemsSource="{Binding Props}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LivePropertyRow">
+                                <StackPanel Spacing="4" Margin="0,0,0,8">
+                                    <TextBlock Text="{x:Bind Def.Label}" Style="{StaticResource BodyTextBlockStyle}" />
+                                    <ToggleSwitch IsOn="{x:Bind BoolValue, Mode=TwoWay}" OnContent="On" OffContent="Off"
+                                                  Visibility="{x:Bind IsBoolean, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    <StackPanel Spacing="4" Visibility="{x:Bind IsNumber, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Slider Minimum="{x:Bind Def.Min}" Maximum="{x:Bind Def.Max}" StepFrequency="{x:Bind Def.Step}"
+                                                Value="{x:Bind NumberValue, Mode=TwoWay}" />
+                                        <NumberBox Minimum="{x:Bind Def.Min}" Maximum="{x:Bind Def.Max}" SmallChange="{x:Bind Def.Step}"
+                                                 Value="{x:Bind NumberValue, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <ComboBox ItemsSource="{x:Bind Def.Options}" SelectedItem="{x:Bind TextValue, Mode=TwoWay}"
+                                              HorizontalAlignment="Stretch" Visibility="{x:Bind IsChoice, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    <Button Content="Choose colour" Visibility="{x:Bind IsColor, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Button.Flyout>
+                                            <Flyout>
+                                                <ColorPicker Color="{x:Bind ColorValue, Mode=TwoWay}" IsAlphaEnabled="False" />
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock Text="Playlist" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="8">
+                        <ToggleSwitch Header="Rotate through the library" IsOn="{Binding PlaylistEnabled, Mode=TwoWay}"
+                                      OnContent="On" OffContent="Off" />
+                        <ComboBox Header="Interval" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding MinutesLabels}"
+                                  SelectedIndex="{Binding PlaylistMinutesIndex, Mode=TwoWay}" />
+                        <ToggleSwitch Header="Shuffle" IsOn="{Binding PlaylistShuffle, Mode=TwoWay}"
+                                      OnContent="On" OffContent="Off" />
+                        <Button Content="Next wallpaper" Command="{Binding NextCommand}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Expander>
             </StackPanel>
 
             <Border Style="{StaticResource PersonalizeCard}" Padding="12">

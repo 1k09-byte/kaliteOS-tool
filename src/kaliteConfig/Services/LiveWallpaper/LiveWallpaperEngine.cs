@@ -11,6 +11,7 @@ public interface ILiveWallpaperEngine
 {
     LiveState State { get; }
     LivePauseReasons ActivePauses { get; }
+    LiveSettings CurrentSettings { get; }
     string StatusDetail { get; }
     LiveWallpaperItem? CurrentItem { get; }
     event Action? Changed;
@@ -55,6 +56,7 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
     }
 
     public LiveState State { get; private set; } = LiveState.Stopped;
+    public LiveSettings CurrentSettings => _settings;
     public LivePauseReasons ActivePauses { get; private set; } = LivePauseReasons.None;
     public LiveWallpaperItem? CurrentItem { get; private set; }
     public event Action? Changed;
