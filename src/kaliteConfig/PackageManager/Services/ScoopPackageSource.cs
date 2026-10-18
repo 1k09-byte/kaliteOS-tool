@@ -19,11 +19,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>
-/// Scoop backend over scoop.cmd.
-/// Uses `scoop export` JSON for installed packages.
-/// Uses regex parsing for `scoop search` and `scoop status`.
-/// </summary>
 public sealed class ScoopPackageSource : IPackageSource
 {
     public string SourceId => PackageSourceIds.Scoop;
@@ -41,6 +36,11 @@ public sealed class ScoopPackageSource : IPackageSource
     private const int ListTimeoutMs = 60_000;
     private const int OperationTimeoutMs = 30 * 60_000;
 
+    private static readonly Regex SearchRegex =
+        new(@"^\s+([a-zA-Z0-9_\-\.]+)\s+\(([^)]+)\)", RegexOptions.Compiled);
+    private static readonly Regex StatusRegex =
+        new(@"^\s+([a-zA-Z0-9_\-\.]+):\s+([^\s]+)\s+->\s+([^\s]+)$", RegexOptions.Compiled);
+
     public async Task<PackageSourceStatus> DetectAsync(CancellationToken ct = default)
     {
         var status = new PackageSourceStatus
@@ -56,7 +56,7 @@ public sealed class ScoopPackageSource : IPackageSource
             status.DetectedVersion = result.Stdout.Trim().Split('\n')[0].Trim();
             status.ExecutablePath = await LocateExecutableAsync(ct).ConfigureAwait(false);
         }
-        catch { /* undetected */ }
+        catch {  }
         return status;
     }
 
@@ -85,11 +85,10 @@ public sealed class ScoopPackageSource : IPackageSource
             throw new InvalidOperationException($"scoop exited with code {result.ExitCode}");
         
         var items = new List<PackageInfo>();
-        var searchRegex = new Regex(@"^\s+([a-zA-Z0-9_\-\.]+)\s+\(([^)]+)\)", RegexOptions.Compiled);
-        
+
         foreach (var line in (result.Stdout ?? "").Split('\n')) 
         {
-            var m = searchRegex.Match(line.TrimEnd('\r'));
+            var m = SearchRegex.Match(line.TrimEnd('\r'));
             if (m.Success)
             {
                 items.Add(new PackageInfo
@@ -161,11 +160,10 @@ public sealed class ScoopPackageSource : IPackageSource
             throw new InvalidOperationException($"scoop exited with code {result.ExitCode}");
             
         var items = new List<PackageInfo>();
-        var statusRegex = new Regex(@"^\s+([a-zA-Z0-9_\-\.]+):\s+([^\s]+)\s+->\s+([^\s]+)$", RegexOptions.Compiled);
-        
+
         foreach (var line in (result.Stdout ?? "").Split('\n')) 
         {
-            var m = statusRegex.Match(line.TrimEnd('\r'));
+            var m = StatusRegex.Match(line.TrimEnd('\r'));
             if (m.Success)
             {
                 items.Add(new PackageInfo

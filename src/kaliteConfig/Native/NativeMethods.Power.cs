@@ -33,9 +33,6 @@ internal struct ProcessPowerThrottlingState
     internal uint StateMask;
 }
 
-/// <summary>MEMORY_PRIORITY_INFORMATION for ProcessMemoryPriority (SetProcessInformation
-/// info class 0). Levels per Windows docs: 1 very low, 2 low, 3 medium,
-/// 4 below normal, 5 normal.</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct ProcessMemoryPriorityInfo
 {
@@ -50,9 +47,6 @@ internal struct ThreadPowerThrottlingState
     internal uint StateMask;
 }
 
-/// <summary>MEMORY_PRIORITY_INFORMATION for ThreadMemoryPriority (SetThreadInformation
-/// info class 0). Levels per Windows docs: 1 very low, 2 low, 3 medium,
-/// 4 below normal, 5 normal.</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct ThreadMemoryPriorityInfo
 {
@@ -64,10 +58,8 @@ internal static partial class NativeMethods
     internal static partial class Power
     {
         internal const uint Version = 1;
-        internal const uint ExecutionSpeed = 0x4; // PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+        internal const uint ExecutionSpeed = 0x4;
 
-        // NOTE: the thread constant differs from the process one on purpose:
-        // THREAD_POWER_THROTTLING_EXECUTION_SPEED is 0x1, not 0x4.
         internal const uint ThreadVersion = 1;
         internal const uint ThreadExecutionSpeed = 0x1;
 

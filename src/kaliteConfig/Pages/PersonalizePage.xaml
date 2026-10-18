@@ -17,20 +17,17 @@
     <ScrollViewer>
         <StackPanel Padding="28,0,28,24" Spacing="16">
 
-            <!-- Page header -->
             <StackPanel Spacing="4">
                 <TextBlock Text="Personalize" Style="{StaticResource TitleLargeTextBlockStyle}" />
-                <TextBlock Text="Change how Windows looks and feels. Every section can be reset, and everything can be reverted to how it was before this app changed it."
+                        <TextBlock Text="Customize your cursor and choose a desktop wallpaper."
                            Style="{StaticResource BodyTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" />
             </StackPanel>
 
-            <!-- Global revert -->
             <Button Content="Revert everything to how it was before this app changed it"
                     Click="RevertEverything_Click" />
 
-            <!-- Status and warnings -->
             <InfoBar IsOpen="{Binding StatusOpen, Mode=TwoWay}"
                      Severity="{Binding StatusSeverity}"
                      Message="{Binding StatusMessage}"
@@ -40,14 +37,11 @@
                      Title="High contrast is on"
                      Message="Some appearance settings won't visibly apply while a high contrast theme is active." />
 
-            <!-- Section switcher -->
             <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
                 <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
                 <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />
-                <SelectorBarItem x:Name="ColorsItem" Text="Colors" Tag="colors" />
             </SelectorBar>
 
-            <!-- ============================ Wallpaper ============================ -->
             <StackPanel x:Name="WallpaperSection" Spacing="16">
                 <Border Style="{StaticResource PersonalizeCard}" Padding="16">
                     <StackPanel Spacing="12">
@@ -67,7 +61,6 @@
                                       SelectedItem="{Binding SelectedFit, Mode=TwoWay}" />
                         </Grid>
 
-                        <!-- Live preview. Tile, Center and Span are approximations. -->
                         <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
                                 CornerRadius="4" Height="240" HorizontalAlignment="Stretch">
                             <Image x:Name="PreviewImage" Stretch="UniformToFill"
@@ -87,54 +80,8 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Solid background color" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock Text="Shown behind the wallpaper where it does not cover the screen. The current color is not read back from Windows yet."
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap" />
-                        <ColorPicker Color="{Binding BackgroundColor, Mode=TwoWay}"
-                                     IsAlphaEnabled="False" IsAlphaSliderVisible="False"
-                                     IsColorChannelTextInputVisible="True" IsHexInputVisible="True" />
-                        <Button Content="Apply background color" Command="{Binding ApplyBackgroundColorCommand}" />
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Wallpaper library" Style="{StaticResource BodyStrongTextBlockStyle}" />
-
-                        <StackPanel x:Name="LibraryEmptyState" Spacing="4" HorizontalAlignment="Center" Padding="0,24">
-                            <SymbolIcon Symbol="Pictures" HorizontalAlignment="Center" />
-                            <TextBlock Text="No wallpapers yet" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Center" />
-                            <TextBlock Text="Add an image to build your library."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
-                        </StackPanel>
-
-                        <GridView x:Name="LibraryGrid"
-                                  ItemsSource="{Binding Library}"
-                                  SelectedItem="{Binding SelectedWallpaper, Mode=TwoWay}"
-                                  SelectionMode="Single" MaxHeight="420"
-                                  AutomationProperties.Name="Wallpaper library">
-                            <GridView.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Spacing="4" Width="160">
-                                        <Image Width="160" Height="90" Stretch="UniformToFill"
-                                               Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
-                                               AutomationProperties.Name="{Binding OriginalName}" />
-                                        <TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"
-                                                   Style="{StaticResource CaptionTextBlockStyle}" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </GridView.ItemTemplate>
-                        </GridView>
-                    </StackPanel>
-                </Border>
             </StackPanel>
 
-            <!-- ============================= Cursor ============================== -->
             <StackPanel x:Name="CursorSection" Spacing="16" Visibility="Collapsed">
                 <Border Style="{StaticResource PersonalizeCard}" Padding="16">
                     <StackPanel Spacing="12">
@@ -143,7 +90,6 @@
                         <NumberBox Header="Pointer size" Value="{Binding PointerSize, Mode=TwoWay}"
                                    Minimum="32" Maximum="256" SpinButtonPlacementMode="Inline"
                                    SmallChange="16" LargeChange="32" />
-                        <!-- PERSONALIZE-REVIEW: pointer size range 32-256 is taken from the Windows cursor size model; verify against the running build. -->
 
                         <Slider Header="Pointer speed" Value="{Binding PointerSpeed, Mode=TwoWay}"
                                 Minimum="1" Maximum="20" StepFrequency="1" TickFrequency="1" />
@@ -185,14 +131,6 @@
                             <Button Content="Choose scheme folder..." Click="PickCursorFolder_Click" />
                             <Button Content="Apply scheme" Click="ApplyScheme_Click" />
                         </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Try it here" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBox PlaceholderText="Type here to see the text cursor" />
-                        <HyperlinkButton Content="A link to hover over" NavigateUri="https://learn.microsoft.com/windows/" />
                     </StackPanel>
                 </Border>
             </StackPanel>

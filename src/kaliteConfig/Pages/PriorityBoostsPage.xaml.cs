@@ -74,8 +74,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-    // --- Rules ---
-
         private void RefreshRulesMeta()
         {
             int n = ViewModel.DisplayedThreadProfiles.Count;
@@ -179,8 +177,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        // --- Thread Tune ---
-
         public static bool NotProtected(bool isProtected) => !isProtected;
         public static string BoostText(bool boostEnabled) => boostEnabled ? "On" : "Off";
 
@@ -189,12 +185,9 @@ namespace kaliteConfig.Pages
             if (sender is FrameworkElement fe && fe.DataContext is ThreadBoostRow row && !row.IsBusy)
             {
                 row.IsBusy = true;
-                bool targetState = !row.BoostEnabled; // We want to toggle it to the opposite
+                bool targetState = !row.BoostEnabled;
                 try
                 {
-                    // Both directions are recorded, so a thread re-enabled here
-                    // survives the process-wide preference being re-applied by
-                    // the keeper sweep. See BoostPreferenceService.
                     if (targetState)
                         await Services.BoostPreferenceService.Instance.RestoreAsync(row.ProcessName, row.Tid, row.Description, string.Empty);
                     else
@@ -230,14 +223,12 @@ namespace kaliteConfig.Pages
                     AutoApply = true,
                     Enabled = true
                 };
-                
-                // If it's an unnamed thread and the user clicked it, we must match it somehow
-                // For unnamed threads, we'll try to match all unnamed threads unless there's an address
+
                 draft.ThreadRules.Add(new TunerThreadRule
                 {
                     Description = row.Description == "(unnamed)" ? "" : row.Description,
                     MatchAllThreads = row.Description == "(unnamed)",
-                    BoostEnabled = false // common tunable target
+                    BoostEnabled = false
                 });
 
                 _ = OpenRuleEditorAsync(draft, isNew: true);

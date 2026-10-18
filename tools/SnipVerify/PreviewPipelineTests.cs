@@ -5,15 +5,10 @@ using kaliteConfig.Models;
 using kaliteConfig.Services;
 using Windows.Graphics.Imaging;
 
-// Phase 3 (large preview) verification: the pure zoom/pan policy, plus a REAL disk round-trip of
-// the progressive load (512 px placeholder tier -> full-resolution pixels) that the details panel
-// and the viewer both use. The Win2D half (CanvasVirtualBitmap regions, crossfade, interpolation)
-// needs a GPU + window and is covered by the manual walkthrough in Docs/SnipPreview.md.
 internal static class PreviewPipelineTests
 {
     public static async Task RunAsync(Action<bool, string> check)
     {
-        // ---- pure viewport math (mirrors kaliteconfig.Tests/SnipPreviewViewportTests) ----
         foreach (var scale in new[] { 1.0, 1.5, 2.0 })
         {
             var viewport = Build(3000, 2000, 800, 600, scale);
@@ -46,7 +41,6 @@ internal static class PreviewPipelineTests
             && SnipPreviewPolicy.PickInterpolation(0.2) == SnipPreviewInterpolation.MultiSampleLinear,
             "policy: interpolation follows the zoom level");
 
-        // ---- real disk pipeline: placeholder tier, then full-resolution pixels ----
         string? bigPath = null;
         string? smallPath = null;
         try
@@ -81,12 +75,10 @@ internal static class PreviewPipelineTests
                     $"preview IO: full pixels are 1200x900x4 ({full.Bgra.Length} bytes)");
             }
 
-            // A snip already in the gallery must come back without a second decode (tier cache).
             var again = await SnipPreviewService.LoadPlaceholderAsync(bigPath);
             check(again is not null && again.Width == placeholder!.Width,
                 "preview IO: placeholder re-served from the tier cache");
 
-            // Small images are never upscaled into a tier.
             smallPath = Path.Combine(Path.GetTempPath(), $"snipverify_preview_small_{Guid.NewGuid():N}.png");
             await WriteTestPngAsync(smallPath, 64, 48);
             var smallPlaceholder = await SnipPreviewService.LoadPlaceholderAsync(smallPath);

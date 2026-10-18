@@ -36,14 +36,13 @@ public sealed class ProtectedProcessService
     private static extern bool CloseHandle(IntPtr hObject);
 
     private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
-    private const int ProcessProtectionInformation = 61; // ProcessProtectionInformation class
+    private const int ProcessProtectionInformation = 61;
 
     public bool IsProcessProtected(int pid)
     {
         IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
         if (hProcess == IntPtr.Zero)
         {
-            // If we can't even get limited query access, it's either dead or highly protected (e.g., heavily shielded anti-cheat or system).
             return true;
         }
 
@@ -58,7 +57,7 @@ public sealed class ProtectedProcessService
                 Marshal.SizeOf(typeof(PS_PROTECTION)),
                 out returnLength);
 
-            if (status == 0) // STATUS_SUCCESS
+            if (status == 0)
             {
                 return protection.Level > 0;
             }

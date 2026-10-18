@@ -25,27 +25,11 @@ namespace kaliteConfig.Pages
         {
             ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.InstallerViewModel>(App.Services) ?? new InstallerViewModel(new Services.InstallerService());
             InitializeComponent();
-            // No manual card stagger: the previous Opacity/Translation loop could
-            // strand cards at partial opacity (async, uncancelled on navigate-away,
-            // and indexed against unfiltered counts). Page entrance is covered by
-            // the NavigationThemeTransition in InstallerPage.xaml, so cards render
-            // immediately at full opacity with their resolved states.
 
-            // Restore the saved layout after InitializeComponent, so the initial
-            // pass below paints the right mode on the very first frame rather
-            // than flashing cards and then swapping.
             ViewModel.LoadViewMode();
             ApplyViewMode();
         }
 
-        /// <summary>
-        /// Shows exactly one of the two layouts per section.
-        ///
-        /// Each section has two ItemsRepeaters over the SAME collection, so
-        /// switching is a visibility flip rather than a re-query: the filter
-        /// state, install progress and selection all live on the shared
-        /// BrowserInstallItem instances and stay intact.
-        /// </summary>
         private void ApplyViewMode()
         {
             var mode = ViewModel.ViewMode;
@@ -62,30 +46,22 @@ namespace kaliteConfig.Pages
                 list.Visibility = mode == AppViewMode.Compact ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            // Keep the radio buttons in step when the mode is set from code
-            // (on load) rather than by a click.
             ViewCardBtn.IsChecked = mode == AppViewMode.Card;
             ViewCompactBtn.IsChecked = mode == AppViewMode.Compact;
         }
 
         private void ViewMode_Click(object sender, RoutedEventArgs e)
         {
-            // A RadioButton in a group is already mutually exclusive, so the
-            // sender's identity is enough to decide the mode.
             ViewModel.ViewMode = ReferenceEquals(sender, ViewCardBtn) ? AppViewMode.Card : AppViewMode.Compact;
             ApplyViewMode();
         }
 
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
-            // The Packages tab was removed at the user's request, so this now
-            // only flips between Install and Uninstall.
             bool uninstall = sender.SelectedItem == TabUninstall;
             UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
             InstallPanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
 
-            // The Cards/Compact switcher only re-lays-out the Install tab's app
-            // grid, so it is shown there and nowhere else.
             ViewModePanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
         }
 
@@ -100,24 +76,13 @@ namespace kaliteConfig.Pages
         private async Task ShowBrowserDetailsDialogAsync(BrowserInstallItem browser)
         {
             ViewModel.SelectedBrowser = browser;
-            // Fresh open, fresh status: a previous failure must never leak into
-            // this showing (and the status line is an element now, never a
-            // Content swap, so the dialog cannot be gutted anymore).
             DialogStatusText.Visibility = Visibility.Collapsed;
             DialogStatusText.Text = string.Empty;
-            // Dialog lives in Page.Resources: XamlRoot must be attached per show.
             BrowserDetailsDialog.XamlRoot = this.XamlRoot;
-            // Held for the whole showing: the install keeps feeding this dialog
-            // (progress text, status row, error line) and without the lock each
-            // of those changes walks the dialog away from the middle of the
-            // screen. Freed as soon as the dialog closes.
             using var centerLock = Services.DialogCenterLock.Attach(BrowserDetailsDialog);
             await BrowserDetailsDialog.ShowAsync();
         }
 
-        // async void: anything that escapes is an unhandled UI exception and
-        // kills the app. An install/uninstall that fails (network drop, refused
-        // file lock, missing winget) has to surface as a status line instead.
         private async void DialogProgressBtn_Click(object sender, RoutedEventArgs e)
         {
             if (ViewModel.SelectedBrowser == null) return;
@@ -131,13 +96,6 @@ namespace kaliteConfig.Pages
             catch (Exception ex) { ShowStatus("Install failed", ex.Message); }
         }
 
-        // DialogUninstallBtn_Click was removed with the dialog's Uninstall
-        // button. Uninstalling an installed app now happens only on the
-        // Uninstall tab (UninstallerPage), so the Apps details dialog is
-        // install-only and UninstallBrowserCommand is reached from elsewhere.
-
-        /// <summary>Reports a failed install/uninstall inside the open dialog,
-        /// so the reason is visible instead of lost to an unhandled exception.</summary>
         private void ShowStatus(string title, string message)
         {
             try
@@ -147,11 +105,9 @@ namespace kaliteConfig.Pages
             }
             catch
             {
-                // Never let the error path throw as well.
             }
         }
 
-        // Static converter methods for x:Bind in DataTemplate
         public static Visibility IsInstalledToVisibility(BrowserInstallStatus status)
         {
             return status == BrowserInstallStatus.Installed
@@ -173,19 +129,12 @@ namespace kaliteConfig.Pages
                 : Visibility.Visible;
         }
 
-        /// <summary>Button caption: the same row is Install or Update depending on what is proven.</summary>
         public static string StatusToActionLabel(BrowserInstallStatus status)
             => status == BrowserInstallStatus.UpdateAvailable ? "Update" : "Install";
 
-        /// <summary>Hides the green tick while an update is pending; a tick next to "Update available" reads as up to date.</summary>
         public static Visibility StatusShowsTickVisibility(BrowserInstallStatus status)
             => status == BrowserInstallStatus.UpdateAvailable ? Visibility.Collapsed : Visibility.Visible;
 
-        /// <summary>
-        /// Cards stay clean: no static "Install" caption while states are being
-        /// checked/resolved. Status text appears only when something is actually
-        /// happening (downloading / installing / failed / just finished).
-        /// </summary>
         public static Visibility StatusToActiveVisibility(BrowserInstallStatus status)
         {
             return status == BrowserInstallStatus.Downloading

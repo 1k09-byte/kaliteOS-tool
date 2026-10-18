@@ -1,7 +1,6 @@
 using System;
 using kaliteConfig.Services;
 
-// Unit tests for custom-hotkey labels and key validation.
 internal static class HotkeyTests
 {
     public static void Run(Action<bool, string> check)

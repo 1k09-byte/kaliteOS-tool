@@ -4,9 +4,6 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services.Personalize.Native;
 
-// The only registry access in the Personalize feature. It is hard-wired to
-// HKEY_CURRENT_USER and throws for any attempt to reach another hive, so
-// nothing here can need elevation.
 internal static class HkcuRegistry
 {
     public readonly record struct Entry(bool Exists, RegistryValueKind Kind, object? Data);
@@ -45,8 +42,6 @@ internal static class HkcuRegistry
         if (Array.IndexOf(key.GetValueNames(), name) >= 0) key.DeleteValue(name, throwOnMissingValue: false);
     }
 
-    // True if a policy key exists and has any value. Used as a read-only
-    // "locked by policy" hint; it never writes.
     public static bool HasAnyValue(string subKey)
     {
         Guard(subKey);
@@ -54,8 +49,6 @@ internal static class HkcuRegistry
         return key is not null && key.GetValueNames().Length > 0;
     }
 
-    // Compares a stored or read-back value with the wanted one. DWORDs come
-    // back as int and strings as string, so both sides are compared as text.
     public static bool SameValue(object? actual, object wanted) =>
         actual is not null &&
         string.Equals(Convert.ToString(actual, CultureInfo.InvariantCulture),

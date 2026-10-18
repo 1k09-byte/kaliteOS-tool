@@ -16,40 +16,17 @@ using System.Security.Principal;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// What was found on this machine when probing for a Windhawk installation.
-/// </summary>
 public sealed record WindhawkInstallationInfo
 {
     public bool IsInstalled { get; init; }
     public string? Version { get; init; }
-    /// <summary>Directory holding windhawk.exe (Program Files install) - null for portable.</summary>
     public string? InstallDirectory { get; init; }
-    /// <summary>windhawk-cli.exe path when present (Windhawk 2.0+ ships the CLI).</summary>
     public string? CliPath { get; init; }
-    /// <summary>True when a portable installation was detected (no Program Files binary).</summary>
     public bool IsPortable { get; init; }
 
     public static readonly WindhawkInstallationInfo NotInstalled = new();
 }
 
-/// <summary>
-/// Detects whether Windhawk is already installed, its version, and whether the
-/// 2.0+ command-line interface is available.
-///
-/// Detection strategy (sources verified against Windhawk's GitHub repo and its
-/// winget-pkgs manifests, 2026-09):
-/// - The standard installer is NSIS ("windhawk_setup.exe", InstallerType: nullsoft,
-///   ElevationRequirement: elevationRequired) and installs the UI into
-///   %ProgramFiles%\Windhawk (the binaries), with mod/engine data under
-///   %ProgramData%\Windhawk. Portable installs live wherever the user extracts them.
-/// - Uninstall registration: NSIS writes the "Windhawk" entry under
-///   HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall (DisplayVersion,
-///   UninstallString, InstallLocation). HKCU is probed too because NSIS installers
-///   can write per-user entries when run unelevated.
-/// - windhawk-cli.exe ships next to windhawk.exe since 2.0; windhawk-cli.com is
-///   also accepted by Rust's clap binary discovery, so probe both extensions.
-/// </summary>
 public sealed class WindhawkDetectionService
 {
     private const string UninstallKeyPath =
@@ -57,14 +34,11 @@ public sealed class WindhawkDetectionService
 
     private static readonly string[] KnownInstallDirectories =
     {
-        // Standard (non-portable) installer locations, Program Files first.
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Windhawk"),
         @"C:\Program Files\Windhawk",
-        // Portable default when extracted from the installer's portable choice.
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Windhawk"),
     };
 
-    /// <summary>WindowsPrincipal-based elevation check (no-op app.manifest is assumed).</summary>
     public static bool IsRunningElevated()
     {
         try
@@ -80,20 +54,14 @@ public sealed class WindhawkDetectionService
 
     public WindhawkInstallationInfo Detect()
     {
-        // 1. Uninstall registry entries (authoritative for version + install dir).
         var info = DetectFromUninstallRegistry();
 
-        // 2. Known paths (covers portable / registry entry missing).
         if (!info.IsInstalled)
             info = DetectFromKnownPaths();
 
         return info;
     }
 
-    /// <summary>
-    /// Scans both uninstall hives for a "Windhawk" entry. NSIS registers the
-    /// standard install; the portable choice typically does not register.
-    /// </summary>
     private static WindhawkInstallationInfo DetectFromUninstallRegistry()
     {
         foreach (var baseKey in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
@@ -118,9 +86,6 @@ public sealed class WindhawkDetectionService
                     string? installLocation = subKey?.GetValue("InstallLocation") as string;
                     string? uninstallString = subKey?.GetValue("UninstallString") as string;
 
-                    // NSIS UninstallString points at the uninstaller exe, e.g.
-                    // "C:\Program Files\Windhawk\uninstall.exe". Derive the install
-                    // directory from it when InstallLocation is missing.
                     var installDir = ResolveInstallDirectory(installLocation, uninstallString);
                     var cli = FindCli(installDir);
 
@@ -158,7 +123,6 @@ public sealed class WindhawkDetectionService
                 Version = version,
                 InstallDirectory = dir,
                 CliPath = FindCli(dir),
-                // ProgramData is the portable default root; Program Files is the standard install.
                 IsPortable = dir.Contains("ProgramData", StringComparison.OrdinalIgnoreCase),
             };
         }
@@ -173,7 +137,6 @@ public sealed class WindhawkDetectionService
 
         if (!string.IsNullOrWhiteSpace(uninstallString))
         {
-            // Quote-aware parse: "C:\...\uninstall.exe" or C:\...\uninstall.exe
             var candidate = uninstallString.Trim();
             if (candidate.StartsWith('"'))
             {
@@ -190,7 +153,6 @@ public sealed class WindhawkDetectionService
                 return Path.GetDirectoryName(candidate);
         }
 
-        // Last resort: the standard install path.
         foreach (var dir in KnownInstallDirectories)
         {
             if (Directory.Exists(dir) && FindWindhawkExe(dir) is not null) return dir;
@@ -209,11 +171,6 @@ public sealed class WindhawkDetectionService
         return null;
     }
 
-    /// <summary>
-    /// Windhawk 2.0 ships windhawk-cli.exe beside windhawk.exe. The Rust binary
-    /// is also built as windhawk-cli.com (clap binary name variants), so both
-    /// extensions are accepted.
-    /// </summary>
     public static string? FindCli(string? installDirectory)
     {
         if (string.IsNullOrEmpty(installDirectory)) return null;

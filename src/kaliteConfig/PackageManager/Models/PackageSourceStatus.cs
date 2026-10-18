@@ -10,7 +10,6 @@
 // ==============================================================================
 namespace kaliteConfig.PackageManager.Models;
 
-/// <summary>Backend identifiers. String (not enum) so bundles serialize cleanly.</summary>
 public static class PackageSourceIds
 {
     public const string WinGet = "winget";
@@ -26,9 +25,6 @@ public static class PackageSourceIds
     public const string Local = "local";
 }
 
-/// <summary>
-/// One backend row for the Package Managers preferences page.
-/// </summary>
 public sealed class PackageSourceStatus
 {
     public required string SourceId { get; init; }

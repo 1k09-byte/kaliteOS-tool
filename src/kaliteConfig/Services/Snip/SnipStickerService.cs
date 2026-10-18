@@ -18,14 +18,10 @@ namespace kaliteConfig.Services;
 
 public sealed record StickerEntry(string FilePath, string Name);
 
-/// <summary>User-imported stickers for stamping onto captures. Lives outside the snips
-/// gallery so stickers never show up as captures. System.IO only: no XAML objects,
-/// so the import/list/delete round-trip is covered headless in SnipVerify.</summary>
 public static class SnipStickerService
 {
     public static string GetStickersDirectory()
     {
-        // Same folder the capture overlay has always used for stickers.
         try
         {
             var local = Windows.Storage.ApplicationData.Current?.LocalFolder?.Path;
@@ -88,14 +84,12 @@ public static class SnipStickerService
                 await Task.Run(() => File.Copy(src, dest)).ConfigureAwait(false);
                 imported.Add(dest);
             }
-            catch { /* one bad file never blocks the rest; failures stay silent here and
-                       the caller reports the count that actually landed */ }
+            catch {
+ }
         }
         return imported;
     }
 
-    /// <summary>Deletes a sticker; returns false (and deletes nothing) when the path
-    /// escapes the stickers folder.</summary>
     public static bool DeleteSticker(string filePath)
     {
         try

@@ -18,13 +18,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>
-/// Serialized package-operation execution: installers love to reboot, lock
-/// files, and pop their own UI, so operations run strictly one at a time
-/// (bounded concurrency of one - a deliberate safety choice, not a
-/// limitation). Bulk callers get per-item results and continue past
-/// individual failures; nothing aborts-on-first-failure.
-/// </summary>
 public sealed class PackageOperationQueue
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -33,7 +26,6 @@ public sealed class PackageOperationQueue
     private readonly List<PackageOperationStatus> _history = new();
     private const int HistoryLimit = 50;
 
-    /// <summary>Raised (any thread) when any operation record changes.</summary>
     public event Action<PackageOperationStatus>? OperationChanged;
 
     public IReadOnlyList<PackageOperationStatus> History
@@ -57,10 +49,6 @@ public sealed class PackageOperationQueue
         lock (_lock) _active[record] = opCts;
         Publish(record);
 
-        // NOTE: no ConfigureAwait(false) anywhere in this method - every
-        // continuation below touches PackageInfo bindings and must resume on
-        // the UI thread (RPC_E_WRONG_THREAD otherwise). The backend itself
-        // stays off-thread internally.
         await _gate.WaitAsync(ct);
         try
         {
@@ -132,7 +120,6 @@ public sealed class PackageOperationQueue
         try { OperationChanged?.Invoke(record); } catch { }
     }
 
-    /// <summary>Cancels a running operation (best-effort; backends observe the token).</summary>
     public void Cancel(PackageOperationStatus record)
     {
         lock (_lock)

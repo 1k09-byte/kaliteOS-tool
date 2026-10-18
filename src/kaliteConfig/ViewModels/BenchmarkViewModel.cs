@@ -27,7 +27,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>Min/max-bucket decimation so spikes survive (never every-Nth-point). Pure.</summary>
 public static class BenchmarkDecimate
 {
     public static List<(double Min, double Max)> MinMaxBuckets(IReadOnlyList<float> frames, int maxBuckets)
@@ -60,7 +59,6 @@ public sealed class CompareRow
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    /// <summary>Short label for bars/legend - OFF/ON + pair for A/B runs.</summary>
     public string ShortLabel { get; set; } = string.Empty;
     public string ColorHex { get; set; } = "#4CC2FF";
     public double Avg { get; set; }
@@ -113,7 +111,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     [ObservableProperty]
     public partial BenchmarkRun? SelectedRun { get; set; }
 
-    /// <summary>Most recent saved run, shown as a summary card on the Runs tab.</summary>
     [ObservableProperty]
     public partial BenchmarkRun? LastRun { get; set; }
 
@@ -138,10 +135,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsCapturing { get; set; }
 
-    /// <summary>
-    /// Global flag other components (ThreadTuner polling, sensor timers) check
-    /// so the tool itself stays out of the measurement during a capture.
-    /// </summary>
     public static bool CaptureInProgress { get; private set; }
 
     partial void OnIsCapturingChanged(bool value)
@@ -151,7 +144,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         OnPropertyChanged(nameof(CaptureButtonGlyph));
     }
 
-    // One button for the capture start/stop pair: its label and glyph follow IsCapturing.
     public string CaptureButtonText => IsCapturing ? "Stop" : "Start capture";
     public string CaptureButtonGlyph => IsCapturing ? "\uE71A" : "\uE768";
 
@@ -161,7 +153,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     [ObservableProperty]
     public partial string CommentDraft { get; set; } = string.Empty;
 
-    // ─── Cues + hotkey ──────────────────────────────────────────
     public List<CueMode> CueModes { get; } = new() { CueMode.Beeps, CueMode.Voice, CueMode.Off };
 
     [ObservableProperty]
@@ -178,13 +169,9 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     [ObservableProperty]
     public partial bool ShowSensorOverlay { get; set; } = false;
 
-    // ─── Auto A/B benchmark ─────────────────────────────────────
-
-    /// <summary>Auto A/B armed: hotkey press runs OFF and ON captures back-to-back.</summary>
     [ObservableProperty]
     public partial bool AutoAbEnabled { get; set; }
 
-    /// <summary>How many capture pairs (off+on) to run per hotkey press.</summary>
     [ObservableProperty]
     public partial int AutoAbRuns { get; set; } = 3;
 
@@ -327,13 +314,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         else _ = StartCaptureAsync();
     }
 
-    /// <summary>
-    /// Auto A/B: for N runs - capture with Gaming mode OFF (baseline), then
-    /// toggle Gaming mode ON, capture again, toggle back OFF. Labels runs
-    /// "A/B r1 off" / "A/B r1 on" so the compare card can baseline them.
-    /// Requires a selected target (the game). Runs sequentially; safe to
-    /// trigger from the in-game hotkey.
-    /// </summary>
     private async Task RunAutoAbAsync()
     {
         if (_autoAbBusy || IsCapturing) return;
@@ -354,12 +334,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         {
             var gaming = App.Current.GamingMode;
 
-            // A/B takes its own hold rather than exclusive control - it must not
-            // tear down a session the user or a rule is holding. But that means
-            // the "OFF" half of every pair is only genuinely off when nothing
-            // else holds the session, and a GamingModeAuto rule for this very
-            // game is the common case. Say so in the stored run comments instead
-            // of silently producing a comparison that measures nothing.
             bool contaminated = gaming.IsHeldByOther(GameModeOwner.Benchmark);
             string caveat = contaminated
                 ? " [WARNING: another holder is active - OFF runs are not truly off]"
@@ -367,7 +341,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
 
             string game = SelectedTarget.Name.Replace(".exe", "");
             var savedRunIds = new List<Guid>();
-            await Task.Delay(1500); // let priorities settle
+            await Task.Delay(1500);
 
             if (contaminated)
             {
@@ -383,7 +357,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
                 Guid? offId = await StartCaptureAsync($"{game} gaming mode off (A/B r{r}){caveat}");
                 if (offId.HasValue) savedRunIds.Add(offId.Value);
                 while (IsCapturing) await Task.Delay(500);
-                await Task.Delay(2000); // settle between runs
+                await Task.Delay(2000);
 
                 AutoAbStatus = $"Run {r}/{runs}: ON";
                 var res = await gaming.AcquireAsync(
@@ -401,10 +375,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
             AutoAbStatus = $"Done: {runs} pair(s).";
             StatusText = $"Auto A/B complete - {runs * 2} runs saved. Opening Compare…";
 
-            // Jump straight to Compare: baseline = first 'off' run, others added.
             {
-                // RefreshRunsAsync repopulates via TryEnqueue, so it won't have
-                // landed yet - pull the fresh runs from the store directly.
                 var fresh = await _store.ListAsync();
                 var firstOff = fresh.FirstOrDefault(r => r.Comment?.Contains("gaming mode off", StringComparison.OrdinalIgnoreCase) == true
                                                       && savedRunIds.Contains(r.Id));
@@ -452,7 +423,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         _tenLeftTimer = null;
     }
 
-    /// <summary>Every sound hangs off a state-machine transition.</summary>
     private void OnCaptureState(CaptureState s)
     {
         var cues = CueService.Instance;
@@ -538,7 +508,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         else StatusText = err;
     }
 
-    /// <summary>Raised when Auto A/B finishes so the page can switch to the Compare tab.</summary>
     public event Action? AutoAbNavigateRequested;
 
     public async Task<Guid?> AutoStartCaptureAsync(int pid, string exeName, string? commentOverride = null)
@@ -602,7 +571,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
                 SelectedRun = Runs.FirstOrDefault(r => r.Id == run.Id);
                 StatusText = $"Saved: {run.FrametimesMs.Length} frames in {run.DurationSec:F1}s.";
                 if (commentOverride == null) CommentDraft = string.Empty;
-                else CommentDraft = savedComment; // auto-A/B: keep the draft
+                else CommentDraft = savedComment;
             });
             return run.Id;
         }
@@ -632,7 +601,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         try { _captureCts?.Cancel(); } catch { }
     }
 
-    // BUTTON-REVIEW: merged Start capture / Stop pair. They were mutually exclusive by state, so one toggle replaces both.
     [RelayCommand]
     private async Task ToggleCaptureAsync()
     {
@@ -734,7 +702,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         StatusText = "Comment saved.";
     }
 
-    // ─── Compare / A-B ──────────────────────────────────────────────
     internal static readonly string[] ComparePalette = new[]
     {
         "#4CC2FF", "#FF9F43", "#3DDC84", "#B985FF", "#FF6B6B", "#FFD60A",
@@ -748,10 +715,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
     {
         run ??= SelectedRun;
         if (run == null || CompareRuns.Contains(run) || CompareRuns.Count >= 6) return;
-        // The run list stores metadata only - frametimes load on demand.
-        // Without them StatsFor() returns null and the row silently drops.
         await EnsureRunLoadedAsync(run);
-        // Same default blue on everything is unreadable: guarantee a distinct color.
         if (CompareRuns.Any(r => string.Equals(r.ColorHex, run.ColorHex, StringComparison.OrdinalIgnoreCase)))
         {
             var used = new HashSet<string>(CompareRuns.Select(r => r.ColorHex), StringComparer.OrdinalIgnoreCase);
@@ -765,7 +729,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         RefreshCompare();
     }
 
-    /// <summary>Populate frametimes for a run that only has metadata.</summary>
     private async Task EnsureRunLoadedAsync(BenchmarkRun run)
     {
         if (run.FrametimesMs is { Length: > 0 }) return;
@@ -784,7 +747,7 @@ public sealed partial class BenchmarkViewModel : ObservableObject
                 listed.Sensors = full.Sensors;
             }
         }
-        catch { /* compare degrades to no row for this run */ }
+        catch {  }
     }
 
     [RelayCommand]
@@ -824,8 +787,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
 
     private void RefreshCompare()
     {
-        // Auto-heal: runs stored before palette colors existed share one
-        // color - spread them so bars are distinguishable.
         var distinct = new HashSet<string>(CompareRuns.Select(r => r.ColorHex), StringComparer.OrdinalIgnoreCase);
         if (CompareRuns.Count > 1 && distinct.Count == 1)
         {
@@ -869,11 +830,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         OnPropertyChanged(nameof(ConclusionText));
     }
 
-    /// <summary>
-    /// Plain-language conclusion for the whole compare set: averages the
-    /// ON-vs-OFF deltas across pairs when A/B runs are present, otherwise
-    /// compares every run against the baseline.
-    /// </summary>
     public string ConclusionText
     {
         get
@@ -885,7 +841,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
             var baseStats = StatsFor(BaselineRun);
             if (baseStats == null) return string.Empty;
 
-            // A/B pairs: group ON runs with the OFF baseline of the same pair.
             var pairs = new List<(string On, string Off, double AvgD, double Low1D)>();
             foreach (var onRun in loaded.Where(r => IsAbRun(r, on: true)))
             {
@@ -910,7 +865,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
                 return $"Conclusion: Gaming mode is {verdict}. {perPair}.";
             }
 
-            // Non-A/B: best/worst against baseline.
             var others = loaded.Where(r => r.Id != BaselineRun.Id).ToList();
             if (others.Count == 0) return string.Empty;
             var ranked = others
@@ -937,10 +891,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
 
     private static double Pct(double v, double b) => b > 0 ? 100.0 * (v - b) / b : 0;
 
-    /// <summary>
-    /// Compact bar/legend label: A/B runs become "OFF r1" / "ON r1", other
-    /// runs fall back to comment tail or time so names stay readable.
-    /// </summary>
     internal static string ShortLabelFor(BenchmarkRun r)
     {
         string c = r.Comment ?? string.Empty;
@@ -964,16 +914,10 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         catch { return null; }
     }
 
-    /// <summary>
-    /// Stats with warmup/cooldown edges trimmed (first 2 s + last 1 s):
-    /// attach/tab artifacts must not define the lows. Real mid-run stalls
-    /// stay in the data and surface as stutter events.
-    /// </summary>
     internal static BenchmarkStats ComputeRunStats(BenchmarkRun r) =>
         BenchmarkStatsService.Compute(
             BenchmarkStatsService.WindowByTime(r.FrametimesMs, r.TimestampsMs));
 
-    /// <summary>A/B verdict: only claims a win past run-to-run noise (~3%).</summary>
     public string VerdictText
     {
         get
@@ -994,7 +938,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         }
     }
 
-    // ─── Export ─────────────────────────────────────────────────────
     [RelayCommand]
     private async Task ExportCsvAsync()
     {
@@ -1086,7 +1029,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
         }
     }
 
-    // ─── Import ─────────────────────────────────────────────────────
     [RelayCommand]
     private async Task ImportCsvAsync()
     {
@@ -1226,7 +1168,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
             foreach (string w in watched)
                 if (bare.Equals(w, StringComparison.OrdinalIgnoreCase)) hit.Add(bare);
         }
-        // Our own bundled session is expected while capturing - not a conflict.
         return hit.Count == 0 ? string.Empty :
             "Overlapping capture/overlay tools running (may corrupt ETW data): "
             + string.Join(", ", hit.OrderBy(h => h))
@@ -1257,9 +1198,6 @@ public sealed partial class BenchmarkViewModel : ObservableObject
             if (scheme != Guid.Empty) info.PowerPlan = scheme.ToString("D");
         }
         catch { }
-        // Gaming mode no longer partitions CPU Sets (Docs/GameMode.md), so new
-        // runs always record "none". The field stays because runs already stored
-        // carry "game CCX: N sets" and the run list still renders it.
         info.CpuSetsPartition = "none";
         return info;
     }

@@ -66,10 +66,10 @@ public static class SnipCaptureHelper
         BITMAPINFO bmi = new BITMAPINFO();
         bmi.bmiHeader.biSize = (uint)Marshal.SizeOf(typeof(BITMAPINFOHEADER));
         bmi.bmiHeader.biWidth = width;
-        bmi.bmiHeader.biHeight = -height; // top-down
+        bmi.bmiHeader.biHeight = -height;
         bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32; // BGRA
-        bmi.bmiHeader.biCompression = 0; // BI_RGB
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = 0;
 
         IntPtr bits;
         IntPtr hBitmap = CreateDIBSection(hDesk, ref bmi, DIB_RGB_COLORS, out bits, IntPtr.Zero, 0);

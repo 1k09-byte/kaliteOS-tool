@@ -16,10 +16,6 @@ public interface IThemeSettingsService
     IReadOnlyList<SettingResult> ResetToWindowsDefaults();
 }
 
-// Colors section. Registry names were observed under
-// HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize on this machine:
-// AppsUseLightTheme, SystemUsesLightTheme, EnableTransparency (all REG_DWORD).
-// Title-bar accent is DWM\ColorPrevalence (REG_DWORD, observed).
 public sealed class ThemeSettingsService : IThemeSettingsService
 {
     public const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
@@ -55,13 +51,8 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                 ("dwm", SyncDwm),
             });
 
-    // Windows defaults for this section: light apps, light system, transparency on,
-    // no accent on title bars. PERSONALIZE-REVIEW: these defaults are the ones shipped
-    // on Windows 10/11 but were not confirmed on every build.
     public IReadOnlyList<SettingResult> ResetToWindowsDefaults() =>
         Apply(new ThemeOptions(AppsUseLight: true, SystemUsesLight: true, Transparency: true, TitleBarAccent: false));
-
-    // ---- helpers --------------------------------------------------------------
 
     private static SettingDef Def(string id, string subKey, string name, bool value, Func<bool> sync) =>
         new(id, subKey, name, RegistryValueKind.DWord, value ? 1 : 0, sync);
@@ -74,8 +65,6 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v != 0 : fallback;
     }
 
-    // Broadcast so the shell and apps re-read the theme. Returns false if no window
-    // answered; the applier treats that as a failed sync and rolls back.
     private static bool SyncTheme() => SystemNotifier.BroadcastSettingChange(ImmersiveColorSet);
 
     private static bool SyncDwm() => SystemNotifier.BroadcastDwmColorChanged();

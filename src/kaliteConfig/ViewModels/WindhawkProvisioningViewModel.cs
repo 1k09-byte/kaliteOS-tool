@@ -21,12 +21,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>
-/// Drives the "Install Windhawk &amp; import settings" flow on the WS page:
-/// detection → user confirmation dialog → download/silent install (if needed)
-/// → backup import (via windhawk-cli data import), then optional mod updates,
-/// with progress reporting and a per-mod summary.
-/// </summary>
 public partial class WindhawkProvisioningViewModel : ObservableObject
 {
     private readonly WindhawkDetectionService _detection = new();
@@ -50,10 +44,6 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
     [ObservableProperty]
     public partial InfoBarSeverity MessageSeverity { get; set; } = InfoBarSeverity.Informational;
 
-    /// <summary>
-    /// KaliteOS bundled file - always from Assets/Windhawk/KaliteOS.json (copied to mods-bundled.json).
-    /// No backup-file picker; the AutoOS remote is never used.
-    /// </summary>
     public string? EffectiveBackupFilePath => WindhawkModCatalog.EnsureBundledBackupOnDisk();
 
     public bool IsInstalled => Installation.IsInstalled;
@@ -73,14 +63,10 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
     }
 
     public bool CanRun => !IsBusy && !string.IsNullOrEmpty(EffectiveBackupFilePath) && File.Exists(EffectiveBackupFilePath);
-    // Test import is only valid when Windhawk is actually installed (mirrors AutoOS: windhawk-cli.exe must exist)
     public bool CanTestImport => !IsBusy && Installation.IsInstalled && !string.IsNullOrEmpty(EffectiveBackupFilePath) && File.Exists(EffectiveBackupFilePath);
 
-    /// <summary>InfoBar notice: a legacy (pre-2.0) install was detected and the
-    /// flow will upgrade it to the pinned 2.0 alpha so settings import works.</summary>
     public bool ShowLegacyUpgradeNotice => Installation.IsInstalled && Installation.CliPath is null;
 
-    /// <summary>XAML-friendly busy indicator (Collapsed/Visible).</summary>
     public Microsoft.UI.Xaml.Visibility BusyVisibility => IsBusy
         ? Microsoft.UI.Xaml.Visibility.Visible
         : Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -154,11 +140,6 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
         _cts?.Cancel();
     }
 
-    /// <summary>
-    /// The whole flow, awaited by the page after the confirmation ContentDialog
-    /// resolves. Runs install (when missing) and import sequentially with
-    /// progress surfaced through observable properties.
-    /// </summary>
     public async Task RunProvisioningAsync()
     {
         var path = EffectiveBackupFilePath;
@@ -191,9 +172,6 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
                 Installation = await _provisioning.EnsureInstalledAsync(installProgress, _cts.Token);
             }
 
-            // Prefer the verified CLI import path (Windhawk 2.0+): download the
-            // offline installer, install it silently, then import via windhawk-cli
-            // data import, and apply any available mod updates.
             var cliProgress = new Progress<WindhawkProvisioningService.ProvisionProgress>(p =>
             {
                 StatusText = p.StatusText;
@@ -231,26 +209,15 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
             DownloadPercent = null;
             _cts?.Dispose();
             _cts = null;
-            // Re-detect: an install just happened (or state changed underneath us).
             Installation = _detection.Detect();
         }
     }
 
-    /// <summary>
-    /// Test-only import - does NOT reinstall Windhawk, just runs the settings import.
-    /// Copied flow from AutoOS AppsStage.cs:
-    ///   await DownloadHelper.Download(jsonUrl, Path.GetTempPath(), "windhawk.json");
-    ///   await Process.Start(windhawk-cli.exe, $"data import \"{json}\" --confirm-app-restart --yes", WorkingDir=Windhawk).WaitForExitAsync();
-    ///   await ProcessActions.UpdateWindhawkMods();
-    /// This is exposed as a separate "Test Import Settings" button in the UI so the import
-    /// can be verified without re-downloading/re-installing the Windhawk binary.
-    /// </summary>
     [RelayCommand]
     public async Task TestImportAsync()
     {
         string? path = EffectiveBackupFilePath;
 
-        // Always use the KaliteOS bundled file from Assets/Windhawk/KaliteOS.json (via WindhawkModCatalog).
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
             ShowMessage($"KaliteOS settings file not found at: {path ?? "(null)"}", InfoBarSeverity.Error);
@@ -270,8 +237,6 @@ public partial class WindhawkProvisioningViewModel : ObservableObject
 
         try
         {
-            // Prefer the installer service's CLI import (AutoOS-style) when CLI is available,
-            // otherwise fall back to the generic import service (registry path).
             if (!string.IsNullOrEmpty(Installation.CliPath) && File.Exists(Installation.CliPath!))
             {
                 var progress = new Progress<string>(s => StatusText = s);

@@ -20,7 +20,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Capture durations (presets + manual stop).</summary>
 public enum BenchmarkDuration
 {
     Manual = 0,
@@ -29,7 +28,6 @@ public enum BenchmarkDuration
     Minutes2 = 120,
 }
 
-/// <summary>Recording state machine: Idle → Armed → Recording → Finalizing → Done | Failed.</summary>
 public enum CaptureState
 {
     Idle,
@@ -40,7 +38,6 @@ public enum CaptureState
     Failed,
 }
 
-/// <summary>Result of one capture session.</summary>
 public sealed class BenchmarkCaptureResult
 {
     public bool Success { get; init; }
@@ -55,20 +52,12 @@ public sealed class BenchmarkCaptureResult
     public string Error { get; init; } = string.Empty;
 }
 
-/// <summary>
-/// CapFrameX-style capture via the bundled PresentMon 2.5.1 console build.
-/// Flags used verbatim from `PresentMon.exe --help` on that build; CSV
-/// columns resolved by header lookup (<see cref="BenchmarkPresentMonCsv"/>).
-/// Session name: kaliteBench. All blocking work runs off the UI thread.
-/// </summary>
 public sealed class BenchmarkCaptureService
 {
-    // Pinned 2.5.1 SHA-256 (see Assets/PresentMon/VERSION.txt).
     internal const string PinnedSha256 = "9BEC3083069F58F911E6A512F4806DB51A27BD096103087BC1D05EF54C80A191";
     internal const string SessionName = "kaliteBench";
     private const string ExeRelPath = "PresentMon/PresentMon.exe";
 
-    // Well-known SID: Performance Log Users (S-1-5-32-559).
     private static readonly SecurityIdentifier PerfLogUsersSid = new("S-1-5-32-559");
 
     public CaptureState State { get; private set; } = CaptureState.Idle;
@@ -89,7 +78,6 @@ public sealed class BenchmarkCaptureService
         return nextToApp;
     }
 
-    /// <summary>Verifies the bundled exe exists and matches the pinned hash.</summary>
     public static void VerifyExe()
     {
         string path = ResolveExePath();
@@ -110,10 +98,6 @@ public sealed class BenchmarkCaptureService
         }
     }
 
-    /// <summary>
-    /// ETW capture needs admin OR membership in Performance Log Users.
-    /// Returns (true, "") when capture is allowed, else (false, reason + fix).
-    /// </summary>
     public static (bool Ok, string Message) CheckEtwAccess()
     {
         try
@@ -149,7 +133,6 @@ public sealed class BenchmarkCaptureService
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-    /// <summary>Foreground window → PID + exe name (hotkey target).</summary>
     public static bool TryGetForegroundProcess(out int pid, out string exeName, out string error)
     {
         pid = 0; exeName = string.Empty; error = string.Empty;
@@ -171,10 +154,6 @@ public sealed class BenchmarkCaptureService
         }
     }
 
-    /// <summary>
-    /// Captures frametimes for a target PID. State machine runs
-    /// Idle → Armed (countdown via --delay) → Recording → Finalizing → Done|Failed.
-    /// </summary>
     public async Task<BenchmarkCaptureResult> CaptureAsync(
         int pid,
         string exeName,
@@ -238,7 +217,6 @@ public sealed class BenchmarkCaptureService
             }
             else
             {
-                // --timed + --terminate_after_timed ends the process itself.
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds((int)duration + countdownSec + 30));
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
                 await proc.WaitForExitAsync(linked.Token).ConfigureAwait(false);
@@ -246,7 +224,6 @@ public sealed class BenchmarkCaptureService
         }
         catch (OperationCanceledException)
         {
-            // Manual stop or caller cancel: end the ETW session, then kill as fallback.
             await StopSessionAsync(exe).ConfigureAwait(false);
             try
             {
@@ -326,7 +303,6 @@ public sealed class BenchmarkCaptureService
         return result;
     }
 
-    /// <summary>Ends a running session (manual-stop path) via the real flag.</summary>
     private static async Task StopSessionAsync(string exe)
     {
         try

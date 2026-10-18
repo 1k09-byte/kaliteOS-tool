@@ -29,7 +29,6 @@ namespace kaliteConfig.ViewModels
         public ObservableCollection<BrowserInstallItem> GameLaunchers { get; } = new();
         public ObservableCollection<BrowserInstallItem> SocialApps { get; } = new();
 
-        /// <summary>Portable sysinternals-style tools (no installer, just an archive payload).</summary>
         public ObservableCollection<BrowserInstallItem> Utilities { get; } = new();
 
         public ObservableCollection<BrowserInstallItem> VisibleUtilities { get; } = new();
@@ -38,26 +37,15 @@ namespace kaliteConfig.ViewModels
         public ObservableCollection<BrowserInstallItem> VisibleGameLaunchers { get; } = new();
         public ObservableCollection<BrowserInstallItem> VisibleSocialApps { get; } = new();
 
-        // Installed items are hidden on the Apps page by default: it stays a
-        // pure install page. Flip ShowInstalled to reveal them (with uninstall).
         [ObservableProperty]
         public partial bool ShowInstalled { get; set; } = false;
 
-        /// <summary>True when every section is empty - drives the empty-state message.</summary>
         [ObservableProperty]
         public partial bool NothingToInstall { get; set; } = false;
 
-        /// <summary>
-        /// Layout for the Apps install grid: big cards, compact rows, or an
-        /// aligned table. Card is the default because it is what the page has
-        /// always looked like; the other two are for scanning a long list.
-        /// Persisted so the choice survives a restart - a view mode that reset
-        /// on every launch would just be a nuisance.
-        /// </summary>
         [ObservableProperty]
         public partial AppViewMode ViewMode { get; set; } = AppViewMode.Card;
 
-        /// <summary>Individual visibility flags for the two layout modes.</summary>
         public bool IsCardView => ViewMode == AppViewMode.Card;
         public bool IsCompactView => ViewMode == AppViewMode.Compact;
 
@@ -77,14 +65,9 @@ namespace kaliteConfig.ViewModels
                 using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\kaliteConfig");
                 key?.SetValue(ViewModeKey, mode.ToString());
             }
-            catch { /* a read-only profile must not break the page */ }
+            catch {  }
         }
 
-        /// <summary>
-        /// Reads the saved layout. A missing or unrecognised value falls back to
-        /// Card rather than throwing, so a corrupt registry entry cannot stop
-        /// the page from loading.
-        /// </summary>
         public void LoadViewMode()
         {
             try
@@ -94,7 +77,7 @@ namespace kaliteConfig.ViewModels
                 if (raw != null && Enum.TryParse<AppViewMode>(raw, out var mode))
                     ViewMode = mode;
             }
-            catch { /* keep the default */ }
+            catch {  }
         }
 
         partial void OnShowInstalledChanged(bool value)
@@ -102,7 +85,6 @@ namespace kaliteConfig.ViewModels
             UpdateVisibilityFilters();
         }
 
-        /// <summary>Updates stay visible even when installed apps are hidden; hiding an app that needs updating is the bug this avoids.</summary>
         private bool ShouldShow(BrowserInstallItem item)
         {
             if (item.Status == BrowserInstallStatus.UpdateAvailable) return true;
@@ -111,10 +93,6 @@ namespace kaliteConfig.ViewModels
 
         private void UpdateVisibilityFilters()
         {
-            // Gallery reference: ItemsRepeater bound to Visible* collections. Installed items
-            // (AlreadyInstalled + freshly Installed) are hidden when ShowInstalled=false.
-            // UpdateVisibilityFilters() is re-run after every install/uninstall/cancel so the
-            // card disappears right after install and reappears after uninstall.
             VisibleBrowsers.Clear();
             foreach (var b in Browsers)
             {
@@ -280,13 +258,7 @@ namespace kaliteConfig.ViewModels
                 Name = "Vivaldi",
                 ProductId = "Vivaldi",
                 ImagePath = "ms-appx:///Assets/vivaldi-logo.png",
-                // The plain "Vivaldi.Installer.exe" alias 404s; but this permalink
-                // intelligently redirects to the latest stable x64 build.
                 DownloadUrl = "https://vivaldi.com/download/Vivaldi.x64.exe",
-                // Verified switches from the installer binary itself
-                // (--vivaldi-silent, --vivaldi-mini, --vivaldi-unpack,
-                // --system-level). --do-not-launch-chrome is a Chrome-era
-                // switch the Vivaldi installer does not implement.
                 SilentInstallArgs = "--vivaldi-silent --system-level",
                 InstallerFileName = "vivaldi_installer.exe",
                 InstalledCheckPath = @"%PROGRAMFILES%\Vivaldi\Application\vivaldi.exe;%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe",
@@ -460,12 +432,6 @@ namespace kaliteConfig.ViewModels
                 Description = "The ultimate gaming platform and community, featuring massive game libraries, workshop mods, and cloud saves operated by Valve."
             };
 
-            // No Riot entry on purpose. Riot publishes no client-only
-            // bootstrapper - the only official installers are per-game
-            // (the valorant host serves "Install VALORANT.exe", the lol host
-            // serves "Install League of Legends na.exe"), so a "Riot Client"
-            // card can only ever install a game the user did not ask for.
-
             var discordLauncher = new BrowserInstallItem
             {
                 Name = "Discord",
@@ -510,17 +476,7 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "Mullvad Browser",
                 ImagePath = "ms-appx:///Assets/mullvad-logo.png",
-                // Mullvad moved the package to its VPN publisher prefix: the old
-                // Mullvad.MullvadBrowser id no longer resolves ("No package found"),
-                // which is why the install failed at the winget step.
                 WingetId = "MullvadVPN.MullvadBrowser",
-                // 14+ installs per-user under %LocalAppData% (winget manifest:
-                // Scope user, DefaultInstallLocation %LocalAppData%\Mullvad\MullvadBrowser\Release)
-                // and the binary is hyphenated. Older builds used the machine-wide
-                // %ProgramFiles% folder and mullvadbrowser.exe. All four candidates
-                // are listed because the check is a semicolon list and the first hit
-                // wins - without the new ones a successful install still read as
-                // "not installed" and the entry offered to install again.
                 InstalledCheckPath = @"%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvad-browser.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvadbrowser.exe;%PROGRAMFILES%\Mullvad Browser\mullvad-browser.exe;%PROGRAMFILES%\Mullvad Browser\mullvadbrowser.exe",
                 Description = "Privacy-focused browser from Mullvad and the Tor Project, built to resist fingerprinting."
             };
@@ -581,16 +537,6 @@ namespace kaliteConfig.ViewModels
             SocialApps.Add(telegramApp);
             SocialApps.Add(whatsappApp);
 
-            // Medal installs from its own CDN, not from winget. The winget
-            // manifest (MedalB.V.Medal, 4.2309.0) points at
-            // cdn.medal.tv/production/candidate/electron/win32/4.2309.0/MedalSetup.exe
-            // which now returns 404 - the publisher purged that build, so
-            // `winget install` fails with "Download request status is not
-            // success" and there is nothing to fix on our side. The publisher's
-            // own stable entry point (linked from medal.tv/download) 307s to
-            // whatever the current build is, so it cannot go stale the same way.
-            // Note getmedal.com is a parked GoDaddy for-sale page now - the
-            // live domain is medal.tv.
             Utilities.Add(new BrowserInstallItem
             {
                 Name = "Medal",
@@ -599,9 +545,6 @@ namespace kaliteConfig.ViewModels
                 DownloadUrl = "https://install.medal.tv/",
                 SilentInstallArgs = "--silent",
                 InstallerFileName = "MedalSetup.exe",
-                // Squirrel (electron-web) installs into a versioned
-                // app-<version> folder with the launcher inside it, so the
-                // check has to wildcard; the flat path is kept for older builds.
                 InstalledCheckPath = @"%LOCALAPPDATA%\Medal\app-*\Medal.exe;%LOCALAPPDATA%\Medal\Medal.exe",
                 Description = "Clip your gameplay without dropping frames, then edit and share it."
             });
@@ -725,8 +668,6 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "AnyDesk",
                 ImagePath = "ms-appx:///Assets/anydesk-logo.png",
-                // AnyDeskSoftwareGmbH.AnyDesk no longer resolves; the package
-                // moved to the AnyDesk.AnyDesk id.
                 WingetId = "AnyDesk.AnyDesk",
                 InstalledCheckPath = @"%PROGRAMFILES%\AnyDesk\AnyDesk.exe",
                 Description = "Fast remote desktop access."
@@ -772,23 +713,19 @@ namespace kaliteConfig.ViewModels
                 }
             }
 
-            // Sync the initial UI filter state to match the model (Show installed by default – fixed disappearance bug)
             UpdateVisibilityFilters();
 
             _ = DetectUpdatesAsync();
 
-            // Fix: prepopulate SelectedBrowser so ContentDialog x:Bind doesn't throw NRE on initialization.
             SelectedBrowser = VisibleBrowsers.FirstOrDefault();
         }
 
-        /// <summary>Installed probe off-thread; the service call touches the filesystem.</summary>
         private bool IsBrowserInstalledSafe(BrowserInstallItem item)
         {
             try { return _installerService.IsBrowserInstalled(item); }
             catch { return false; }
         }
 
-        /// <summary>Off-thread version scan; file-version reads across ~40 entries must not stall first paint.</summary>
         private async Task DetectUpdatesAsync()
         {
             try
@@ -825,7 +762,7 @@ namespace kaliteConfig.ViewModels
                     OnPropertyChanged(nameof(HasUpdates));
                 });
             }
-            catch { /* a scan failure must never break the Apps page */ }
+            catch {  }
         }
 
         [RelayCommand]
@@ -847,7 +784,6 @@ namespace kaliteConfig.ViewModels
                 if (status == BrowserInstallStatus.Installed || status == BrowserInstallStatus.Failed || status == BrowserInstallStatus.AlreadyInstalled)
                 {
                     IsInstalling = false;
-                    // Keep gallery visible after install: sync filter so Helium doesn't "disappear" from UI
                     UpdateVisibilityFilters();
                 }
             });

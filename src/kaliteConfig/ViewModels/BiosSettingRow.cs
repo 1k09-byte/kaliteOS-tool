@@ -17,14 +17,8 @@ using System.Linq;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>
-/// Observable wrapper around one <see cref="BiosSetting"/> for list/detail
-/// binding. Edits flow: control → row (ValueText / SelectedToken) → model,
-/// and validation/modified state recomputes immediately.
-/// </summary>
 public sealed partial class BiosSettingRow : ObservableObject
 {
-    /// <summary>Raised whenever modified/validation state changed (for counts).</summary>
     internal event Action? StateChanged;
 
     public BiosSetting Item { get; }
@@ -38,8 +32,6 @@ public sealed partial class BiosSettingRow : ObservableObject
             : string.Join(" › ", item.MenuPath);
     }
 
-    // ---- display fields (immutable per document) ----
-
     public string Name => Item.SetupQuestion;
     public string HelpText => Item.HelpString ?? string.Empty;
     private readonly string _sectionText;
@@ -51,7 +43,6 @@ public sealed partial class BiosSettingRow : ObservableObject
     public string BiosDefaultText => string.IsNullOrEmpty(Item.BiosDefault) ? "-" : Item.BiosDefault;
     public bool IsEnumerated => Item.HasEnumeratedOptions;
 
-    /// <summary>Options with friendly labels filled in for bare 0/1 tokens on enable/disable style items.</summary>
     public IReadOnlyList<BiosOption> Options => _options ??= BuildOptions();
 
     private IReadOnlyList<BiosOption>? _options;
@@ -93,7 +84,6 @@ public sealed partial class BiosSettingRow : ObservableObject
 
     private static bool IsOnToken(string token) => token.Trim() is "1" or "01";
 
-    /// <summary>Matches a search query against name, token, help text and current value.</summary>
     public bool Matches(string query)
     {
         return Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
@@ -101,8 +91,6 @@ public sealed partial class BiosSettingRow : ObservableObject
                HelpText.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                Item.Value.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
-
-    // ---- editable value (TextBox path: free-form/numeric items) ----
 
     private string _valueText;
     public string ValueText
@@ -117,8 +105,6 @@ public sealed partial class BiosSettingRow : ObservableObject
             RefreshState();
         }
     }
-
-    // ---- editable value (ComboBox path: enumerated items) ----
 
     public string SelectedToken
     {
@@ -135,9 +121,6 @@ public sealed partial class BiosSettingRow : ObservableObject
         }
     }
 
-    // ---- state ----
-
-    /// <summary>Shows the option's label ("Enabled"), not its raw token ("1"), for enumerated settings.</summary>
     public string ValueDisplay
     {
         get
@@ -181,9 +164,7 @@ public sealed partial class BiosSettingRow : ObservableObject
         StateChanged?.Invoke();
     }
 
-    /// <summary>Per-item "reset to BIOS default" (falls back to the imported value).</summary>
     public void ResetToDefault() => ValueText = Item.BiosDefault ?? Item.OriginalValue;
 
-    /// <summary>Revert to the value from the imported file.</summary>
     public void Revert() => ValueText = Item.OriginalValue;
 }

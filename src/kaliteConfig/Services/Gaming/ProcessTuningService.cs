@@ -20,11 +20,6 @@ using kaliteConfig.Native;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Live process enumeration/sampling plus all mutating process controls
-/// (priority, boost, affinity, efficiency mode, suspend/resume/terminate).
-/// Native calls always run off the UI thread; collections are updated by the caller.
-/// </summary>
 [System.Diagnostics.DebuggerNonUserCode]
 public sealed class ProcessTuningService
 {
@@ -32,11 +27,6 @@ public sealed class ProcessTuningService
     {
         "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe",
         "smss.exe", "svchost.exe", "dwm.exe", "winlogon.exe", "fontdrvhost.exe",
-        // Kernel/system infrastructure - demoting these causes multi-second
-        // system stalls (the 13:43 capture's 0.1% low of 5.3 FPS was almost
-        // certainly Memory Compression being starved on the interrupt core).
-        // Note: entries match "ProcessName + .exe"; system processes like
-        // Memory Compression and Registry get their pseudo .exe here.
         "memory compression.exe", "registry.exe", "wudfhost.exe", "sihost.exe",
         "taskhostw.exe", "explorer.exe", "audiodg.exe", "spoolsv.exe",
         "conhost.exe", "dllhost.exe", "runtimebroker.exe", "searchindexer.exe",
@@ -44,29 +34,19 @@ public sealed class ProcessTuningService
         "textinputhost.exe", "ctfmon.exe", "securityhealthservice.exe",
         "msmpeng.exe", "nissrv.exe", "smartscreen.exe", "sechealthui.exe",
         "system.exe", "idle.exe", "memcompression.exe",
-        // Shell / logon / lock screen: suspending these freezes login, lock or Start.
         "shellhost.exe", "applicationframehost.exe",
         "logonui.exe", "lockapp.exe", "searchhost.exe", "useroobebroker.exe",
-        // Input stack: touch keyboard, touchpad helpers, Intel graphics hotkeys.
         "tabtip.exe", "syntpenh.exe", "syntphelper.exe",
         "igfxem.exe", "igfxhk.exe", "igfxtray.exe",
-        // Audio stack services: suspending them kills sound or enhancements.
         "rtkauduservice64.exe", "nahimicservice.exe", "intelaudioservice.exe",
         "dolbydax2api.exe", "conexantaudioservice.exe",
-        // GPU vendor control panels: suspending them can break display events.
         "nvdisplay.container.exe", "atieclxx.exe", "atiesrxx.exe",
-        // Virtualization: suspending these freezes VMs and WSL.
         "vmmem.exe", "vmmemwsl.exe", "vmcompute.exe", "vmms.exe",
         "wsl.exe", "wslhost.exe", "wslservice.exe",
-        // Remote sessions: suspending the client freezes the remote window.
         "mstsc.exe", "rdpclip.exe",
-        // Licensing / servicing: suspending mid-update corrupts component work.
         "sppsvc.exe", "trustedinstaller.exe", "tiworker.exe",
-        // Security platform beyond the engine itself.
         "mpdefendercoreservice.exe", "mssense.exe", "lsaiso.exe",
-        // Hardware pairing and device frameworks.
         "dashost.exe", "jhi_service.exe",
-        // Widgets/WebView hosts visible UI in other apps.
         "widgets.exe", "msedgewebview2.exe",
     };
 
@@ -80,19 +60,8 @@ public sealed class ProcessTuningService
 
     public bool SnapshotLimited => _snapshot.Limited;
 
-    /// <summary>
-    /// Whether the Context switches / Cycles deltas are collected at all. The
-    /// toggle in the UI owns this: when false, the per-tick SystemProcessInformation
-    /// snapshot is never taken, so the cost is genuinely zero rather than
-    /// computed and discarded.
-    /// </summary>
     public bool CollectCounters { get; set; } = true;
 
-    /// <summary>
-    /// Drops the stored per-PID totals so the next sample re-baselines instead
-    /// of reporting the whole gap as one enormous delta. Called when the user
-    /// switches the columns back on.
-    /// </summary>
     public void ResetCounterBaselines()
     {
         _lastContextSwitches.Clear();
@@ -116,12 +85,11 @@ public sealed class ProcessTuningService
             if (string.Equals(Process.GetProcessById(pid).ProcessName + ".exe", name, StringComparison.OrdinalIgnoreCase)
                 && pid == Environment.ProcessId)
             {
-                return true; // host app itself (handled with a warning, not a block)
+                return true;
             }
         }
         catch
         {
-            // ignore
         }
 
         return CriticalNames.Contains(name);
@@ -146,8 +114,6 @@ public sealed class ProcessTuningService
             var rows = new List<TunerProcessRow>();
             Dictionary<int, string>? wmiNames = null;
 
-            // Parent PID for the process tree. One native snapshot covers every
-            // process, which is far cheaper than a per-PID Toolhelp walk.
             var parentPids = GetParentPids();
 
             foreach (var proc in Process.GetProcesses())
@@ -159,12 +125,9 @@ public sealed class ProcessTuningService
                 }
                 catch
                 {
-                    continue; // process died mid-enumeration
+                    continue;
                 }
 
-                // Every process gets a row. Some (protected / system / elevated)
-                // throw on ProcessName; fall back to a WMI lookup, then to a
-                // bare PID label so the row is never silently dropped.
                 string name;
                 try
                 {
@@ -193,12 +156,6 @@ public sealed class ProcessTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// One Toolhelp32 pass returning PID → parent PID for every process, used to
-    /// build the process tree. Far cheaper than opening each process, and it sees
-    /// processes that deny PROCESS_QUERY_INFORMATION.
-    /// Returns an empty map on failure - callers treat "no parent" as root.
-    /// </summary>
     private static Dictionary<int, int> GetParentPids()
     {
         var map = new Dictionary<int, int>(512);
@@ -238,11 +195,6 @@ public sealed class ProcessTuningService
         return map;
     }
 
-    /// <summary>
-    /// One WMI pass returning ProcessId → Name for every process; used as a name
-    /// source for processes that deny direct ProcessName access. Runs once per
-    /// enumeration and only when a fallback is actually needed.
-    /// </summary>
     private static Dictionary<int, string> GetWmiProcessNames()
     {
         var map = new Dictionary<int, string>();
@@ -266,13 +218,11 @@ public sealed class ProcessTuningService
         }
         catch
         {
-            // WMI unavailable: callers fall back to the bare PID label.
         }
 
         return map;
     }
 
-    /// <summary>Samples CPU% for the given PIDs only (visible rows), not the whole system.</summary>
     public async Task SampleCpuAsync(IReadOnlyList<TunerProcessRow> rows)
     {
         if (rows.Count == 0)
@@ -287,10 +237,7 @@ public sealed class ProcessTuningService
             _lastSampleUtc = now;
             int cpus = LogicalProcessorCount();
             var result = new Dictionary<int, (double Cpu, long MemoryMb, int Threads, long ContextSwitches, long Cycles)>();
-            
-            // The SystemProcessInformation snapshot walks every thread of every
-            // process in the system - the single most expensive thing this tick
-            // does. Skip it entirely when the deltas aren't being shown.
+
             Dictionary<int, kaliteConfig.Native.SnapshotProcess>? snapDict = null;
             if (CollectCounters)
             {
@@ -298,7 +245,6 @@ public sealed class ProcessTuningService
                 foreach (var s in _snapshot.TrySnapshot()) snapDict[(int)s.ProcessId] = s;
             }
 
-            // Bulk enumerate to avoid N+1 GetProcessById overheads (which cause heavy CPU spikes).
             var liveMemoryAndThreads = new Dictionary<int, (long WorkingSet64, int ThreadCount)>();
             try
             {
@@ -372,7 +318,6 @@ public sealed class ProcessTuningService
                 }
                 catch
                 {
-                    // Per-row failure must never break the whole tick.
                 }
             }
 
@@ -383,9 +328,6 @@ public sealed class ProcessTuningService
         {
             if (deltas.TryGetValue(row.Pid, out var metrics))
             {
-                // Guarded writes: a same-value assignment still raises
-                // PropertyChanged and re-renders the row, so only touch
-                // properties that actually changed to keep the 2 s tick cheap.
                 double cpu = Math.Round(metrics.Cpu, 1);
                 if (row.CpuPercent != cpu) row.CpuPercent = cpu;
 
@@ -429,12 +371,10 @@ public sealed class ProcessTuningService
             row.PriorityValue = cls;
             row.PriorityText = PriorityName(cls);
 
-            // Process-wide Priority boost. The handle is already open, so this
-            // costs nothing extra - and it is what the tick box column shows.
             if (NativeMethods.Priority.GetProcessPriorityBoost(process, out bool boostDisabled))
             {
                 row.PriorityBoostText = boostDisabled ? "Disabled" : "Enabled";
-                row.BoostAllowed = !boostDisabled; // API flag is inverted
+                row.BoostAllowed = !boostDisabled;
             }
 
             if (NativeMethods.Affinity.GetProcessAffinityMask(process, out IntPtr mask, out IntPtr sys))
@@ -443,10 +383,6 @@ public sealed class ProcessTuningService
                 row.AffinitySummary = AffinitySummary(row.AffinityMask, (ulong)sys.ToInt64());
             }
 
-            // Explicit CPU Sets (set by a rule, or by the user) are invisible to
-            // the affinity mask - surface them so the context menu tells the
-            // truth. Gaming mode no longer partitions, so there is no partition
-            // left to report here (Docs/GameMode.md).
             try
             {
                 uint[] procSets = ReadProcessCpuSetIds(row.Pid);
@@ -463,7 +399,6 @@ public sealed class ProcessTuningService
             }
             catch
             {
-                // ignore
             }
 
             var state = new ProcessPowerThrottlingState { Version = NativeMethods.Power.Version };
@@ -480,11 +415,6 @@ public sealed class ProcessTuningService
         }
     }
 
-    /// <summary>
-    /// A suspended process has every thread parked with WaitReason Suspended;
-    /// detecting that lets the UI reflect Suspend/Resume instead of always
-    /// claiming the process is running.
-    /// </summary>
     private static bool IsSuspended(Process proc)
     {
         try
@@ -500,8 +430,6 @@ public sealed class ProcessTuningService
         }
         catch
         {
-            // Process exited mid-scan; treat as running (the row will be removed
-            // on the next poll anyway).
         }
 
         return false;
@@ -570,7 +498,6 @@ public sealed class ProcessTuningService
             }
             catch
             {
-                // ignore
             }
 
             string cmd = NativeSnapshotService.TryGetCommandLine(process) ?? "(unavailable)";
@@ -612,7 +539,7 @@ public sealed class ProcessTuningService
                 throw CpuSetService.Friendly(pid, NativeSnapshotService.LastError("Reading priority boost failed."));
             }
 
-            return !Svetlana; // UI shows plain "enabled"; API is inverted.
+            return !Svetlana;
         }).ConfigureAwait(false);
     }
 
@@ -628,9 +555,6 @@ public sealed class ProcessTuningService
                 throw CpuSetService.Friendly(pid, NativeSnapshotService.LastError("Setting priority boost failed."));
             }
 
-            // Windows quirk: disabling process boost cascades to threads, but 
-            // enabling process boost DOES NOT re-enable threads. We must manually 
-            // loop them.
             if (enabled)
             {
                 try
@@ -647,10 +571,10 @@ public sealed class ProcessTuningService
                                 NativeMethods.Priority.SetThreadPriorityBoost(threadHandle, Svetlana: false);
                             }
                         }
-                        catch { } // Ignore access denied on individual threads
+                        catch { }
                     }
                 }
-                catch { } // Entire process may have died
+                catch { }
             }
         }).ConfigureAwait(false);
     }
@@ -740,10 +664,6 @@ public sealed class ProcessTuningService
                                 process, ProcessInformationClass.ProcessPowerThrottling,
                                 ref state, NativeMethods.Power.StateSize());
 
-                        // Enforce Memory Stratification (Anti-Stutter)
-                        // If enabling background gaming mode, throttle memory priority to 1 (lowest)
-                        // This allows Windows to blindly page background processes to disk when RAM is full immediately.
-                        // If restoring, set back to 5 (Normal).
                         var memPriority = new ProcessMemoryPriorityInfo
                         {
                             MemoryPriority = enable ? 1u : 5u
@@ -752,9 +672,7 @@ public sealed class ProcessTuningService
                                 process, ProcessInformationClass.ProcessMemoryPriority,
                                 ref memPriority, NativeMethods.Power.MemoryPrioritySize());
 
-                        // Enforce IO Stratification (Anti-Stutter)
-                        // Limits disk IO rates so background tasks don't violently collide with game asset streaming.
-                        uint ioPriority = enable ? 0u : 2u; // 0 = Very Low, 2 = Normal
+                        uint ioPriority = enable ? 0u : 2u;
                         NativeMethods.Ntdll.NtSetInformationProcess(
                             process, NativeMethods.Ntdll.ProcessIoPriority,
                             ref ioPriority, sizeof(uint));
@@ -766,7 +684,6 @@ public sealed class ProcessTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>Reads back Efficiency Mode (EcoQoS) via GetProcessInformation.</summary>
     public async Task<bool> GetEfficiencyAsync(int pid)
     {
         return await CpuSetService.RunNativeAsync(() =>
@@ -832,7 +749,6 @@ public sealed class ProcessTuningService
                     continue;
                 }
 
-                // Drain client-unknown suspend counts so a stray suspend can't wedge the process.
                 for (int i = 0; i < 8; i++)
                 {
                     uint prev = NativeMethods.Threads.ResumeThread(thread);
@@ -872,7 +788,6 @@ public sealed class ProcessTuningService
         }
         catch
         {
-            // Process exited mid-operation: caller treats empty as done.
         }
 
         return ids;
@@ -931,7 +846,7 @@ public sealed class ProcessTuningService
     {
         await CpuSetService.RunNativeAsync(() =>
         {
-            IntPtr hThread = OpenThread(0x0020, false, (uint)tid); // THREAD_SET_INFORMATION
+            IntPtr hThread = OpenThread(0x0020, false, (uint)tid);
             if (hThread != IntPtr.Zero)
             {
                 SetThreadPriority(hThread, (int)priority);

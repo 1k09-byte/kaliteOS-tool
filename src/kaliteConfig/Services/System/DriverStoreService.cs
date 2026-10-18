@@ -19,24 +19,11 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Windows driver-store packages via pnputil.exe (elevated; the app manifest
-/// already requires admin).
-///
-/// Safety rules, enforced here rather than in the UI:
-/// - Only third-party (oem##.inf) packages are ever listed - pnputil
-///   /enum-drivers reports nothing inbox, so system drivers can't be picked.
-/// - Removal is pnputil /delete-driver with /uninstall (devices using the
-///   package are uninstalled too) and /force. The caller confirms with the
-///   explicit reboot/device warning first; failures (e.g. still held by the
-///   kernel) come back as error text, never exceptions.
-/// </summary>
 public sealed class DriverStoreService
 {
     private const int EnumTimeoutMs = 60_000;
     private const int DeleteTimeoutMs = 120_000;
 
-    /// <summary>Enumerates third-party driver packages. Never throws (empty on failure).</summary>
     public async Task<List<DriverPackageItem>> GetPackagesAsync(
         CancellationToken ct = default, IProgress<string>? progress = null)
     {
@@ -59,17 +46,11 @@ public sealed class DriverStoreService
         catch { return new List<DriverPackageItem>(); }
     }
 
-    /// <summary>
-    /// Deletes one package (plus uninstall from devices using it). Returns
-    /// null on success, else a human-readable error. Never throws.
-    /// </summary>
     public async Task<string?> DeletePackageAsync(DriverPackageItem item, CancellationToken ct = default)
     {
         string inf = (item.PublishedName ?? "").Trim();
         if (inf.Length == 0 || !inf.EndsWith(".inf", StringComparison.OrdinalIgnoreCase))
             return $"Refusing to delete: unexpected published name '{item.PublishedName}'.";
-        // Published names are minted by the store itself (oem##.inf) - reject
-        // anything else so a corrupt row can never turn into an arbitrary delete.
         string stem = Path.GetFileNameWithoutExtension(inf) ?? "";
         if (!stem.StartsWith("oem", StringComparison.OrdinalIgnoreCase)
             || !stem.Skip(3).All(char.IsDigit))
@@ -102,12 +83,6 @@ public sealed class DriverStoreService
         };
         if (!proc.Start()) throw new InvalidOperationException("Could not start pnputil.exe.");
         string verb = arguments.Split(' ')[0];
-        // Drain BOTH pipes from the start: a child blocked on a full output
-        // buffer never exits, which a sleep-and-poll wait loop can neither
-        // see nor fix (it just burns the whole timeout and kills a wedged
-        // process). Awaiting all the way also keeps throws on a visible
-        // async chain instead of surfacing as debugger "user-unhandled"
-        // noise from inside a Task.Run delegate.
         Task<string> stdoutTask = proc.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = proc.StandardError.ReadToEndAsync();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -134,13 +109,6 @@ public sealed class DriverStoreService
         return stdout;
     }
 
-    /// <summary>
-    /// Parses pnputil /enum-drivers output into items. Pure logic (no process,
-    /// no filesystem) so it round-trips in tests. Tolerant of the two Driver
-    /// Version shapes seen in the wild ("MM/DD/YYYY,version" and
-    /// "MM/DD/YYYY version"); unknown lines are ignored, incomplete blocks
-    /// (no published name) are dropped.
-    /// </summary>
     internal static List<DriverPackageItem> ParseEnumOutput(string output)
     {
         var items = new List<DriverPackageItem>();
@@ -177,12 +145,12 @@ public sealed class DriverStoreService
             string line = rawLine.TrimEnd('\r').Trim();
             if (line.Length == 0) { Flush(); continue; }
             int colon = line.IndexOf(':');
-            if (colon <= 0) continue; // header/footer lines carry no key
+            if (colon <= 0) continue;
             string key = line.Substring(0, colon).Trim();
             string value = line.Substring(colon + 1).Trim();
             if (key.Length == 0) continue;
             if (key.Equals("Published Name", StringComparison.OrdinalIgnoreCase) && current.Count > 0)
-                Flush(); // missing blank separator - a new block starts anyway
+                Flush();
             current[key] = value;
         }
         Flush();
@@ -194,7 +162,6 @@ public sealed class DriverStoreService
         date = "";
         version = (raw ?? "").Trim();
         if (version.Length == 0) return;
-        // Shape A: "12/05/2024,32.0.15.6616". Shape B: "12/05/2024 32.0.15.6616".
         int comma = version.IndexOf(',');
         if (comma >= 0)
         {
@@ -210,10 +177,6 @@ public sealed class DriverStoreService
         }
     }
 
-    /// <summary>
-    /// Best-effort on-disk size via the FileRepository payload dir
-    /// (&lt;original&gt;_*). Returns -1 when it can't be determined. Never throws.
-    /// </summary>
     internal static long MeasureStoreSize(string? originalName)
     {
         try

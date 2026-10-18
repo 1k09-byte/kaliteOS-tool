@@ -13,9 +13,6 @@ using System.Drawing;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// A pure, UI-free logic class to manage gesture states for the Snip Tray (Hold, Swipe, Drag).
-/// </summary>
 public class SnipTrayLogic
 {
     public enum GestureState { None, Holding, Dragging, Swiping }
@@ -69,7 +66,6 @@ public class SnipTrayLogic
         if (!_pointerDown) return GestureState.None;
         _pointerDown = false;
 
-        // One last check before release
         PointerMoved(x, y, time);
         var finalState = CurrentState;
         CurrentState = GestureState.None;

@@ -12,7 +12,6 @@ using Windows.Storage.Streams;
 
 namespace kaliteConfig.Services.Personalize;
 
-// Fit modes. The values map to DESKTOP_WALLPAPER_POSITION (see MapFit).
 public enum WallpaperFit { Center, Tile, Stretch, Fit, Fill, Span }
 
 public sealed record MonitorInfo(string Id, int Index, int Width, int Height);
@@ -24,7 +23,6 @@ public sealed class WallpaperLibraryItem
     public string OriginalName { get; set; } = "";
     public DateTime AddedUtc { get; set; }
 
-    /// <summary>Runtime-only absolute path for thumbnails; never persisted.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string FullPath { get; set; } = "";
 }
@@ -32,7 +30,6 @@ public sealed class WallpaperLibraryItem
 public sealed class WallpaperLibraryState
 {
     public List<WallpaperLibraryItem> Items { get; set; } = new();
-    // Most recent first, capped at RecentLimit.
     public List<string> RecentIds { get; set; } = new();
 }
 
@@ -74,8 +71,6 @@ public sealed class WallpaperService : IWallpaperService
         _stateFile = Path.Combine(_root, "library.json");
     }
 
-    // ---- Monitors -------------------------------------------------------------
-
     public IReadOnlyList<MonitorInfo> GetMonitors()
     {
         using var api = new DesktopWallpaperApi();
@@ -83,8 +78,6 @@ public sealed class WallpaperService : IWallpaperService
             .Select((m, i) => new MonitorInfo(m.Id, i, m.Rect.Right - m.Rect.Left, m.Rect.Bottom - m.Rect.Top))
             .ToList();
     }
-
-    // ---- Library --------------------------------------------------------------
 
     public IReadOnlyList<WallpaperLibraryItem> Library() => LoadState().Items.OrderBy(i => i.AddedUtc)
         .Select(i => { i.FullPath = FilePathFor(i); return i; }).ToList();
@@ -101,8 +94,6 @@ public sealed class WallpaperService : IWallpaperService
 
     public string FilePathFor(WallpaperLibraryItem item) => Path.Combine(_root, item.FileName);
 
-    // Copies an allowed image into the app's own folder after checking that it
-    // really decodes. The original file is never changed.
     public async Task<(WallpaperLibraryItem? Item, string? Error)> AddToLibraryAsync(string sourcePath)
     {
         string full;
@@ -118,7 +109,6 @@ public sealed class WallpaperService : IWallpaperService
             using (var check = File.OpenRead(full))
             using (var ras = check.AsRandomAccessStream())
             {
-                // Decode check: BitmapDecoder rejects files that only have an image extension.
                 await BitmapDecoder.CreateAsync(ras).AsTask();
             }
             File.Copy(full, dest, overwrite: false);
@@ -150,15 +140,10 @@ public sealed class WallpaperService : IWallpaperService
         state.Items.Remove(item);
         state.RecentIds.Remove(id);
         SaveState(state);
-        try { File.Delete(FilePathFor(item)); } catch { /* file already gone is fine */ }
+        try { File.Delete(FilePathFor(item)); } catch {  }
         return true;
     }
 
-    // ---- Apply ----------------------------------------------------------------
-
-    // Applies one image and fit to one monitor (or all monitors when monitorId is null).
-    // Each monitor is checked by reading the wallpaper back. If the read-back differs,
-    // that monitor is put back to its previous wallpaper and the reason is reported.
     public IReadOnlyList<SettingResult> Apply(string? monitorId, WallpaperLibraryItem item, WallpaperFit fit)
     {
         var results = new List<SettingResult>();
@@ -229,8 +214,6 @@ public sealed class WallpaperService : IWallpaperService
         }
     }
 
-    // PERSONALIZE-REVIEW: slideshow uses IDesktopWallpaper.SetSlideshow. The method
-    // is documented; its effect on the registry was not observed on this machine.
     public IReadOnlyList<SettingResult> StartSlideshow(string folder, int intervalMinutes, bool shuffle)
     {
         string full;
@@ -269,9 +252,6 @@ public sealed class WallpaperService : IWallpaperService
         }
     }
 
-    // Restores every wallpaper value this app has changed, using the snapshot taken
-    // before the first change. Registry values are restored first, then the live
-    // wallpaper and background color are re-synced from them.
     public IReadOnlyList<SettingResult> RevertSection()
     {
         var results = new List<SettingResult>(_applier.RevertWhere(
@@ -283,8 +263,6 @@ public sealed class WallpaperService : IWallpaperService
             }));
         return results;
     }
-
-    // ---- Helpers --------------------------------------------------------------
 
     private void CaptureRegistrySnapshots()
     {
@@ -300,7 +278,6 @@ public sealed class WallpaperService : IWallpaperService
         if (!string.IsNullOrEmpty(previous)) api.SetWallpaper(target, previous);
     }
 
-    // Fit to DESKTOP_WALLPAPER_POSITION (Center 0, Tile 1, Stretch 2, Fit 3, Fill 4, Span 5).
     internal static int MapFit(WallpaperFit fit) => fit switch
     {
         WallpaperFit.Center => DesktopWallpaperPosition.Center,
@@ -312,7 +289,6 @@ public sealed class WallpaperService : IWallpaperService
         _ => throw new ArgumentOutOfRangeException(nameof(fit)),
     };
 
-    // RGB 0xRRGGBB to COLORREF 0x00BBGGRR.
     internal static uint ToColorRef(uint rgb)
     {
         uint r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
@@ -338,7 +314,6 @@ public sealed class WallpaperService : IWallpaperService
         int r = int.Parse(parts[0], CultureInfo.InvariantCulture);
         int g = int.Parse(parts[1], CultureInfo.InvariantCulture);
         int b = int.Parse(parts[2], CultureInfo.InvariantCulture);
-        // COLOR_BACKGROUND live update; the registry value is already restored above.
         return NativeMethods.SetSysColors(1, new[] { NativeMethods.COLOR_BACKGROUND }, new[] { (uint)(r | (g << 8) | (b << 16)) });
     }
 
@@ -351,7 +326,6 @@ public sealed class WallpaperService : IWallpaperService
         SaveState(state);
     }
 
-    // Rejects anything that is not a plain local image file of an allowed type.
     internal static string ValidateSourceImage(string path)
     {
         string full = ValidateLocalPath(path);
@@ -372,7 +346,6 @@ public sealed class WallpaperService : IWallpaperService
         return full;
     }
 
-    // Canonical full path. Rejects UNC and device paths, which can point at the network.
     internal static string ValidateLocalPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("No file was given.");
@@ -392,7 +365,6 @@ public sealed class WallpaperService : IWallpaperService
         }
         catch (JsonException)
         {
-            // PERSONALIZE-REVIEW: a corrupt library file is moved aside, not deleted.
             try { File.Move(_stateFile, _stateFile + ".corrupt", true); } catch { }
             return new WallpaperLibraryState();
         }

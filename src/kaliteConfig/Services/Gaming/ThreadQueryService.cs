@@ -18,7 +18,6 @@ using kaliteConfig.Native;
 
 namespace kaliteConfig.Services;
 
-/// <summary>One live thread row for the rule editor's thread picker.</summary>
 public sealed class LiveThreadInfo
 {
     public int Tid { get; set; }
@@ -30,38 +29,27 @@ public sealed class LiveThreadInfo
     public int Base { get; set; }
 }
 
-/// <summary>One Threads-dialog row, with every column gathered in a single pass.</summary>
 public sealed class LiveThreadDetail
 {
     public int Tid { get; set; }
     public string Description { get; set; } = string.Empty;
     public string StartAddress { get; set; } = string.Empty;
 
-    /// <summary>Current thread priority level (-15 … +15), or null when unreadable.</summary>
     public int? PriorityLevel { get; set; }
 
-    /// <summary>Null = boost state could not be read (treat as allowed).</summary>
     public bool? BoostAllowed { get; set; }
 
-    /// <summary>Affinity mask, null when unreadable.</summary>
     public ulong? AffinityMask { get; set; }
 
-    /// <summary>Preferred CPU, null when the thread has no preference.</summary>
     public int? IdealCpu { get; set; }
     public int? IdealGroup { get; set; }
 
-    /// <summary>Total processor time in seconds, 0 when unreadable.</summary>
     public double CpuSeconds { get; set; }
 }
 
-/// <summary>
-/// Enumerates live threads using OS thread names only - no DbgHelp, so nothing
-/// ever blocks on symbol downloads.
-/// </summary>
 public sealed class ThreadQueryService
 {
 
-    /// <summary>System Informer style: "Time critical", "Below normal", "Custom (3)", "Custom (-4)".</summary>
     public static string FormatRelative(int level) => level switch
     {
         -15 => "Idle",
@@ -74,7 +62,6 @@ public sealed class ThreadQueryService
         _ => $"Custom ({level})",
     };
 
-    /// <summary>Threads with the fields the rule editor's thread picker needs.</summary>
     public static async Task<List<LiveThreadInfo>> ListThreadsAsync(int pid)
     {
         return await Task.Run(() =>
@@ -102,8 +89,6 @@ public sealed class ThreadQueryService
                     return rows;
                 }
 
-                // Modules are re-materialised on every access, so reading them per thread
-                // made this quadratic on a large process.
                 ModuleRange[] modules = ReadModuleRanges(proc);
 
                 foreach (ProcessThread t in threads)
@@ -142,7 +127,6 @@ public sealed class ThreadQueryService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>Every Threads-dialog column for every thread, using one handle per thread.</summary>
     public static async Task<List<LiveThreadDetail>> ListThreadsDetailedAsync(int pid)
     {
         return await Task.Run(() =>
@@ -178,8 +162,6 @@ public sealed class ThreadQueryService
                     int tid = t.Id;
                     var row = new LiveThreadDetail { Tid = tid, StartAddress = "-" };
 
-                    // Free from the already-materialised ProcessThread, and readable even
-                    // when the handle below is refused.
                     try { row.CpuSeconds = t.TotalProcessorTime.TotalSeconds; } catch { }
 
                     try
@@ -197,7 +179,7 @@ public sealed class ThreadQueryService
                         try
                         {
                             if (NativeMethods.Priority.GetThreadPriorityBoost(h, out bool boostDisabled))
-                                row.BoostAllowed = !boostDisabled; // API flag is inverted
+                                row.BoostAllowed = !boostDisabled;
                         }
                         catch { }
 
@@ -221,7 +203,6 @@ public sealed class ThreadQueryService
                     }
                     catch
                     {
-                        // Keep the cheap reads rather than dropping the row entirely.
                         if (string.IsNullOrEmpty(row.Description)) row.Description = "(unnamed)";
                     }
 
@@ -233,7 +214,6 @@ public sealed class ThreadQueryService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>First running process matching a rule pattern (supports * wildcards, with/without .exe).</summary>
     public static int FindPid(string pattern)
     {
         if (string.IsNullOrWhiteSpace(pattern)) return 0;
@@ -266,7 +246,6 @@ public sealed class ThreadQueryService
 
     private readonly record struct ModuleRange(long Base, long Size, string Name);
 
-    /// <summary>Modules as sorted address ranges; empty when the list is unreadable.</summary>
     private static ModuleRange[] ReadModuleRanges(Process proc)
     {
         try
@@ -286,7 +265,6 @@ public sealed class ThreadQueryService
         }
     }
 
-    /// <summary>"mod.dll+0x1A2B" for an address inside a module, else the raw address.</summary>
     private static string ResolveStart(ProcessThread t, ModuleRange[] modules, SafeThreadHandle? handle = null)
     {
         long addr = 0;
@@ -315,7 +293,6 @@ public sealed class ThreadQueryService
         return FormatAddress(addr, modules);
     }
 
-    /// <summary>"mod.dll+0x1A2B" or "0x7FF..." - binary search over sorted ranges.</summary>
     private static string FormatAddress(long addr, ModuleRange[] modules)
     {
         int lo = 0, hi = modules.Length - 1;

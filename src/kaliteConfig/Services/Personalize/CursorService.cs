@@ -8,10 +8,6 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services.Personalize;
 
-// Pointer scheme, size, mouse and caret settings. Every write goes through the
-// shared SettingApplier, so each value is snapshotted, verified and rolled back.
-// Registry names were read on this machine (HKCU\Control Panel\Cursors, \Mouse,
-// \Desktop). The SPI constants are from the SystemParametersInfo docs page.
 public sealed class CursorService : ICursorService
 {
     public const string CursorsKey = @"Control Panel\Cursors";
@@ -21,8 +17,6 @@ public sealed class CursorService : ICursorService
     private const uint SpiFlags = NativeMethods.SPIF_UPDATEINIFILE | NativeMethods.SPIF_SENDCHANGE;
     private const long MaxCursorBytes = 2 * 1024 * 1024;
 
-    // PERSONALIZE-REVIEW: the accepted ranges are conservative choices. Windows does not
-    // document a range for the pointer size here, so they are not verified.
     public const int MinPointerSize = 32;
     public const int MaxPointerSize = 128;
     public const int MinCaretWidth = 1;
@@ -36,8 +30,6 @@ public sealed class CursorService : ICursorService
         "SizeNS", "SizeWE", "SizeNWSE", "SizeNESW", "SizeAll", "UpArrow", "Hand",
     };
 
-    // Windows default pointer files, as observed in HKCU on this machine.
-    // An empty string means "use the built-in default".
     private static readonly (string Role, string File)[] DefaultFiles =
     {
         ("Arrow", "aero_arrow.cur"), ("Help", "aero_helpsel.cur"),
@@ -48,7 +40,6 @@ public sealed class CursorService : ICursorService
         ("Hand", "aero_link.cur"),
     };
 
-    // File-name aliases used when importing a scheme folder.
     private static readonly (string Role, string[] Aliases)[] RoleAliases =
     {
         ("Arrow", new[] { "arrow", "normal", "aero_arrow" }),
@@ -82,8 +73,6 @@ public sealed class CursorService : ICursorService
 
     public IReadOnlyList<string> RoleNames => Roles;
 
-    // ---- reads ----------------------------------------------------------------
-
     public IReadOnlyDictionary<string, string> CurrentScheme()
     {
         var map = new Dictionary<string, string>();
@@ -113,8 +102,6 @@ public sealed class CursorService : ICursorService
 
     public int CurrentCaretWidth() => ReadInt(DesktopKey, "CaretWidth", 1);
 
-    // ---- cursor files ---------------------------------------------------------
-
     public (string? Path, string? Error) ImportCursorFile(string sourcePath)
     {
         var error = ValidateCursorFile(sourcePath, out var full);
@@ -124,7 +111,6 @@ public sealed class CursorService : ICursorService
         var dest = Path.Combine(_store, Guid.NewGuid().ToString("N") + Path.GetExtension(full).ToLowerInvariant());
         File.Copy(full, dest, overwrite: false);
 
-        // Check the copy as well, so the app only ever uses files it has verified itself.
         var copyError = ValidateCursorFile(dest, out var destFull);
         if (copyError is not null)
         {
@@ -172,11 +158,8 @@ public sealed class CursorService : ICursorService
         return new SchemeScan(mapping, skipped);
     }
 
-    // ---- writes ---------------------------------------------------------------
-
     public IReadOnlyList<SettingResult> ApplyScheme(IReadOnlyDictionary<string, string> roleToPath)
     {
-        // Validate the whole batch before writing anything, so a bad file applies nothing.
         var normalized = new Dictionary<string, string>();
         foreach (var (role, path) in roleToPath)
         {
@@ -220,8 +203,6 @@ public sealed class CursorService : ICursorService
         if (o.WheelLines < 1 || o.WheelLines > MaxWheelLines)
             return Fail("cursor.wheel", $"Scroll lines must be between 1 and {MaxWheelLines}.");
 
-        // PERSONALIZE-REVIEW: thresholds 6 and 10 are the standard Windows precision values.
-        // They are not verified on this machine. Revert restores whatever was there before.
         string t1 = o.EnhancedPrecision ? "6" : "0";
         string t2 = o.EnhancedPrecision ? "10" : "0";
         string accel = o.EnhancedPrecision ? "1" : "0";
@@ -247,7 +228,6 @@ public sealed class CursorService : ICursorService
         });
     }
 
-    // Restores every cursor-section value to what it was before the app first changed it.
     public IReadOnlyList<SettingResult> RevertSection() =>
         _applier.RevertWhere(
             e => e.Id.StartsWith("cursor.", StringComparison.Ordinal),
@@ -261,22 +241,15 @@ public sealed class CursorService : ICursorService
                 ("caret", SyncCaret),
             });
 
-    // Sets the section to the Windows defaults. Unlike RevertSection, this does not restore
-    // the values from before the app ran; it writes the default values.
     public IReadOnlyList<SettingResult> ResetToWindowsDefaults()
     {
         var results = new List<SettingResult>();
         results.AddRange(ApplyScheme(WindowsDefaultScheme()));
         results.AddRange(ApplyPointerSize(32));
-        // PERSONALIZE-REVIEW: the default-value choices (speed 10, precision on, trails 0,
-        // 3 wheel lines, caret 1) were read on this machine, but precision-on and trails 0
-        // are not confirmed as Windows defaults on every build.
         results.AddRange(ApplyMouse(new MouseOptions(10, true, 0, 3)));
         results.AddRange(ApplyCaretWidth(1));
         return results;
     }
-
-    // ---- live syncs -----------------------------------------------------------
 
     private static bool ReloadCursors() =>
         NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETCURSORS, 0, IntPtr.Zero, SpiFlags);
@@ -308,8 +281,6 @@ public sealed class CursorService : ICursorService
         NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETCARETWIDTH,
             (uint)ReadInt(DesktopKey, "CaretWidth", 1), IntPtr.Zero, SpiFlags);
 
-    // ---- helpers --------------------------------------------------------------
-
     private static IReadOnlyList<SettingResult> Fail(string id, string message) =>
         new[] { new SettingResult(id, false, message) };
 
@@ -325,9 +296,6 @@ public sealed class CursorService : ICursorService
         return null;
     }
 
-    // Returns null when the file is safe to use. Otherwise returns the reason.
-    // Checks: extension allowlist, not UNC, exists, size cap, file header, and that
-    // Windows actually loads it as a cursor.
     public static string? ValidateCursorFile(string path, out string fullPath)
     {
         fullPath = string.Empty;

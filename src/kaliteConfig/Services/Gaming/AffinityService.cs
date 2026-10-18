@@ -22,18 +22,8 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services
 {
-    /// <summary>
-    /// Read-only device inventory for the affinity page (layout pass: no system
-    /// changes). Walks HKLM\SYSTEM\CurrentControlSet\Enum\PCI - graphics, NIC,
-    /// USB and audio controllers are all PCI devices - and keeps entries whose
-    /// setup class is Display, Net, USB or MEDIA. IRQ/affinity policy writes
-    /// land here in the tuning pass.
-    /// </summary>
     public class AffinityService
     {
-        // PCI covers GPU/NIC/USB controllers; HD Audio codecs enumerate under
-        // HDAUDIO; USB audio gear and USB NIC dongles enumerate under USB
-        // (hubs and peripherals are filtered by class below).
         private static readonly string[] EnumRoots = new[]
         {
             @"SYSTEM\CurrentControlSet\Enum\PCI",
@@ -64,30 +54,17 @@ namespace kaliteConfig.Services
                                 using var key = deviceKey.OpenSubKey(instance);
                                 if (key is null) continue;
 
-                                // Skip phantom entries (hardware no longer present -
-                                // stale reinstall leftovers that inflate device counts).
                                 if (key.GetValue("Phantom") is int phantom && phantom == 1) continue;
 
-                                // DeviceInstanceId keeps the FULL path ("PCI\VEN_…\instance"),
-                                // exactly like the reference tool's PnpDeviceId - every
-                                // registry read/write builds Enum\{id}\… straight from it.
                                 string busPrefix = root.Substring(root.LastIndexOf('\\') + 1);
                                 string instanceId = busPrefix + "\\" + device + "\\" + instance;
-                                // The 'Phantom' value is unreliable - a disabled iGPU
-                                // (e.g. AMD Radeon Graphics while a dGPU drives the
-                                // display) keeps its Enum key with no Phantom value but
-                                // isn't in the live devnode tree. Ask cfgmgr32 directly.
                                 if (!NativeMethods.CfgMgr32.IsDevicePresent(instanceId)) continue;
 
-                                // ClassGUID usually lives on the instance; fall back to the
-                                // parent device key so real devices are never dropped.
                                 string classGuid = (key.GetValue("ClassGUID") as string ?? "").Trim();
                                 if (string.IsNullOrEmpty(classGuid))
                                     classGuid = (deviceKey.GetValue("ClassGUID") as string ?? "").Trim();
                             string? category = MapClass(classGuid);
                             if (category is null) continue;
-                            // USB hubs/functions aren't controllers: from the USB bus
-                            // only audio gear (DACs/headsets) and NIC dongles count.
                             if (root.EndsWith(@"\USB", StringComparison.OrdinalIgnoreCase) &&
                                 category != "Graphics" && category != "Network" && category != "Audio")
                                 continue;
@@ -95,9 +72,6 @@ namespace kaliteConfig.Services
                                 string rawName = (key.GetValue("DeviceDesc") as string ?? "").Trim();
                                 string name = FriendlyName(rawName);
                                 if (string.IsNullOrEmpty(name) || IsVirtualAdapter(name)) continue;
-                                // Dedupe by instance path, never by name: identical
-                                // adapters (e.g. two matching USB controllers) are
-                                // distinct tunable devices.
                                 if (!seen.Add(instanceId)) continue;
 
                                 result.Add(new AffinityDeviceItem
@@ -132,8 +106,6 @@ namespace kaliteConfig.Services
             };
         }
 
-        // Virtual/host adapters (Hyper-V, VMware, ...) and generic placeholders
-        // ("Basic Display", "Remote Display") have no tunable interrupt policy.
         private static bool IsVirtualAdapter(string name)
         {
             return name.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase)
@@ -149,10 +121,6 @@ namespace kaliteConfig.Services
                 || name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase);
         }
 
-        // Identical adapters (e.g. four "USB xHCI Compliant Host Controller"
-        // instances) are distinct tunable devices but indistinguishable by name,
-        // so later duplicates get a vendor suffix ("(AMD)") or a #N fallback -
-        // the same convention Device Manager uses.
         private static void DisambiguateDuplicates(List<Models.AffinityDeviceItem> devices)
         {
             foreach (var group in devices.GroupBy(d => d.Name).Where(g => g.Count() > 1))
@@ -181,11 +149,6 @@ namespace kaliteConfig.Services
             return string.Empty;
         }
 
-        /// <summary>
-        /// Read-only snapshot of a device's interrupt state (same keys MSI-utility
-        /// tools display). Missing keys yield nulls - the UI renders "-".
-        /// Never writes; the tuning pass adds the writers.
-        /// </summary>
         public sealed record InterruptInfo(
             bool? MsiSupported,
             uint? MsiLimit,
@@ -212,10 +175,6 @@ namespace kaliteConfig.Services
                 using var affKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(mgmt + @"\Affinity Policy");
                 if (affKey?.GetValue("DevicePolicy") is int dp) policy = dp;
                 if (affKey?.GetValue("DevicePriority") is int dpr) priority = dpr;
-                // The registry MaxMessageNumberLimit is usually absent - fall back
-                // to the SetupDi device property, exactly like the reference tool.
-                // That property is elevation-gated, so a last-known-good cache
-                // (written by elevated runs) covers non-elevated scans.
                 if (maxLimit is null or 0)
                 {
                     maxLimit = GetSetupDiMaxMsiLimit(deviceInstanceId);
@@ -237,21 +196,10 @@ namespace kaliteConfig.Services
             return new InterruptInfo(msi, limit, maxLimit, policy, priority, mask);
         }
 
-        // Values match the reference tool exactly: policy 3 is
-        // IrqPolicyAllProcessorsInMachine, and priorities are
-        // 0 = Undefined, 1 = Low, 2 = Normal, 3 = High.
-        // A missing key means 0 (OS default), exactly like the reference
-        // tool whose DeviceInfo initializes the policy to 0.
-        /// <summary>
-        /// Hardware maximum MSI messages via SetupDi + DEVPKEY_PciDevice_
-        /// InterruptMessageMaximum - the reference tool's exact mechanism.
-        /// Null when the device has no such property (non-PCI or query failed).
-        /// </summary>
         public static uint? GetSetupDiMaxMsiLimit(string fullInstanceId)
         {
             try
             {
-                // PCI-only property; the class GUID scopes the enumeration.
                 if (!fullInstanceId.StartsWith("PCI\\", StringComparison.OrdinalIgnoreCase))
                     return null;
                 string? classGuidText = null;
@@ -367,7 +315,7 @@ namespace kaliteConfig.Services
                     json = JsonSerializer.Serialize(cache, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(path, json);
             }
-            catch { /* cache is best-effort (e.g. non-elevated runs can't write ProgramData) */ }
+            catch {  }
         }
 
         public static string DevicePolicyName(int? v) => (v ?? 0) switch
@@ -401,8 +349,6 @@ namespace kaliteConfig.Services
             _ => "Undefined"
         };
 
-        /// <summary>"2, 3" style list of assigned processors, like the reference
-        /// tool (blank when nothing is explicitly assigned).</summary>
         public static string AffinityMaskText(ulong? mask)
         {
             if (mask is null || mask == 0) return string.Empty;
@@ -413,7 +359,6 @@ namespace kaliteConfig.Services
             return string.Join(", ", bits);
         }
 
-        // DeviceDesc is often "@oemNN.inf,%token%;Friendly Name" - keep the friendly tail.
         private static string FriendlyName(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
@@ -422,9 +367,6 @@ namespace kaliteConfig.Services
             return string.IsNullOrWhiteSpace(candidate) ? raw.Trim() : candidate;
         }
 
-        // ── Registry Write Methods (tuning pass) ────────────────────────────
-
-        /// <summary>Enables or disables MSI mode. Returns true if the write succeeded.</summary>
         public bool SetMsiEnabled(string deviceId, bool enabled)
         {
             try
@@ -449,11 +391,6 @@ namespace kaliteConfig.Services
             }
         }
         
-        /// <summary>
-        /// Deletes a value under MessageSignaledInterruptProperties. The
-        /// reference tool deletes MessageNumberLimit to mean "Auto" (0).
-        /// Returns true on success.
-        /// </summary>
         public bool ClearMsiValue(string deviceId, string valueName)
         {
             try
@@ -470,7 +407,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>Sets the MSI Limit. Returns true if the write succeeded.</summary>
         public bool SetMsiLimit(string deviceId, int limit)
         {
             try
@@ -494,7 +430,6 @@ namespace kaliteConfig.Services
             }
         }
         
-        /// <summary>Sets the Max MSI Limit. Returns true if the write succeeded.</summary>
         public bool SetMaxMsiLimit(string deviceId, int limit)
         {
             try
@@ -518,7 +453,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>Sets DevicePolicy (0-5). Returns true if the write succeeded.</summary>
         public bool SetDevicePolicy(string deviceId, int policy)
         {
             try
@@ -542,7 +476,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>Sets DevicePriority (0=Low, 1=Normal, 2=High). Returns true if the write succeeded.</summary>
         public bool SetDevicePriority(string deviceId, int priority)
         {
             try
@@ -566,10 +499,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Sets the AssignmentSetOverride bitmask (affinity mask). Pass 0 to clear
-        /// (remove the value and let the OS decide). Returns true if the write succeeded.
-        /// </summary>
         public bool SetAffinityMask(string deviceId, ulong mask)
         {
             try
@@ -613,10 +542,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Deletes the affinity-related registry values, effectively restoring the
-        /// device to OS defaults for that property. Returns true on success.
-        /// </summary>
         public bool ClearAffinityPolicy(string deviceId, string valueName)
         {
             try
@@ -641,12 +566,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Programs the NIC RSS keys (*RSS, *RssBaseProcNumber, *MaxProcessors)
-        /// for wired NDIS adapters, mirroring the reference tool. A zero mask
-        /// removes the keys. Returns true on success (or when there is nothing
-        /// to do for non-wired / NetAdapterCx adapters).
-        /// </summary>
         public bool SetRSS(string deviceInstanceId, ulong mask)
         {
             try
@@ -657,7 +576,6 @@ namespace kaliteConfig.Services
                 if (string.IsNullOrWhiteSpace(driver)) return false;
                 using var classKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Control\Class\{driver}", writable: true);
                 if (classKey is null) return false;
-                // Wired LAN only, like the reference (*PhysicalMediaType 14).
                 if (!string.Equals(classKey.GetValue("*PhysicalMediaType")?.ToString(), "14", StringComparison.Ordinal)) return true;
                 if (IsNetAdapterCx(classKey)) return true;
 
@@ -685,8 +603,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        // True for NetAdapterCx drivers (reference tool only programs RSS for
-        // legacy NDIS). Unknowns default to legacy behavior, like the reference.
         private static bool IsNetAdapterCx(Microsoft.Win32.RegistryKey classKey)
         {
             try
@@ -709,12 +625,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Full registry instance path for an enumerated device. IDs stored by
-        /// enumeration already carry the bus prefix ("PCI\VEN_xxxx…\instance");
-        /// legacy unprefixed IDs are resolved by probing the known buses.
-        /// Returns null when no bus holds the device any more.
-        /// </summary>
         internal static string? ResolveFullInstanceId(string deviceInstanceId)
         {
             if (string.IsNullOrWhiteSpace(deviceInstanceId)) return null;
@@ -732,24 +642,13 @@ namespace kaliteConfig.Services
             return null;
         }
 
-        /// <summary>
-        /// True while the device is still enumerated. Restarting a GPU (or
-        /// installing a driver) re-enumerates the adapter and can hand it a new
-        /// instance suffix, which left the Affinity page holding rows whose
-        /// interrupt keys no longer existed - reads came back empty and writes
-        /// silently landed nowhere.
-        /// </summary>
         public bool DeviceExists(string deviceInstanceId)
             => ResolveFullInstanceId(deviceInstanceId) is not null;
 
-        /// <summary>
-        /// Restarts a device via pnputil so the updated interrupt settings take effect.
-        /// </summary>
         public static async Task RestartDeviceAsync(string deviceInstanceId)
         {
             try
             {
-                // pnputil needs the full bus-prefixed ID ("PCI\VEN_xxxx...\instance").
                 string fullId = ResolveFullInstanceId(deviceInstanceId) ?? deviceInstanceId;
 
                 var psi = new ProcessStartInfo

@@ -7,10 +7,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Required">
 
-    <!-- Tab strip: a SelectorBar, not a top NavigationView. The top NavView
-         always drew a faint divider rule under its tabs and its items stayed
-         small; the SelectorBar takes 18px semibold tabs with generous padding
-         and no rule underneath. Same tab-host pattern as InstallerPage. -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

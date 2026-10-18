@@ -32,8 +32,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
 
     public ObservableCollection<UninstallerItem> Apps { get; } = new();
 
-    // ---- Driver packages section (driver store, oem##.inf) ----
-
     public ObservableCollection<DriverPackageItem> DriverPackages { get; } = new();
     public ObservableCollection<DriverPackageItem> FilteredDrivers { get; } = new();
 
@@ -113,7 +111,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 }
                 catch (Exception ex) { errors.Add($"{driver.PublishedName}: {ex.Message}"); }
             }
-            IsLoadingDrivers = false; // release first: reload guards on it
+            IsLoadingDrivers = false;
             await LoadDriversAsync();
             DriverActionStatus = errors.Count == 0
                 ? $"Removed {ok} driver package{(ok == 1 ? "" : "s")}. A restart may be needed for devices using them."
@@ -121,8 +119,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
         }
         finally { IsLoadingDrivers = false; }
     }
-
-    // ---- Startup tab (Run values, services, scheduled tasks) ----
 
     public ObservableCollection<StartupEntry> StartupHkcu { get; } = new();
     public ObservableCollection<StartupEntry> FilteredHkcu { get; } = new();
@@ -133,8 +129,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public ObservableCollection<StartupEntry> StartupTasks { get; } = new();
     public ObservableCollection<StartupEntry> FilteredTasks { get; } = new();
 
-    /// <summary>The side panel's sources. One list is shown at a time; the counts are
-    /// post-filter so the panel agrees with what the list shows.</summary>
     public ObservableCollection<StartupSectionVm> StartupSections { get; } = new()
     {
         new StartupSectionVm("HKCU Run",
@@ -153,7 +147,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public StartupSectionVm CurrentStartupSection =>
         StartupSections[Math.Clamp(StartupSectionIndex, 0, StartupSections.Count - 1)];
 
-    /// <summary>The list for the selected source - never all four at once.</summary>
     public ObservableCollection<StartupEntry> CurrentStartupEntries => StartupSectionIndex switch
     {
         0 => FilteredHkcu,
@@ -162,7 +155,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
         _ => FilteredTasks,
     };
 
-    /// <summary>Only the selected source's list is on screen.</summary>
     public Microsoft.UI.Xaml.Visibility HkcuVis => SourceVis(0);
     public Microsoft.UI.Xaml.Visibility HklmVis => SourceVis(1);
     public Microsoft.UI.Xaml.Visibility ServicesVis => SourceVis(2);
@@ -171,13 +163,11 @@ public sealed partial class UninstallerViewModel : ObservableObject
     private Microsoft.UI.Xaml.Visibility SourceVis(int index) => StartupSectionIndex == index
         ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    /// <summary>The "hide Microsoft services" switch describes services only.</summary>
     public Microsoft.UI.Xaml.Visibility MicrosoftFilterVis => SourceVis(2);
 
     public Microsoft.UI.Xaml.Visibility EmptyVis => CurrentStartupEntries.Count == 0
         ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    /// <summary>The Type column means something different per source; Run values have none.</summary>
     public string TypeHeaderText => StartupSectionIndex switch
     {
         2 => "Start mode",
@@ -287,11 +277,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
         foreach (var e in items) { e.PropertyChanged += OnStartupEntryToggled; target.Add(e); }
     }
 
-    /// <summary>
-    /// Commits checkbox flips through the service (same pattern as the
-    /// kernel-tweak toggles in PowerPlansViewModel). Reverts the checkbox
-    /// when the write fails so the UI never lies about the applied state.
-    /// </summary>
     private async void OnStartupEntryToggled(object? sender, PropertyChangedEventArgs e)
     {
         if (_suppressStartupToggle || e.PropertyName != nameof(StartupEntry.IsEnabled)) return;
@@ -342,10 +327,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
     public partial int FilterIndex { get; set; }
     [ObservableProperty]
     public partial bool ShowSystem { get; set; }
-    /// <summary>
-    /// True while the Uninstaller tab is active. The search/sort/export
-    /// toolbar describes applications only, so it hides on the other tabs.
-    /// </summary>
     [ObservableProperty]
     public partial bool IsUninstallerTabActive { get; set; } = true;
     [ObservableProperty]
@@ -394,11 +375,9 @@ public sealed partial class UninstallerViewModel : ObservableObject
         SummaryText = $"{FilteredApps.Count} shown • {Apps.Count} installed • {total} registered";
         InfoText = $"{Apps.Count} applications found.";
         HasResults = FilteredApps.Count > 0;
-        // Newly visible rows may still lack icons - loader is re-entrancy guarded.
         _ = LoadIconsAsync();
     }
 
-    // Monitor State
     [ObservableProperty]
     public partial bool IsMonitoring { get; set; }
     private bool _iconsLoading;
@@ -433,10 +412,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
             }
             UpdateFilter();
             LoadingStatus = "Measuring install folders…";
-            // Real per-app icons (UI thread, small batches so the list stays fluid).
             _ = LoadIconsAsync();
-            // Background real-size enrichment; applied on the UI thread so
-            // PropertyChanged always fires where the bindings live.
             LoadingStatus = "Measuring install folders…";
             _ = _uninstallService.ComputeRealSizesAsync(apps, CancellationToken.None)
                 .ContinueWith(t =>
@@ -479,12 +455,10 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 try
                 {
                     LoadingStatus = $"Uninstalling {app.Name}…";
-                    // Run standard uninstall (returns an error string, null = launched OK)
                     var err = await Task.Run(() => _uninstallService.Uninstall(app));
                     if (err != null) { errors.Add($"{app.Name}: {err}"); continue; }
                     ok++;
 
-                    // Ask scanner for leftovers
                     var leftovers = await _scannerService.ScanLeftoversAsync(app);
                     if (leftovers.Count > 0)
                     {
@@ -494,7 +468,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 catch (Exception ex) { errors.Add($"{app.Name}: {ex.Message}"); }
             }
 
-            // Refresh list (LoadAppsAsync guards on IsLoading - release first)
             IsLoading = false;
             await LoadAppsAsync();
             ActionStatus = errors.Count == 0
@@ -516,7 +489,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
             do
             {
                 _iconsDirty = false;
-                // Filtered order = what the user actually sees; cap keeps startup fast.
                 var pending = FilteredApps.Take(400).Where(a => a.Icon == null).ToList();
                 using var gate = new SemaphoreSlim(8);
                 var tasks = pending.Select(async app =>
@@ -575,18 +547,14 @@ public sealed partial class UninstallerViewModel : ObservableObject
                     var notes = await Task.Run(() =>
                     {
                         var n = new List<string>();
-                        // 1. Delete the install directory if it still exists.
                         if (_uninstallService.RemoveInstallDirectory(app))
                             n.Add("install folder deleted");
-                        // 2. Scan & clean leftover files/registry matches.
                         var leftovers = _scannerService.ScanLeftoversAsync(app).GetAwaiter().GetResult();
                         if (leftovers.Count > 0)
                         {
                             _scannerService.CleanLeftoversAsync(leftovers).GetAwaiter().GetResult();
                             n.Add($"{leftovers.Count} leftover path(s) cleaned");
                         }
-                        // 3. Remove the uninstall registry entry so the app
-                        //    disappears from this list and Windows' own list.
                         int reg = _uninstallService.RemoveRegistryEntry(app);
                         if (reg > 0) n.Add("uninstall entry removed");
                         return n;
@@ -597,7 +565,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 }
                 catch (Exception ex) { errors.Add($"{app.Name}: {ex.Message}"); }
             }
-            IsLoading = false; // LoadAppsAsync guards on IsLoading - release first
+            IsLoading = false;
             await LoadAppsAsync();
             ActionStatus = errors.Count == 0
                 ? $"Force-removed residue for {cleaned} application{(cleaned == 1 ? "" : "s")}."
@@ -666,7 +634,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
             LatestSnapshotDiff = await _monitorService.CompareSnapshotsAsync(_beforeSnapshot, afterSnapshot, CancellationToken.None);
             
             MonitorStatus = $"Diff Complete: {LatestSnapshotDiff.AddedFiles.Count} files, {LatestSnapshotDiff.AddedRegistryKeys.Count} registry keys.";
-            _beforeSnapshot = null; // Reset
+            _beforeSnapshot = null;
         }
         catch (Exception ex)
         {
@@ -679,10 +647,6 @@ public sealed partial class UninstallerViewModel : ObservableObject
     }
 }
 
-/// <summary>
-/// One source in the Startup tab's side panel: its title, what the source means,
-/// and how many of its entries survive the current search / hide filter.
-/// </summary>
 public sealed partial class StartupSectionVm : ObservableObject
 {
     public string Title { get; }

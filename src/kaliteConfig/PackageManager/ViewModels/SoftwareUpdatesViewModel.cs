@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.ViewModels;
 
-/// <summary>Software Updates: aggregate upgradable rows, bulk update, CSV export.</summary>
 public sealed partial class SoftwareUpdatesViewModel : PackageListViewModelBase
 {
     protected override bool SourceEligible(IPackageSource source) => source.CanListUpdates;
@@ -104,7 +103,6 @@ public sealed partial class SoftwareUpdatesViewModel : PackageListViewModelBase
         await LoadAsync(CancellationToken.None);
     }
 
-    /// <summary>Queues updates for the selection (bulk continues past failures).</summary>
     public async Task<IReadOnlyList<(PackageInfo Item, PackageOperationResult Result)>> UpdateSelectionAsync(
         IReadOnlyList<PackageInfo> selection, CancellationToken ct)
     {

@@ -87,7 +87,6 @@
         <ProgressBar Grid.Row="2" Margin="28,0,28,8" IsIndeterminate="True"
                      Visibility="{x:Bind ViewModel.IsCapturing, Mode=OneWay}" />
 
-        <!-- Capture -->
         <Grid x:Name="CapturePanel" Grid.Row="3" Margin="28,0,28,24" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
@@ -123,7 +122,6 @@
                 <NumberBox CornerRadius="8" Value="{x:Bind ViewModel.CountdownSec, Mode=TwoWay}" Minimum="0" Maximum="30"
                            VerticalAlignment="Center" SpinButtonPlacementMode="Compact" Width="130"
                            PlaceholderText="Countdown (s)" ToolTipService.ToolTip="Countdown in seconds before capture starts." />
-                <!-- BUTTON-REVIEW: Start capture and Stop merged into one toggle. Label and glyph follow IsCapturing. Accent dropped: the merged button cannot hold one accent in both states. -->
                 <Button Command="{x:Bind ViewModel.ToggleCaptureCommand}" VerticalAlignment="Center"
                         ToolTipService.ToolTip="Start a capture, or stop the running one">
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -203,7 +201,6 @@
             </Border>
         </Grid>
 
-        <!-- Runs -->
         <Grid x:Name="RunsPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
@@ -285,7 +282,6 @@
             </StackPanel>
         </Grid>
 
-        <!-- Analysis -->
         <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceScrollViewer}">
             <StackPanel x:Name="AnalysisContent" Spacing="12">
                 <TextBlock x:Name="ReportHeader" Text="{x:Bind ViewModel.ReportHeaderText, Mode=OneWay}"
@@ -386,7 +382,6 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Compare -->
         <Grid x:Name="ComparePanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -455,10 +450,7 @@
             </Grid>
         </Grid>
 
-        <!-- Export -->
         <Border x:Name="ExportPanel" Grid.Row="3" Margin="28,0,28,24" Style="{StaticResource BenchCard}" Visibility="Collapsed">
-            <!-- Keeps BenchCard's own fills; the entrance is added inline so the
-                 style does not have to be BasedOn an entrance style. -->
             <Border.Transitions>
                 <TransitionCollection>
                     <EntranceThemeTransition FromHorizontalOffset="0" FromVerticalOffset="40" />

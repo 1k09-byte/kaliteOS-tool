@@ -13,29 +13,19 @@ using System.Collections.Generic;
 
 namespace kaliteConfig.GpuOverclock.Models
 {
-    /// <summary>How the fan loop behaves when a profile with fan settings is applied.</summary>
     public enum GpuFanMode
     {
-        /// <summary>Driver default - an explicit restore call, never "just stop writing".</summary>
         Auto,
 
-        /// <summary>Fixed percentage, one write.</summary>
         Static,
 
-        /// <summary>Temperature-driven curve evaluated by FanCurveExecutionService.</summary>
         Curve,
     }
 
-    /// <summary>One point of the fan curve: at this temp, run this %.</summary>
     public sealed record FanCurvePoint(int TempC, int FanPercent);
 
-    /// <summary>
-    /// Named overclock profile. Schema version on save so future fields don't
-    /// break previously saved JSON (ProfileStorageService).
-    /// </summary>
     public sealed class OverclockProfile
     {
-        /// <summary>Bump when the persisted shape changes; loader migrates/ignores unknowns.</summary>
         public const int CurrentSchemaVersion = 2;
 
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -47,20 +37,8 @@ namespace kaliteConfig.GpuOverclock.Models
         public double? PowerLimitPercent { get; set; }
         public int? TempLimitC { get; set; }
 
-        /// <summary>
-        /// Per-point V/F curve offsets in driver point order (v2). Null/empty
-        /// means "this profile doesn't touch the curve". Lengths are matched
-        /// against the live curve on apply - a count mismatch skips the curve
-        /// portion rather than writing misaligned points.
-        /// </summary>
         public List<int>? VfCurveOffsets { get; set; }
 
-        /// <summary>
-        /// Simple-mode flat V/F offset (v2). UI convenience only: when set and
-        /// VfCurveOffsets is absent, apply expands it uniformly across all
-        /// points (clamped per-point). When both are present, the per-point
-        /// table wins.
-        /// </summary>
         public int? GlobalVoltageBoostOffsetMHz { get; set; }
 
         public GpuFanMode FanMode { get; set; } = GpuFanMode.Auto;
@@ -70,35 +48,15 @@ namespace kaliteConfig.GpuOverclock.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? LastAppliedAt { get; set; }
 
-        /// <summary>
-        /// Set when a profile's batch survived its confirmation window (or was
-        /// re-applied identically after a prior confirm). A profile with a
-        /// non-null ConfirmedAt is "pre-boot validated": startup reapply may
-        /// skip the interactive countdown (see OverclockViewModel).
-        /// Not exposed in the UI as an editable field.
-        /// </summary>
         public DateTime? ConfirmedAt { get; set; }
 
-        /// <summary>UI projection: this profile survived a confirmation window (pre-boot validated).</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public bool HasConfirmedAt => ConfirmedAt is not null;
 
-        /// <summary>
-        /// Auto-switch eligibility (v2, per-game profiles): true only after
-        /// this profile was manually applied AND confirmed by the user through
-        /// the normal interactive safety state machine in a plain desktop
-        /// context - never set by startup reapply or game auto-apply paths.
-        /// A profile that was never manually validated can never auto-apply.
-        /// </summary>
         public bool HasBeenManuallyValidated { get; set; }
 
-        /// <summary>When the manual validation above happened.</summary>
         public DateTime? LastValidatedAt { get; set; }
 
-        /// <summary>
-        /// UI projection set by ProfileStorageService.LoadAll: this profile is
-        /// the one designated for startup reapply. Not serialized.
-        /// </summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public bool IsStartupDefault { get; set; }
 
@@ -125,7 +83,6 @@ namespace kaliteConfig.GpuOverclock.Models
         }
     }
 
-    /// <summary>Why a change was made - the audit trail's "who asked for this".</summary>
     public enum OverclockChangeSource
     {
         Manual,
@@ -133,14 +90,9 @@ namespace kaliteConfig.GpuOverclock.Models
         StartupApply,
         AutoRevert,
 
-        /// <summary>
-        /// Unattended per-game auto-switch. Appended last so the log viewer's
-        /// index-based filter mapping for the earlier values never shifts.
-        /// </summary>
         GameAutoApply,
     }
 
-    /// <summary>Outcome of a logged change.</summary>
     public enum OverclockChangeResult
     {
         Success,
@@ -148,7 +100,6 @@ namespace kaliteConfig.GpuOverclock.Models
         Failed,
     }
 
-    /// <summary>One audited change (what this app actually touched, and when).</summary>
     public sealed record AppliedChangeLogEntry
     {
         public required DateTime Timestamp { get; init; }
@@ -159,7 +110,6 @@ namespace kaliteConfig.GpuOverclock.Models
         public required OverclockChangeResult Result { get; init; }
         public string? FailureReason { get; init; }
 
-        // Display-only projections for the in-app log viewer (not serialized).
         [System.Text.Json.Serialization.JsonIgnore]
         public string TimestampDisplay => Timestamp.ToString("HH:mm:ss");
 

@@ -18,22 +18,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>
-/// WinGet backend over winget.exe CLI.
-///
-/// WHY CLI, NOT COM: Microsoft.Management.Deployment (the WinGet COM API)
-/// does not resolve in this app's dependency context (verified: CS0234 with
-/// and without the WindowsAppSDK reference - only Microsoft.Windows.* MSIX
-/// projections ship). winget.exe v1.29 here also offers no --output json, so
-/// this backend parses the human-readable tables with dash-anchored column
-/// slicing (never whitespace-splitting, so names/ids with spaces survive).
-/// That makes this parser the fragile heart of the backend: it is isolated
-/// in pure static methods covered by tools/PackageVerify, and unknown lines
-/// are skipped loudly (rows dropped) rather than misread. A future winget
-/// with stable JSON output should replace ParsePackageTable, not patch it.
-///
-/// Verified live against winget v1.29.290 (list/upgrade/search/install flags).
-/// </summary>
 public sealed class WinGetPackageSource : IPackageSource
 {
     public string SourceId => PackageSourceIds.WinGet;
@@ -47,7 +31,6 @@ public sealed class WinGetPackageSource : IPackageSource
     public bool CanListInstalled => true;
     public bool CanListUpdates => true;
 
-    /// <summary>Optional executable override (preferences page) - null means PATH lookup.</summary>
     public string? ExecutableOverride { get; set; }
 
     private string Exe => string.IsNullOrWhiteSpace(ExecutableOverride) ? "winget" : ExecutableOverride!.Trim();
@@ -70,7 +53,7 @@ public sealed class WinGetPackageSource : IPackageSource
             status.DetectedVersion = result.Stdout.Trim().TrimStart('v', 'V').Split('\n')[0].Trim();
             status.ExecutablePath = await LocateExecutableAsync(ct).ConfigureAwait(false);
         }
-        catch { /* never throws: undetected is a state, not an error */ }
+        catch {  }
         return status;
     }
 
@@ -107,8 +90,6 @@ public sealed class WinGetPackageSource : IPackageSource
         var items = ParsePackageTable(result.Stdout, PackageSourceIds.WinGet, "WinGet");
         if (mode == PackageSearchMode.Similar && items.Count > 1)
         {
-            // Winget's own ranking first; exact-substring hits float above
-            // merely similar ones, client-side and transparent.
             string q = query.Trim();
             items = items
                 .OrderByDescending(i => i.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
@@ -203,14 +184,6 @@ public sealed class WinGetPackageSource : IPackageSource
         return $"winget exited with code {result.ExitCode}.";
     }
 
-    /// <summary>
-    /// Parses winget list/search/upgrade tables via dash-anchored column
-    /// slicing: the dashes line gives exact column starts, so values with
-    /// spaces (names, monikers) survive. Header names map columns (upgrade
-    /// adds Available); unknown columns are ignored. Preamble, footers
-    /// ("No … found", "N upgrades available.") and id-less rows are skipped.
-    /// Pure logic - unit-tested against captured live output.
-    /// </summary>
     internal static List<PackageInfo> ParsePackageTable(string output, string sourceId, string sourceLabel)
     {
         var items = new List<PackageInfo>();
@@ -238,11 +211,6 @@ public sealed class WinGetPackageSource : IPackageSource
             starts.Add(m.Index);
         if (starts.Count < 2)
         {
-            // Compact shape (exact-id queries emit ONE dash run instead of
-            // per-column groups): fall back to the header's own 2+-space
-            // gaps. Winget still pads values to those widths, so slicing
-            // stays exact and spaces inside values survive. Verified live:
-            // `winget search --id 7zip.7zip --exact` prints 31 dashes.
             foreach (Match m in Regex.Matches(headerLine, @"\S+").Cast<Match>().Skip(1))
                 starts.Add(m.Index);
         }

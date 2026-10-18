@@ -15,24 +15,12 @@ using kaliteConfig.Models;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Pure frametime statistics (CapFrameX conventions, clearly labeled).
-/// FPS = 1000 / frametimeMs per frame. No UI, no IO - unit-tested.
-/// </summary>
 public static class BenchmarkStatsService
 {
     private const double StutterFactor = 2.5;
     private const double StutterWindowMs = 1000.0;
     private const double LowFpsThresholdMs = 40.0;
 
-    /// <summary>
-    /// Drops warmup/cooldown edges by time: keeps frames with
-    /// t0+headMs &lt;= t &lt;= tLast-tailMs. PresentMon attach, countdown tail,
-    /// alt-tab-to-stop and minimize gaps all land in the edges - a single
-    /// 900 ms stall there otherwise defines the entire time-weighted 1% low
-    /// (e.g. 1.1 FPS on a 1900 FPS run). Falls back to untrimmed when stamps
-    /// are missing/mismatched or the window would empty the run.
-    /// </summary>
     public static List<float> WindowByTime(
         IReadOnlyList<float> frames,
         IReadOnlyList<double>? stamps,
@@ -62,7 +50,6 @@ public static class BenchmarkStatsService
         var empty = new BenchmarkStats();
         if (frametimesMs == null || frametimesMs.Count == 0) return empty;
 
-        // Windowing: trim head warmup / tail by frame count.
         int n0 = frametimesMs.Count;
         int cutStart = (int)Math.Floor(n0 * Math.Clamp(trimStartFraction, 0, 0.5));
         int cutEnd = (int)Math.Floor(n0 * Math.Clamp(trimEndFraction, 0, 0.5));
@@ -72,7 +59,6 @@ public static class BenchmarkStatsService
             .Where(f => f > 0 && !float.IsNaN(f) && !float.IsInfinity(f)).ToList();
         if (frames.Count == 0) return empty;
 
-        // Outlier toggle: drop worst ceil(n*0.1%) frames (spike-immune percentiles).
         if (dropOutliers && frames.Count >= 10)
         {
             int drop = Math.Max(1, (int)Math.Ceiling(frames.Count * 0.001));
@@ -84,7 +70,7 @@ public static class BenchmarkStatsService
         double totalMs = frames.Sum(f => (double)f);
         int n = frames.Count;
 
-        var ascFps = fps.OrderBy(v => v).ToList(); // worst first
+        var ascFps = fps.OrderBy(v => v).ToList();
         var ascMs = frames.OrderBy(v => v).ToList();
 
         double Percentile(IReadOnlyList<double> sorted, double p01)
@@ -103,20 +89,12 @@ public static class BenchmarkStatsService
             return sorted.Count % 2 == 1 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2.0;
         }
 
-        // 1% Low (count): mean FPS of worst ceil(n*1%) frames.
         int k1 = Math.Max(1, (int)Math.Ceiling(n * 0.01));
         double low1Count = ascFps.Take(k1).Average();
 
-        // 0.1% Low (count): mean FPS of worst ceil(n*0.1%) frames.
-        // Count-averaged lows dilute isolated giant stalls (a single 900 ms
-        // hitch among 100k frames barely moves them), unlike time-weighted
-        // lows where one stall can define the whole number. This matches
-        // PresentMon-viewer "X% Low Avg" semantics.
         int k01 = Math.Max(1, (int)Math.Ceiling(n * 0.001));
         double low01Count = ascFps.Take(k01).Average();
 
-        // Time-weighted lows: worst frametimes covering x% of total time;
-        // result = FPS of the frame that crosses the budget (CapFrameX style).
         double TimeWeightedLow(double fraction)
         {
             var desc = frames.OrderByDescending(f => f).ToList();
@@ -130,7 +108,6 @@ public static class BenchmarkStatsService
             return ascFps[0];
         }
 
-        // Stutter vs rolling median (~1s trailing window by time).
         var events = new List<StutterEvent>();
         double t = 0;
         for (int i = 0; i < frames.Count; i++)
@@ -165,7 +142,6 @@ public static class BenchmarkStatsService
             FrameCount = n,
             TotalTimeMs = totalMs,
             AverageFps = n / (totalMs / 1000.0),
-            // Harmonic mean of per-frame FPS == frames/totalTime (same series).
             HarmonicAvgFps = n / (totalMs / 1000.0),
             ArithmeticAvgFps = fps.Average(),
             MedianFps = Median(ascFps),
@@ -184,7 +160,6 @@ public static class BenchmarkStatsService
         };
     }
 
-    /// <summary>Linear-interpolation percentile over an ascending-sorted list.</summary>
     public static double PercentileOf(IReadOnlyList<double> sortedAsc, double p01)
     {
         if (sortedAsc == null || sortedAsc.Count == 0) return double.NaN;
@@ -194,11 +169,6 @@ public static class BenchmarkStatsService
         return lo == hi ? sortedAsc[lo] : sortedAsc[lo] + (sortedAsc[hi] - sortedAsc[lo]) * (rank - lo);
     }
 
-    /// <summary>
-    /// Frametime distribution in ms (ascending percentiles + worst-averages),
-    /// mirroring the viewer panel: P1, Average, P95, P99, 1% High Average,
-    /// P99.8, P99.9, 0.1% High Average.
-    /// </summary>
     public sealed class FrametimeSummary
     {
         public double P1, Avg, P95, P99, HighAvg1, P998, P999, HighAvg01;
@@ -224,11 +194,6 @@ public static class BenchmarkStatsService
         return out_;
     }
 
-    /// <summary>
-    /// Trailing time-window moving average per frame (500 ms default).
-    /// Stamps are relative ms; without usable stamps falls back to an
-    /// index window of n/100 frames. Pure.
-    /// </summary>
     public static List<double> MovingAverage(
         IReadOnlyList<float> frames, IReadOnlyList<double>? stamps, double windowMs = 500)
     {
@@ -264,10 +229,6 @@ public static class BenchmarkStatsService
         return out_;
     }
 
-    /// <summary>
-    /// Exclusive time breakdown: stutter frames (&gt;2.5x trailing ~1 s
-    /// median) vs low-FPS-only frames (&gt;40 ms, not stutter) vs smooth rest.
-    /// </summary>
     public sealed class TimeBreakdown
     {
         public double SmoothMs, LowOnlyMs, StutterMs, TotalMs;
@@ -282,7 +243,6 @@ public static class BenchmarkStatsService
         foreach (float f in frames)
         {
             out_.TotalMs += f;
-            // trailing ~1 s median over prior frames
             var sorted = window.OrderBy(v => v).ToList();
             double med = sorted.Count == 0 ? f :
                 (sorted.Count % 2 == 1 ? sorted[sorted.Count / 2]
@@ -302,7 +262,6 @@ public static class BenchmarkStatsService
         return out_;
     }
 
-    /// <summary>Consecutive absolute frametime deltas binned in ms bands.</summary>
     public static (int Under1, int Under5, int Under10, int Over10) VarianceBands(
         IReadOnlyList<float> frames)
     {
@@ -321,7 +280,6 @@ public static class BenchmarkStatsService
         return (a, b, c, d);
     }
 
-    /// <summary>Frames below each FPS threshold (count + share).</summary>
     public static List<(int Fps, int Count, double Share)> ThresholdCounts(
         IReadOnlyList<float> frames, int[]? thresholds = null)
     {

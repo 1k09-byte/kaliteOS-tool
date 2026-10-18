@@ -12,10 +12,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace kaliteConfig.PackageManager.Models;
 
-/// <summary>
-/// One package row, regardless of backend. Versions are raw vendor strings
-/// (winget emits oddities like "&lt; 3.14.7") - never parsed here.
-/// </summary>
 public sealed partial class PackageInfo : ObservableObject
 {
     [ObservableProperty] public partial string Id { get; set; } = string.Empty;
@@ -35,14 +31,8 @@ public sealed partial class PackageInfo : ObservableObject
 
     [ObservableProperty] public partial bool IsSelected { get; set; }
 
-    /// <summary>Live operation on this row, if any (progress UI binds here).</summary>
     [ObservableProperty] public partial PackageOperationStatus? ActiveOperation { get; set; }
 
-    /// <summary>
-    /// True when an update is known: an available version that differs from
-    /// installed. Deliberately string-based - no numeric parsing of vendor
-    /// version soup.
-    /// </summary>
     public bool HasUpdate =>
         !string.IsNullOrWhiteSpace(AvailableVersion)
         && !string.Equals(AvailableVersion.Trim(), (InstalledVersion ?? "").Trim(),

@@ -38,12 +38,7 @@ public sealed class UninstallService
             if (ct.IsCancellationRequested) return new List<UninstallerItem>();
             progress?.Report("Reading Microsoft Store packages…");
             apps.AddRange(GetAppXPackages());
-            
-            // Note: MSIs are usually listed under the registry keys as well natively.
-            // Therefore, GetRegistryApps often encompasses MSI installations if we 
-            // identify the UninstallString correctly (msiexec /x {GUID}).
 
-            // Optional: Deduplicate by Name
             var deduped = new Dictionary<string, UninstallerItem>(StringComparer.OrdinalIgnoreCase);
             foreach (var app in apps)
             {
@@ -84,7 +79,6 @@ public sealed class UninstallService
 
                     var uninstallString = subKey.GetValue("UninstallString") as string;
                     var quietUninstallString = subKey.GetValue("QuietUninstallString") as string;
-                    // Keep entries even without an uninstaller so Force Remove can clean them.
                     long estBytes = 0;
                     var estRaw = subKey.GetValue("EstimatedSize");
                     if (estRaw is int ei) estBytes = (long)ei * 1024L;
@@ -114,11 +108,6 @@ public sealed class UninstallService
         return items;
     }
 
-    /// <summary>
-    /// Package.IsStub needs Windows 10 2004+ (10.0.19041); the app supports
-    /// back to 17763, so guard the call - older systems treat every package
-    /// as non-stub.
-    /// </summary>
     private static bool IsStubPackage(Windows.ApplicationModel.Package package)
     {
         if (!System.OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041)) return false;
@@ -131,7 +120,6 @@ public sealed class UninstallService
         
         try
         {
-            // Windows RT dependency: using Windows.Management.Deployment namespace
             var packageManager = new Windows.Management.Deployment.PackageManager();
             var packages = packageManager.FindPackagesForUser(string.Empty);
             
@@ -142,8 +130,6 @@ public sealed class UninstallService
                 try
                 {
                     var id = package.Id;
-                    // Id.Name is the package identity ("1527c705-..."), Id.Publisher
-                    // is the cert DN ("CN=...") - show the manifest display names instead.
                     var name = package.DisplayName;
                     if (string.IsNullOrWhiteSpace(name)) name = id.Name;
                     var publisher = package.PublisherDisplayName;
@@ -151,11 +137,10 @@ public sealed class UninstallService
                     var version = $"{id.Version.Major}.{id.Version.Minor}.{id.Version.Build}.{id.Version.Revision}";
                     string installPath = string.Empty;
                     try { installPath = package.InstalledLocation.Path; } catch { }
-                    // Resolve the Store logo to a real file so the icon loader shows it.
                     string logoFile = string.Empty;
                     try
                     {
-                        var logoUri = package.Logo; // e.g. ms-appx:///Assets/Logo.png
+                        var logoUri = package.Logo;
                         var rel = logoUri.ToString()
                             .Replace("ms-appx:///", string.Empty, StringComparison.OrdinalIgnoreCase)
                             .Replace("ms-appx://", string.Empty, StringComparison.OrdinalIgnoreCase)
@@ -181,12 +166,11 @@ public sealed class UninstallService
                 catch { }
             }
         }
-        catch { } // Can fail if not packaged or SDK missing references, fallback gracefully
+        catch { }
 
         return items;
     }
 
-    /// <summary>Turns a cert DN ("CN=X, O=Y, ...") into its common name.</summary>
     private static string FriendlyPublisher(string? publisherDn)
     {
         if (string.IsNullOrWhiteSpace(publisherDn)) return string.Empty;
@@ -201,9 +185,6 @@ public sealed class UninstallService
 
     public Task<Dictionary<string, long>> ComputeRealSizesAsync(IEnumerable<UninstallerItem> items, CancellationToken ct)
     {
-        // NOTE: returns id->size and never touches bound objects: assigning
-        // ComputedSize off the UI thread would raise PropertyChanged on the
-        // wrong thread (RPC_E_WRONG_THREAD crash). Caller applies on UI thread.
         return Task.Run(() =>
         {
             var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
@@ -218,7 +199,6 @@ public sealed class UninstallService
                     long total = 0;
                     foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly))
                     { try { total += new FileInfo(f).Length; } catch { } }
-                    // one level deep to stay fast; full deep scan is the LeftoverScanner's job
                     if (total > 0) result[item.Id] = total;
                 }
                 catch { }
@@ -227,8 +207,6 @@ public sealed class UninstallService
         }, ct);
     }
 
-    /// <summary>Runs the registered uninstaller. Returns null on success,
-    /// or a human-readable error (also when there is nothing to run).</summary>
     public string? Uninstall(UninstallerItem item)
     {
         try
@@ -253,11 +231,8 @@ public sealed class UninstallService
 
             if (cmd.Contains("msiexec", StringComparison.OrdinalIgnoreCase))
             {
-                // /I (advertise/repair) combined with /passive is rejected by
-                // msiexec - silently. Real removal needs /X.
                 cmd = System.Text.RegularExpressions.Regex.Replace(
                     cmd, @"/I\s*", "/X ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                // Ensure passive mode for MSI to behave pseudo-headless if not deeply quiet
                 var psi = new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
@@ -290,9 +265,6 @@ public sealed class UninstallService
         }
     }
 
-    /// <summary>Deletes the app's registry uninstall entries (HKLM, HKLM\WOW6432Node,
-    /// HKCU) so it disappears from "Installed apps" lists. Returns how many
-    /// keys were removed.</summary>
     public int RemoveRegistryEntry(UninstallerItem item)
     {
         int removed = 0;
@@ -305,8 +277,6 @@ public sealed class UninstallService
                     using var baseKey = RegistryKey.OpenBaseKey(root, view);
                     using var key = baseKey.OpenSubKey(hive, writable: true);
                     if (key == null) continue;
-                    // Id is the subkey name as enumerated; also sweep same-named
-                    // keys in case the entry lives in the other bitness hive.
                     if (key.GetSubKeyNames().Contains(item.Id, StringComparer.OrdinalIgnoreCase))
                     {
                         try { key.DeleteSubKeyTree(item.Id); removed++; } catch { }
@@ -318,8 +288,6 @@ public sealed class UninstallService
         return removed;
     }
 
-    /// <summary>Deletes the app's install directory if it still exists.
-    /// Returns true when a directory was removed.</summary>
     public bool RemoveInstallDirectory(UninstallerItem item)
     {
         try
@@ -328,7 +296,6 @@ public sealed class UninstallService
             if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
             {
                 KillProcessesInDirectory(dir);
-                // Give file locks a moment to release
                 System.Threading.Thread.Sleep(500);
                 Directory.Delete(dir, true);
                 return true;
@@ -360,8 +327,6 @@ public sealed class UninstallService
         catch { }
     }
 
-    /// <summary>Splits an uninstall command into exe + arguments.
-    /// Returns false when the target file does not exist.</summary>
     internal static bool SplitCommand(string cmd, out string exe, out string args)
     {
         exe = string.Empty;

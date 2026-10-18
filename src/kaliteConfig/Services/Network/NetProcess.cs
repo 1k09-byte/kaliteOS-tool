@@ -15,8 +15,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Awaited console processes with a timeout and a kill switch, so no
-/// netsh/ping/arp child can outlive its caller or freeze the UI.</summary>
 public static class NetProcess
 {
     public sealed record Result(int ExitCode, string Stdout, string Stderr, bool TimedOut);

@@ -15,12 +15,6 @@ using System.IO;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Parses PresentMon 2.5.1 console CSV output (default schema, see
-/// Assets/PresentMon/VERSION.txt). Pure logic: header lookup, never index.
-/// Primary frametime column MsBetweenPresents, fallback FrameTime
-/// (--v2_metrics schema). No UI, no IO beyond the given lines - unit-tested.
-/// </summary>
 public static class BenchmarkPresentMonCsv
 {
     public sealed class ParsedCapture
@@ -46,14 +40,12 @@ public static class BenchmarkPresentMonCsv
         foreach (string raw in lines)
         {
             if (string.IsNullOrWhiteSpace(raw)) continue;
-            // CapFrameX record CSVs carry `//Key=Value` info headers (verified
-            // in FileRecordInfo.cs): skip them, first real line is the header.
             if (raw.TrimStart().StartsWith("//", StringComparison.Ordinal)) continue;
             string[] cols = SplitCsv(raw);
             if (header == null)
             {
                 header = cols;
-                _lastLiveHeader = header; // cache for incremental tail parses
+                _lastLiveHeader = header;
                 var map = MapHeader(header);
                 hadPidCol = map.ContainsKey("ProcessID");
                 continue;
@@ -86,7 +78,6 @@ public static class BenchmarkPresentMonCsv
             if (TryMs(tsRaw, out double parsed)) ts = parsed;
             else
             {
-                // OCAT/CapFrameX variant: TimeInSeconds (verified key).
                 string? secRaw = GetCol(cols, map2, "TimeInSeconds");
                 if (TryMs(secRaw, out double sec)) ts = sec * 1000.0;
             }
@@ -112,16 +103,10 @@ public static class BenchmarkPresentMonCsv
 
     public static ParsedCapture ParseFile(string csvPath, int targetPid)
     {
-        _lastLiveHeader = null; // full parse: re-read the header from the file
+        _lastLiveHeader = null;
         return ParseLines(File.ReadLines(csvPath), targetPid);
     }
 
-    /// <summary>
-    /// Incremental live-tail parse: reads only the bytes appended since the
-    /// last call. The 1 Hz live graph used to re-parse the whole CSV every
-    /// tick (O(n²) over a 60 s capture - ~50k rows re-read by the end),
-    /// which itself perturbed the machine being measured.
-    /// </summary>
     public static (ParsedCapture Capture, long LastOffset) ParseFileTail(
         string csvPath, int targetPid, long lastOffset)
     {
@@ -173,7 +158,6 @@ public static class BenchmarkPresentMonCsv
 
     private static string[] SplitCsv(string line)
     {
-        // PresentMon fields never contain quotes/commas inside values.
         return line.Split(',');
     }
 }

@@ -15,14 +15,6 @@ using System.Linq;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Processes that must NEVER be demoted/eco'd/swept by Gaming mode, beyond
-/// the hard-critical list. Three tiers:
-/// - Audio/capture (EcoQoS on OBS drops frames, on Discord it lags voice)
-/// - Launchers + overlays + anti-cheat (break games or trip anti-tamper)
-/// - User whitelist (edit %LocalAppData%/kaliteConfig/gaming-exempt.txt,
-///   one process name per line, # comments allowed; reloaded on every check)
-/// </summary>
 public static class GamingExemptionService
 {
     private static readonly HashSet<string> AudioCapture = new(StringComparer.OrdinalIgnoreCase)
@@ -30,20 +22,17 @@ public static class GamingExemptionService
         "obs64", "obs32", "streamlabs", "streamlabsobs", "xsplit", "wirecast",
         "discord", "discordptb", "discordcanary", "teamspeak", "teamspeak3",
         "voicemeeter", "voicemeeterxbuttery", "audiodelay", "navigator",
-        "steam", "steamwebhelper", "gedit",  // Steam voice/overlay host
+        "steam", "steamwebhelper", "gedit",
     };
 
     private static readonly HashSet<string> LaunchersOverlaysAnticheat = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Launchers
         "epicgameslauncher", "origin", "eadesktop", "ubisoftconnect", "upc",
         "battlenet", "agent", "riotclientservices", "launcher", "galaxyclient",
         "gog galaxy", "xbox", "xboxapp", "gamebar", "wtss",
-        // Overlays
         "rtss", "afterburner", "msiafterburner", "rivatuner",
         "nvidia web helper", "nvidias_share", "nvcontainer", "geforceexperience",
         "amdow", "amdrsserv", "radeonsettings", "adrenalin",
-        // Anti-cheat / anti-tamper
         "easyanticheat", "easyanticheat_exe", "beservice", "battleye",
         "battleyeservice", "vgc", "vgtray", "faceitclient", "faceit",
         "ese", "protected", "sentinel", "cpbrick", "anticheat",
@@ -58,7 +47,6 @@ public static class GamingExemptionService
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "kaliteConfig", "gaming-exempt.txt");
 
-    /// <summary>True when the process name must not be touched by gaming mode.</summary>
     public static bool IsExempt(string processName)
     {
         if (string.IsNullOrWhiteSpace(processName)) return true;
@@ -89,7 +77,6 @@ public static class GamingExemptionService
         }
     }
 
-    /// <summary>Creates a commented starter whitelist file if none exists.</summary>
     public static void EnsureStarterFile()
     {
         try

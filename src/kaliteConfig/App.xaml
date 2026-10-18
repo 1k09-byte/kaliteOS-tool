@@ -9,50 +9,15 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///DevWinUI/Themes/Generic.xaml" />
-                <!-- Kalite matte design system. Merged AFTER the WinUI/DevWinUI
-                     defaults so its tokens win: every page references these
-                     brush names by key, so redefining them here re-skins the
-                     whole app without touching a single page. -->
                 <ResourceDictionary Source="ms-appx:///Themes/KaliteTheme.xaml" />
-                <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- The Kalite identity is dark-only and matte (see Themes/KaliteTheme.xaml,
-                 which defines Light/Dark/Default identically so the app looks the
-                 same under any theme setting). The app forces ElementTheme.Dark in
-                 code; these dictionaries exist so a light-mode system setting can
-                 never wash the UI out.
-                 NOTE: the merge must stay behind XamlControlsResources; if this line ever
-                 starts throwing ResourceDictionary.Source TypeConverter errors on launch,
-                 it usually means the merge Source got attached to the wrong element or
-                 the file stopped being reachable at the ms-appx:// URI. -->
 
-            <!--
-                THE APP FONT, EVERYWHERE.
-
-                FontFamily/FontSize inheritance only reaches elements under a
-                Control that carries them (Frame, NavigationView); popups,
-                ContentDialogs, the startup overlay and the tray/snip windows
-                sit outside those subtrees and would silently keep WinUI's
-                default face. An implicit style reaches every TextBlock in
-                every tree that does not set its own Style, so one definition
-                here is what makes the typeface app-wide instead of
-                page-by-page.
-
-                FontSize is set here too so the bump lands on default-sized
-                text everywhere at once; anything that pins its own size (page
-                rows, dense tables, the rail template) keeps that size - those
-                were deliberate and are bumped where they are defined.
-
-                KaliteFontFamily comes from the merged KaliteTheme dictionary
-                above; merged dictionaries resolve before sibling content.
-            -->
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="LineHeight" Value="20" />
             </Style>
 
-            <!-- Other app resources here -->
         </ResourceDictionary>
     </Application.Resources>
 </Application>

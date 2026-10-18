@@ -23,19 +23,14 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         </Grid.Resources>
-        <!-- Render the frozen screen here. Input is handled by RootGrid: a panel with a
-             Transparent background is always hit-testable, while a swap-chain control is not
-             guaranteed to be, so the selection drag can never be swallowed. -->
         <canvas:CanvasControl x:Name="DrawCanvas" ClearColor="Transparent"
                               Draw="DrawCanvas_Draw" IsHitTestVisible="False" />
         <Canvas>
             <StackPanel x:Name="ToolbarHost" Visibility="Collapsed" Spacing="0">
-                <!-- Main toolbar row: tools | history | output -->
                 <Border x:Name="SnipToolbar" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                         BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="6">
                     <StackPanel Orientation="Horizontal" Spacing="2">
-                        <!-- Tools group: radio behavior, exactly one active -->
                         <ToggleButton x:Name="BtnToolSelect" Click="BtnTool_Click"
                                       ToolTipService.ToolTip="Select (V)" AutomationProperties.Name="Select tool"
                                       Tag="Select">
@@ -115,7 +110,6 @@
 
                         <Border Style="{StaticResource SnipSeparator}"/>
 
-                        <!-- Resize group: exact size for the selected sticker/shape -->
                         <Button x:Name="BtnResize"
                                 ToolTipService.ToolTip="Resize selected sticker/shape" AutomationProperties.Name="Resize selection">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE799;"/>
@@ -138,7 +132,6 @@
 
                         <Border Style="{StaticResource SnipSeparator}"/>
 
-                        <!-- History group -->
                         <Button x:Name="BtnUndo" Click="BtnUndo_Click"
                                 ToolTipService.ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE7A7;"/>
@@ -150,7 +143,6 @@
 
                         <Border Style="{StaticResource SnipSeparator}"/>
 
-                        <!-- Output group -->
                         <Button x:Name="BtnOcr" Click="BtnOcr_Click"
                                 ToolTipService.ToolTip="Copy text / OCR" AutomationProperties.Name="Copy text OCR">
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8FE;"/>
@@ -168,7 +160,6 @@
                             <FontIcon Style="{StaticResource SnipGlyph}" Glyph="&#xE8C8;"/>
                         </Button>
 
-                        <!-- Instant copy toggle: check badge instead of tool highlight -->
                         <ToggleButton x:Name="BtnInstantMode" Click="BtnInstantMode_Click"
                                       ToolTipService.ToolTip="Instant copy: OFF" AutomationProperties.Name="Instant copy toggle">
                             <Grid>
@@ -191,7 +182,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Contextual formatting row: shown only when the active tool needs it -->
                 <Border x:Name="FormatRow" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                         BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1,0,1,1"
                         CornerRadius="0,0,8,8" Padding="8,6" Margin="0,-2,0,0" Visibility="Collapsed">
@@ -231,7 +221,6 @@
                 </Border>
             </StackPanel>
         </Canvas>
-        <!-- Debug HUD (F12): state, pointer, DPI, modifiers, foreground. -->
         <Border x:Name="HudPanel" Background="#CC000000" CornerRadius="6" Padding="10"
                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12"
                 Visibility="Collapsed" IsHitTestVisible="False">

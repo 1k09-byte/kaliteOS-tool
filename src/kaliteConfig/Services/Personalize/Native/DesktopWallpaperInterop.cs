@@ -4,10 +4,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services.Personalize.Native;
 
-// IDesktopWallpaper (shobjidl_core.h). Method set from the Microsoft docs page
-// "IDesktopWallpaper interface"; vtable order cross-checked against a published
-// C# binding. Method order MUST NOT change. Created on the calling thread, which
-// is the UI STA thread for this app.
 [ComImport]
 [Guid("B92B56A9-8B55-4E14-9A89-0199BBB6F93B")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -41,7 +37,6 @@ internal struct DesktopMonitorRect
     public int Bottom;
 }
 
-// Values of DESKTOP_WALLPAPER_POSITION from the docs page of the same name.
 internal static class DesktopWallpaperPosition
 {
     public const int Center = 0;
@@ -52,7 +47,6 @@ internal static class DesktopWallpaperPosition
     public const int Span = 5;
 }
 
-// Wraps the COM object. Dispose releases the RCW; the object is not kept.
 internal sealed class DesktopWallpaperApi : IDisposable
 {
     private static readonly Guid ClsidDesktopWallpaper = new("C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD");
@@ -106,8 +100,6 @@ internal sealed class DesktopWallpaperApi : IDisposable
 
     public void AdvanceSlideshow(string monitorId) => _wp.AdvanceSlideshow(monitorId, 0);
 
-    // Points the slideshow at one folder. The PIDL is freed with CoTaskMemFree and
-    // the item array is released after SetSlideshow, as the shell docs require.
     public void SetSlideshowFolder(string folderPath)
     {
         int hr = NativeMethods.SHParseDisplayName(folderPath, IntPtr.Zero, out IntPtr pidl, 0, out _);

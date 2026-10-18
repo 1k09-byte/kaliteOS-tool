@@ -13,15 +13,8 @@ using System;
 
 namespace kaliteConfig.Models;
 
-/// <summary>
-/// One third-party driver package from the Windows driver store
-/// (an oem##.inf published name, as listed by pnputil /enum-drivers).
-/// Inbox (Microsoft-shipped) drivers never appear - the store enumeration
-/// used here only reports third-party packages.
-/// </summary>
 public sealed partial class DriverPackageItem : ObservableObject
 {
-    /// <summary>Published name, e.g. oem42.inf - the delete-driver key.</summary>
     [ObservableProperty] public partial string PublishedName { get; set; } = string.Empty;
     [ObservableProperty] public partial string OriginalName { get; set; } = string.Empty;
     [ObservableProperty] public partial string Provider { get; set; } = string.Empty;
@@ -30,7 +23,6 @@ public sealed partial class DriverPackageItem : ObservableObject
     [ObservableProperty] public partial string DriverDate { get; set; } = string.Empty;
     [ObservableProperty] public partial string SignerName { get; set; } = string.Empty;
 
-    /// <summary>Approx on-disk size of the FileRepository payload, -1 when unknown.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedSize))]
     [NotifyPropertyChangedFor(nameof(HasSize))]
@@ -52,10 +44,6 @@ public sealed partial class DriverPackageItem : ObservableObject
     public string DisplayName =>
         string.IsNullOrWhiteSpace(OriginalName) ? PublishedName : OriginalName;
 
-    /// <summary>
-    /// Raw driver class ("AudioProcessingObject", "HIDClass", …) mapped to
-    /// plain language. Unknown classes fall back to the raw value untouched.
-    /// </summary>
     public string FriendlyClass => ClassName.Trim().ToLowerInvariant() switch
     {
         "display" or "display adapters" => "display",
@@ -72,10 +60,6 @@ public sealed partial class DriverPackageItem : ObservableObject
         _ => ClassName.Trim(),
     };
 
-    /// <summary>
-    /// Human-readable row title, e.g. "NVIDIA display driver".
-    /// Falls back to the INF name when there is nothing friendlier to say.
-    /// </summary>
     public string FriendlyKind
     {
         get
@@ -87,7 +71,6 @@ public sealed partial class DriverPackageItem : ObservableObject
         }
     }
 
-    /// <summary>Secondary row line: provider plus the technical names.</summary>
     public string Subtitle
     {
         get

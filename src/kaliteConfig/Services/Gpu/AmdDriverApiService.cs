@@ -26,20 +26,10 @@ namespace kaliteConfig.Services
         DateTime? ReleaseDate, 
         string DisplayString);
 
-    /// <summary>
-    /// Dynamic driver lookup API for AMD Radeon Adrenalin WHQL packages.
-    /// Queries public release indexes (TechPowerUp & AMD release metadata) to dynamically
-    /// obtain the newest WHQL version, release date, and direct download links from AMD CDN.
-    /// </summary>
     public class AmdDriverApiService
     {
         private static readonly HttpClient _httpClient = CreateClient();
 
-        /// <summary>
-        /// Same headers as the metadata client - AMD's CDN rejects requests
-        /// without them - but without the 15 second cap, since an Adrenalin
-        /// package is around a gigabyte.
-        /// </summary>
         private static readonly HttpClient DownloadClient = CreateDownloadClient();
 
         private static HttpClient CreateClient()
@@ -59,17 +49,14 @@ namespace kaliteConfig.Services
         private static HttpClient CreateDownloadClient()
         {
             var client = CreateClient();
-            client.Timeout = Timeout.InfiniteTimeSpan; // bounded by the CancellationToken instead
+            client.Timeout = Timeout.InfiniteTimeSpan;
             return client;
         }
 
-        /// <summary>Package variant the lookup should resolve.</summary>
         public enum AmdPackageVariant
         {
-            /// <summary>Standard desktop Adrenalin package (default).</summary>
             Desktop = 0,
 
-            /// <summary>Desktop+notebook "combined" INFs - required by many laptop GPUs/APUs the desktop INF rejects.</summary>
             Notebook = 1,
         }
 
@@ -91,7 +78,6 @@ namespace kaliteConfig.Services
             }
             catch (Exception)
             {
-                // Fallback to curated release below
             }
 
             return GetCuratedLatest(variant);
@@ -111,13 +97,11 @@ namespace kaliteConfig.Services
             string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(html)) return null;
 
-            // Pattern for Version title: <h3 class="title">\s*AMD Radeon Graphics Drivers ([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*(?:WHQL)?\s*</h3>
             var titleMatch = Regex.Match(html, @"<h3[^>]*class=""title""[^>]*>\s*AMD\s+Radeon\s+Graphics\s+Drivers\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*(WHQL)?", RegexOptions.IgnoreCase);
             if (!titleMatch.Success) return null;
 
             string version = titleMatch.Groups[1].Value.Trim();
 
-            // Pattern for Filename: <div class="filename"[^>]*>([^<]+)</div>
             var fileMatch = Regex.Match(html, @"<div[^>]*class=""filename""[^>]*>\s*(whql-amd-software-[^<]+\.exe|non-whql-amd-software-[^<]+\.exe|amd-software-[^<]+\.exe)\s*</div>", RegexOptions.IgnoreCase);
             string filename = fileMatch.Success
                 ? fileMatch.Groups[1].Value.Trim()
@@ -181,50 +165,21 @@ namespace kaliteConfig.Services
             );
         }
 
-        /// <summary>Outcome of <see cref="DownloadInstallerAsync"/>.</summary>
         public sealed class AmdDownloadResult
         {
             public bool Success { get; init; }
             public string? Error { get; init; }
             public long Bytes { get; init; }
 
-            /// <summary>
-            /// True for a transport problem the next attempt may ride over. A
-            /// refused download, a web page instead of a driver, or a full disk
-            /// will fail the same way however many times it is repeated.
-            /// </summary>
             public bool Retryable { get; init; }
 
-            /// <summary>
-            /// True when a partial file is on disk that a Range request can pick
-            /// up from. False means retrying would just repeat the same failure.
-            /// </summary>
             public bool Resumable { get; init; }
         }
 
-        /// <summary>How long a read may make no progress before the link counts as dead.</summary>
         private static readonly TimeSpan ReadStallTimeout = TimeSpan.FromSeconds(30);
 
-        /// <summary>How many times a transport failure is ridden over before giving up.</summary>
         private const int MaxAttempts = 4;
 
-        /// <summary>
-        /// Downloads an AMD driver package to disk.
-        ///
-        /// Three things this has to get right, all of them learned the hard way:
-        ///
-        /// 1. It does NOT use a bare HttpClient. AMD's CDN answers a request that
-        ///    arrives without a Referer with a 302 to a "Download Not Complete"
-        ///    HTML page - served with HTTP 200, so EnsureSuccessStatusCode()
-        ///    accepts it. The result was a 155 KB web page saved as "driver.exe",
-        ///    which then failed much later as an unreadable .exe.
-        /// 2. The payload is sniffed for the "MZ" header, so a bad response is
-        ///    rejected in milliseconds rather than after 900 MB of confusion.
-        /// 3. The package is nearly 900 MB, so the transfer resumes. A dropped
-        ///    connection used to leave the user watching a progress bar frozen at
-        ///    whatever percent it had reached, with no way forward except
-        ///    starting the whole download again.
-        /// </summary>
         public static async Task<AmdDownloadResult> DownloadInstallerAsync(
             string url, string destinationPath, IProgress<double>? progress, CancellationToken ct)
         {
@@ -241,17 +196,11 @@ namespace kaliteConfig.Services
 
                 if (!result.Resumable)
                 {
-                    // Nothing to resume from, so a retry would only repeat the
-                    // same failure. Do not spend the user's bandwidth on it.
                     return result;
                 }
             }
         }
 
-        /// <summary>
-        /// One transfer attempt, resumable from an interrupted earlier one. See
-        /// <see cref="SidecarPath"/> for why a resume needs a recorded total size.
-        /// </summary>
         private static async Task<AmdDownloadResult> AttemptDownloadAsync(
             string url, string destinationPath, IProgress<double>? progress,
             bool lastAttempt, CancellationToken ct)
@@ -259,13 +208,6 @@ namespace kaliteConfig.Services
             long alreadyHave = File.Exists(destinationPath) ? new FileInfo(destinationPath).Length : 0;
             long expectedTotal = ReadSidecarSize(destinationPath);
 
-            // A range is only safe when we know how big the file is supposed to end
-            // up. AMD's CDN answers "Range: bytes=N-" with HTTP 200, no
-            // Content-Range, and a body simply trimmed to the offset - so unlike a
-            // well-behaved server there is no status code to check and nothing in
-            // the response says which part of the file arrived. The total recorded
-            // by the first attempt is what makes the two possibilities tellable
-            // apart. Without it, throw the partial away and start clean.
             bool resuming = alreadyHave > 0 && expectedTotal > alreadyHave;
             if (alreadyHave > 0 && !resuming)
             {
@@ -281,8 +223,6 @@ namespace kaliteConfig.Services
                 if (resuming)
                 {
                     request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(alreadyHave, null);
-                    // Ask for the bytes as stored: a transparently gzipped body
-                    // would make Content-Length meaningless.
                     request.Headers.AcceptEncoding.Add(
                         new System.Net.Http.Headers.StringWithQualityHeaderValue("identity"));
                 }
@@ -322,11 +262,6 @@ namespace kaliteConfig.Services
 
                 if (!appending)
                 {
-                    // The package is LZMA2-compressed and unpacks to roughly three
-                    // times its size, so the download plus the unpacked tree needs
-                    // far more room than the download alone. Check now - after the
-                    // headers, so the real size is known - rather than failing
-                    // 900 MB later with a half-finished transfer and a full disk.
                     string full = Path.GetFullPath(destinationPath);
                     string tempRoot = Path.GetPathRoot(full) is { Length: > 0 } root ? root : "C:\\";
                     long free = new DriveInfo(tempRoot).AvailableFreeSpace;
@@ -352,12 +287,6 @@ namespace kaliteConfig.Services
 
                 if (!appending)
                 {
-                    // AMD's refusal page arrives as HTTP 200, so the only reliable
-                    // test is the payload itself: a driver package is a Windows
-                    // executable and starts with "MZ". Check before writing, not
-                    // after 900 MB. A resumed tail starts mid-file, so there is
-                    // nothing to check there - its first bytes were verified when
-                    // the transfer that produced them started.
                     byte[] magic = new byte[2];
                     stall.CancelAfter(ReadStallTimeout);
                     int got = await source.ReadAtLeastAsync(magic, 2, throwOnEndOfStream: false, stall.Token);
@@ -377,8 +306,6 @@ namespace kaliteConfig.Services
 
                 while (true)
                 {
-                    // Reschedule rather than allocate: a fresh CTS per read would be
-                    // tens of thousands of allocations for a single package.
                     stall.CancelAfter(ReadStallTimeout);
                     int read;
                     try
@@ -402,9 +329,6 @@ namespace kaliteConfig.Services
                     await destination.WriteAsync(buffer.AsMemory(0, read), ct);
                     written += read;
 
-                    // Report whole percents only. One callback per 80 KB read is
-                    // roughly 11,000 dispatcher posts for one package, which is its
-                    // own way of stalling the UI thread.
                     int percent = Percent(written, declaredTotal);
                     if (percent != lastPercent)
                     {
@@ -449,12 +373,6 @@ namespace kaliteConfig.Services
         private static int Percent(long done, long total)
             => total > 0 ? (int)(done * 100 / total) : 0;
 
-        /// <summary>
-        /// Records the total size of a download next to the partial file. AMD's CDN
-        /// will not tell a resuming client where its body starts, so without this
-        /// there is no way to tell "here is the rest of your file" from "here is a
-        /// different file entirely".
-        /// </summary>
         private static string SidecarPath(string destinationPath) => destinationPath + ".size";
 
         private static void WriteSidecarSize(string destinationPath, long total)
@@ -481,10 +399,6 @@ namespace kaliteConfig.Services
             try { if (File.Exists(path)) File.Delete(path); } catch { }
         }
 
-        /// <summary>
-        /// Peels a short, tag-stripped look at a non-binary payload so the error
-        /// message can show what actually arrived ("Download Not Complete", ...).
-        /// </summary>
         private static async Task<string> ReadTextPreviewAsync(Stream source, CancellationToken ct)
         {
             try
@@ -494,8 +408,6 @@ namespace kaliteConfig.Services
                 if (read <= 0) return string.Empty;
 
                 string text = System.Text.Encoding.UTF8.GetString(buffer, 0, read);
-                // Drop tags, then the angle brackets the tag strip leaves behind
-                // (a "<!DOCTYPE html>" page otherwise previews as "DOCTYPE HTML>").
                 string stripped = Regex.Replace(Regex.Replace(Regex.Replace(text, "<[^>]*>", " "), ">", " "), @"\s+", " ").Trim();
                 if (stripped.Length > 120) stripped = stripped[..120] + "...";
                 return stripped.Length == 0 ? string.Empty : $": \"{stripped}\"";

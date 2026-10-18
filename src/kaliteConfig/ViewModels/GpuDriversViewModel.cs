@@ -36,8 +36,6 @@ namespace kaliteConfig.ViewModels
         public ObservableCollection<GpuDriverItem> Drivers { get; } = new();
         public ObservableCollection<DetectedGpu> DetectedGpus { get; } = new();
 
-        // Cards actually shown: only vendors present on this machine.
-        // Falls back to all three when nothing has been detected yet.
         public ObservableCollection<GpuDriverItem> VisibleDrivers { get; } = new();
 
         [ObservableProperty]
@@ -52,7 +50,6 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool IsDetecting { get; set; }
 
-        /// <summary>Driver channel for the NVIDIA lookup: Game Ready (default) or Studio.</summary>
         [ObservableProperty]
         public partial bool StudioChannel { get; set; }
 
@@ -63,10 +60,6 @@ namespace kaliteConfig.ViewModels
         }
         partial void OnStudioChannelChanged(bool value) => OnPropertyChanged(nameof(StudioChannelIndex));
 
-        /// <summary>
-        /// Look up the laptop variant of the GPU ("… Laptop GPU" products).
-        /// Auto-enabled at detection time when WMI reports a laptop GPU.
-        /// </summary>
         [ObservableProperty]
         public partial bool NotebookGpu { get; set; }
 
@@ -82,13 +75,10 @@ namespace kaliteConfig.ViewModels
 
         public string AdapterCountText => $"{DetectedGpus.Count} adapter{(DetectedGpus.Count == 1 ? "" : "s")}";
 
-        // NVIDIA properties
         public ObservableCollection<NvidiaDriverPackage> NvidiaPackages { get; } = new();
         
         [ObservableProperty]
         public partial NvidiaDriverPackage? SelectedNvidiaPackage { get; set; }
-
-        // AMD properties 
 
         public GpuDriversViewModel()
         {
@@ -135,9 +125,6 @@ namespace kaliteConfig.ViewModels
                 var gpus = await _gpuService.DetectGpusAsync();
                 DetectedGpus.Clear();
 
-                // The adapter driving the main display is the primary GPU. Windows
-                // lists active adapters; the first present, healthy one wins, with
-                // discrete cards preferred over integrated when ambiguous.
                 var primary = gpus
                     .OrderByDescending(g => g.GpuType == "Discrete")
                     .FirstOrDefault();
@@ -149,7 +136,6 @@ namespace kaliteConfig.ViewModels
                 foreach (var gpu in gpus)
                     DetectedGpus.Add(gpu);
 
-                // Sync each driver card with what's on the machine.
                 foreach (var driver in Drivers)
                 {
                     var match = gpus.FirstOrDefault(g => g.Vendor.Equals(driver.Vendor, StringComparison.OrdinalIgnoreCase));
@@ -162,18 +148,11 @@ namespace kaliteConfig.ViewModels
                     driver.VramText = match.VramText;
                     driver.IsPrimary = match.IsPrimary;
 
-                    // Laptop GPUs ship distinct driver packages ("… Laptop GPU"
-                    // products in NVIDIA's catalog) - default the notebook lookup
-                    // on when WMI reports one, so the first Check is correct.
                     if (driver.Vendor.Equals("NVIDIA", StringComparison.OrdinalIgnoreCase))
                         NotebookGpu = match.Name.Contains("Laptop", StringComparison.OrdinalIgnoreCase);
 
                     driver.InstalledVersion = generic ? string.Empty : match.DriverVersion;
 
-                    // Adapter present but Windows has no driver loaded for it
-                    // (ConfigManagerErrorCode 28/31/43 → empty version): show the
-                    // card in the NotInstalled state so the action button reads
-                    // "Install" and the pipeline can fetch a driver for it.
                     if (!generic && string.IsNullOrEmpty(match.DriverVersion))
                     {
                         driver.Status = GpuDriverStatus.NotInstalled;
@@ -186,13 +165,6 @@ namespace kaliteConfig.ViewModels
                     }
                     else if (driver.Status is not (GpuDriverStatus.Downloading or GpuDriverStatus.Installing or GpuDriverStatus.ManualActionRequired))
                     {
-                        // Re-derive the status from what is actually loaded NOW.
-                        // The previous logic only reset NotChecked/NotInstalled/
-                        // UpToDate and left UpdateAvailable sticky, so a card kept
-                        // saying "Update now" after the driver had already been
-                        // updated (in-app or externally). Registry version wins
-                        // over WMI (WMI can lag behind a pending update), the
-                        // same rule the Check flow uses.
                         string? effective = NvidiaVersionHelper.FromWmiVersion(
                             string.IsNullOrEmpty(match.RegistryVersion) ? match.DriverVersion : match.RegistryVersion)
                             ?? match.DriverVersion;
@@ -207,9 +179,6 @@ namespace kaliteConfig.ViewModels
                             driver.Status = cmp < 0 ? GpuDriverStatus.UpdateAvailable : GpuDriverStatus.UpToDate;
                             if (cmp >= 0)
                             {
-                                // The update actually happened - drop any stale
-                                // failure record (e.g. "Install failed (exit …)")
-                                // left over from before it.
                                 driver.ErrorMessage = string.Empty;
                             }
                         }
@@ -269,10 +238,6 @@ namespace kaliteConfig.ViewModels
                 item.Status = GpuDriverStatus.Downloading;
                 try
                 {
-                    // Fetch up to 15 versions for dropdown selection. Prefer
-                    // the PCI device ID (hardware identity - works even when
-                    // Windows can't name a driverless card); name lookup is the
-                    // fallback.
                     var packages = await _nvidiaService.GetDriversByDeviceIdAsync(gpu.PnpDeviceId ?? "", 15, StudioChannel, CancellationToken.None);
                     if (packages.Count == 0)
                         packages = await _nvidiaService.GetDriversAsync(gpu.Name, 15, StudioChannel, NotebookGpu, CancellationToken.None);
@@ -286,11 +251,6 @@ namespace kaliteConfig.ViewModels
                         item.DownloadUrl = NvidiaPackages[0].DownloadUrl;
                         item.ErrorMessage = string.Empty;
 
-                        // Real comparison: translate the WMI/registry driver-store
-                        // version (e.g. 32.0.15.6614) to NVIDIA's format (566.14)
-                        // and compare numerically. Registry wins when WMI and the
-                        // driver store disagree (registry reflects what actually
-                        // loaded; WMI can lag after a pending update).
                         string? effectiveVersion =
                             NvidiaVersionHelper.FromWmiVersion(
                                 string.IsNullOrEmpty(gpu.RegistryVersion) ? gpu.DriverVersion : gpu.RegistryVersion)
@@ -308,8 +268,6 @@ namespace kaliteConfig.ViewModels
                     }
                     else
                     {
-                        // Undocumented NVIDIA lookup returned nothing usable -
-                        // never present a stale cache as current fact.
                         item.ErrorMessage = "Unable to check - NVIDIA lookup unavailable. Use the vendor page.";
                         item.Status = GpuDriverStatus.Failed;
                     }
@@ -352,12 +310,6 @@ namespace kaliteConfig.ViewModels
             }
         }
 
-        /// <summary>
-        /// Unique temp path per download (GUID suffix) - a fixed name like
-        /// "nvidia_driver.exe" gets locked by a crashed prior run, antivirus
-        /// scanning, or a still-running installer, and FileStream(Create) then
-        /// throws "file being used by another process".
-        /// </summary>
         private static string TempDownloadPath(string baseName)
         {
             string stem = Path.GetFileNameWithoutExtension(baseName);
@@ -378,8 +330,6 @@ namespace kaliteConfig.ViewModels
                 return;
             }
 
-            // Real UAC-sensitive operations follow - confirm first with a
-            // summary of what is about to happen.
             bool confirmed = await ConfirmInstallAsync(item);
             if (!confirmed) return;
 
@@ -415,9 +365,6 @@ namespace kaliteConfig.ViewModels
                     _cts = null;
                     return;
 
-                    // Legacy inline pipeline removed: NVIDIA installs now go
-                    // through InstallNvidiaModernAsync (verify → extract →
-                    // component picker → elevated setup.exe). See Part 2-6.
                 }
                 else if (item.Vendor.Equals("AMD", StringComparison.OrdinalIgnoreCase))
                 {
@@ -436,15 +383,8 @@ namespace kaliteConfig.ViewModels
 
                     try
                     {
-                        // An earlier attempt may have died holding a partial package
-                        // in %TEMP%. Clear it before starting a fresh transfer.
                         _amdService.SweepStaleTempArtifacts(logProgress);
 
-                        // Goes through AmdDriverApiService rather than a bare HttpClient:
-                        // AMD's CDN answers a request with no Referer header with a
-                        // 200 OK "Download Not Complete" HTML page. The same call
-                        // sniffs the payload for an MZ header, refuses to start if the
-                        // volume is too full, and resumes if the connection drops.
                         var download = await AmdDriverApiService.DownloadInstallerAsync(item.DownloadUrl, tempPath, downloadProgress, _cts.Token);
                         if (!download.Success)
                         {
@@ -458,10 +398,6 @@ namespace kaliteConfig.ViewModels
 
                         progress.Report(GpuDriverStatus.Installing);
 
-                        // The package is a self-extracting installer: it unpacks and
-                        // installs itself. Handing it to the user beats unpacking
-                        // 2.7 GB into %TEMP% here just to reimplement its own
-                        // installer with a worse component picker.
                         bool launched = _amdService.LaunchInstaller(tempPath, logProgress);
                         if (!launched)
                         {
@@ -479,11 +415,6 @@ namespace kaliteConfig.ViewModels
                     }
                     finally
                     {
-                        // The package stays on disk while AMD's installer runs - it
-                        // reads from that exact file - so it is swept on the *next*
-                        // attempt rather than deleted out from under the installer.
-                        // 900 MB of leftovers is recoverable; a failed install
-                        // because the file vanished is not.
                     }
                 }
             }
@@ -506,10 +437,6 @@ namespace kaliteConfig.ViewModels
             GpuDriverService.OpenUrl(item.VendorPageUrl);
         }
 
-        /// <summary>
-        /// Fetches (first use only) and starts Radeon Software Slimmer, the
-        /// third-party utility that trims the bloat out of an Adrenalin install.
-        /// </summary>
         [RelayCommand]
         private async Task OpenRadeonSlimmerAsync(GpuDriverItem? item)
         {
@@ -529,7 +456,6 @@ namespace kaliteConfig.ViewModels
 
                 if (result.Cancelled)
                 {
-                    // Declining the UAC prompt is a choice, not a failure.
                     InstallStatusText = "Radeon Software Slimmer was not started.";
                 }
                 else if (!result.Success)
@@ -556,19 +482,10 @@ namespace kaliteConfig.ViewModels
             _cts?.Cancel();
         }
 
-        /// <summary>
-        /// Full NVIDIA pipeline: download (nvidia.com-enforced) → WinVerifyTrust
-        /// signature gate → 7z extraction → component picker dialog (Part 4) →
-        /// setup.cfg rewrite → elevated silent setup.exe. All failures surface
-        /// in the dialog; nothing executes without passing verification.
-        /// </summary>
         private async Task InstallNvidiaModernAsync(
             GpuDriverItem item, IProgress<GpuDriverStatus> progress,
             IProgress<double> downloadProgress, Action<string> log, CancellationToken ct)
         {
-            // Resolve URL if the check hasn't run yet. Prefer the PCI device
-            // ID (works even for a driverless card Windows can't name); fall
-            // back to the product-name lookup.
             if (string.IsNullOrEmpty(item.DownloadUrl))
             {
                 var gpu = DetectedGpus.FirstOrDefault(g => g.Vendor.Equals("NVIDIA"));
@@ -601,8 +518,6 @@ namespace kaliteConfig.ViewModels
                 return;
             }
 
-            // The dialog opens immediately and tracks the whole pipeline:
-            // download → verify → extract → component list → install.
             var dialog = new NvidiaComponentPickerDialog(xamlRoot);
             var installTcs = new TaskCompletionSource();
             var dialogDispatch = dialog.DispatcherQueue;
@@ -616,10 +531,6 @@ namespace kaliteConfig.ViewModels
                 item.Status = GpuDriverStatus.Failed;
             }
 
-            // Same reason as the Apps install dialog: this one also keeps
-            // changing content while it is open (log, progress, status), so it
-            // is held centred for the whole install instead of being placed
-            // once and left to drift.
             _ = Services.DialogCenterLock.KeepCenteredAsync(dialog);
 
             item.Status = GpuDriverStatus.Downloading;
@@ -640,7 +551,6 @@ namespace kaliteConfig.ViewModels
                 return;
             }
 
-            // Part 2 gate: signature verification BEFORE anything touches the file.
             DialogStatus("Verifying NVIDIA digital signature…");
             InstallProgressIndeterminate(dialog);
             var (info, verifyError) = await _packageService.VerifyAsync(packagePath, ct);
@@ -653,7 +563,6 @@ namespace kaliteConfig.ViewModels
             dialogDispatch.TryEnqueue(() => dialog.SetVerification(info));
             DialogStatus($"Signature valid: {info.SignatureSubject}");
 
-            // Part 3: extraction (7z SFX).
             DialogStatus("Extracting package contents…");
             InstallProgressIndeterminate(dialog);
             string extractDir;
@@ -667,7 +576,6 @@ namespace kaliteConfig.ViewModels
                 return;
             }
 
-            // Part 3/4: parse setup.cfg into the component list.
             DialogStatus("Reading component list from setup.cfg…");
             List<NvidiaComponent> components;
             try
@@ -685,19 +593,16 @@ namespace kaliteConfig.ViewModels
                 return;
             }
 
-            // Hand the dialog over to the user for component selection.
             dialogDispatch.TryEnqueue(() => dialog.SetComponents(components));
-            item.Status = GpuDriverStatus.UpdateAvailable; // back to actionable; dialog owns the rest
+            item.Status = GpuDriverStatus.UpdateAvailable;
 
             dialog.InstallRequested += async (_, request) =>
             {
                 try
                 {
-                    // Apply the selection to setup.cfg.
                     await _packageService.ApplySelectionAsync(extractDir, dialog.Result!.Value.Components,
                         DialogStatus);
 
-                    // Part 5: elevated silent install of the kept components.
                     var (exit, reboot, _) = await _packageService.InstallAsync(
                         extractDir, request.CleanInstall, DialogStatus, ct);
 
@@ -721,7 +626,7 @@ namespace kaliteConfig.ViewModels
                         NvidiaPackageService.CleanupTemp(keepForDebug: true);
                     }
                 }
-                catch (OperationCanceledException) { /* cancelled */ }
+                catch (OperationCanceledException) {  }
                 catch (Exception ex)
                 {
                     dialog.CompleteInstall(false, false, $"Install error: {ex.Message}");
@@ -734,7 +639,7 @@ namespace kaliteConfig.ViewModels
                 }
             };
 
-            await installTcs.Task; // keep IsInstalling until the dialog finishes
+            await installTcs.Task;
         }
 
         private static void InstallProgressIndeterminate(NvidiaComponentPickerDialog dialog)
@@ -743,11 +648,6 @@ namespace kaliteConfig.ViewModels
                 dialog.SetIndeterminate();
             });
 
-        /// <summary>
-        /// Pre-install confirmation dialog: version transition summary plus a
-        /// screen-flicker warning. Also the gate that keeps the install from
-        /// ever starting without explicit user consent.
-        /// </summary>
         private static async Task<bool> ConfirmInstallAsync(GpuDriverItem item)
         {
             var window = App.MainWindow;
@@ -791,7 +691,6 @@ namespace kaliteConfig.ViewModels
             return result == ContentDialogResult.Primary;
         }
 
-        /// <summary>Best-effort delete: AV scanners often hold a fresh file briefly.</summary>
         private static void TryDelete(string path)
         {
             for (int attempt = 0; attempt < 4; attempt++)

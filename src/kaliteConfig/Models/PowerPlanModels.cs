@@ -47,7 +47,6 @@ public sealed partial class PowerSubgroup : ObservableObject
 
     public ObservableCollection<PowerSetting> Settings { get; } = new();
 
-    /// <summary>What the inner ItemsRepeater binds to; swapping this is far cheaper than toggling item Visibility.</summary>
     public ObservableCollection<PowerSetting> FilteredSettings { get; } = new();
 }
 
@@ -59,8 +58,7 @@ public sealed partial class PowerSetting : ObservableObject
     public partial string Name { get; set; } = string.Empty;
     [ObservableProperty]
     public partial string Description { get; set; } = string.Empty;
-    
-    // 0 = Range, 1 = Boolean, 2 = Choices (Enum)
+
     [ObservableProperty]
     public partial uint Type { get; set; }
     
@@ -68,54 +66,21 @@ public sealed partial class PowerSetting : ObservableObject
     public partial double AcValueIndex { get; set; }
     [ObservableProperty]
     public partial double DcValueIndex { get; set; }
-    
-    // For Range/Enum types
+
     public ObservableCollection<PowerSettingChoice> PossibleChoices { get; } = new();
 
     public bool IsChoiceType => Type == 2u && PossibleChoices.Count > 0 && !IsPresetList;
     public bool IsBooleanType => !IsChoiceType && !IsPresetList && PossibleChoices.Count == 2
         && PossibleChoices.Any(c => c.ValueIndex == 0) && PossibleChoices.Any(c => c.ValueIndex == 1);
     public bool IsRangeType => !IsChoiceType && !IsBooleanType;
-    /// <summary>
-    /// Range whose named options come from the OS itself rather than from
-    /// <see cref="IsPresetList"/>.
-    ///
-    /// The !IsPresetList guard is load-bearing. A preset list IS a range with
-    /// named options, so without this clause both flags were true at once and
-    /// the page rendered FOUR editors per setting (an AC and a DC combo from
-    /// this branch, plus the richer AC and DC combo+number pairs from the
-    /// preset branch) instead of the intended two. The preset branch already
-    /// shows the worded picker, so claiming it here duplicated the control.
-    /// </summary>
     public bool HasRangeChoices => IsRangeType && PossibleChoices.Count > 0 && !IsPresetList;
-    /// <summary>
-    /// Range with no named options at all: numeric entry plus a friendly
-    /// caption. Excludes preset lists for the same reason as
-    /// <see cref="HasRangeChoices"/> - a setting the catalog gave words to is
-    /// never a "bare" range, even in the degenerate case where the word list
-    /// came out empty.
-    /// </summary>
     public bool IsBareRange => IsRangeType && PossibleChoices.Count == 0 && !IsPresetList;
 
-    /// <summary>
-    /// Set by <see cref="PowerService"/> when the named values are PRESETS for
-    /// a continuous setting ("Never", "1 minute") rather than a real
-    /// enumeration. The worded picker and the raw number box are then both
-    /// shown: words are the obvious way in, and the number box keeps an
-    /// arbitrary value reachable instead of stranding it.
-    /// </summary>
     [ObservableProperty]
     public partial bool IsPresetList { get; set; }
 
-    /// <summary>True when the worded picker should be offered at all.</summary>
     public bool HasWordedPicker => PossibleChoices.Count > 0;
 
-    /// <summary>
-    /// Every derived editor flag depends on this one, so flipping it has to
-    /// republish all of them. Relying on Type being assigned afterwards made
-    /// the result depend on statement order inside <see cref="PowerService"/>,
-    /// which is exactly how the four-editor bug survived.
-    /// </summary>
     partial void OnIsPresetListChanged(bool value) => RaiseEditorFlags();
 
     partial void OnTypeChanged(uint value) => RaiseEditorFlags();
@@ -147,7 +112,6 @@ public sealed partial class PowerSetting : ObservableObject
         get
         {
             var n = Name ?? string.Empty;
-            // Native Windows Control Panel exposes most timeouts (disk after, sleep after, hibernate after) in minutes.
             if (n.Contains("after", StringComparison.OrdinalIgnoreCase) && !n.Contains("NVMe", StringComparison.OrdinalIgnoreCase)) return 60.0;
             return 1.0;
         }
@@ -175,7 +139,6 @@ public sealed partial class PowerSetting : ObservableObject
         }
     }
 
-    /// <summary>Selected friendly option for the AC (plugged in) value.</summary>
     public PowerSettingChoice? SelectedAcChoice
     {
         get => PossibleChoices.FirstOrDefault(c => (uint)AcValueIndex == c.ValueIndex);
@@ -183,13 +146,12 @@ public sealed partial class PowerSetting : ObservableObject
         {
             if (value is null) return;
             if ((uint)AcValueIndex == value.ValueIndex) return;
-            AcValueIndex = value.ValueIndex; // fires AcValueIndex → ViewModel writes AC
+            AcValueIndex = value.ValueIndex;
             OnPropertyChanged(nameof(SelectedAcChoice));
             OnPropertyChanged(nameof(AcValueText));
         }
     }
 
-    /// <summary>Selected friendly option for the DC (battery) value.</summary>
     public PowerSettingChoice? SelectedDcChoice
     {
         get => PossibleChoices.FirstOrDefault(c => (uint)DcValueIndex == c.ValueIndex);
@@ -197,13 +159,12 @@ public sealed partial class PowerSetting : ObservableObject
         {
             if (value is null) return;
             if ((uint)DcValueIndex == value.ValueIndex) return;
-            DcValueIndex = value.ValueIndex; // fires DcValueIndex → ViewModel writes DC
+            DcValueIndex = value.ValueIndex;
             OnPropertyChanged(nameof(SelectedDcChoice));
             OnPropertyChanged(nameof(DcValueText));
         }
     }
 
-    /// <summary>Boolean toggle for the AC value (On/Off naming from possible values).</summary>
     public bool AcBoolValue
     {
         get => (uint)AcValueIndex == 1;
@@ -215,7 +176,6 @@ public sealed partial class PowerSetting : ObservableObject
         }
     }
 
-    /// <summary>Boolean toggle for the DC value.</summary>
     public bool DcBoolValue
     {
         get => (uint)DcValueIndex == 1;
@@ -227,8 +187,6 @@ public sealed partial class PowerSetting : ObservableObject
         }
     }
 
-    /// <summary>Friendly value for range captions: named choice, else a humanized
-    /// unit ("20 minutes", "200 ms", "100 %") instead of a bare number.</summary>
     public string AcValueText
     {
         get
@@ -239,8 +197,6 @@ public sealed partial class PowerSetting : ObservableObject
         }
     }
 
-    /// <summary>Unit inferred from the setting name. Power scheme values carry no unit
-    /// metadata, so well-established Windows conventions are matched by keyword.</summary>
     private string ValueUnit
     {
         get
@@ -283,7 +239,6 @@ public sealed partial class PowerSetting : ObservableObject
         }
     }
 
-    /// <summary>Friendly name of the current DC value.</summary>
     public string DcValueText
     {
         get

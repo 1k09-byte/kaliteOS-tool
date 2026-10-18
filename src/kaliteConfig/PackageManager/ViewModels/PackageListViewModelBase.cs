@@ -20,7 +20,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.ViewModels;
 
-/// <summary>Density of the package list (the three bottom-right buttons).</summary>
 public enum PackageViewMode
 {
     List,
@@ -28,7 +27,6 @@ public enum PackageViewMode
     Grid,
 }
 
-/// <summary>Sort keys for the Order-by dropdown.</summary>
 public enum PackageSortKey
 {
     Name,
@@ -36,7 +34,6 @@ public enum PackageSortKey
     Version,
 }
 
-/// <summary>One checkbox row in the Sources panel.</summary>
 public sealed partial class SourceChoice : ObservableObject
 {
     [ObservableProperty] public partial string SourceId { get; set; } = string.Empty;
@@ -44,21 +41,10 @@ public sealed partial class SourceChoice : ObservableObject
     [ObservableProperty] public partial bool IsChecked { get; set; } = true;
 }
 
-/// <summary>
-/// Shared list behavior for Discover/Updates/Installed: items, filtering,
-/// sorting, selection + counts, view mode, sources panel. Each view fills
-/// Items and tweaks the chrome; the row control renders everything.
-/// </summary>
 public abstract partial class PackageListViewModelBase : ObservableObject
 {
     protected readonly PackageManagerModule Module = PackageManagerModule.Instance;
 
-    /// <summary>
-    /// UI-thread dispatcher captured at construction (ViewModels are always
-    /// built on the UI thread). Never use GetForCurrentThread() at await
-    /// points: after ConfigureAwait(false) hops, "current" is a pool thread
-    /// and any UI update from there dies with RPC_E_WRONG_THREAD.
-    /// </summary>
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcher;
 
     protected PackageListViewModelBase()
@@ -76,7 +62,6 @@ public abstract partial class PackageListViewModelBase : ObservableObject
     [ObservableProperty] public partial PackageSortKey SortKey { get; set; } = PackageSortKey.Name;
     [ObservableProperty] public partial bool IsBusy { get; set; }
 
-    /// <summary>ComboBox-friendly mirror of SortKey (same declaration order).</summary>
     public int SortKeyIndex
     {
         get => (int)SortKey;
@@ -91,7 +76,6 @@ public abstract partial class PackageListViewModelBase : ObservableObject
     partial void OnSearchQueryChanged(string value) => ApplyFilter();
     partial void OnSortKeyChanged(PackageSortKey value) => ApplyFilter();
 
-    /// <summary>Which sources participate (checked ones); views override the capability filter.</summary>
     protected virtual bool SourceEligible(IPackageSource source) => true;
 
     protected void RebuildSourceChoices()
@@ -176,7 +160,6 @@ public abstract partial class PackageListViewModelBase : ObservableObject
         ApplyFilter();
     }
 
-    /// <summary>Cancels the live operation on one row (row Cancel button).</summary>
     [RelayCommand]
     public void CancelActiveOperation(PackageInfo? package)
     {
@@ -186,10 +169,6 @@ public abstract partial class PackageListViewModelBase : ObservableObject
 
     public void NotifySelectionChanged() => OnPropertyChanged(nameof(SelectedCount));
 
-    /// <summary>
-    /// Runs an action on the UI thread when there is one, inline otherwise
-    /// (keeps ViewModels unit-testable off-thread).
-    /// </summary>
     protected Task MarshalAsync(Action action)
     {
         if (_dispatcher != null)

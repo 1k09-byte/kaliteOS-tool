@@ -13,11 +13,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Global benchmark hotkey on a dedicated hidden message window (same pattern
-/// as TrayIconService - never subclasses the WinUI window). Default Ctrl+F10.
-/// Registration failure (key taken) surfaces as a message, never silently.
-/// </summary>
 public sealed class BenchmarkHotkeyService : IDisposable
 {
     public const uint ModAlt = 0x1;
@@ -59,14 +54,6 @@ public sealed class BenchmarkHotkeyService : IDisposable
     private IntPtr _hwnd = IntPtr.Zero;
     private WndProcDelegate? _wndProc;
 
-    /// <summary>
-    /// Keeps the WndProc delegate alive for the whole life of the window that
-    /// calls it. A field is not enough: the runtime cannot see the raw function
-    /// pointer handed to CreateWindowExW, so it may collect the delegate, and the
-    /// next delivered message calls into a collected delegate - which the runtime
-    /// answers with Environment.FailFast (uncatchable, no stack, no crash.log).
-    /// Freed in Dispose(), only after DestroyWindow.
-    /// </summary>
     private GCHandle _wndProcPin;
 
     private bool _registered;
@@ -134,7 +121,7 @@ public sealed class BenchmarkHotkeyService : IDisposable
             lpszClassName = ClassName,
         };
         ushort atom = RegisterClassExW(ref cls);
-        if (atom == 0 && Marshal.GetLastWin32Error() != 1410) // 1410 = class already exists
+        if (atom == 0 && Marshal.GetLastWin32Error() != 1410)
             throw new InvalidOperationException("Could not register the hotkey window class.");
         _hwnd = CreateWindowExW(0, ClassName, "kaliteBench Hotkey", 0, 0, 0, 0, 0,
             IntPtr.Zero, IntPtr.Zero, GetModuleHandleW(null), IntPtr.Zero);
@@ -152,7 +139,6 @@ public sealed class BenchmarkHotkeyService : IDisposable
         return DefWindowProcW(hWnd, msg, wParam, lParam);
     }
 
-    /// <summary>Registers the preset. Returns (false, message) when the key is taken.</summary>
     public (bool Ok, string Message) Register(HotkeyPreset preset)
     {
         try
@@ -200,9 +186,6 @@ public sealed class BenchmarkHotkeyService : IDisposable
         catch { }
         _hwnd = IntPtr.Zero;
 
-        // Only once the window and its class are gone can the pin be released:
-        // DestroyWindow delivers WM_DESTROY synchronously on this thread, so no
-        // further call into the delegate can be in flight or arrive later.
         if (_wndProcPin.IsAllocated) { _wndProcPin.Free(); _wndProcPin = default; }
         _wndProc = null;
     }

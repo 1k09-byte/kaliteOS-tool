@@ -10,18 +10,12 @@ public sealed class WindowsCapabilityService
         BuildNumber = ReadBuildNumber();
     }
 
-    // Real build from RtlGetVersion, not the compatibility-shimmed Environment value.
     public int BuildNumber { get; }
 
-    // Windows 11 starts at build 22000 (Microsoft Windows 11 build numbering).
     public bool IsWindows11 => BuildNumber >= 22000;
 
-    // The project ships as an unpackaged WinUI 3 app (csproj). Registry writes are
-    // therefore not redirected or virtualized by MSIX.
     public bool IsPackaged => false;
 
-    // Read-only check. True when a policy key under HKCU has any value.
-    // PERSONALIZE-REVIEW: policy detection is a heuristic on well-known HKCU policy keys.
     public bool IsPolicyLocked(string policySubKey)
     {
         try

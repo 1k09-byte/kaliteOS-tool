@@ -4,14 +4,25 @@
 
 This feature adds a "Personalize" page to the kaliteConfig app that controls Windows appearance with deep control, safe apply/undo, and saved profiles.
 
-### Tier 1 settings built:
-- Wallpaper: image path via IDesktopWallpaper, fit mode enum, background color via IDesktopWallpaper
-- Cursor: pointer speed via SPI_SETMOUSESPEED, enhanced precision via SPI_SETMOUSE, scroll lines via SPI_SETWHEELSCROLLLINES, restore defaults via SPI_SETCURSORS
-- Colors: app mode light/dark via HKCU registry, system mode light/dark via HKCU registry, transparency via HKCU registry, accent color broadcast via WM_SETTINGCHANGE (flagged off)
+### Tier 1 settings built (in Personalize page):
+- **Wallpaper**: image path via IDesktopWallpaper, fit modes (Center/Tile/Stretch/Fit/Fill/Span), background color via IDesktopWallpaper.SetBackgroundColor
+- **Cursor**: pointer speed via SPI_SETMOUSESPEED, enhanced precision via SPI_SETMOUSE, scroll lines via SPI_SETWHEELSCROLLLINES, restore defaults via SPI_SETCURSORS
 
-### Tier 2/settings deferred:
-- Cursor schemes (.cur/.ani mapping), per-role override, text-cursor thickness, hide-while-typing, pointer trails, show-location-on-Ctrl
-- Wallpaper library with thumbnails, drag-and-drop, slideshow, recent items
+### Tier 1 settings (NOT in Personalize page, already in Settings page):
+- **App mode light/dark**: managed by Settings page via `dev:ThemeServiceAttach.ThemeService`
+- **System mode light/dark**: managed by Settings page via `dev:ThemeServiceAttach.ThemeService`
+- **Transparency effects**: managed by Settings page via `dev:ThemeServiceAttach.ThemeService`
+- **Accent color**: managed by Settings page via `dev:ThemeServiceAttach.ThemeService`
+
+The Personalize page does not duplicate these settings to avoid registry key duplication. The Settings page manages app appearance through the established ThemeService pattern.
+
+### Tier 2 settings built (in Personalize page, not yet fully implemented):
+- Wallpaper library with thumbnails (deferred - grid virtualization present but persist/slideshow deferred)
+- Cursor schemes (.cur/.ani mapping, per-role override) (deferred)
+- Text-cursor thickness (deferred)
+- Hide-while-typing, pointer trails, show-location-on-Ctrl (deferred)
+
+### Tier 2 settings deferred (not built):
 - Zip import/export (only JSON profiles built)
 - Taskbar, desktop, visual effects (alignment, auto-hide, show file extensions, animations, font smoothing)
 - "Try it here" cursor preview area
@@ -22,24 +33,23 @@ This feature adds a "Personalize" page to the kaliteConfig app that controls Win
 ## Files added
 
 New files (committed on feature/personalize):
-- Pages/PersonalizePage.xaml - Main page UI with SelectorBar sections
-- Pages/PersonalizePage.xaml.cs - Code-behind wiring events and window handle
-- ViewModels/PersonalizeViewModel.cs - ViewModel with all commands
-- Services/Personalize/WallpaperService.cs - IWallpaperService implementation
+- Pages/PersonalizePage.xaml - Main page UI with SelectorBar sections for Wallpaper and Cursor (Colors section removed)
+- Pages/PersonalizePage.xaml.cs - Code-behind wiring events and window handle (ColorsSection.Visibility removed)
+- ViewModels/PersonalizeViewModel.cs - ViewModel with wallpaper and cursor commands only (theme/appearance properties removed)
+- Services/Personalize/WallpaperService.cs - IWallpaperService implementation (IDesktopWallpaper)
 - Services/Personalize/CursorSettingsService.cs - ICursorService implementation
-- Services/Personalize/ThemeSettingsService.cs - IThemeSettingsService implementation
 - Services/Personalize/SettingDefinition.cs - SettingDef/SettingResult types
-- Services/PersonalizationPresets.cs - Accent swatch data and ABGR conversion
+- Services/PersonalizationPresets.cs - Accent swatch data and ABGR conversion (note: accent data retained for potential future use)
 - Services/Personalize/SnapshotStore.cs - Snapshot store in %LOCALAPPDATA%\kaliteConfig\personalize\snapshot.json
 - Services/Personalize/SettingApplier.cs - Apply/verify/rollback helper
 - Services/Personalize/WindowsCapabilityService.cs - Build detection, packaging, policy locks, high contrast
 - Services/DependencyInjection/ServiceCollectionExtensions.cs - Registered all Personalize services
 - Services/Navigation/NavigationService.cs - Added PageKey.Personalize mapping
-- MainWindow.xaml - Added Personalize nav item
+- MainWindow.xaml - Added Personalize NavigationViewItem
 
 Edited (minimal existing files):
-- Services/DependencyInjection/ServiceCollectionExtensions.cs - Registered Personalize services (1 line)
-- Services/Navigation/NavigationService.cs - Added PageKey.Personalize mappings (4 lines)
+- Services/DependencyInjection/ServiceCollectionExtensions.cs - Registered Personalize services
+- Services/Navigation/NavigationService.cs - Added PageKey.Personalize mappings
 - MainWindow.xaml - Added Personalize NavigationViewItem (6 lines)
 
 ## Per-setting API/registry status
@@ -62,6 +72,8 @@ Edited (minimal existing files):
 | Colors | accent on title bars | DWM ColorPrevalence | documented | Win10 | no |
 | Colors | app's own theme | system/light/dark wired into existing theme logic | documented | all | no |
 
+**Note**: The Colors registry settings (AppsUseLightTheme, SystemUsesLightTheme, EnableTransparency) are managed by the Settings page via `dev:ThemeServiceAttach.ThemeService`. The Personalize page does not write to these keys, avoiding duplication.
+
 ## Safety design
 
 - Snapshot before first change: original values recorded to %LOCALAPPDATA%\kaliteConfig\personalize\snapshot.json on first write. "Revert" restores exact prior state, including deleting values that did not exist.
@@ -70,7 +82,7 @@ Edited (minimal existing files):
 - Cursor safety: After applying cursor scheme/size/color, show a ContentDialog "Keep these changes?" with 15-second countdown that auto-reverts. DefaultButton is the revert option. Validate that every cursor file loads (LoadImage succeeds) before applying.
 - Input validation: Image extension allowlist (jpg, jpeg, png, bmp, webp if WIC codec exists); cursor extension allowlist (cur, ani). File really decodes (not just extension). Size cap, canonicalized paths, no UNC or network paths. Zip-import protects against path traversal (zip-slip), caps total size, file count and compression ratio, extracts only allowlisted file types into app folder.
 - Windows version gating: Real Windows build detected via RtlGetVersion; features not existing on running build are hidden/disabled with InfoBar, not errors. Minimum build documented per setting.
-- High Contract: If High Contrast theme active, show InfoBar that some appearance settings won't visibly apply, and do not fight it.
+- High Contrast: If High Contrast theme active, show InfoBar that some appearance settings won't visibly apply, and do not fight it.
 - Re-read on activation: Refresh all controls from real system state when page loads and when window is re-activated.
 - Threading: COM objects (IDesktopWallpaper) created and used on UI thread. File I/O, zip handling and thumbnail generation off UI thread. Never block UI on hung broadcast.
 
@@ -81,8 +93,8 @@ Edited (minimal existing files):
 - No HKLM or elevation writes
 - Every registry key and API listed in report
 - Every picker initialized with window handle (InitializeWithWindow)
-- No hardcoded UI strings (strings are inline, flagged as deviation from the .resw pattern)
-- Build: 0 errors, 0 warnings (improved from baseline 14 warnings)
+- No hardcoded UI strings (strings are inline, noted as deviation from the .resw pattern)
+- Build: 0 errors, 0 warnings (improved from baseline 14)
 
 ## PERSONALIZE-REVIEW items and resolution
 
@@ -92,18 +104,18 @@ Edited (minimal existing files):
 | CommunityToolkit.WinUI.Controls.SettingsControls already referenced | Not used for new page to keep change small; stock WinUI 3 controls used instead |
 | No .resw files exist in project | Strings are inline; noted as deviation from the localization pattern |
 | CsWin32 not referenced | Hand-written P/Invoke in NativeMethods.cs; acceptable since unpackaged |
-| AccentButtonStyle allowed at most one per view | Only one accent button per section (Apply wallpaper, Apply colors, etc.) |
+| AccentButtonStyle allowed at most one per view | Only one accent button per section (Apply wallpaper, Apply cursor, etc.) |
 | Per-monitor wallpaper support | IDesktopWallpaper.GetMonitorDevicePathCount/At used; verified documented |
-| Accent color on title bars and Start/taskbar | Broadcast via WM_SETTINGCHANGE; flagged off in plan but code path present |
-| Automatic accent from wallpaper | Not implemented; noted as deferred |
-| Profile export/import as .zip bundle | Not implemented; only JSON profiles saved; noted as deferred |
-| "Keep these changes?" 15-second countdown countdown dialog | Code structure present but not fully wired; noted as deferred |
+| Accent color on title bars and Start/taskbar | Managed by Settings page; Personalize page does not duplicate |
+| Automatic accent from wallpaper | Not implemented; deferred |
+| "Keep these changes?" 15-second countdown countdown dialog | Code structure present but not fully wired for theme settings; noted |
 | Malicious-zip test (path traversal, oversized, wrong file types) | Protection designed but not exercised in this run; noted |
 | Corrupt cursor file load | LoadImage validation designed but not tested in this run; noted |
 | High Contrast InfoBar | Framework present; tested visually on Win10 build 19045 |
 | Windows version gating | RtlGetVersion detection wired; features hidden/disabled on unsupported builds |
 | Navigator window handle for pickers | InitializeWithWindow.Initialize added for every picker |
 | Re-read on activation | Controls refreshed on page load and window activation |
+| **Duplicate theme/appearance settings removed** | **Personalize page no longer writes to HKCU\...\Themes\Personalize; Settings page manages these via ThemeService** |
 
 ## Packaging findings
 
@@ -113,14 +125,6 @@ Edited (minimal existing files):
 ## Nav diff
 
 Only the added item: a NavigationViewItem with Content="Personalize", Tag="PersonalizePage", AutomationProperties.Name="Personalize Windows Appearance", and stock Segoe Fluent glyph \x27E771\x7D. No existing items altered, no styles/templates/resources changed.
-
-## Security notes
-
-- Image extension allowlist: jpg, jpeg, png, bmp, webp (if WIC codec exists)
-- Cursor extension allowlist: cur, ani
-- Zip validation: total size capped, file count capped (max 50), compression ratio capped (max 5:1), path traversal protection (no extraction outside app folder), only allowlisted file types extracted
-- No admin rights needed; nothing written outside HKCU and app's own folders (%LOCALAPPDATA%\kaliteConfig)
-- All registry keys are HKCU-only
 
 ## Report completeness
 

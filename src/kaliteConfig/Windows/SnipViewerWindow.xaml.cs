@@ -25,11 +25,6 @@ using WinRT.Interop;
 
 namespace kaliteConfig.Views;
 
-/// <summary>
-/// The full viewer: the snip at a size that can actually be inspected, on the same Win2D preview
-/// the details panel uses (progressive 512 px -> full resolution, DPI-correct 100%, zoom/pan,
-/// region-on-demand for huge captures).
-/// </summary>
 public sealed partial class SnipViewerWindow : Window
 {
     private readonly string _filePath;
@@ -70,10 +65,6 @@ public sealed partial class SnipViewerWindow : Window
         ImageSizeText.Text = string.Empty;
     }
 
-    /// <summary>
-    /// Sizes the window so the snip opens comfortably: the image at its DIP size plus the chrome,
-    /// clamped to the work area (a 4K capture opens at a size you can actually see).
-    /// </summary>
     private void ResizeToFitContent(int pixelWidth, int pixelHeight)
     {
         try
@@ -113,10 +104,8 @@ public sealed partial class SnipViewerWindow : Window
             var y = area.Y + Math.Max(0, (area.Height - wantHeight) / 2);
             appWindow.Move(new PointInt32(x, y));
         }
-        catch { /* sizing is a nicety: never block the viewer */ }
+        catch {  }
     }
-
-    // ---- toolbar ----------------------------------------------------------
 
     private async void Copy_Click(object sender, RoutedEventArgs e)
     {
@@ -175,8 +164,6 @@ public sealed partial class SnipViewerWindow : Window
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-
-    // ---- keyboard ---------------------------------------------------------
 
     private void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {

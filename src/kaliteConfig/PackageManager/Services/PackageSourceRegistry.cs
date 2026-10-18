@@ -19,11 +19,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>
-/// Holds every backend. WinGet is the only implemented one so far; every
-/// other row is an honest not-implemented placeholder (never a fake that
-/// pretends to work) until its backend lands, one at a time.
-/// </summary>
 public sealed class PackageSourceRegistry
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
@@ -80,7 +75,6 @@ public sealed class PackageSourceRegistry
             winget.ExecutableOverride = string.IsNullOrWhiteSpace(executablePath) ? null : executablePath.Trim();
     }
 
-    /// <summary>Probes every backend (WinGet real; placeholders report not-implemented).</summary>
     public async Task<IReadOnlyList<PackageSourceStatus>> DetectAsync(CancellationToken ct = default)
     {
         var list = new List<PackageSourceStatus>();
@@ -96,7 +90,6 @@ public sealed class PackageSourceRegistry
         return list;
     }
 
-    /// <summary>Sources usable for a given view (implemented + enabled).</summary>
     public IReadOnlyList<IPackageSource> ActiveSources() =>
         _sources.Where(s => IsEnabled(s) && s is not NotImplementedPackageSource).ToList();
 
@@ -113,7 +106,7 @@ public sealed class PackageSourceRegistry
             if (state?.ExeOverrides != null)
                 foreach (var kv in state.ExeOverrides) _exeOverrides[kv.Key] = kv.Value;
         }
-        catch { /* corrupt state starts fresh */ }
+        catch {  }
     }
 
     private void SaveState()
@@ -129,11 +122,6 @@ public sealed class PackageSourceRegistry
         catch { }
     }
 
-    /// <summary>
-    /// Honest placeholder: advertises no capabilities and reports
-    /// not-implemented, so the preferences page shows a real "Not
-    /// implemented yet" row instead of a fake backend.
-    /// </summary>
     private sealed class NotImplementedPackageSource : IPackageSource
     {
         private readonly string? _hintExe;
@@ -158,8 +146,6 @@ public sealed class PackageSourceRegistry
 
         public Task<PackageSourceStatus> DetectAsync(CancellationToken ct = default)
         {
-            // Presence probe only (informational overture for the real
-            // backend): is the tool even on PATH? Still not implemented.
             bool present = false;
             string version = "";
             if (_hintExe != null)

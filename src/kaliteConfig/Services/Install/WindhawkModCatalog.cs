@@ -17,24 +17,8 @@ using System.Text.Json;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// The authoritative list of mod IDs that the bundled default backup contains.
-/// Used by WindhawkImportService to skip any mod not in this catalog, so the
-/// import stays deterministic and a stray/unsigned modId can never be written
-/// into the engine's registry.
-///
-/// Keep this list in sync with the bundled asset
-/// Assets/Windhawk/mods-bundled.json whenever the default set changes.
-/// </summary>
 public static class WindhawkModCatalog
 {
-    /// <summary>
-    /// Reads the bundled default backup JSON from the app's content location and
-    /// returns the ordered list of mod IDs it declares.
-    ///
-    /// For packaged (MSIX) runs this resolves via the package content; for
-    /// unpackaged runs it resolves relative to the executable directory.
-    /// </summary>
     public static IReadOnlyList<string> AllowedModIds
     {
         get
@@ -62,12 +46,6 @@ public static class WindhawkModCatalog
         }
     }
 
-    /// <summary>
-    /// Absolute path to the bundled KaliteOS Windhawk backup JSON.
-    /// Primary: Assets/Windhawk/KaliteOS.json (C:\Users\AutoOS\Downloads\KaliteOS.json copy).
-    /// Fallback: Assets/Windhawk/mods-bundled.json (kept in sync with KaliteOS).
-    /// Fallback 2: Assets/KaliteOS.json
-    /// </summary>
     public static string? BundledBackupPath
     {
         get
@@ -88,14 +66,6 @@ public static class WindhawkModCatalog
         }
     }
 
-    /// <summary>
-    /// Ensures the bundled backup asset is copied to a writable location next to
-    /// the executable on first use, so the import path always has a real file to
-    /// hand to Windhawk (windhawk-cli and the registry path both want a file on
-    /// disk, not a package URI).
-    ///
-    /// Idempotent and safe to call on every run.
-    /// </summary>
     public static string EnsureBundledBackupOnDisk()
     {
         var source = BundledBackupPath;
@@ -109,8 +79,6 @@ public static class WindhawkModCatalog
         Directory.CreateDirectory(targetDir);
         var target = Path.Combine(targetDir, "mods-bundled.json");
 
-        // Only copy when the target is missing or older than the source (e.g. after
-        // an app update that bumped the bundled mod list).
         if (!File.Exists(target) ||
             File.GetLastWriteTimeUtc(source) > File.GetLastWriteTimeUtc(target))
         {

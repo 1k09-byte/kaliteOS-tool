@@ -19,12 +19,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Controls;
 
-/// <summary>
-/// Shared CPU affinity / CPU Sets picker flyouts. Used by the rule editor
-/// (per-rule values) and the threads window (immediate per-thread changes)
-/// so both stay identical. Masks are single-group ulongs; multi-group
-/// systems get an honest note instead of a silently group-0-only mask.
-/// </summary>
 public static class CpuPickerFlyouts
 {
     public static async Task ShowAffinityPickerAsync(
@@ -53,7 +47,6 @@ public static class CpuPickerFlyouts
             return;
         }
 
-        // Higher EfficiencyClass == faster P-core (per MS docs); rank 0 is fastest.
         var ranks = CpuSetService.RankClasses(entries);
         int maxRank = ranks.Count > 0 ? ranks.Values.Max() : 0;
         bool hybrid = ranks.Count > 1;

@@ -27,17 +27,6 @@ namespace kaliteConfig.Services
     {
         private static readonly HttpClient _httpClient = new();
 
-        /// <summary>
-        /// Maps an Apps-tab entry to the product it really is.
-        ///
-        /// This used to be a chain of substring tests over the display name,
-        /// which silently mis-routed real products: "Steam".Contains("EA",
-        /// OrdinalIgnoreCase) is TRUE ("st-ea-m") and the EA test came first,
-        /// so uninstalling Steam looked for - and wiped residue of - the EA
-        /// app. "Epic Games Launcher" similarly matched the "Epic" test, and
-        /// any future rename silently re-routed again. Entries now carry an
-        /// explicit id and the name is only a fallback.
-        /// </summary>
         public async Task UninstallBrowserAsync(BrowserInstallItem item, CancellationToken ct)
         {
             string searchKeyword = InstallerProductRouter.Resolve(item?.Name, item?.ProductId);
@@ -52,7 +41,6 @@ namespace kaliteConfig.Services
 
                 string? uninstallString = null;
 
-                // Search strictly in LocalMachine and CurrentUser
                 foreach (var baseKey in new[] { Microsoft.Win32.Registry.LocalMachine, Microsoft.Win32.Registry.CurrentUser })
                 {
                     foreach (var hive in hives)
@@ -81,7 +69,6 @@ namespace kaliteConfig.Services
 
                 if (!string.IsNullOrEmpty(uninstallString))
                 {
-                    // Clean up the string if it contains quotes
                     string exePath = uninstallString;
                     string arguments = "";
 
@@ -99,7 +86,6 @@ namespace kaliteConfig.Services
                         int firstSpace = exePath.IndexOf(" ");
                         if (firstSpace > 0 && !exePath.Contains(".exe", StringComparison.OrdinalIgnoreCase))
                         {
-                            // If there are spaces but no explicit quotes, try to find .exe
                             int exeIndex = exePath.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
                             if (exeIndex > 0)
                             {
@@ -109,7 +95,6 @@ namespace kaliteConfig.Services
                         }
                     }
 
-                    // Append absolute silent overrides based on target
                     if (searchKeyword == "Zen")
                     {
                         if (!arguments.Contains("/S")) arguments += " /S";
@@ -140,11 +125,6 @@ namespace kaliteConfig.Services
                     catch { }
                 }
 
-                // ==========================================
-                // HARD WIPE: Nuke remaining profiles & registry
-                // ==========================================
-                
-                // 1. Force kill remaining processes
                 try
                 {
                     string[] procNames = searchKeyword switch
@@ -174,7 +154,6 @@ namespace kaliteConfig.Services
                 }
                 catch { }
 
-                // 2. Wipe directories
                 string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 string progFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
                 string progFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
@@ -200,7 +179,6 @@ namespace kaliteConfig.Services
                 }
                 else if (searchKeyword == "Helium")
                 {
-                    // Helium's actual per-user location is %LOCALAPPDATA%\imput\Helium (chrome.exe binary), not %LOCALAPPDATA%\Programs\Helium
                     pathsToNuke.Add(Path.Combine(localAppData, "imput", "Helium"));
                     pathsToNuke.Add(Path.Combine(localAppData, "Helium"));
                     pathsToNuke.Add(Path.Combine(localAppData, "Programs", "Helium"));
@@ -222,7 +200,6 @@ namespace kaliteConfig.Services
                     }
                 }
 
-                // 3. Wipe our extension registry keys from both HKLM and HKCU and both Helium/Chromium paths
                 try
                 {
                     void DeleteForcelist(string path)
@@ -299,7 +276,6 @@ namespace kaliteConfig.Services
             return GetBrowserInstallDirectory(item) != null;
         }
 
-        /// <summary>Flags UpdateAvailable when the installed build is older than the catalog's LatestVersion.</summary>
         public void DetectUpdate(BrowserInstallItem item)
         {
             item.UpdateAvailable = false;
@@ -317,7 +293,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>One winget call lists every upgradable package; ids are what the catalog matches on.</summary>
         public async Task<HashSet<string>> GetUpgradableWingetIdsAsync(CancellationToken ct)
         {
             var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -338,11 +313,6 @@ namespace kaliteConfig.Services
                 string stdout = await process.StandardOutput.ReadToEndAsync();
                 await process.WaitForExitAsync(ct);
 
-                // winget 1.29 has no --output json for upgrade, so parse the
-                // fixed-width table. The Id column's offset is taken from the
-                // HEADER, not by splitting on whitespace: names contain spaces
-                // ("7-Zip 26.03 (x64)") so a naive token split would read the
-                // version as the id.
                 int idColumn = -1;
                 foreach (string raw in stdout.Split('\n'))
                 {
@@ -362,11 +332,10 @@ namespace kaliteConfig.Services
                     ids.Add(id);
                 }
             }
-            catch { /* no winget or cancellation: fall back to version compare only */ }
+            catch {  }
             return ids;
         }
 
-        /// <summary>A winget id is dotted and uses only id characters; this drops the table's trailing prose lines.</summary>
         private static bool LooksLikeWingetId(string token)
         {
             if (!token.Contains('.') || token[0] == '.' || token[^1] == '.') return false;
@@ -378,7 +347,6 @@ namespace kaliteConfig.Services
             return true;
         }
 
-        /// <summary>Reads the FileVersion of the first InstalledCheckPath entry that exists.</summary>
         private static string? ReadInstalledVersion(BrowserInstallItem item)
         {
             foreach (string raw in item.InstalledCheckPath.Split(';', StringSplitOptions.RemoveEmptyEntries))
@@ -393,12 +361,11 @@ namespace kaliteConfig.Services
                         if (!string.IsNullOrWhiteSpace(info.FileVersion)) return info.FileVersion.Trim();
                     }
                 }
-                catch { /* a locked or missing binary is simply "unknown" */ }
+                catch {  }
             }
             return null;
         }
 
-        /// <summary>Dotted-numeric compare; any non-numeric segment sorts as 0 so junk never crashes the scan.</summary>
         internal static int CompareVersions(string a, string b)
         {
             string[] pa = a.Split('.', StringSplitOptions.RemoveEmptyEntries);
@@ -418,11 +385,6 @@ namespace kaliteConfig.Services
             return int.TryParse(digits, out int v) ? v : 0;
         }
 
-        /// <summary>
-        /// Returns Helium User Data directories for the current profile plus every local
-        /// user's profile (elevated runs resolve %LOCALAPPDATA% to the admin profile, so
-        /// the interactive user's profile must be covered explicitly).
-        /// </summary>
         private static List<string> GetHeliumUserDataDirs()
         {
             var candidates = new List<string>();
@@ -447,26 +409,12 @@ namespace kaliteConfig.Services
             return candidates;
         }
 
-        /// <summary>
-        /// Seeds Helium profile prefs so force-installed extensions can download.
-        /// Fresh silent installs never complete helium://setup, leaving
-        /// ShouldAccessServices()=false (services.enabled=true by default but neither
-        /// user_consented nor an explicit HasPrefPath(enabled) is set). The extension
-        /// proxy then returns a dummy URL and ExtensionInstallForcelist silently never
-        /// fetches: helium://policy shows "managed" but only the built-in uBlock
-        /// component (blockjmkbacgjkknlgpkjjiijinjdanf) appears in helium://extensions.
-        /// Writing these keys explicitly marks onboarding complete and enables the proxy.
-        /// Covers both pref-name variants across Helium builds (user_consented/consented,
-        /// completed_onboarding/did_onboarding, ext_proxy/extension_proxy).
-        /// </summary>
         private static void EnsureHeliumServicesEnabled()
         {
             try
             {
                 var candidates = GetHeliumUserDataDirs();
 
-                // Keys required by ShouldAccessServices() + ShouldAccessExtensionService().
-                // Dotted paths are created as nested JSON objects inside Default\Preferences.
                 var required = new Dictionary<string, JsonNode>
                 {
                     ["helium.services.enabled"] = JsonValue.Create(true)!,
@@ -484,15 +432,11 @@ namespace kaliteConfig.Services
                     try
                     {
                         string prefPath = Path.Combine(userData, "Default", "Preferences");
-                        // Fresh silent installs have no profile yet (browser never launched):
-                        // create a minimal Preferences file so the proxy is already enabled
-                        // on first run instead of waiting for helium://setup. Chromium merges
-                        // first-run defaults with an existing Preferences file.
                         if (!File.Exists(prefPath))
                         {
                             try { Directory.CreateDirectory(Path.GetDirectoryName(prefPath)!); } catch { }
                         }
-                        if (IsFileLocked(prefPath)) continue; // browser running; keys already seeded on earlier run
+                        if (IsFileLocked(prefPath)) continue;
 
                         string json = File.Exists(prefPath) ? File.ReadAllText(prefPath) : "{}";
                         if (string.IsNullOrWhiteSpace(json)) json = "{}";
@@ -529,7 +473,6 @@ namespace kaliteConfig.Services
                 JsonNode? next = obj[parts[i]];
                 if (next is not JsonObject && next is not null && next.GetValueKind() != JsonValueKind.Object)
                 {
-                    // Existing scalar where we need an object; leave untouched to avoid corrupting prefs.
                     return false;
                 }
                 if (next is null)
@@ -571,23 +514,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Downloads the selected extensions from the Chrome Web Store, unpacks them from their
-        /// CRX files, and makes Helium load them as unpacked extensions on every launch through
-        /// the --load-extension switch on the Start Menu/Desktop shortcuts.
-        ///
-        /// WHY helix cannot install them itself: Helium 0.16.5.1 cannot install extensions via
-        /// ExtensionInstallForcelist at all. Its domain substitution rewrites the Web Store
-        /// update host and TrkProtocolHandler blocks the updater's manifest request (verified in
-        /// chrome_debug.log: "Failed to fetch manifest ... response code:-1"), and policy
-        /// validation additionally rejects any substitute update URL (verified with an
-        /// http://127.0.0.1 update server - the updater never even fetched it). Helium also
-        /// discards hand-written extensions.settings entries on every launch (verified by
-        /// multiple relaunch tests, including entries with a correct manifest "key"). Loading
-        /// unpacked via --load-extension is the only mechanism that actually starts third-party
-        /// extensions: tested live, Helium then registers the extensions itself (location 8)
-        /// and runs their background pages / service workers.
-        /// </summary>
         private void SeedHeliumExtensionsFromStore(BrowserInstallItem item)
         {
             List<ExtensionItem> selected = new();
@@ -604,7 +530,6 @@ namespace kaliteConfig.Services
             try { Directory.CreateDirectory(cacheDir); } catch { return; }
             try { Directory.CreateDirectory(unpackRoot); } catch { return; }
 
-            // 1. Fetch and unpack each CRX into a stable directory under %ProgramData%.
             var unpackedDirs = new List<string>();
             foreach (var ext in selected)
             {
@@ -618,7 +543,6 @@ namespace kaliteConfig.Services
                     string slug = MakeSafeName(ext.Name);
                     string dest = Path.Combine(unpackRoot, slug);
                     string manifestPath = Path.Combine(dest, "manifest.json");
-                    // Refresh the unpacked copy when the cached CRX version differs.
                     if (Directory.Exists(dest) && File.Exists(manifestPath))
                     {
                         try
@@ -641,9 +565,6 @@ namespace kaliteConfig.Services
             }
             if (unpackedDirs.Count == 0) return;
 
-            // 2. Make every Helium launch load the extensions unpacked. The --load-extension
-            // switch is passed on the Start Menu/Desktop shortcuts so the extensions load
-            // regardless of launch method, and the entries Helium itself wrote stay valid.
             string loadFlag = "--load-extension=\"" + string.Join(",", unpackedDirs) + "\"";
             try { File.WriteAllText(Path.Combine(unpackRoot, "helium-load-extension.txt"), loadFlag); } catch { }
             PatchHeliumShortcuts(loadFlag);
@@ -673,10 +594,6 @@ namespace kaliteConfig.Services
             return null;
         }
 
-        /// <summary>
-        /// Re-points Helium's Start Menu/Desktop shortcuts to also pass --load-extension, so the
-        /// unpacked extensions load on every launch. Re-applied whenever extensions are deployed.
-        /// </summary>
         private static void PatchHeliumShortcuts(string loadFlag)
         {
             try
@@ -712,8 +629,6 @@ namespace kaliteConfig.Services
                             if (!string.Equals(target, exe, StringComparison.OrdinalIgnoreCase)) continue;
 
                             string args = (string)shortcut.Arguments;
-                            // Drop any previous --load-extension before appending the fresh one
-                            // so re-seeding never duplicates or leaves stale paths.
                             args = System.Text.RegularExpressions.Regex.Replace(args, "--load-extension(?:=[^\\s]+)?", string.Empty).Trim();
                             if (args.Length > 0) args += " ";
                             shortcut.Arguments = args + loadFlag;
@@ -728,11 +643,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Removes stale Helium forcelist policies. ExtensionInstallForcelist cannot work on
-        /// Helium 0.16.5.1 (updater requests are blocked), and leaving the policy causes repeated
-        /// "Failed to fetch manifest" attempts and a misleading "managed" state on every launch.
-        /// </summary>
         private static void RemoveHeliumForcelist()
         {
             foreach (var hive in new[] { Microsoft.Win32.Registry.LocalMachine, Microsoft.Win32.Registry.CurrentUser })
@@ -755,7 +665,6 @@ namespace kaliteConfig.Services
             {
                 if (File.Exists(crxPath) && new FileInfo(crxPath).Length > 1024)
                 {
-                    // Reuse cache; corruption (bad magic) below triggers a re-download.
                     if (HasValidCrxMagic(crxPath)) return true;
                     try { File.Delete(crxPath); } catch { }
                 }
@@ -813,8 +722,6 @@ namespace kaliteConfig.Services
                 }
                 else return false;
 
-                // ZipArchive requires offsets relative to stream position 0, but the zip data
-                // starts at zipOffset inside the CRX. Copy the zip portion to a clean stream first.
                 fs.Seek(zipOffset, SeekOrigin.Begin);
                 var zipBytes = new byte[fs.Length - zipOffset];
                 int read = 0;
@@ -847,17 +754,15 @@ namespace kaliteConfig.Services
             {
                 if (Directory.Exists(destDir))
                 {
-                    // Already extracted (same id+version); verify it has a manifest.
                     if (File.Exists(Path.Combine(destDir, "manifest.json"))) return true;
                     try { Directory.Delete(destDir, true); } catch { return false; }
                 }
 
                 using var fs = new FileStream(crxPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using var br = new BinaryReader(fs);
-                br.ReadBytes(4); // magic (validated earlier)
+                br.ReadBytes(4);
                 uint format = br.ReadUInt32();
                 long zipOffset = format == 3 ? 12 + br.ReadUInt32() : 16 + br.ReadUInt32() + br.ReadUInt32();
-                // Same as TryParseCrx: re-base the zip data to stream position 0 for ZipArchive.
                 fs.Seek(zipOffset, SeekOrigin.Begin);
                 var zipBytes = new byte[fs.Length - zipOffset];
                 int read = 0;
@@ -873,7 +778,6 @@ namespace kaliteConfig.Services
                 Directory.CreateDirectory(destDir);
                 foreach (var entry in archive.Entries)
                 {
-                    // Guard against zip-slip entries.
                     string target = Path.GetFullPath(Path.Combine(destDir, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
                     if (!target.StartsWith(Path.GetFullPath(destDir) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                         && !string.Equals(target, Path.GetFullPath(destDir), StringComparison.OrdinalIgnoreCase))
@@ -898,26 +802,16 @@ namespace kaliteConfig.Services
         {
             if (item.Name.Contains("Brave", StringComparison.OrdinalIgnoreCase))
             {
-                // Brave reads Chromium policy from SOFTWARE\Policies\BraveSoftware\Brave.
-                // Forcelist entries force-install at next browser launch (HKCU is honored,
-                // HKLM written too for machine-wide installs).
                 var chromeInstaller = new ChromiumExtensionInstaller();
                 chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist");
             }
             else if (item.Name.Contains("Vivaldi", StringComparison.OrdinalIgnoreCase))
             {
-                // Vivaldi reads Chromium policy from SOFTWARE\Policies\Vivaldi.
                 var chromeInstaller = new ChromiumExtensionInstaller();
                 chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\Vivaldi\ExtensionInstallForcelist");
             }
             else if (item.Name.Contains("Helium", StringComparison.OrdinalIgnoreCase))
             {
-                // Helium 0.16.5.1 cannot install extensions via ExtensionInstallForcelist:
-                // its update-host substitution rewrites the Web Store URL and TrkProtocolHandler
-                // blocks the updater's request (chrome_debug.log: "Failed to fetch manifest ...
-                // response code:-1"), and policy validation rejects any substitute URL. Remove stale
-                // forcelist policies (they only cause failed fetch attempts on every launch) and
-                // load the extensions unpacked via --load-extension instead (see SeedHeliumExtensionsFromStore).
                 RemoveHeliumForcelist();
                 EnsureHeliumServicesEnabled();
                 SeedHeliumExtensionsFromStore(item);
@@ -926,8 +820,6 @@ namespace kaliteConfig.Services
                 || item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase)
                 || item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
             {
-                // Reference-style (AutoOS): merge AMO install URLs into the
-                // browser's distribution\policies.json → policies.Extensions.Install[].
                 string? installDir = GetBrowserInstallDirectory(item);
                 if (installDir != null)
                 {
@@ -951,7 +843,6 @@ namespace kaliteConfig.Services
             await RunInstallAsync(item, progress, downloadProgress, errorProgress, ct, isUpdate: false);
         }
 
-        /// <summary>Reruns the install pipeline over an already-installed entry; vendor installers upgrade in place.</summary>
         public async Task UpdateBrowserAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
         {
             await RunInstallAsync(item, progress, downloadProgress, errorProgress, ct, isUpdate: true);
@@ -959,7 +850,6 @@ namespace kaliteConfig.Services
 
         private async Task RunInstallAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct, bool isUpdate)
         {
-            // 1. Check if already installed - still deploy extensions even if browser exists
             if (IsBrowserInstalled(item) && !isUpdate)
             {
                 DeployExtensions(item);
@@ -969,22 +859,18 @@ namespace kaliteConfig.Services
 
             if (isUpdate) progress.Report(BrowserInstallStatus.Downloading);
 
-            // Portable tool (zip payload with no installer): download, extract to tools dir, post-configure
             if (!string.IsNullOrEmpty(item.ToolInstallDir))
             {
                 await InstallPortableToolAsync(item, progress, downloadProgress, errorProgress, ct);
                 return;
             }
 
-            // Winget-backed entry: no URL, no asset. Silent install by package id,
-            // verified the same way (installed-check paths with polling).
             if (!string.IsNullOrEmpty(item.WingetId))
             {
                 await InstallViaWingetAsync(item, progress, errorProgress, ct);
                 return;
             }
 
-            // 2. Download installer
             progress.Report(BrowserInstallStatus.Downloading);
             downloadProgress.Report(0);
             string tempPath = Path.Combine(Path.GetTempPath(), item.InstallerFileName);
@@ -1030,7 +916,6 @@ namespace kaliteConfig.Services
 
             ct.ThrowIfCancellationRequested();
 
-            // 3. Run installer silently
             progress.Report(BrowserInstallStatus.Installing);
             try
             {
@@ -1041,9 +926,6 @@ namespace kaliteConfig.Services
                     Arguments = isMsi 
                         ? $"/c start /wait \"\" msiexec.exe /i \"{tempPath}\" {item.SilentInstallArgs}" 
                         : $"/c start /wait \"\" \"{tempPath}\" {item.SilentInstallArgs}",
-                    // ShellExecute=false allows us to reliably wait for the cmd wrapper to finish,
-                    // while `start` detaches any post-install GUIs (like Epic Games launching itself)
-                    // so they don't block the WaitForExit loop by inheriting IO pipes.
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
@@ -1052,7 +934,6 @@ namespace kaliteConfig.Services
                 using var process = Process.Start(psi);
                 if (process is not null)
                 {
-                    // Wait with 10-minute timeout to avoid infinite "Installing" hang if installer shows UI or crashes
                     using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     timeoutCts.CancelAfter(TimeSpan.FromMinutes(10));
                     try
@@ -1061,14 +942,10 @@ namespace kaliteConfig.Services
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
-                        // Timed out, not user-cancelled
                         try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
                         errorProgress.Report("Installer timed out after 10 minutes and was terminated. Verification will continue if files were written.");
-                        // Don't return immediately; fall through to verification which may succeed if files landed
                     }
 
-                    // Log non-zero exit but don't fail outright; verification step is the source of truth.
-                    // NSIS returns 0 on success, 2 on abort, etc. We let the file check decide.
                     try
                     {
                         if (process.HasExited && process.ExitCode != 0)
@@ -1079,8 +956,6 @@ namespace kaliteConfig.Services
                 }
                 else
                 {
-                    // Process.Start can return null with UseShellExecute=true (e.g., UAC). With false it rarely happens,
-                    // but handle gracefully by short delay before verification.
                     await Task.Delay(2000, ct);
                 }
             }
@@ -1097,17 +972,13 @@ namespace kaliteConfig.Services
                 return;
             }
 
-            // 4. Verify installation – robust polling that fixes "helium was stuck on installing"
-            // The old check only looked at %LOCALAPPDATA%\Programs\Helium\Helium.exe which never exists for current Helium builds (chrome.exe under imput\Helium).
-            // Now InstalledCheckPath covers all real locations including ...\imput\Helium\Application\chrome.exe.
             bool verified = false;
-            for (int i = 0; i < 240; i++) // 240 * 500ms = 120s max, enough for Helium NSIS unpack
+            for (int i = 0; i < 240; i++)
             {
                 ct.ThrowIfCancellationRequested();
                 if (IsBrowserInstalled(item))
                 {
                     verified = true;
-                    // Short grace period for file locks to release before we write policies
                     await Task.Delay(2000, ct);
                     break;
                 }
@@ -1121,21 +992,13 @@ namespace kaliteConfig.Services
                 return;
             }
 
-            // 5. Deploy extensions after verified install
             DeployExtensions(item);
 
             progress?.Report(BrowserInstallStatus.Installed);
 
-            // 6. Clean up
             CleanUp(tempPath);
         }
 
-        /// <summary>
-        /// Installs a winget-backed entry (`winget install --exact --silent`). Used for
-        /// apps without a vendored URL/logo asset. Verification is the same
-        /// installed-check polling as the URL flow; an empty check path means the
-        /// tile never auto-hides, which is safe (it just stays installable).
-        /// </summary>
         private async Task InstallViaWingetAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<string> errorProgress, CancellationToken ct)
         {
             progress.Report(BrowserInstallStatus.Installing);
@@ -1181,7 +1044,6 @@ namespace kaliteConfig.Services
             bool verified = false;
             if (string.IsNullOrWhiteSpace(item.InstalledCheckPath))
             {
-                // No known install path (portable/store-routed apps): winget exit 0 is the verdict.
                 verified = true;
             }
             else for (int i = 0; i < 60; i++)
@@ -1199,11 +1061,6 @@ namespace kaliteConfig.Services
             progress.Report(BrowserInstallStatus.Installed);
         }
 
-        /// <summary>
-        /// Installs a portable tool distributed as a zip (no setup executable): download the
-        /// archive, extract it into the tool's directory under %PROGRAMDATA%, pre-accept the
-        /// vendor EULA and create a Start Menu shortcut so the user can actually find it.
-        /// </summary>
         private async Task InstallPortableToolAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
         {
             progress.Report(BrowserInstallStatus.Downloading);
@@ -1251,11 +1108,8 @@ namespace kaliteConfig.Services
                 string toolDir = Environment.ExpandEnvironmentVariables(item.ToolInstallDir);
                 Directory.CreateDirectory(toolDir);
 
-                // Extract over the top so re-installs refresh the binaries.
                 using (var archive = ZipFile.OpenRead(tempPath))
                 {
-                    // Only extract the plain .exe tools - skip vendor extra files we don't need,
-                    // but keep everything when the archive doesn't follow that pattern.
                     bool hasExeEntries = archive.Entries.Any(e => e.FullName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
                     foreach (var entry in archive.Entries)
                     {
@@ -1285,7 +1139,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>Sysinternals tools prompt each user to accept their EULA on first run; pre-accept it so the tool opens straight into the UI.</summary>
         private static void PreAcceptSysinternalsEula(string toolDir)
         {
             try
@@ -1297,7 +1150,6 @@ namespace kaliteConfig.Services
 
             try
             {
-                // Also drop an acceptance file next to the binaries for per-machine tooling runs.
                 string marker = Path.Combine(toolDir, "EulaAccepted.txt");
                 if (!File.Exists(marker)) File.WriteAllText(marker, "EULA accepted by kaliteConfig installer.");
             }

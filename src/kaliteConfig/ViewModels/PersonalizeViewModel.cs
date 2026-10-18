@@ -11,7 +11,6 @@ using Windows.UI;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>Monitor picker entry. A null MonitorId means "all monitors".</summary>
 public sealed record MonitorChoice(string? MonitorId, string Label);
 
 public sealed partial class PersonalizeViewModel : ObservableObject
@@ -34,23 +33,16 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         Reload();
     }
 
-    // ---- Collections --------------------------------------------------------
     public ObservableCollection<WallpaperLibraryItem> Library { get; } = new();
     public ObservableCollection<MonitorChoice> Monitors { get; } = new();
     public ObservableCollection<WallpaperFit> Fits { get; } =
         new(Enum.GetValues<WallpaperFit>());
 
-    // ---- Wallpaper ----------------------------------------------------------
     [ObservableProperty] public partial WallpaperLibraryItem? SelectedWallpaper { get; set; }
     [ObservableProperty] public partial WallpaperFit SelectedFit { get; set; } = WallpaperFit.Fill;
     [ObservableProperty] public partial MonitorChoice? SelectedMonitor { get; set; }
-    // PERSONALIZE-REVIEW: the background color is not read back on load. IDesktopWallpaper
-    // exposes GetBackgroundColor, but the service does not expose it yet, so this shows the
-    // last color chosen in this session.
     [ObservableProperty] public partial Color BackgroundColor { get; set; } = Color.FromArgb(255, 0, 0, 0);
 
-    // ---- Cursor -------------------------------------------------------------
-    // Doubles so NumberBox and Slider can bind directly; cast to int when applying.
     [ObservableProperty] public partial double PointerSize { get; set; } = 32;
     [ObservableProperty] public partial double PointerSpeed { get; set; } = 10;
     [ObservableProperty] public partial bool EnhancedPrecision { get; set; }
@@ -60,14 +52,12 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     [ObservableProperty] public partial string? SchemeFolder { get; set; }
     [ObservableProperty] public partial int SchemeFileCount { get; set; }
 
-    // ---- Status -------------------------------------------------------------
     [ObservableProperty] public partial bool LibraryEmpty { get; set; }
     [ObservableProperty] public partial bool IsHighContrast { get; set; }
     [ObservableProperty] public partial bool StatusOpen { get; set; }
     [ObservableProperty] public partial string StatusMessage { get; set; } = "";
     [ObservableProperty] public partial InfoBarSeverity StatusSeverity { get; set; } = InfoBarSeverity.Informational;
 
-    /// <summary>Re-read every control from the real system state.</summary>
     public void Reload()
     {
         var theme = _theme.Current();
@@ -101,7 +91,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         SelectedWallpaper = Library.FirstOrDefault(i => i.Id == keep);
     }
 
-    /// <summary>Adds an image the user picked. Validation happens in the service.</summary>
     public async Task AddWallpaperAsync(string sourcePath)
     {
         var (item, error) = await _wallpaper.AddToLibraryAsync(sourcePath);
@@ -145,8 +134,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     private void RevertWallpaperSection() =>
         Report(_wallpaper.RevertSection(), "Wallpaper restored to how it was before this app changed it.");
 
-    // ---- Cursor -------------------------------------------------------------
-    /// <summary>Applies the cursor size, mouse and caret values. The page then asks the user to keep them.</summary>
     public IReadOnlyList<SettingResult> ApplyCursorOptions()
     {
         var results = new List<SettingResult>();
@@ -158,7 +145,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         return results;
     }
 
-    /// <summary>Reads a scheme folder off the UI thread and remembers the mapping for ApplyScheme.</summary>
     public async Task ScanSchemeFolderAsync(string folder)
     {
         var scan = await Task.Run(() => _cursor.ScanSchemeFolder(folder));
@@ -185,7 +171,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         return results;
     }
 
-    /// <summary>Restores the cursor section to how it was before this app changed it.</summary>
     public void RevertCursorSection() =>
         Report(_cursor.RevertSection(), "Cursor restored to how it was before this app changed it.");
 
@@ -193,8 +178,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     private void ResetCursorToDefaults() =>
         Report(_cursor.ResetToWindowsDefaults(), "Cursor reset to Windows defaults.");
 
-    // ---- Global -------------------------------------------------------------
-    /// <summary>Restores every section this app changed to the state recorded in its snapshot.</summary>
     [RelayCommand]
     private void RevertEverything()
     {
@@ -205,7 +188,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         Report(all, "Everything is back to how it was before this app changed it.");
     }
 
-    // ---- Helpers ------------------------------------------------------------
     private void Report(IEnumerable<SettingResult> results, string successText)
     {
         var failed = results.Where(r => !r.Ok).ToList();

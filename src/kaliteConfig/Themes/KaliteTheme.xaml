@@ -1,34 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Kalite "matte" design system.
 
-    Everything the app draws comes from a handful of WinUI colour tokens, and
-    pages reference those tokens by name (290+ references to
-    CardBackgroundFillColorDefaultBrush alone). So the whole visual identity is
-    re-skinned from one place: redefine the tokens here, and every existing
-    page follows without being touched.
-
-    The identity:
-      - True matte black (#0A0A0C) instead of WinUI's blue-tinted #202020.
-      - Cards are TRANSLUCENT, not opaque, so the animated backdrop behind them
-        stays visible. That is the whole point: the backdrop is the app.
-      - Hairline borders instead of WinUI's soft elevation shadows.
-      - One accent (kalite green) used sparingly, so the eye goes to state.
--->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:media="using:Microsoft.UI.Xaml.Media"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls">
 
-    <!--  Backdrop: a slow-drifting radial wash. Purely decorative and placed
-          behind everything, so it must never take focus or hit-test. -->
     <ResourceDictionary.ThemeDictionaries>
 
         <ResourceDictionary x:Key="Light">
-            <!-- MATTE CHROME SURFACE. The nav rail mask, the caption band and the
-                 compact pane brushes all paint from this pair, so the rail carries
-                 no literal hex - it stays a theme token like every other colour. -->
             <Color x:Key="KaliteChromeSurfaceColor">#FFF2F2F2</Color>
             <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FFF2F2F2" />
 
@@ -45,16 +25,6 @@
             <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#2A000000" />
             <SolidColorBrush x:Key="CardStrokeColorDefaultSolidBrush" Color="#2A000000" />
 
-            <!--
-                DIALOGS ARE TRUE BLACK TOO.
-
-                ContentDialog paints from its own background tokens, which the
-                earlier theme pass never touched - so every dialog (New rule,
-                uninstall, BIOS, elevation) rendered as WinUI's default grey
-                card against a black app. Overriding the token fixes all of them
-                at once; styling each ContentDialog individually would let the
-                next new dialog regress the same way.
-            -->
             <SolidColorBrush x:Key="ContentDialogBackground"     Color="#FFF2F2F2" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark1" Color="#FFF2F2F2" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark2" Color="#FFF2F2F2" />
@@ -63,7 +33,6 @@
             <SolidColorBrush x:Key="ContentDialogBorderBrush"    Color="#24000000" />
             <SolidColorBrush x:Key="ContentDialogSeparatorBackground" Color="#00FFFFFF" />
 
-            <!-- Translucent cards: the moving backdrop reads through them. -->
             <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush"   Color="#B3FFFFFF" />
             <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#C0F0F0F0" />
             <SolidColorBrush x:Key="CardBackgroundFillColorTertiaryBrush"  Color="#99E4E4E4" />
@@ -77,19 +46,7 @@
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FF107C10" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <!-- Accent follows the OS: no Accent* overrides here so
-                 AccentFillColorDefault/Secondary/Tertiary + AccentTextFillColorPrimary
-                 fall through to XamlControlsResources, which tracks SystemAccentColor
-                 live (Settings > Personalization > Accent color). -->
-            <!--
-                The white-only nav rail icon accent that the selected-state
-                visuals in MainWindow.xaml expect. WinUI's built-in
-                ApplicationForegroundThemeBrush is a themed brush, but the
-                app's markup resolves it by the literal name AppForegroundColor,
-                so define that key here so {ThemeResource AppForegroundColor}
-                stops throwing at parse time on every build flavour. -->
             <SolidColorBrush x:Key="AppForegroundColor" Color="#FF000000" />
-            <!-- Rail plates, light-ink equivalents of the dark washes above. -->
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#40000000" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#30000000" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#26000000" />
@@ -98,23 +55,6 @@
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
             <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
 
-            <!--
-                PAGE BACKGROUND IS TRANSPARENT SO THE BACKDROP SHOWS THROUGH.
-
-                ApplicationPageBackgroundThemeBrush is WinUI's opaque fill behind
-                page content, and ten pages bind their root to it. Left at its
-                matte-black value it paints over the meteor field, so those pages
-                render as a flat panel instead of the live background - which is
-                exactly the "background not working on some pages" report.
-
-                Overriding the token fixes every page at once. Editing the ten
-                pages individually would only invite the next new page to
-                regress, because nothing stops a page binding this brush again.
-
-                It is fully Transparent rather than a dark tint on purpose: the
-                matte-black read comes from the raw window surface showing through
-                this fill, so any colour here greys the app out.
-            -->
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>
 
@@ -122,16 +62,6 @@
             <Color x:Key="KaliteChromeSurfaceColor">#FF0A0A0A</Color>
             <SolidColorBrush x:Key="KaliteChromeSurfaceBrush" Color="#FF0A0A0A" />
 
-            <!--
-                DIALOGS ARE TRUE BLACK TOO (Dark - the theme the app forces).
-
-                ContentDialog paints from its own background tokens, which the
-                earlier theme pass never touched - so every dialog (New rule,
-                uninstall, BIOS, elevation) rendered as WinUI's default grey
-                card against a black app. Overriding the token fixes all of them
-                at once; styling each ContentDialog individually would let the
-                next new dialog regress the same way.
-            -->
             <SolidColorBrush x:Key="ContentDialogBackground"     Color="#FF0A0A0A" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark1" Color="#FF0A0A0A" />
             <SolidColorBrush x:Key="ContentDialogBackgroundDark2" Color="#FF0A0A0A" />
@@ -166,9 +96,7 @@
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <!-- Accent follows the OS (see note in Light dictionary): no overrides. -->
             <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
-            <!-- Rail plates: theme-owned, not window-local. Dark washes are white-alpha; see Light for the black-ink equivalents. -->
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
@@ -176,17 +104,7 @@
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
             <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
-            <!--
-                PAGE BACKGROUND IS TRANSPARENT SO THE BACKDROP SHOWS THROUGH.
 
-                ApplicationPageBackgroundThemeBrush is WinUI's opaque fill behind
-                page content, and ten pages bind their root to it. Left at its
-                matte-black value it paints over the meteor field, so those pages
-                render as a flat panel instead of the live background.
-
-                Keep the override alongside the other per-theme tokens so pages
-                using this brush reveal the same surface in each theme.
-            -->
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>
 
@@ -222,9 +140,7 @@
             <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FFC6F36B" />
             <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF5A524" />
             <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE5484D" />
-            <!-- Accent follows the OS (see note in Light dictionary): no overrides. -->
             <SolidColorBrush x:Key="AppForegroundColor" Color="#FFFFFFFF" />
-            <!-- Rail plates: theme-owned, not window-local. Dark washes are white-alpha; see Light for the black-ink equivalents. -->
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
@@ -232,85 +148,17 @@
             <CornerRadius x:Key="OverlayCornerRadius">5,5,5,5</CornerRadius>
             <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
             <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
-            <!-- Page surfaces stay transparent to reveal the shared backdrop. -->
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <!--  Shapes: a small, consistent radius vocabulary. 4 for controls (the
-          Fluent control radius, so built-ins and ours match), 8 for cards,
-          2 for the little chips. Flat + hairline keeps it "matte"; the
-          Fluent-shaped radii are what stop it reading as a knock-off. -->
-    <!--  THE APP'S TYPEFACE.
-
-          Uncial Antiqua (SIL OFL, bundled at
-          Assets/Fonts/UncialAntiqua-Regular.ttf + UncialAntiqua-OFL.txt; the
-          csproj's Assets\**\* Content rule ships it, so it reaches publish
-          output and the installer with no csproj change). It replaced Jim
-          Nightshade from the same Google Fonts drop.
-
-          An uncial/capital display face - one Regular weight only. The
-          consequences are encoded below so they are not rediscovered later:
-            - FontWeight is Normal everywhere: there is no bold face to ask
-              for, so SemiBold would be synthesised, and faux-bold on a
-              calligraphic face reads as smudged ink.
-            - CharacterSpacing is 0: the strokes already interlock.
-            - Everything points at KaliteFontFamily, so the app's face is
-              swapped in exactly one place (App.xaml's implicit TextBlock
-              style carries it to every text tree: pages, dialogs, popups,
-              overlays, tray and snip windows).
-          Coverage was checked against the font's cmap before use: full ASCII
-          (32-126) present, lowercase included, so no glyph silently falls
-          back mid-string. -->
     <FontFamily x:Key="KaliteFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
-    <!-- DISPLAY vs BODY: Uncial Antiqua is a wide uncial face. At 11-16px it
-         ellipsizes rail captions and turns body copy into clutter, which is
-         most of the "stubby" read. So it is DISPLAY-ONLY now (page/section
-         titles, eyebrows). Everything else uses the system UI face. -->
     <FontFamily x:Key="KaliteDisplayFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
     <FontFamily x:Key="KaliteBodyFontFamily">Segoe UI Variable Text, Segoe UI, sans-serif</FontFamily>
-    <!--
-        THE SAME FACE UNDER WINUI'S OWN KEYS.
 
-        An implicit TextBlock style only reaches TextBlocks with no Style of
-        their own, and Control-level inheritance stops at any element whose
-        template sets FontFamily locally (TemplateBinding is a local value and
-        beats both). Dialogs, popups, tooltips, list items and every built-in
-        control render through templates that read these theme resources, so
-        redefining the keys here is what actually makes the face global:
-        app-level theme resources win over the built-in ones for every
-        {ThemeResource} lookup in every tree, including ContentDialogs and
-        separate windows.
-
-        Both keys exist in WinUI 3's Microsoft.UI.Xaml.Controls.pri
-        (checked before use); XamlAutoFontFamily is the automatic/default
-        family, ContentControlThemeFontFamily the one control templates bind
-        content to.
-    -->
     <FontFamily x:Key="XamlAutoFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
     <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/UncialAntiqua-Regular.ttf#Uncial Antiqua</FontFamily>
-    <!--
-        WINUI'S OWN TEXT STYLES, REDEFINED WITH THE APP FONT.
 
-        Most page text sets an explicit Style (216 Caption, 111 BodyStrong,
-        87 Body, plus Title/Subtitle/Header). An explicit style beats both the
-        implicit TextBlock style in App.xaml AND property inheritance, so every
-        one of those runs kept WinUI's family - which is exactly why "some of
-        the writing" stayed outside the app font while the Kalite* styles
-        (page titles, section titles) were already in it.
-
-        The originals cannot be BasedOn'd under their own key - that would be
-        circular - so each is first snapshotted under a KaliteSnap.* key while
-        the name still resolves to WinUI's version (document order: this
-        dictionary is parsed top to bottom), then redefined below with a
-        FontFamily setter. KaliteTheme is merged LAST in App.xaml, so the
-        overrides win the lookup for every page, dialog and popup.
-
-        Same trick for DefaultContentDialogStyle: dialogs fetch that key by
-        string (Application.Current.Resources[...]), and setting FontFamily on
-        the dialog itself reaches its title, its content and its template
-        controls through inheritance.
-    -->
     <Style x:Key="KaliteSnap.Caption" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}" />
     <Style x:Key="KaliteSnap.Body" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}" />
     <Style x:Key="KaliteSnap.BodyStrong" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}" />
@@ -342,13 +190,9 @@
         <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
     </Style>
     <Style x:Key="DefaultContentDialogStyle" TargetType="ContentDialog" BasedOn="{StaticResource KaliteSnap.ContentDialog}">
-        <!-- BUTTON-REVIEW: FontFamily kept on the dialog style. It is typography, which is out of scope for the button reset. The stock Background was removed. -->
         <Setter Property="FontFamily" Value="{StaticResource KaliteFontFamily}" />
     </Style>
 
-    <!-- DISPLAY STYLES ONLY: the only places Uncial Antiqua is used.
-         Sizes stepped down (42->34, 32->28, 24->20) so titles stop
-         shouting over the content; body copy lives in the overrides above. -->
     <Style x:Key="KaliteDisplayText" TargetType="TextBlock" BasedOn="{StaticResource HeaderTextBlockStyle}">
         <Setter Property="FontFamily" Value="{StaticResource KaliteDisplayFontFamily}" />
         <Setter Property="FontSize" Value="34" />
@@ -379,9 +223,6 @@
         <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
     </Style>
 
-    <!-- Rail plates stay squarish on purpose: a 2px cut keeps the
-         tool-chassis edge. Larger radii turned the rail items into pills
-         and made hover read as a bubble, not a plate. -->
     <CornerRadius x:Key="KaliteRailPlateRadius">3</CornerRadius>
     <CornerRadius x:Key="KaliteCardRadius">8</CornerRadius>
     <CornerRadius x:Key="KaliteChipRadius">2</CornerRadius>
@@ -390,19 +231,6 @@
     <CornerRadius x:Key="ListViewItemCornerRadius">3</CornerRadius>
     <CornerRadius x:Key="GridViewItemCornerRadius">3</CornerRadius>
 
-    <!--  Content-panel entrance: same fade + slide-up the navigated pages get
-          from the shell Frame's EntranceNavigationTransitionInfo, on the
-          panels that are swapped by Visibility instead of navigation (tab
-          switches inside a page). Without it those tabs pop in instantly while
-          the pages around them glide, which is exactly the inconsistency this
-          removes.
-
-          The transition fires on the Collapsed -> Visible swap, which is what
-          a tab click does, so it re-runs on every switch. Kept in three
-          flavours only because a XAML Style is typed to one TargetType, and
-          the swapped roots are Grids, ScrollViewers (no layout children) and
-          Borders (cards) - the panels that keep their own Style keep it and
-          get an inline <Transitions> instead. -->
     <Style x:Key="KaliteEntranceGrid" TargetType="Grid">
         <Setter Property="Transitions">
             <Setter.Value>
@@ -431,10 +259,6 @@
         </Setter>
     </Style>
 
-    <!--  The matte card. Transparent enough to show the backdrop, with a
-          hairline instead of a shadow.
-          Entrance transition: cards fade and slide up on first show, matching
-          the ItemsRepeater list entry animation. -->
     <Style x:Key="KaliteCard" TargetType="Border">
         <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
@@ -449,11 +273,6 @@
         </Setter>
     </Style>
 
-    <!--  Stagger entrance for list items: every ItemsRepeater in the app fades
-          and slides up on first show, so page content never hard-cuts in. The
-          20px vertical offset is small enough to read as a settling motion
-          rather than a slide; the 250ms duration matches the button press
-          spring. -->
     <Style TargetType="ItemsRepeater">
         <Setter Property="Transitions">
             <Setter.Value>

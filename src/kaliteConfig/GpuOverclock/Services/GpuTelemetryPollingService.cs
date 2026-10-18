@@ -15,35 +15,22 @@ using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>Current health of the telemetry stream.</summary>
     public enum TelemetryHealth
     {
-        /// <summary>Snapshots are flowing normally.</summary>
         Available,
 
-        /// <summary>The last read failed (driver reload, GPU gone). Consumers must
-        /// show a distinct "telemetry unavailable" state - never stale values.</summary>
         Unavailable,
     }
 
-    /// <summary>A snapshot plus the stream health at publish time.</summary>
     public sealed record TelemetryUpdate(GpuTelemetrySnapshot? Snapshot, TelemetryHealth Health, string? ErrorDetail);
 
-    /// <summary>
-    /// Background polling loop. Guarantees:
-    ///  - ticks never overlap: if a read takes longer than the interval, the
-    ///    next tick is skipped (no queued piling of NVAPI calls);
-    ///  - failures publish a distinct Unavailable update rather than stale or
-    ///    zeroed values;
-    ///  - events fire on thread-pool threads; subscribers marshal to UI.
-    /// </summary>
     public sealed class GpuTelemetryPollingService : IDisposable
     {
         private readonly IGpuTuningController _controller;
         private readonly object _gate = new();
         private CancellationTokenSource? _cts;
         private Task? _loop;
-        private int _inFlight; // 0/1 guard against overlapping reads
+        private int _inFlight;
         private TimeSpan _interval;
 
         public GpuTelemetryPollingService(IGpuTuningController controller, TimeSpan? interval = null)
@@ -58,10 +45,8 @@ namespace kaliteConfig.GpuOverclock.Services
             set { lock (_gate) _interval = value; }
         }
 
-        /// <summary>Published every completed tick (success or failure).</summary>
         public event Action<TelemetryUpdate>? Update;
 
-        /// <summary>Starts (or restarts) the loop. Safe to call repeatedly.</summary>
         public void Start()
         {
             lock (_gate)
@@ -107,10 +92,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     try
                     {
-                        // Quiesced (device restarts in flight): skip the tick
-                        // entirely rather than calling into NVAPI/NVML on
-                        // handles a restart may have invalidated - a native
-                        // fault there bypasses every managed catch below.
                         if (!HardwareQuiesceGate.IsQuiesced)
                         {
                             var result = await Task.Run(() => _controller.ReadTelemetry(), token).ConfigureAwait(false);
@@ -127,8 +108,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
                     {
-                        // Defensive: the controller converts expected failures to
-                        // values, so this is genuinely exceptional - still never crash.
                         Update?.Invoke(new TelemetryUpdate(null, TelemetryHealth.Unavailable, ex.GetType().Name));
                     }
                     finally
@@ -136,7 +115,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         Volatile.Write(ref _inFlight, 0);
                     }
                 }
-                // else: previous read still running - skip this tick.
 
                 var remaining = interval - sw.Elapsed;
                 if (remaining > TimeSpan.Zero)

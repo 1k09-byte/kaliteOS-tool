@@ -2,10 +2,6 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
-// Usage: icongen <sourcePng> <outDir>
-// Generates: kaliteConfig.ico (256/48/32/16 PNG entries), AppIcon.png (256),
-// Square44x44Logo.png, Square150x150Logo.png, Wide310x150Logo.png,
-// StoreLogo.png (50), SplashScreen.png (620x300), LockScreenLogo.png (48).
 if (args.Length < 2) { Console.WriteLine("usage: icongen <src> <outdir>"); return 1; }
 string src = args[0];
 string outDir = args[1];
@@ -31,9 +27,6 @@ static async Task<(byte[] rgba, uint w, uint h)> Decode(string path, uint? tw = 
     return (data, pw, ph);
 }
 
-// The source art sits on a baked-in black square. Flood-fill from the image
-// edges through PURE black only (<=10): clears the outer surround while the
-// dark glass interior (brighter than pure black) is fully preserved.
 static void KeyOutBlack(byte[] rgba, uint w, uint h)
 {
     const int thresh = 16;
@@ -59,8 +52,6 @@ static void KeyOutBlack(byte[] rgba, uint w, uint h)
     }
 }
 
-// Crop to the non-transparent bounding box plus padding, so the mark fills
-// the icon instead of floating in leftover margins.
 static (byte[] rgba, uint w, uint h) CropToContent(byte[] rgba, uint w, uint h)
 {
     int W = (int)w, H = (int)h;
@@ -93,7 +84,6 @@ static async Task<byte[]> EncodePng(byte[] rgba, uint w, uint h)
     return buf;
 }
 
-// Center src onto a transparent WxH canvas.
 static byte[] Composite(byte[] src, uint sw, uint sh, uint cw, uint ch)
 {
     var canvas = new byte[cw * ch * 4];
@@ -123,7 +113,7 @@ static void WriteIco(string path, List<(byte[] png, uint size)> entries)
 
 var (full, fw, fh) = await Decode(src);
 Console.WriteLine($"source: {fw}x{fh}");
-{ // border brightness probe (post-key: residual border shows a too-low threshold)
+{
     int W = (int)fw, H = (int)fh, max = 0;
     long sum = 0; int n = 0;
     void Sample(int x, int y) { int o = (y * W + x) * 4; if (full[o + 3] < 8) return; int m = Math.Max(full[o], Math.Max(full[o+1], full[o+2])); if (m > max) max = m; sum += m; n++; }
@@ -133,12 +123,10 @@ Console.WriteLine($"source: {fw}x{fh}");
 }
 var (cropped, cw, ch) = CropToContent(full, fw, fh);
 Console.WriteLine($"cropped: {cw}x{ch}");
-// Re-decode scaled sizes from the cropped, keyed art.
 string work = Path.Combine(outDir, "_work.png");
 await File.WriteAllBytesAsync(work, await EncodePng(cropped, cw, ch));
 async Task<(byte[] rgba, uint w, uint h)> Scaled(uint s) => await Decode(work, s, s, false);
 
-// Square sizes (icon content scaled to fit; source is already square art).
 var png256 = await EncodePng((await Scaled(256)).rgba, 256, 256);
 var png48 = await EncodePng((await Scaled(48)).rgba, 48, 48);
 var png32 = await EncodePng((await Scaled(32)).rgba, 32, 32);
@@ -156,7 +144,6 @@ await File.WriteAllBytesAsync(Path.Combine(outDir, "StoreLogo.png"),
 await File.WriteAllBytesAsync(Path.Combine(outDir, "LockScreenLogo.png"),
     await EncodePng((await Scaled(48)).rgba, 48, 48));
 
-// Wide tile + splash: icon fitted, centered on transparent canvas.
 var (fit150, w150, h150) = await Scaled(150);
 await File.WriteAllBytesAsync(Path.Combine(outDir, "Wide310x150Logo.png"),
     await EncodePng(Composite(fit150, w150, h150, 310, 150), 310, 150));

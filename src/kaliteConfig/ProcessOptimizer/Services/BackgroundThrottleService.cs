@@ -16,33 +16,10 @@ using System.Diagnostics;
 
 namespace kaliteConfig.ProcessOptimizer.Services;
 
-/// <summary>
-/// Demotes a background process's MEMORY and DISK worthiness so the game wins
-/// those resources, without ever fighting it for the CPU:
-///
-/// - the priority CLASS is left alone at every level. Demoting it makes a
-///   process compete rather than yield, and the game's 1% lows suffer when a
-///   shared dependency (audio, a launcher helper, a driver worker) is starved;
-/// - nothing is pinned to a core subset. An earlier build partitioned CPU Sets
-///   here, and on a homogeneous CPU that collapsed every background process
-///   onto core 0 - the DPC/interrupt core - while the game lost half of the
-///   machine. Both are gone; see Docs/GameMode.md.
-///
-/// What is left scales with <see cref="AggressivenessLevel"/>: EcoQoS, memory
-/// priority, I/O priority, and (at Moderate) per-thread memory priority.
-/// </summary>
 public static class BackgroundThrottleService
 {
-    /// <summary>
-    /// Original per-thread memory priorities demoted by <see cref="DemoteThreadsMemory"/>.
-    /// Keyed "pid_startTicks_tid" so PID reuse can never restore into the wrong process.
-    /// </summary>
     private static readonly ConcurrentDictionary<string, uint> _threadMemoryOriginals = new();
 
-    /// <summary>
-    /// Applies the constraints on a target PID corresponding to the given aggressiveness level.
-    /// Returns a string describing the action taken.
-    /// </summary>
     public static string ApplyThrottle(int pid, AggressivenessLevel level)
     {
         try
@@ -55,9 +32,6 @@ public static class BackgroundThrottleService
 
             string actionTaken = "no change";
 
-            // Light: EcoQoS + memory/IO priority demotion - priority class
-            // stays Normal. The demotions make background pages trim first
-            // and yield disk bandwidth to the game without scheduler churn.
             if (level >= AggressivenessLevel.Light)
             {
                 var state = new ProcessPowerThrottlingState
@@ -70,8 +44,6 @@ public static class BackgroundThrottleService
                     process, ProcessInformationClass.ProcessPowerThrottling,
                     ref state, NativeMethods.Power.StateSize());
 
-                // Memory priority 2: background pages get reclaimed before the
-                // game's (game stays at default 5).
                 try
                 {
                     var memLow = new ProcessMemoryPriorityInfo { MemoryPriority = 2 };
@@ -81,11 +53,9 @@ public static class BackgroundThrottleService
                 }
                 catch { }
 
-                // IO priority VeryLow: background reads/writes yield to the
-                // game's streaming and asset loads.
                 try
                 {
-                    uint ioLow = 0; // VeryLow
+                    uint ioLow = 0;
                     NativeMethods.Ntdll.NtSetInformationProcess(
                         process, NativeMethods.Ntdll.ProcessIoPriority,
                         ref ioLow, sizeof(uint));
@@ -95,12 +65,6 @@ public static class BackgroundThrottleService
                 actionTaken = "EcoQoS + Mem2 + IOLow (priority unchanged)";
             }
 
-            // Moderate: Add memory-priority demotion (eco hint already applied above).
-            // This is the ceiling - there is no Aggressive tier. The level it used
-            // to reach (a per-process Job Object CPU rate cap, and an affinity
-            // fallback that on a non-hybrid CPU pinned the process to the LAST
-            // logical processor, which can be a kernel-reserved one it may then
-            // never run on) did more harm than the contention it removed.
             if (level >= AggressivenessLevel.Moderate)
             {
                 var memPriority = new ProcessMemoryPriorityInfo { MemoryPriority = 1 };
@@ -108,13 +72,11 @@ public static class BackgroundThrottleService
                     process, ProcessInformationClass.ProcessMemoryPriority,
                     ref memPriority, NativeMethods.Power.MemoryPrioritySize());
 
-                uint ioPriority = 0; // Very Low
+                uint ioPriority = 0;
                 NativeMethods.Ntdll.NtSetInformationProcess(
                     process, NativeMethods.Ntdll.ProcessIoPriority,
                     ref ioPriority, sizeof(uint));
 
-                // Thread tiering: every thread of a demoted process drops to
-                // memory priority 1 so the game (5) always wins reclamation.
                 DemoteThreadsMemory(pid);
 
                 actionTaken = "EcoQoS + Low I/O + Mem1 (priority unchanged)";
@@ -128,10 +90,6 @@ public static class BackgroundThrottleService
         }
     }
 
-    /// <summary>
-    /// Best-effort: drop all threads of pid to memory priority 1, recording
-    /// each thread's original level first so restore is exact.
-    /// </summary>
     private static void DemoteThreadsMemory(int pid)
     {
         try
@@ -168,16 +126,10 @@ public static class BackgroundThrottleService
         catch { }
     }
 
-    /// <summary>
-    /// Restores thread memory priorities demoted by <see cref="DemoteThreadsMemory"/>
-    /// for the exact process instance (start-time guarded). Called from the
-    /// snapshot restore path; safe to call for processes never demoted.
-    /// </summary>
     public static void RestoreThreadMemory(int pid, long startTicks)
     {
         try
         {
-            // PID-reuse guard: only restore into the exact same instance.
             try
             {
                 using var proc = Process.GetProcessById(pid);
@@ -211,11 +163,6 @@ public static class BackgroundThrottleService
         catch { }
     }
 
-    /// <summary>
-    /// Drops ledger entries for processes that no longer exist (exited
-    /// mid-session without a restore pass) so the static map can't grow
-    /// across sessions.
-    /// </summary>
     private static void ScrubDeadEntries()
     {
         try

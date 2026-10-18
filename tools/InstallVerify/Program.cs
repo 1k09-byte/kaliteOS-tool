@@ -4,11 +4,6 @@ using kaliteConfig.ViewModels;
 
 namespace InstallVerify
 {
-    /// <summary>
-    /// Verifies the Install tab data layer: the REAL InstallerViewModel must
-    /// expose non-empty Visible* collections (or explicitly report
-    /// NothingToInstall). Exit code 0 = pass.
-    /// </summary>
     internal static class Program
     {
         private static int _failures;

@@ -64,7 +64,6 @@ public class SnipToolManager
         catch { return null; }
     }
 
-    // Typical PII patterns
     private static readonly Regex EmailRegex = new Regex(@"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", RegexOptions.Compiled);
     private static readonly Regex PhoneRegex = new Regex(@"\+?\d{1,3}?[- .]?\(?(?:\d{2,3})\)?[- .]?\d\d\d[- .]?\d\d\d\d", RegexOptions.Compiled);
     private static readonly Regex IpRegex = new Regex(@"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", RegexOptions.Compiled);
@@ -78,7 +77,6 @@ public class SnipToolManager
         var result = await ocrEngine.RecognizeAsync(bitmap);
         if (result == null || string.IsNullOrWhiteSpace(result.Text)) return targets;
 
-        // Flatten all words into a single list while preserving a contiguous string builder
         System.Text.StringBuilder sb = new();
         List<(int StartIndex, Windows.Foundation.Rect Bounds)> charToRectMap = new();
 
@@ -89,30 +87,26 @@ public class SnipToolManager
             {
                 string token = word.Text;
                 sb.Append(token);
-                // Map every character in this word to its bounding box
                 for (int i = 0; i < token.Length; i++)
                 {
                     charToRectMap.Add((currentIndex + i, word.BoundingRect));
                 }
                 currentIndex += token.Length;
 
-                // Add a space after words to support regex matching correctly
                 sb.Append(" ");
-                charToRectMap.Add((currentIndex, Windows.Foundation.Rect.Empty)); // space has no bounds
+                charToRectMap.Add((currentIndex, Windows.Foundation.Rect.Empty));
                 currentIndex++;
             }
             sb.AppendLine();
-            currentIndex += Environment.NewLine.Length; // Add padding for newline
+            currentIndex += Environment.NewLine.Length;
         }
 
         string fullText = sb.ToString();
 
-        // Target matchers
         void processRegexMatches(Regex r)
         {
             foreach (Match m in r.Matches(fullText))
             {
-                // We need to union the bounding rects of all matched characters
                 double minX = double.MaxValue, minY = double.MaxValue;
                 double maxX = double.MinValue, maxY = double.MinValue;
                 bool hasBounds = false;
@@ -134,7 +128,6 @@ public class SnipToolManager
 
                 if (hasBounds)
                 {
-                    // Expand slightly for visual padding
                     targets.Add(new Windows.Foundation.Rect(minX - 2, minY - 2, (maxX - minX) + 4, (maxY - minY) + 4));
                 }
             }

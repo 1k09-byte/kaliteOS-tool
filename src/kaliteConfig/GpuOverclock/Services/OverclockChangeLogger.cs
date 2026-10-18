@@ -16,12 +16,6 @@ using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// Appends every AppliedChangeLogEntry to a human-readable local log, keeps
-    /// an in-memory tail for the in-app viewer, and exposes the log path so the
-    /// user can open the raw file. Both a debugging tool and a transparency
-    /// tool ("what did this app change on my system, and when").
-    /// </summary>
     public sealed class OverclockChangeLogger
     {
         private readonly string _path;
@@ -38,7 +32,6 @@ namespace kaliteConfig.GpuOverclock.Services
             _path = Path.Combine(dir, "gpu-overclock-changes.log");
         }
 
-        /// <summary>Absolute path of the human-readable log file.</summary>
         public string LogFilePath => _path;
 
         public void Log(AppliedChangeLogEntry entry)
@@ -63,12 +56,10 @@ namespace kaliteConfig.GpuOverclock.Services
                 }
                 catch
                 {
-                    // Logging must never take the module down.
                 }
             }
         }
 
-        /// <summary>Recent entries for the in-app viewer (newest last).</summary>
         public IReadOnlyList<AppliedChangeLogEntry> Tail()
         {
             lock (_gate) return _tail.ToArray();

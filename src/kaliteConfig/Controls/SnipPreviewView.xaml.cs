@@ -26,26 +26,10 @@ using Windows.Foundation;
 
 namespace kaliteConfig.Controls;
 
-/// <summary>
-/// The large Snip preview: one Win2D surface used by the gallery details panel and the full
-/// viewer, so the two surfaces can never disagree about a snip.
-///
-/// Progressiveness: the 512 px tier (already in the thumbnail cache) is drawn first, then the
-/// full-resolution source crossfades in over it. Full resolution means either
-///   - a one-shot decode into a CanvasBitmap (normal snips), or
-///   - CanvasVirtualBitmap for huge snips, where only the regions behind the visible source
-///     rectangle are ever realized - a 20000 x 20000 capture never has to be resident.
-///
-/// Zoom/pan lives in <see cref="SnipPreviewViewport"/> (pure, unit-tested). Zoom 1.0 is 100%:
-/// one image pixel per PHYSICAL device pixel, at whatever the monitor scale is. Interpolation
-/// follows the zoom level (averaged when minified, crisp when magnified).
-/// </summary>
 public sealed partial class SnipPreviewView : UserControl
 {
-    /// <summary>Duration of the placeholder -> full-resolution crossfade.</summary>
     private const double CrossfadeMilliseconds = 220;
 
-    /// <summary>Wheel notch factor (per 120 units of wheel delta).</summary>
     private const double WheelZoomStep = 1.15;
 
     private readonly SnipPreviewViewport _viewport = new();
@@ -80,16 +64,10 @@ public sealed partial class SnipPreviewView : UserControl
         UpdateZoomChrome();
     }
 
-    // ------------------------------------------------------------ public surface
-
-    /// <summary>Raised on double-tap when <see cref="DoubleTapTogglesZoom"/> is false: the host
-    /// (details panel) uses it to detach the snip into the viewer window.</summary>
     public event EventHandler? PreviewActivated;
 
-    /// <summary>Raised when the preview reached full resolution (or an on-demand source).</summary>
     public event EventHandler? ImageLoaded;
 
-    /// <summary>Raised with a user-facing reason when nothing could be shown.</summary>
     public event EventHandler<string>? LoadFailed;
 
     public static readonly DependencyProperty SourcePathProperty = DependencyProperty.Register(
@@ -99,23 +77,18 @@ public sealed partial class SnipPreviewView : UserControl
     public static readonly DependencyProperty WheelZoomEnabledProperty = DependencyProperty.Register(
         nameof(WheelZoomEnabled), typeof(bool), typeof(SnipPreviewView), new PropertyMetadata(false));
 
-    /// <summary>Path of the snip to preview. Setting it (re)starts the progressive load.</summary>
     public string SourcePath
     {
         get => (string)(GetValue(SourcePathProperty) ?? string.Empty);
         set => SetValue(SourcePathProperty, value);
     }
 
-    /// <summary>Plain wheel zooms when true (the viewer). Ctrl+wheel always zooms, so the details
-    /// panel keeps scrolling normally with a plain wheel. </summary>
     public bool WheelZoomEnabled
     {
         get => (bool)GetValue(WheelZoomEnabledProperty);
         set => SetValue(WheelZoomEnabledProperty, value);
     }
 
-    /// <summary>Viewer behaviour: double-tap toggles Fit / 100% instead of raising
-    /// <see cref="PreviewActivated"/>.</summary>
     public bool DoubleTapTogglesZoom { get; set; }
 
     public double ZoomPercent => _viewport.Zoom * 100;
@@ -155,8 +128,6 @@ public sealed partial class SnipPreviewView : UserControl
     private static void OnSourcePathChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((SnipPreviewView)d).HandleSourcePathChanged(e.NewValue as string);
 
-    // ------------------------------------------------------------ lifecycle
-
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (XamlRoot is { } root)
@@ -186,7 +157,6 @@ public sealed partial class SnipPreviewView : UserControl
     {
         if (!IsLoaded)
         {
-            // x:Bind sets the path before the element is in the tree: defer to Loaded.
             _pendingPath = path;
             return;
         }
@@ -226,13 +196,6 @@ public sealed partial class SnipPreviewView : UserControl
         PreviewCanvas.Invalidate();
     }
 
-    // ------------------------------------------------------------ loading
-
-    /// <summary>
-    /// The progressive load: size -> 512 px tier (drawn immediately) -> full resolution
-    /// (crossfaded in). Every stage is cancelled by the next request, so changing the selected
-    /// snip quickly can never paint the wrong image.
-    /// </summary>
     private async Task LoadAsync(string path, bool resetView)
     {
         var generation = ++_generation;
@@ -270,7 +233,6 @@ public sealed partial class SnipPreviewView : UserControl
             UpdateZoomChrome();
             PreviewCanvas.Invalidate();
 
-            // 1st pass: the tier cache (no decode for a snip the gallery already showed).
             SetStatus($"{SnipPreviewPolicy.PlaceholderTier} px preview…", busy: true, error: false);
             var placeholder = await SnipPreviewService.LoadPlaceholderAsync(path, ct).ConfigureAwait(true);
             if (generation != _generation) return;
@@ -287,7 +249,6 @@ public sealed partial class SnipPreviewView : UserControl
                 PreviewCanvas.Invalidate();
             }
 
-            // 2nd pass: full resolution.
             if (source == SnipPreviewSource.VirtualBitmap)
             {
                 SetStatus($"{width} × {height} • loading regions on demand…", busy: true, error: false);
@@ -330,7 +291,6 @@ public sealed partial class SnipPreviewView : UserControl
         }
         catch (OperationCanceledException)
         {
-            // Superseded by a newer selection: not an error.
         }
         catch (Exception ex)
         {
@@ -340,12 +300,8 @@ public sealed partial class SnipPreviewView : UserControl
         }
     }
 
-    // ------------------------------------------------------------ GPU resources
-
     private void PreviewCanvas_CreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
     {
-        // First creation and device loss both arrive here: throw away the stale device resources
-        // and rebuild them from the path/pixels we already know about.
         ReleaseDeviceResources();
         var path = _loadedPath;
         if (!string.IsNullOrEmpty(path) && IsLoaded) _ = LoadAsync(path, resetView: false);
@@ -386,10 +342,6 @@ public sealed partial class SnipPreviewView : UserControl
         catch { _fullBitmap = null; }
     }
 
-    /// <summary>
-    /// Huge images never get decoded into memory: CanvasVirtualBitmap realizes only the regions
-    /// behind the source rectangle we actually draw.
-    /// </summary>
     private async Task EnsureVirtualBitmapAsync(string path, CancellationToken ct)
     {
         if (PreviewCanvas is null) return;
@@ -404,9 +356,6 @@ public sealed partial class SnipPreviewView : UserControl
             }
             _virtualBitmap = bitmap;
 
-            // The bitmap is the authority on its own pixel size (EXIF rotation, codecs): if it
-            // disagrees with the header the viewport used, follow the bitmap so the source and
-            // destination rectangles stay in step.
             var size = bitmap.SizeInPixels;
             if ((int)size.Width != _viewport.ImagePixelWidth || (int)size.Height != _viewport.ImagePixelHeight)
             {
@@ -419,7 +368,6 @@ public sealed partial class SnipPreviewView : UserControl
         catch (OperationCanceledException) { throw; }
         catch (Exception)
         {
-            // Fall back to the placeholder only: the caller reports "full resolution unavailable".
             ReleaseVirtualBitmap();
         }
     }
@@ -454,8 +402,6 @@ public sealed partial class SnipPreviewView : UserControl
         _virtualBitmap = null;
     }
 
-    // ------------------------------------------------------------ drawing
-
     private void PreviewCanvas_Draw(CanvasControl sender, CanvasDrawEventArgs args)
     {
         if (!_viewport.HasImage) return;
@@ -464,8 +410,6 @@ public sealed partial class SnipPreviewView : UserControl
         var interpolation = MapInterpolation(_viewport.Interpolation);
         var hasFull = HasFullSource;
 
-        // Placeholder first (static fallback + the layer being faded over), then the
-        // full-resolution source on top with the crossfade opacity.
         if (_placeholderBitmap is not null && (!hasFull || _crossfade < 1))
         {
             DrawVisible(session, _placeholderBitmap, 1f,
@@ -479,11 +423,6 @@ public sealed partial class SnipPreviewView : UserControl
         }
     }
 
-    /// <summary>
-    /// Draws only the part of the image that is on screen, mapped from image pixels to viewport
-    /// DIPs. For a virtual bitmap this is what keeps the realized region count proportional to the
-    /// window, not to the image.
-    /// </summary>
     private void DrawVisible(CanvasDrawingSession session, ICanvasImage image, float opacity,
         CanvasImageInterpolation interpolation)
     {
@@ -547,12 +486,10 @@ public sealed partial class SnipPreviewView : UserControl
 
     private bool HasFullSource => _virtualBitmap is not null || _fullBitmap is not null;
 
-    // ------------------------------------------------------------ input
-
     private void Root_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
         var controlPressed = (e.KeyModifiers & Windows.System.VirtualKeyModifiers.Control) != 0;
-        if (!WheelZoomEnabled && !controlPressed) return;   // let the details panel scroll
+        if (!WheelZoomEnabled && !controlPressed) return;
 
         var point = e.GetCurrentPoint(Root);
         var delta = point.Properties.MouseWheelDelta;
@@ -567,8 +504,6 @@ public sealed partial class SnipPreviewView : UserControl
 
     private void Root_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        // Pointer events bubble out of the zoom buttons too: capturing the pointer for a pan here
-        // would steal the button's own capture and swallow its click.
         if (IsFromButton(e.OriginalSource)) return;
 
         var point = e.GetCurrentPoint(Root);
@@ -586,8 +521,6 @@ public sealed partial class SnipPreviewView : UserControl
         if (!_dragging) return;
         var position = e.GetCurrentPoint(Root).Position;
 
-        // Dragging only means panning once the image is larger than the viewport; a fitting
-        // image stays centered.
         if (!_viewport.IsFullyVisible)
         {
             _autoFit = false;
@@ -637,7 +570,6 @@ public sealed partial class SnipPreviewView : UserControl
     private void ZoomFit_Click(object sender, RoutedEventArgs e) => ZoomToFit();
     private void ZoomActual_Click(object sender, RoutedEventArgs e) => ZoomToActualSize();
 
-    /// <summary>True when the event came from a button (the zoom chrome), not the image surface.</summary>
     private static bool IsFromButton(object? originalSource)
     {
         var node = originalSource as DependencyObject;
@@ -659,13 +591,6 @@ public sealed partial class SnipPreviewView : UserControl
         catch { }
     }
 
-    // ------------------------------------------------------------ plumbing
-
-    /// <summary>
-    /// The DIP -> device-pixel factor the Win2D surface is actually rendered at. Queried from the
-    /// control itself (Win2D sizes its drawing resource from the environment DPI), falling back to
-    /// the XamlRoot scale before the surface exists.
-    /// </summary>
     private double CurrentDpiScale
     {
         get

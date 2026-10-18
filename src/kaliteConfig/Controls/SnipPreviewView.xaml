@@ -16,9 +16,6 @@
         </Style>
     </UserControl.Resources>
 
-    <!-- Input is handled here rather than on the Win2D control: a swap-chain child is not
-         guaranteed to be hit-testable, so a CanvasControl can silently swallow drags.
-         (Same reason the snip overlay handles input on its root panel.) -->
     <Grid x:Name="Root"
           Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
           SizeChanged="Root_SizeChanged"
@@ -35,7 +32,6 @@
                               Draw="PreviewCanvas_Draw"
                               CreateResources="PreviewCanvas_CreateResources"/>
 
-        <!-- What is on screen right now: 512 px preview, full resolution, or the real error -->
         <Border x:Name="StatusBadge" Style="{StaticResource PreviewBadgeStyle}"
                 HorizontalAlignment="Left" VerticalAlignment="Top"
                 Visibility="Collapsed" IsHitTestVisible="False">
@@ -46,7 +42,6 @@
             </StackPanel>
         </Border>
 
-        <!-- Protected/DRM captures are legitimately flat: warn, never hide -->
         <Border x:Name="BlankBadge" Style="{StaticResource PreviewBadgeStyle}"
                 HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="#CC3A3A00" BorderThickness="0"
                 Visibility="Collapsed" IsHitTestVisible="False"

@@ -15,11 +15,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>
-/// Shared subprocess runner for CLI-backed package sources. Both pipes are
-/// drained from process start (a child blocked on a full output buffer never
-/// exits), with linked timeout/cancellation and a kill on timeout.
-/// </summary>
 internal static class CliProcess
 {
     public sealed record CliResult(int ExitCode, string Stdout, string Stderr);

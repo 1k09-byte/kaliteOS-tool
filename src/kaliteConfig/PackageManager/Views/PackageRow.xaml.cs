@@ -99,7 +99,6 @@ namespace kaliteConfig.PackageManager.Views
             DependencyProperty.Register(nameof(CancelCommand), typeof(ICommand), typeof(PackageRow),
                 new PropertyMetadata(null));
 
-        // Avatar initial + x:Bind static helpers (no converters needed).
         public string Initial
         {
             get
@@ -117,7 +116,6 @@ namespace kaliteConfig.PackageManager.Views
 
         private void OnPackageChanged()
         {
-            // Re-evaluate Initial + every Package.* binding.
             OnPropertyChanged(nameof(Initial));
         }
 
@@ -134,11 +132,6 @@ namespace kaliteConfig.PackageManager.Views
             if (Package != null) SelectionToggled?.Invoke(this, Package);
         }
 
-        /// <summary>
-        /// Fires ActionRequested only when no ActionCommand is bound (pages
-        /// that need a confirmation step first leave the command unset and
-        /// handle this event instead - e.g. uninstall).
-        /// </summary>
         private void ActionButton_Click(object sender, RoutedEventArgs e)
         {
             if (ActionCommand is null && Package != null)
@@ -150,7 +143,6 @@ namespace kaliteConfig.PackageManager.Views
             if (Package != null) InfoRequested?.Invoke(this, Package);
         }
 
-        // Minimal INPC for the Initial projection (DependencyObject has none).
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
         private void OnPropertyChanged(string name) =>

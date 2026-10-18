@@ -21,44 +21,12 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Applies a "windhawk-user-data-v1" backup to an installed Windhawk by driving
-/// Windhawk's OWN command-line interface (windhawk-cli.exe, shipped beside
-/// windhawk.exe since Windhawk 2.0).
-///
-/// WHY THE CLI AND NOT THE REGISTRY
-/// --------------------------------
-/// Windhawk persists its profile under HKLM\SOFTWARE\Windhawk, and an earlier
-/// version of this file wrote those keys directly. That was wrong: the engine
-/// names each mod's binary "&lt;modId&gt;_&lt;version&gt;_&lt;hash&gt;.dll"
-/// (e.g. "f1-blocker_0.0.3_989293.dll"), a name only the engine can compute, so
-/// a hand-written "LibraryFileName" pointing at "&lt;modId&gt;.dll" resolved to
-/// nothing and left mods installed-but-dead. The CLI already implements this
-/// correctly and is the interface Windhawk supports, so this class owns no
-/// knowledge of the on-disk layout at all: it hands Windhawk a backup file and
-/// lets the engine do the work.
-///
-/// The flow is:
-///   1. data inspect  - validate the archive up front and learn what it holds
-///                      (read-only; nothing is modified).
-///   2. data import   - apply it. One call, atomic from our point of view, and
-///                      it carries app settings + mod configs + mod settings.
-///   3. mod list      - read the engine's own view back and diff against the
-///                      manifest, so the summary reports what Windhawk really
-///                      has rather than what we asked for.
-/// </summary>
 public sealed class WindhawkImportService
 {
     private const string BackupFormat = "windhawk-user-data-v1";
 
-    /// <summary>How long any single CLI invocation may take before we give up.</summary>
     private static readonly TimeSpan CliTimeout = TimeSpan.FromMinutes(3);
 
-    /// <summary>
-    /// Parses and validates a backup file without touching Windhawk. Kept as a
-    /// separate step so the UI can reject a bad file before it prompts for
-    /// anything.
-    /// </summary>
     public static WindhawkBackup ParseBackup(string jsonFilePath)
     {
         if (!File.Exists(jsonFilePath))
@@ -81,21 +49,12 @@ public sealed class WindhawkImportService
         return backup;
     }
 
-    /// <summary>
-    /// Imports a backup into the installed Windhawk.
-    /// </summary>
-    /// <param name="jsonFilePath">Path to the windhawk-user-data-v1 archive.</param>
-    /// <param name="installation">The detected Windhawk install; must carry a CLI path.</param>
-    /// <param name="status">Progress text for the UI.</param>
-    /// <param name="ct">Cancellation.</param>
     public async Task<WindhawkImportResult> ImportBackupAsync(
         string jsonFilePath,
         WindhawkInstallationInfo installation,
         IProgress<string>? status = null,
         CancellationToken ct = default)
     {
-        // Parsing first gives a clean error for a malformed file, and it also
-        // proves the file is readable before we shell out to anything.
         var backup = ParseBackup(jsonFilePath);
 
         var cliPath = installation.CliPath;
@@ -106,9 +65,6 @@ public sealed class WindhawkImportService
 
         var result = new WindhawkImportResult();
 
-        // 1. Validate with the engine's own inspector before changing anything.
-        //    --json matters: without it the CLI emits human-readable text and the
-        //    manifest below would silently parse to nothing.
         status?.Report("Checking the backup with Windhawk...");
         var inspect = await RunCliAsync(cliPath, new[] { "--json", "data", "inspect", jsonFilePath }, ct);
         if (!inspect.Success)
@@ -118,10 +74,6 @@ public sealed class WindhawkImportService
         }
 
         var expected = ReadManifestModIds(inspect.StdOut);
-        // If the manifest could not be read (unexpected CLI output shape), fall
-        // back to the ids from the file we already parsed - verifying "whatever
-        // the backup asked for" is still meaningful, and reporting zero mods
-        // after a successful import would be a silent lie.
         if (expected.Count == 0)
         {
             foreach (var mod in backup.Mods)
@@ -130,24 +82,15 @@ public sealed class WindhawkImportService
         }
         status?.Report($"Backup looks valid: {expected.Count} mod(s), {backup.Mods.Count} listed in the file.");
 
-        // Mods the backup itself declares disabled ("config": {"disabled": true}).
-        // Windhawk imports them exactly that way, so "installed but disabled" is
-        // the requested end state for them, not a failed import - the bundled
-        // KaliteOS set ships taskbar-restart-explorer this way.
         var declaredDisabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var mod in backup.Mods)
             if (!string.IsNullOrWhiteSpace(mod.ModId) && mod.Config?.Disabled == true)
                 declaredDisabled.Add(mod.ModId);
 
-        // 2. Apply. data import is the supported, complete path - it carries app
-        //    settings, each mod's config and each mod's runtime settings.
         status?.Report("Applying the backup via Windhawk...");
         var import = await RunCliAsync(cliPath, new[] { "data", "import", jsonFilePath, "--yes" }, ct);
         if (!import.Success)
         {
-            // Do NOT fall back to writing the registry ourselves: that path is
-            // exactly the thing that silently installed dead mods before. If
-            // the engine says no, the user needs to see why.
             foreach (var modId in expected.Keys)
                 result.Outcomes.Add(new WindhawkModImportOutcome(modId, false, "Not applied - Windhawk reported an error."));
             result.Skipped = expected.Count;
@@ -155,8 +98,6 @@ public sealed class WindhawkImportService
                 "Windhawk could not apply this backup: " + Describe(import));
         }
 
-        // 3. Verify against the engine's own view rather than trusting the
-        //    import's exit code alone.
         status?.Report("Verifying the result with Windhawk...");
         var installed = await ReadInstalledModsAsync(cliPath, ct);
 
@@ -174,7 +115,6 @@ public sealed class WindhawkImportService
             {
                 if (declaredDisabled.Contains(modId))
                 {
-                    // Intentionally off in the bundled config: imported fine.
                     result.Imported++;
                     result.Outcomes.Add(new WindhawkModImportOutcome(
                         modId, true,
@@ -199,10 +139,6 @@ public sealed class WindhawkImportService
         return result;
     }
 
-    // ------------------------------------------------------------------
-    // CLI plumbing
-    // ------------------------------------------------------------------
-
     private sealed record CliResult(int ExitCode, string StdOut, string StdErr)
     {
         public bool Success => ExitCode == 0;
@@ -210,12 +146,6 @@ public sealed class WindhawkImportService
 
     private sealed record ModState(bool Enabled, string? Version);
 
-    /// <summary>
-    /// Runs windhawk-cli with the given arguments and captures both streams.
-    /// Uses ArgumentList (never a joined string) so mod ids and setting values
-    /// cannot be re-interpreted as flags, and redirects the streams so a hidden
-    /// window never flashes on screen.
-    /// </summary>
     private static async Task<CliResult> RunCliAsync(
         string cliPath, IReadOnlyList<string> args, CancellationToken ct)
     {
@@ -234,8 +164,6 @@ public sealed class WindhawkImportService
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Could not start windhawk-cli.exe.");
 
-        // Read both pipes before awaiting exit: a child that fills a pipe buffer
-        // while we wait on exit would otherwise deadlock.
         var stdOutTask = process.StandardOutput.ReadToEndAsync(ct);
         var stdErrTask = process.StandardError.ReadToEndAsync(ct);
 
@@ -257,30 +185,18 @@ public sealed class WindhawkImportService
 
     private static void TryKill(Process p)
     {
-        try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch { /* already gone */ }
+        try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch {  }
     }
 
-    /// <summary>Best-effort one-line explanation of a failed CLI run.</summary>
     private static string Describe(CliResult r)
     {
         var text = string.IsNullOrWhiteSpace(r.StdErr) ? r.StdOut : r.StdErr;
         text = text.Trim();
         if (text.Length == 0) return $"exit code {r.ExitCode}.";
-        // The CLI is chatty; one line is enough for an InfoBar.
         var firstLine = text.Split('\n', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
         return firstLine.Length > 200 ? firstLine[..200] + "..." : firstLine;
     }
 
-    // ------------------------------------------------------------------
-    // JSON reading
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Pulls the mod ids out of `data inspect --json`. Returns an empty map when
-    /// the output is not the expected shape - the caller still has the parsed
-    /// file, so an unexpected payload degrades to "verify whatever is there"
-    /// rather than failing the import.
-    /// </summary>
     private static Dictionary<string, string?> ReadManifestModIds(string stdout)
     {
         var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -307,11 +223,6 @@ public sealed class WindhawkImportService
         return result;
     }
 
-    /// <summary>
-    /// Reads `mod list --json` into id → (enabled, version). This is the
-    /// engine's own answer to "what do you actually have?", which is why the
-    /// summary is built from it instead of from the import's exit code.
-    /// </summary>
     private static async Task<Dictionary<string, ModState>> ReadInstalledModsAsync(
         string cliPath, CancellationToken ct)
     {

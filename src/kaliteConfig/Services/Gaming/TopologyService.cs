@@ -17,11 +17,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services
 {
-    /// <summary>
-    /// Detects physical core count and hybrid (P-core / E-core) topology via
-    /// GetLogicalProcessorInformationEx.  Result is cached - hardware topology
-    /// does not change at runtime.
-    /// </summary>
     public static class TopologyService
     {
         private static CoreTopology? _cached;
@@ -37,53 +32,27 @@ namespace kaliteConfig.Services
             return _cached;
         }
 
-        // ── Win32 P/Invoke ──────────────────────────────────────────────────
-
         private const int RelationProcessorCore = 0;
 
-
-
-        // Documented SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX header (variable-length).
-        // https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_logical_processor_information_ex
         [StructLayout(LayoutKind.Sequential)]
         private struct SLPI_EX_HEADER
         {
-            public int Relationship;  // LOGICAL_PROCESSOR_RELATIONSHIP enum
-            public uint Size;         // Total size of this entry including trailing data
+            public int Relationship;
+            public uint Size;
         }
-
-        // PROCESSOR_RELATIONSHIP for RelationProcessorCore.
-        // https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-processor_relationship
-        //
-        // Layout (64-bit):
-        //   BYTE  Flags           - 1 if SMT-capable core
-        //   BYTE  EfficiencyClass - 0 = Performance, 1+ = Efficiency (non-hybrid CPUs: all 0)
-        //   BYTE  Reserved[20]
-        //   WORD  GroupCount
-        //   GROUP_AFFINITY[ANYSIZE_ARRAY]
-        //
-        // We only need EfficiencyClass and the first GROUP_AFFINITY.Mask.
-        //
-        // GROUP_AFFINITY (16 bytes):
-        //   KAFFINITY Mask (8 bytes on x64)
-        //   WORD      Group
-        //   WORD      Reserved[3]
 
         private const int SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX_HEADER_SIZE = 8;
         
         private const int RelationNumaNode = 1;
         private const int RelationCache = 2;
-        
-        // RelationProcessorCore
+
         private const int EFFICIENCY_OFFSET      = 1;
         private const int CORE_GROUP_AFFINITY_OFFSET  = 24;
-        
-        // RelationNumaNode
-        private const int NUMA_GROUP_AFFINITY_OFFSET = 24; // 4 (NodeNumber) + 20 (Reserved) = 24
-        
-        // RelationCache
+
+        private const int NUMA_GROUP_AFFINITY_OFFSET = 24;
+
         private const int CACHE_LEVEL_OFFSET     = 0;
-        private const int CACHE_GROUP_AFFINITY_OFFSET = 40; // 32 (Fields) + 2 (GroupCount) + 6 (Pad) = 40
+        private const int CACHE_GROUP_AFFINITY_OFFSET = 40;
 
         private static CoreTopology Detect()
         {
@@ -99,7 +68,6 @@ namespace kaliteConfig.Services
             try
             {
                 uint len = 0;
-                // Query ALL relationships (0xFFFF)
                 Native.Kernel32.GetLogicalProcessorInformationEx(0xFFFF, IntPtr.Zero, ref len);
                 if (len == 0) throw new InvalidOperationException("GetLogicalProcessorInformationEx returned 0 length");
 
@@ -136,7 +104,6 @@ namespace kaliteConfig.Services
                         else if (header.Relationship == RelationCache)
                         {
                             byte level = Marshal.ReadByte(bodyPtr, CACHE_LEVEL_OFFSET);
-                            // Process L3 Cache as Core Complex (CCX) boundaries
                             if (level == 3)
                             {
                                 ulong mask = unchecked((ulong)Marshal.ReadInt64(bodyPtr + CACHE_GROUP_AFFINITY_OFFSET));
@@ -154,7 +121,6 @@ namespace kaliteConfig.Services
             }
             catch (Exception)
             {
-                // Graceful fallback: assume homogeneous SMT-2 cores.
                 physicalCoreCount = Math.Max(1, logicalCount / 2);
                 perfCoreMasks.Clear();
                 effCoreMasks.Clear();
@@ -172,8 +138,6 @@ namespace kaliteConfig.Services
                 coreComplexMasks.Add((1UL << logicalCount) - 1);
             }
 
-            // Remove reserved core 0 from the assignable performance list
-            // (AllPerformanceCoreMasks keeps the full set).
             var allPerfCoreMasks = perfCoreMasks.ToList();
             if (perfCoreMasks.Count > 0)
                 perfCoreMasks.RemoveAt(0);
@@ -182,7 +146,7 @@ namespace kaliteConfig.Services
             {
                 TotalLogicalCores = logicalCount,
                 PhysicalCores = physicalCoreCount,
-                ReservedCore = 0, // OS uses Core 0
+                ReservedCore = 0,
                 PerformanceCoreMasks = perfCoreMasks,
                 AllPerformanceCoreMasks = allPerfCoreMasks,
                 EfficiencyCoreMasks = effCoreMasks,

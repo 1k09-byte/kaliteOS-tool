@@ -34,7 +34,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         return true;
     }
 
-    /// <summary>Draft under edit. Same instance for the dialog lifetime; LoadFrom copies into it.</summary>
     public TunerProfile Draft { get; } = new();
 
     private bool _priorityEnabled;
@@ -79,8 +78,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         set => Set(ref _efficiencyName, value);
     }
 
-    // No longer branch on E-core availability: nothing is pinned to cores any
-    // more, so the promise is the same on every CPU (Docs/GameMode.md).
     public string AutomaticGamingModeDescription =>
         "Boost this app + put busy background tasks in Efficiency Mode";
 
@@ -88,7 +85,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         "When this process launches, raise it to Above Normal and put CPU-hungry background processes in Efficiency Mode (EcoQoS). Everything is restored when the app exits.";
 
     private bool _gamingAutoChecked;
-    /// <summary>Rule triggers automatic app-wide Gaming mode on process launch.</summary>
     public bool GamingAutoChecked
     {
         get => _gamingAutoChecked;
@@ -116,8 +112,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
     private List<ulong> _pendingCpuSetIds = new();
     private int _cpuCount;
 
-    // Thread-rules tuner state (mirrors ThreadListDialog, but edits the saved
-    // TunerThreadRule instead of a live thread).
     private TunerThreadRule? _selectedRule;
     private bool _loadingRuleEditor;
     private int _ruleIdealCpu = -1;
@@ -169,8 +163,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         RefreshThreadRulesView();
     }
 
-    // ---- tabs ----
-
     private void Tab_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string tag)
@@ -191,8 +183,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             RefreshThreadRulesView();
         }
     }
-
-    // ---- target suggestions ----
 
     private void TargetBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
@@ -222,8 +212,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             sender.Text = s;
         }
     }
-
-    // ---- thread rules: same two-pane tuner as the Process tab's Threads dialog ----
 
     private void ThreadRulesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -279,7 +267,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         ThreadRulesHeaderText.Text = n == 0
             ? "No thread rules"
             : n == 1 ? "1 thread rule - select one to tune it" : $"{n} thread rules - select one to tune it";
-        // Drop a selection that no longer exists (e.g. after delete).
         if (_selectedRule != null && !Draft.ThreadRules.Contains(_selectedRule))
         {
             ThreadRulesList.SelectedItem = null;
@@ -287,13 +274,11 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
         else if (_selectedRule != null)
         {
-            // Refresh the editor text for the selected rule (priority text may have changed).
             var keep = _selectedRule;
             SelectRule(null);
             ThreadRulesList.SelectedItem = keep;
             SelectRule(keep);
         }
-        // Default selection: tune the first rule without requiring a click.
         if (_selectedRule == null && Draft.ThreadRules.Count > 0)
         {
             var first = Draft.ThreadRules[0];
@@ -528,8 +513,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
-    // ---- affinity / cpu sets choosers (flyouts; nested dialogs are not allowed) ----
-
     private ulong AllMask() => _cpuCount >= 64 ? ulong.MaxValue : ((1UL << _cpuCount) - 1UL);
 
     private void AffinityChoose_Click(object sender, RoutedEventArgs e)
@@ -590,8 +573,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
-    // ---- summary / validation ----
-
     private int EnabledActionCount =>
         (PriorityEnabled ? 1 : 0) +
         (BoostEnabled ? 1 : 0) +
@@ -640,7 +621,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         _ => "Normal",
     };
 
-    /// <summary>True when the dialog was accepted via the Ctrl+Enter shortcut (Hide carries no result).</summary>
     public bool ShortcutAccepted { get; private set; }
 
     private void Dialog_PrimaryClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
@@ -651,7 +631,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
-    /// <summary>Validates and pushes editor state into <see cref="Draft"/>.</summary>
     private bool TryCommit()
     {
         HideError();

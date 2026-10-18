@@ -1,23 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    The meteor field: the app's live background.
 
-    Generated from Meteor_animated_thin(1).svg. The source animates each meteor
-    with a CSS transform on its OWN element (translateY for Up, +170 for Down,
-    5.5s, alternating, staggered per meteor). This reproduces that faithfully:
-    36 individually-driven streaks, not one block that pans.
-
-    EVERY animation is a RenderTransform. The compositor applies transforms
-    without re-running measure/arrange, so driving them per frame cannot feed
-    back into layout. The earlier revision of this control wrote Width/Height/
-    Margin inside a SizeChanged handler, which re-entered layout from a layout
-    callback, looped, and fail-fasted the process with 0xC0000409. That is why
-    there is no SizeChanged handler here.
-
-    The artboard is padded 300px vertically so each meteor can complete its
-    205px travel without being clipped at rest. A Border is the clipper (a
-    WinUI Grid has no ClipToBounds). IsHitTestVisible=False: decorative only.
--->
 <UserControl
     x:Class="kaliteConfig.Controls.KaliteBackdrop"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -25,17 +7,7 @@
     IsHitTestVisible="False">
 
     <UserControl.Resources>
-        <!--
-            The source SVG does NOT paint flat strokes. Each streak is stroked
-            with a linearGradient that fades from fully transparent at its tail
-            to opaque at its head, in the direction of travel. That fade is what
-            makes a streak read as a meteor with a glowing head rather than a
-            grey line - flat strokes are why the first attempt looked nothing
-            like the reference.
 
-              MeteorUp   transparent at the bottom -> opaque at the top   (SVG gradient 1028)
-              MeteorDown transparent at the top    -> opaque at the bottom (SVG gradient 1029)
-        -->
         <LinearGradientBrush x:Key="MeteorUp" StartPoint="0,1" EndPoint="0,0">
             <GradientStop Color="#00FFFFFF" Offset="0" />
             <GradientStop Color="#14FFFFFF" Offset="1" />
@@ -46,14 +18,6 @@
         </LinearGradientBrush>
     </UserControl.Resources>
 
-<!--
-        The clipper's own fill MUST stay transparent. Window backdrop materials
-        (Mica / Acrylic, applied through DevWinUI) render BEHIND the XAML tree -
-        an opaque fill here hides them completely, which is why selecting a
-        material appeared to do nothing. The matte-black look with Material =
-        None comes from the raw window surface showing through this transparent
-        fill, exactly as MainWindow.ApplyRootBackground documents.
-    -->
     <Border Background="Transparent" BorderBrush="Transparent" BorderThickness="0">
         <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <Canvas x:Name="Field" Opacity="0.32" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">

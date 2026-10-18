@@ -15,37 +15,6 @@ using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// AMD backend for the overclock module, over ADLX (see
-    /// <see cref="AmdAdlxInterop"/> for why this needs no native build).
-    ///
-    /// Implemented: detection, identity, per-control ranges, and writes for core
-    /// clock, VRAM frequency, power limit, static fan speed and Zero RPM - each
-    /// one clamped to the range the driver itself reports, never to a number
-    /// from a spec sheet.
-    ///
-    /// Not implemented, and each for a stated reason rather than by omission:
-    ///   - V/F curve and voltage: reachable, but through the tuning-state structs
-    ///     (ADLX_MANUAL_TUNING_STATE), whose layout is large and version-specific.
-    ///     Voltage control on a card that cannot be validated here is not a
-    ///     feature worth shipping.
-    ///   - Fan "restore to automatic": ADLX exposes manual fan STATES and no
-    ///     documented call to hand the fan back to the driver's curve. Guessing a
-    ///     magic value here risks pinning a GPU's fan at 100%, so the button
-    ///     declines with a reason instead.
-    ///   - Telemetry: a separate interface chain (PerformanceMonitoring).
-    ///
-    /// One consequence worth stating: the module's safety machine reverts by
-    /// reading anchors and writing them back, which now works for AMD's clock,
-    /// memory and power. Fan does not - its revert is "hand the fan back to
-    /// automatic", and ADLX has no call for that - so a forced AMD fan speed is
-    /// not auto-revertible and the revert reports the failure rather than
-    /// pretending. Clamping to the driver's own minimum is what keeps that
-    /// bounded.
-    ///   - Temperature limit: ADLX's temperature range here is the fan-curve
-    ///     threshold, a different control from a GPU thermal limit, and mapping
-    ///     one onto the other would be a lie.
-    /// </summary>
     public sealed class AmdGpuTuningController : IGpuTuningController
     {
         private readonly object _gate = new();
@@ -53,17 +22,14 @@ namespace kaliteConfig.GpuOverclock.Services
         private AmdGpuTuningSession? _session;
         private AmdGpuTuningSupport? _primary;
 
-        // Revert anchors, captured once when the tuning domains open. Every
-        // write is expressed against these, so "back to default" is a number we
-        // actually read rather than one we assumed.
         private AdlxIntRange? _coreRange;
         private AdlxIntRange? _vramRange;
         private AdlxIntRange? _powerRange;
         private AdlxIntRange? _fanRange;
-        private int? _coreBaseline;   // ADLX units (MHz), as reported
-        private int? _vramBaseline;   // ADLX units (MHz), absolute
-        private int? _powerBaseline;  // percent
-        private int? _fanBaseline;    // percent
+        private int? _coreBaseline;
+        private int? _vramBaseline;
+        private int? _powerBaseline;
+        private int? _fanBaseline;
 
         private bool _coreIsOffsetSemantics;
         private bool _fanSupported;
@@ -73,30 +39,14 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public string? DriverVersion { get; private set; }
 
-        /// <summary>
-        /// True when this controller is showing a fabricated card
-        /// (<see cref="AmdGpuSimulation"/>). The UI says so on the page, and no
-        /// write made in this mode reaches a driver.
-        /// </summary>
         public bool IsSimulated { get; private set; }
 
-        /// <summary>What a simulated write would have been, for the change log.</summary>
         public string SimulatedWriteLog => AmdGpuSimulation.IsActive ? AmdGpuSimulation.RecentWrites() : "";
 
-        /// <summary>
-        /// Fills the same fields <see cref="ReadAnchors"/> fills, from the
-        /// simulated card instead of a driver - so every code path downstream
-        /// (capabilities, anchors, clamping, the safety machine) is the real one.
-        /// </summary>
         private void ReadSimulatedAnchors()
         {
-            // The integrated profile answers "no" to all four capability
-            // queries, exactly as a real iGPU does - so every domain stays null
-            // and the page renders the dead end rather than a fake slider.
             bool any = AmdGpuSimulation.Kind != AmdGpuSimulation.SimKind.Integrated;
 
-            // Mirrors ReadAnchors exactly: an unreadable-as-offset core range is
-            // dropped, not exposed, so the control hides itself.
             if (any)
             {
                 AdlxIntRange core = AmdGpuSimulation.CoreRange;
@@ -124,10 +74,8 @@ namespace kaliteConfig.GpuOverclock.Services
             "does not expose the GPU generation needed to tell the two apart. Tuning it blind could " +
             "leave the card at the wrong clock, so the control stays hidden.";
 
-        /// <summary>The card the controls would apply to. Null until Initialize succeeds.</summary>
         public AmdGpuTuningSupport? Primary => _primary;
 
-        /// <summary>Why a control is missing, for the UI to explain rather than guess.</summary>
         public string? CoreClockUnavailableReason { get; private set; }
 
         public GpuResult Initialize()
@@ -136,9 +84,6 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 if (IsInitialized) return GpuResult.Ok();
 
-                // Simulated first, and exclusively: when this branch runs no
-                // ADLX call is made at all, so a preview cannot reach hardware
-                // even if a real card is present.
                 if (AmdGpuSimulation.IsActive)
                 {
                     IsSimulated = true;
@@ -160,8 +105,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (_sessions.Count == 0)
                     return GpuResult.Fail(OverclockErrorKind.GpuNotDetected, "ADLX reported no AMD GPUs.");
 
-                // Prefer a discrete card: an integrated adapter shares system
-                // memory and is a poor tuning target, so if a dGPU exists use it.
                 _session = _sessions.FirstOrDefault(s => s.Support.IsDiscrete && s.Support.AnyControlSupported)
                         ?? _sessions.FirstOrDefault(s => s.Support.AnyControlSupported)
                         ?? _sessions[0];
@@ -174,20 +117,12 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// Opens the tuning domains and records what the card is set to right
-        /// now. A domain the driver refuses leaves its range null, which the UI
-        /// reads as "do not render this control" - so an unsupported control
-        /// never appears as a dead slider.
-        /// </summary>
         private void ReadAnchors()
         {
             if (_session is null || !_session.IsUsable) return;
             AdlxIntRange? core = _session.ReadCoreMaxFrequencyRange();
             if (core is { } c)
             {
-                // Offset semantics only when the range looks like one; see
-                // AmdTuningMapping for why this is checked rather than assumed.
                 _coreIsOffsetSemantics = AmdTuningMapping.ReportsOffsetSemantics(c);
                 if (_coreIsOffsetSemantics)
                 {
@@ -257,15 +192,12 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     FullName = _primary.Name,
                     DriverVersion = DriverVersion ?? "unknown",
-                    // ADLX exposes no notebook flag; an integrated adapter is the
-                    // closest honest signal we have for a mobile part.
                     IsNotebook = !_primary.IsDiscrete,
                     PciDeviceId = ParsePciDeviceId(_primary.PnpString),
                 });
             }
         }
 
-        /// <summary>Reads "VEN_1002&amp;DEV_13C0" out of a PNP device id.</summary>
         internal static uint ParsePciDeviceId(string? pnpString)
         {
             if (string.IsNullOrEmpty(pnpString)) return 0;
@@ -279,11 +211,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return 0;
         }
 
-        /// <summary>
-        /// Telemetry needs ADLX's PerformanceMonitoring domain, which is a
-        /// separate interface chain. Declining it here is honest: the benchmark
-        /// sensor and the graphs show no AMD numbers rather than stale ones.
-        /// </summary>
         public GpuResult<GpuTelemetrySnapshot> ReadTelemetry()
             => GpuResult<GpuTelemetrySnapshot>.Fail(
                 OverclockErrorKind.ControlUnsupported,
@@ -303,21 +230,13 @@ namespace kaliteConfig.GpuOverclock.Services
                     IsNotebook = !_primary.IsDiscrete,
                     IsIntegrated = !_primary.IsDiscrete,
 
-                    // A null range is the documented signal for "do not render
-                    // this control", which is exactly right for every domain the
-                    // driver declined or we cannot interpret safely.
                     CoreOffsetRangeMHz = _coreRange is { } core
                         ? AmdTuningMapping.ToControlRange(core) : null,
-                    // VRAM is absolute on the wire, offset in the UI - the range
-                    // the user sees has to be shifted too, or the slider and the
-                    // setter disagree about what a number means.
                     MemOffsetRangeMHz = _vramRange is { } vram && _vramBaseline is { } vramBase
                         ? AmdTuningMapping.ToOffsetControlRange(vram, vramBase) : null,
                     PowerLimitRangePercent = _powerRange is { } power
                         ? AmdTuningMapping.ToControlRange(power) : null,
 
-                    // ADLX has no GPU thermal limit; the temperature range it
-                    // reports is the fan-curve threshold, a different control.
                     TempLimitRangeC = null,
                     CurrentPowerLimitPercent = _powerBaseline,
                     CurrentTempLimitC = null,
@@ -330,11 +249,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---- read-back anchors -------------------------------------------------
-        // The safety machine arms a revert from these. If a read declines, no
-        // revert is armed for that control - it will not pretend to know a
-        // default it did not read.
-
         public GpuResult<(int CoreOffsetMHz, int MemOffsetMHz)> ReadCurrentOffsets()
         {
             lock (_gate)
@@ -342,9 +256,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!Usable)
                     return GpuResult<(int, int)>.Fail(OverclockErrorKind.GpuNotDetected);
 
-                // Usable already proved there is a session unless we are
-                // simulating; the null-conditional keeps the simulated case (and
-                // the compiler) honest about which path is live.
                 AmdGpuTuningSession? session = _session;
                 int? coreNow = IsSimulated
                     ? AmdGpuSimulation.CoreOffsetMhz
@@ -357,13 +268,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     return GpuResult<(int, int)>.Fail(
                         OverclockErrorKind.ControlUnsupported, "No clock anchor available on this card.");
 
-                // The tuple has no way to say "this half is unknown", so an
-                // unreadable core reads as 0. That is safe rather than merely
-                // convenient: a revert would then ask for a core offset of 0,
-                // and a card with no core range refuses the write outright
-                // instead of having 0 MHz written to it.
                 return GpuResult<(int, int)>.Ok((
-                    // In offset semantics the driver already speaks our units.
                     coreNow ?? 0,
                     vramNow is null || _vramBaseline is null
                         ? 0
@@ -387,11 +292,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---- writes ------------------------------------------------------------
-        // Every setter re-clamps against the driver's own range. The UI already
-        // clamps, but a batch can carry a value that was legal when the profile
-        // was saved and is not legal on this card today.
-
         public GpuResult SetCoreOffsetMhz(int offsetMhz)
         {
             lock (_gate)
@@ -402,8 +302,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!AmdTuningMapping.WithinRange(range, offsetMhz))
                     return WriteRejected($"Core offset {offsetMhz} MHz is outside the driver's range ({range}).");
 
-                // The driver's range is already in offset units here, so the
-                // value goes straight through - snapped to the driver's step.
                 int value = AmdTuningMapping.ClampToRange(range, offsetMhz);
                 if (IsSimulated) return Simulated($"core clock {value:+#;-#;0} MHz", () => AmdGpuSimulation.CoreOffsetMhz = value);
 
@@ -421,10 +319,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (_vramRange is not { } range || _vramBaseline is null)
                     return Unsupported("Memory tuning is not available on this card.");
 
-                // ADLX speaks absolute MHz here; the UI speaks offset. The
-                // range check is deliberately against the TRANSLATED value -
-                // checking the offset against an absolute range would compare
-                // two different units and mean nothing.
                 int absolute = AmdTuningMapping.ToAbsolute(_vramBaseline.Value, offsetMhz);
                 if (!AmdTuningMapping.WithinRange(range, absolute))
                     return WriteRejected(
@@ -486,18 +380,10 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// Declines on purpose. ADLX's fan domain exposes manual states and no
-        /// documented "hand the fan back to the driver curve" call; the only
-        /// whole-domain reset is ResetToFactory, which would also wipe power and
-        /// clock settings. A wrong guess here leaves a GPU's fan pinned.
-        /// </summary>
         public GpuResult RestoreFanAuto()
             => Unsupported(
                 "ADLX has no documented way to return the fan to automatic. " +
                 "Restore it in Radeon Software, or use Reset to factory on the Drivers page.");
-
-        // ---- Zero RPM ------------------------------------------------------------
 
         public GpuResult<bool> IsZeroRpmEnabled()
         {
@@ -520,12 +406,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!_zeroRpmSupported)
                     return Unsupported("This card does not support Zero RPM.");
 
-                // Stopping the fan is the one write here whose failure mode is
-                // silent - a card that hangs with its fan stopped needs someone
-                // to physically visit it. So the state must be readable before we
-                // touch it, and readable again after: an unverifiable toggle is
-                // worse than no toggle, because it shows "on" for a fan that is
-                // still spinning (or the reverse, which is the dangerous one).
                 bool? before = IsSimulated ? AmdGpuSimulation.ZeroRpm : _session!.ReadZeroRpm();
                 if (before is null)
                     return WriteRejected("The AMD driver would not report the fan state, so Zero RPM was left alone.");
@@ -551,8 +431,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---- not implemented, with reasons ---------------------------------------
-
         public GpuResult<GpuVoltageFrequencyCurve> ReadVoltageFrequencyCurve()
             => Decline<GpuVoltageFrequencyCurve>(
                 "Voltage and V/F curve tuning needs ADLX's tuning-state structs, which are not implemented.");
@@ -566,12 +444,6 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult SetVoltageBoostPercent(uint percent) => Decline();
 
-        // ---- helpers -------------------------------------------------------------
-
-        /// <summary>
-        /// Whether a read or write has somewhere to go: a live session, or the
-        /// simulation standing in for one.
-        /// </summary>
         private bool Usable => IsInitialized && (IsSimulated || _session is { IsUsable: true });
 
         private bool Ready(out GpuResult failure)
@@ -586,13 +458,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return false;
         }
 
-        /// <summary>
-        /// Records a change that would have been written to a driver, and
-        /// applies it to the simulated card. Everything upstream of this - range
-        /// clamping, the offset/absolute translation, refusal when unsupported -
-        /// has already run for real, which is the point: the preview shows the
-        /// same decisions a Radeon would get, minus the silicon.
-        /// </summary>
         private static GpuResult Simulated(string description, Action apply)
         {
             apply();

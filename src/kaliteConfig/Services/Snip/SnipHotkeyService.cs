@@ -13,9 +13,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Global snip hotkey on a dedicated hidden message window. Default PrtScn.
-/// </summary>
 public sealed class SnipHotkeyService : IDisposable
 {
     public const uint ModNone = 0x0;
@@ -25,23 +22,20 @@ public sealed class SnipHotkeyService : IDisposable
     public const uint ModWin = 0x8;
 
     public const uint VkSnapshot = 0x2C;
-    public const uint VkS = 0x53; // 'S' key
+    public const uint VkS = 0x53;
 
-    /// <summary>Index of the "Custom…" slot: presets[0..4] are fixed, this one is user-captured.</summary>
     public const int CustomIndex = 5;
 
-    /// <summary>True for keys that can be the main key of a hotkey (not a bare modifier).</summary>
     public static bool IsCapturableKey(uint vk) => vk switch
     {
         0x00 => false,
-        0x10 or 0x11 or 0x12 => false, // Shift, Control, Alt
-        0x5B or 0x5C => false,         // Left/Right Windows (opens Start; not capturable here)
-        0x14 => false,                 // CapsLock
-        0x90 or 0x91 or 0x92 => false, // NumLock/ScrollLock
+        0x10 or 0x11 or 0x12 => false,
+        0x5B or 0x5C => false,
+        0x14 => false,
+        0x90 or 0x91 or 0x92 => false,
         _ => true,
     };
 
-    /// <summary>"Ctrl+Shift+S" style label for any modifiers + virtual key.</summary>
     public static string FormatLabel(uint modifiers, uint vk)
     {
         var parts = new System.Collections.Generic.List<string>();
@@ -56,9 +50,9 @@ public sealed class SnipHotkeyService : IDisposable
     private static string KeyName(uint vk) => vk switch
     {
         VkSnapshot => "PrtScn",
-        >= 0x41 and <= 0x5A => ((char)vk).ToString(),   // A-Z
-        >= 0x30 and <= 0x39 => ((char)vk).ToString(),   // 0-9
-        >= 0x70 and <= 0x87 => "F" + (vk - 0x70 + 1),   // F1-F24
+        >= 0x41 and <= 0x5A => ((char)vk).ToString(),
+        >= 0x30 and <= 0x39 => ((char)vk).ToString(),
+        >= 0x70 and <= 0x87 => "F" + (vk - 0x70 + 1),
         0x2D => "Insert",
         0x2E => "Delete",
         0x24 => "Home",
@@ -107,14 +101,6 @@ public sealed class SnipHotkeyService : IDisposable
     private IntPtr _hwnd = IntPtr.Zero;
     private WndProcDelegate? _wndProc;
 
-    /// <summary>
-    /// Keeps the WndProc delegate alive for the whole life of the window that
-    /// calls it. A field is not enough: the runtime cannot see the raw function
-    /// pointer handed to CreateWindowExW, so it may collect the delegate, and the
-    /// next delivered message calls into a collected delegate - which the runtime
-    /// answers with Environment.FailFast (uncatchable, no stack, no crash.log).
-    /// Freed in Dispose(), only after DestroyWindow.
-    /// </summary>
     private GCHandle _wndProcPin;
 
     private bool _registered;
@@ -184,7 +170,7 @@ public sealed class SnipHotkeyService : IDisposable
             lpszClassName = ClassName,
         };
         ushort atom = RegisterClassExW(ref cls);
-        if (atom == 0 && Marshal.GetLastWin32Error() != 1410) // 1410 = class already exists
+        if (atom == 0 && Marshal.GetLastWin32Error() != 1410)
             throw new InvalidOperationException("Could not register the snip hotkey window class.");
         _hwnd = CreateWindowExW(0, ClassName, "kaliteSnip Hotkey", 0, 0, 0, 0, 0,
             IntPtr.Zero, IntPtr.Zero, GetModuleHandleW(null), IntPtr.Zero);
@@ -202,7 +188,6 @@ public sealed class SnipHotkeyService : IDisposable
         return DefWindowProcW(hWnd, msg, wParam, lParam);
     }
 
-    /// <summary>Registers the preset. Returns (false, message) when the key is taken.</summary>
     public (bool Ok, string Message) Register(HotkeyPreset preset)
     {
         try
@@ -270,9 +255,6 @@ public sealed class SnipHotkeyService : IDisposable
         catch { }
         _hwnd = IntPtr.Zero;
 
-        // Only once the window and its class are gone can the pin be released:
-        // DestroyWindow delivers WM_DESTROY synchronously on this thread, so no
-        // further call into the delegate can be in flight or arrive later.
         if (_wndProcPin.IsAllocated) { _wndProcPin.Free(); _wndProcPin = default; }
         _wndProc = null;
     }

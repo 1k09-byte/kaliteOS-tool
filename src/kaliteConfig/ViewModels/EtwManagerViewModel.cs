@@ -44,10 +44,7 @@ namespace kaliteConfig.ViewModels
             {
                 _allSessionsCache = list.OrderByDescending(x => x.BuffersWritten).ToList();
                 ApplyFilter();
-                
-                // Small delay lets the ListView finish rendering before
-                // we un-suppress toggle events (ensures Toggled from
-                // data-binding initialization is fully drained).
+
                 _dispatcher.TryEnqueue(DispatcherQueuePriority.Low, () =>
                 {
                     IsRefreshing = false;
@@ -92,22 +89,15 @@ namespace kaliteConfig.ViewModels
                 if (success)
                 {
                     model.IsRunning = true;
-                    // Automatically enable autologger so it survives reboot
                     ToggleAutoLogger(model, true);
                 }
                 else
                 {
-                    // Failed to start — snap the toggle back to OFF.
                     model.IsRunning = false;
                 }
             });
         }
 
-        /// <summary>
-        /// Called from the page code-behind when the user flips the
-        /// "State" toggle OFF. Runs logman on a background thread
-        /// so the UI never freezes.
-        /// </summary>
         public async Task StopSessionAsync(EtwSessionModel model)
         {
             if (model == null) return;
@@ -120,12 +110,10 @@ namespace kaliteConfig.ViewModels
                 {
                     model.IsRunning = false;
                     model.BuffersWritten = 0;
-                    // Automatically disable autologger so it stays dead on reboot
                     ToggleAutoLogger(model, false);
                 }
                 else
                 {
-                    // Failed to stop — snap the toggle back to ON.
                     model.IsRunning = true;
                 }
             });
@@ -141,13 +129,10 @@ namespace kaliteConfig.ViewModels
 
             if (success)
             {
-                // Explicitly update property so programmatic calls from StopSession sync the UI
                 model.IsAutoLoggerEnabled = isOn;
             }
             else
             {
-                // Registry write failed (e.g. TrustedInstaller lock).
-                // Snap back to previous state.
                 model.IsAutoLoggerEnabled = !isOn;
             }
         }

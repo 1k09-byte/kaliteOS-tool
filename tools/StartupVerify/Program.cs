@@ -7,12 +7,6 @@ using Microsoft.Win32;
 
 namespace StartupVerify
 {
-    /// <summary>
-    /// Offline checks for the startup manager: schtasks CSV/XML parsing,
-    /// toggle mappings, Run merge logic, and the backup store round-trip in
-    /// an HKCU sandbox (machine state untouched). Live schtasks/WMI/service
-    /// mutation is never exercised here.
-    /// </summary>
     internal static class Program
     {
         private static int _failures;
@@ -27,7 +21,6 @@ namespace StartupVerify
         {
             Console.WriteLine("=== Startup manager verification (offline) ===");
 
-            // ---- schtasks verbose CSV (quoted commas!) ----
             const string csv =
                 "\"HostName\",\"TaskName\",\"Next Run Time\",\"Status\",\"Logon Mode\",\"Last Run Time\",\"Last Result\",\"Author\",\"Task To Run\",\"Start In\",\"Comment\",\"Scheduled Task State\",\"Idle Time\",\"Power Management\"\n" +
                 "\"X\",\"\\GoogleUpdateTaskSystem\",\"N/A\",\"Ready\",\"SYSTEM\",\"-1\",\"0\",\"Google\",\"\\\"C:\\Program Files (x86)\\Google\\Update\\updater.exe\\\" --wake --system\",\"N/A\",\"Keeps Google current\",\"Ready\",\"Disabled\",\"Stop on battery\"\n" +
@@ -43,7 +36,6 @@ namespace StartupVerify
                     $"quoted command with comma intact (got '{rows[0].Command}')");
             }
 
-            // ---- trigger XML (real namespace!) ----
             const string logonXml =
                 @"<Task version=""1.2"" xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">" +
                 "<Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>" +
@@ -67,7 +59,6 @@ namespace StartupVerify
                 @"<Task xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task""><Triggers /></Task>") == "-",
                 "triggerless task yields em-dash");
 
-            // ---- toggle mappings ----
             Check(StartupManagerService.ServiceChecked("Auto"), "service Auto checked");
             Check(!StartupManagerService.ServiceChecked("Manual"), "service Manual unchecked");
             Check(!StartupManagerService.ServiceChecked("Disabled"), "service Disabled unchecked");
@@ -80,7 +71,6 @@ namespace StartupVerify
             Check(StartupManagerService.IsMicrosoftCompany("Microsoft Corporation"), "MS company detected");
             Check(!StartupManagerService.IsMicrosoftCompany("NVIDIA"), "non-MS company kept");
 
-            // ---- Run merge logic ----
             var present = new Dictionary<string, (string Raw, string Kind)>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Discord"] = ("C:\\d.exe --start", "SZ"),
@@ -88,7 +78,7 @@ namespace StartupVerify
             var backups = new Dictionary<string, StartupManagerService.BackupEntry>(StringComparer.OrdinalIgnoreCase)
             {
                 ["OldApp"] = new StartupManagerService.BackupEntry("C:\\old.exe", "SZ"),
-                ["Discord"] = new StartupManagerService.BackupEntry("STALE", "SZ"), // present wins
+                ["Discord"] = new StartupManagerService.BackupEntry("STALE", "SZ"),
             };
             var merged = StartupManagerService.MergeRunEntries(
                 StartupEntryKind.RunUser, present, backups);
@@ -100,7 +90,6 @@ namespace StartupVerify
             Check(old is not null && !old.IsEnabled && old.Command.Contains("old.exe"),
                 "missing entry unchecked with backup command");
 
-            // ---- backup store round-trip (HKCU sandbox only) ----
             string sandbox = @"SOFTWARE\StartupVerifyTest\" + Guid.NewGuid().ToString("N");
             var svc = new StartupManagerService(RegistryHive.CurrentUser, sandbox);
             svc.SaveBackup("RunUser", "TestApp", "C:\\test.exe --x", "SZ");
@@ -124,11 +113,6 @@ namespace StartupVerify
             return _failures == 0 ? 0 : 1;
         }
 
-        /// <summary>
-        /// Read-only live scan: exercises the real schtasks/WMI/registry path
-        /// (including the async pipe-drained runner) without mutating anything.
-        /// Structural invariants only - counts vary by machine.
-        /// </summary>
         private static void LiveScan()
         {
             Console.WriteLine("--- live read-only scan ---");

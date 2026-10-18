@@ -9,36 +9,12 @@
     Title="kaliteConfig"
     mc:Ignorable="d">
 
-    <!-- Root background is intentionally left transparent (see ApplyRootBackground
-         in code-behind). With Material = None the raw black window surface shows
-         through, which is what gives the app its solid black look; with a
-         Mica/Acrylic backdrop active the backdrop renders behind the XAML and an
-         opaque root would cover it. -->
-    <!-- FontFamily inherits to everything under it: one body face for every
-         page instead of whatever each control's default happens to be.
-         KaliteFontFamily (Jim Nightshade, defined in KaliteTheme) is the app's
-         typeface, so page content picks it up here; controls that set an
-         explicit family (monospace readouts, symbol icons) keep theirs.
-         Panel/Grid cannot carry it (not a Control), hence the Frame below. -->
     <Grid x:Name="RootGrid" UseLayoutRounding="True" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--
-             LAYOUT IS LOAD-BEARING HERE. Row 0 is Height="Auto". A backdrop that
-             sits in row 0 without spanning contributes its desired height to
-             that row - and its inner canvases are deliberately oversized
-             (1600x900) so the drift can never expose an edge. That made the
-             TitleBar row 900px tall and squeezed NavShell off the window,
-             which looked like the entire UI had vanished. RowSpan="2" stops
-             it contributing to any row's sizing (a spanning child never does),
-             and Stretch on both axes makes it fill rather than use its
-             desired size. It stays the first child so it paints behind
-             everything, and IsHitTestVisible=False on the control means it can
-             never intercept a click meant for the nav rail or a page.
-        -->
         <controls:KaliteBackdrop
             x:Name="Backdrop"
             Grid.Row="0"
@@ -46,19 +22,6 @@
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch" />
 
-        <!--
-             BACKGROUND IMAGE (Settings > Appearance > Background image).
-
-             A user-chosen image painted between the animated meteor field and the
-             backdrop tint, so the tint can wash over it and the chrome masks stay
-             opaque on top. It is RowSpan=2 + Stretch and IsHitTestVisible=False,
-             and it is removed when the user has not picked an image (the meteor
-             field shows through).
-
-             Stretch is user-controlled: None (native size, top-left), Fill (cover
-             the window, ignores aspect), Uniform (fit inside, centred), Uniform to
-             fill (cover, keep aspect, crop).
-        -->
         <Border
             x:Name="BgImageLayer"
             Grid.Row="0"
@@ -76,22 +39,6 @@
                 Visibility="Collapsed" />
         </Border>
 
-        <!--
-             BACKDROP TINT (Settings > Appearance > Backdrop tint).
-
-             A translucent wash over the window surface, painted between the
-             backdrop and everything else so the material still renders through
-             it - which is the whole point of a tint. Brushed in from
-             code-behind (a SolidColorBrush this window owns) because the alpha
-             is user-controlled and a shared resource would have to be swapped
-             in every theme dictionary.
-
-             It is RowSpan=2 + Stretch, and IsHitTestVisible=False so it can
-             never take a click. It sits AFTER the backdrop but BEFORE the
-             opaque rail/caption masks, so those keep their matte black and the
-             tint only reaches the page area - never the chrome, and never a
-             full-screen flat colour.
-        -->
         <Border
             x:Name="TintLayer"
             Grid.Row="0"
@@ -101,29 +48,6 @@
             Background="Transparent"
             IsHitTestVisible="False" />
 
-        <!--
-
-            The meteor backdrop is a window-level element, so it drifts behind
-            the whole window including the rail - which read as streaks smearing
-            through the nav icons and labels.
-
-            Setting NavigationViewDefaultPaneBackground / ExpandedPaneBackground
-            to black is NOT sufficient: WinUI does not honour those keys for the
-            compact rail layout, and the pane still rendered at RGB(28,29,28)
-            rather than true black. So the rail is masked explicitly instead,
-            with an opaque panel the same width as the pane
-            (CompactPaneLength, 68px). It stays fully opaque, because
-            translucency is what let the streaks through in the first place,
-            but it is tinted to the app's own surface (#121212, the same
-            matte colour as the caption band) rather than pure black, so the rail reads as
-            part of the tool instead of a black bar bolted to the side.
-            Being a sibling placed after the backdrop
-            but before the nav shell, it covers the backdrop in the rail column
-            and nothing else, and it needs no cooperation from WinUI theming.
-
-            Transparent remains correct everywhere else: page content keeps the
-            live backdrop, and a material backdrop still shows when selected.
-        -->
         <Border
             x:Name="NavRailMask"
             Grid.Row="0"
@@ -134,11 +58,7 @@
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             IsHitTestVisible="False" />
 
-        <!-- Background fills to the top edge. -->
-
-        <!-- Store-style shell: 76px rail plus shared selection pill. -->
         <Grid x:Name="NavShell" Grid.Row="0" Grid.RowSpan="2">
-            <!-- Shell spans both rows so content fills the full height. -->
             <Grid.Transitions>
                 <TransitionCollection>
                         <EntranceThemeTransition FromHorizontalOffset="-40" />
@@ -161,69 +81,15 @@
             
             <NavigationView.Resources>
               <ResourceDictionary>
-                <!--
-                    The rail deliberately used to pin itself to WinUI's Segoe face:
-                    a local ContentControlThemeFontFamily plus an empty
-                    RailLabelTextBlockStyle that blocked App.xaml's implicit
-                    TextBlock style. Both SHADOWED the app-level keys, so the whole
-                    nav rail stayed on Segoe whatever the user picked in Settings -
-                    the one part of the window the app font never reached, and the
-                    most visible one.
 
-                    Removed so the rail resolves ContentControlThemeFontFamily from
-                    the application root, which FontPreference rewrites on every
-                    change (a ThemeResource, so it re-resolves live rather than
-                    being frozen at parse time), and so the caption picks up the
-                    same implicit TextBlock style as every other label in the app.
-                    The label's own FontSize=12 stays a local value, so the rail
-                    keeps its dense type size; MaxLines + ellipsis on the caption
-                    handle a wide decorative face.
-                -->
-
-                <!--
-                    The side rail is deliberately OPAQUE. The meteor backdrop is a
-                    window-level element that paints behind everything, so a
-                    transparent pane let the streaks drift down the nav list and
-                    through the icon labels, which read as smearing. Pure black
-                    keeps the rail clean and makes the rail/content edge crisp.
-
-                    The rest of the NavigationView stays transparent so the
-                    backdrop is still visible behind page content.
-                -->
                 <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
                 <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
 
-                <!--
-                    Beyond NavigationViewBackground/ContentBackground, we also need to
-                    give the compact rail's item chrome its own surface fill, because
-                    NavigationViewItem icons live inside the pane region and a pane-
-                    level background inversion does not always reach per-item hover/
-                    selection brushes on every theme. This is a separate, local override
-                    for that item chrome only.
-                -->
                 <SolidColorBrush x:Key="NavigationViewBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="Transparent" />
-                <!--
-                    ITEM STATE CHROME LIVES IN RailNavItemStyle NOW.
 
-                    The control template above paints hover/pressed/selected itself
-                    from theme brushes, so none of the NavigationViewItem*Background
-                    overrides are read any more. They used to be declared here - and
-                    three of them assigned a *Brush* (AccentFillColorDefaultBrush) to
-                    SolidColorBrush.Color, which is a type mismatch the XAML loader
-                    rejects at parse time. They are gone rather than "fixed": the
-                    template is the single source of truth for item colour.
-
-                    ItemBackground stays only so a generated container can never
-                    paint over the template's own rounded plate.
-                -->
                 <SolidColorBrush x:Key="NavigationViewItemBackground" Color="Transparent" />
-
-                <!-- Rail highlight plates live in KaliteTheme (per-theme Light/Dark
-                     washes), not here: window-local brushes never followed the
-                     theme and hardcoded one ink for both. The template reads
-                     them as ThemeResource so tint/theme updates land live. -->
 
                 <Style x:Key="RailNavItemStyle" TargetType="NavigationViewItem">
                     <Setter Property="UseSystemFocusVisuals" Value="False" />
@@ -233,9 +99,6 @@
                     <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
                     <Setter Property="Width" Value="60" />
                     <Setter Property="Height" Value="56" />
-                    <!-- 2px vertical margin => 4px between plates. Compact on
-                         purpose: 11 items share the rail, so the plates stay
-                         small and the 11px label carries the breathing. -->
                     <Setter Property="Margin" Value="0,2" />
                     <Setter Property="Padding" Value="0" />
                     <Setter Property="HorizontalAlignment" Value="Center" />
@@ -247,17 +110,6 @@
                                     <VisualStateManager.VisualStateGroups>
                                         <VisualStateGroup x:Name="CommonStates">
                                             <VisualStateGroup.Transitions>
-                                                <!--
-                                                    GeneratedDuration, short on purpose. This
-                                                    is pointer hover, so the feedback has to
-                                                    beat the pointer: at the old 120ms, a
-                                                    sweep across the rail re-entered hover
-                                                    faster than the transition could finish,
-                                                    and every item looked like it never lit
-                                                    up at all. (VisualTransition.IsImplicit
-                                                    is WPF-only; WinUI applies the generated
-                                                    duration to the setters regardless.)
-                                                -->
                                                 <VisualTransition GeneratedDuration="0:0:0.09">
                                                     <VisualTransition.GeneratedEasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
@@ -265,26 +117,6 @@
                                                 </VisualTransition>
                                             </VisualStateGroup.Transitions>
 
-                                            <!--
-                                                HOVER/PRESS PLATE vs SELECTION PLATE.
-
-                                                These used to be one Border whose Background
-                                                was re-pointed by the visual states, which
-                                                is what made hover stutter: a Brush is not an
-                                                interpolable value, so every state change
-                                                re-rendered the item's whole subtree, and
-                                                it did that for THREE brush properties at
-                                                once (plate, icon, label - two of which set
-                                                the identical colour as Normal, so they were
-                                                pure cost). Only Opacity is animated here,
-                                                which the compositor runs off the UI thread.
-
-                                                Splitting the plates keeps the two strengths
-                                                separately tweakable: the press state is the
-                                                hover plate at 46/56 of its alpha, which is
-                                                exactly RailHighlightPressedBrush over
-                                                RailHighlightHoverBrush.
-                                            -->
                                             <VisualState x:Name="Normal">
                                                 <VisualState.Setters>
                                                     <Setter Target="ItemBody.Opacity" Value="0"/>
@@ -299,20 +131,11 @@
                                             </VisualState>
                                             <VisualState x:Name="Pressed">
                                                 <VisualState.Setters>
-                                                    <!-- 0.82 ≈ RailHighlightPressedBrush (0x2E) over RailHighlightHoverBrush (0x38). -->
                                                     <Setter Target="ItemBody.Opacity" Value="0.82"/>
                                                     <Setter Target="SelectionPlate.Opacity" Value="0"/>
                                                 </VisualState.Setters>
                                             </VisualState>
-                                            <!-- Selected icon pop runs from code-behind
-                                                 the moment the pointer hovers (state leaves
-                                                 Selected for PointerOverSelected).
 
-                                                 Only the icon and label change colour
-                                                 here, and only between the idle and
-                                                 selected hues - hover never touched
-                                                 them, so there is nothing to animate
-                                                 on a pointer sweep. -->
                                             <VisualState x:Name="Selected">
                                                 <VisualState.Setters>
                                                     <Setter Target="ItemBody.Opacity" Value="0"/>
@@ -329,9 +152,6 @@
                                                     <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
-                                            <!-- Selection must stay legible while pressed, so this
-                                                 keeps the selection plate instead of dropping to the
-                                                 unselected pressed colour. -->
                                             <VisualState x:Name="PressedSelected">
                                                 <VisualState.Setters>
                                                     <Setter Target="ItemBody.Opacity" Value="0.82"/>
@@ -343,8 +163,6 @@
                                         </VisualStateGroup>
                                     </VisualStateManager.VisualStateGroups>
 
-                                    <!-- Hover + pressed plate. Opaque fill is fixed in the template and only
-                                         Opacity moves, so no state change re-paints a brush. -->
                                     <Border x:Name="ItemBody"
                                             Margin="0"
                                             HorizontalAlignment="Stretch"
@@ -354,7 +172,6 @@
                                             BorderThickness="0"
                                             Opacity="0" />
 
-                                    <!-- Selection plate, drawn above ItemBody so the two never blend. -->
                                     <Border x:Name="SelectionPlate"
                                             Margin="0"
                                             HorizontalAlignment="Stretch"
@@ -364,31 +181,13 @@
                                             BorderThickness="0"
                                             Opacity="0" />
 
-                                    <!-- ICON OVER CAPTION, both centred in a fixed 76×62 cell.
-                                         Body face (not Uncial): the wide display face is what
-                                         forced 11px + ellipsis before. Segoe at 12px fits
-                                         full names in the cell. -->
                                     <StackPanel x:Name="ItemStack"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
                                                 Spacing="2">
                                         <StackPanel.RenderTransform>
-                                            <!-- Vertical lift for the icon+caption cell,
-                                                 used by the selection pop alongside
-                                                 IconScale. A pure translation, so it
-                                                 needs no origin, and RenderTransform
-                                                 never affects layout - lifting the cell
-                                                 costs the rail no reflow. -->
                                             <TranslateTransform x:Name="ItemShift" X="0" Y="0" />
                                         </StackPanel.RenderTransform>
-                                        <!-- Icon cell: a Viewbox, not a fixed box. The rail items mix
-                                             PathIcon (vector paths) and FontIcon (glyph runs at their
-                                             own FontSize) - a fixed-size ContentPresenter clipped
-                                             any glyph taller than the box. The Viewbox scales
-                                             whatever icon it gets down into 20px, so nothing is
-                                             ever cut off. x:Name + RenderTransform stay on the
-                                             presenter so the state setters and the selection pop
-                                             keep working untouched. -->
                                         <Viewbox Width="20" Height="20"
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"
@@ -399,33 +198,12 @@
                                                           VerticalAlignment="Center"
                                                           RenderTransformOrigin="0.5,0.5"
                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                                            <!-- Selection squish lives here: a uniform
-                                                 scale about the icon centre, so the glyph
-                                                 compresses and springs back without
-                                                 shearing. Driven from code-behind
-                                                 (AnimateRailItemPop) via a keyframed
-                                                 storyboard. -->
                                             <ContentPresenter.RenderTransform>
                                                 <ScaleTransform x:Name="IconScale" ScaleX="1" ScaleY="1" />
                                             </ContentPresenter.RenderTransform>
                                         </ContentPresenter>
                                         </Viewbox>
-                                        <!-- Caption, not a ContentPresenter: Content is a plain
-                                             string on every rail item, so it binds straight to
-                                             Text. MaxLines + ellipsis keep a long label from
-                                             widening or wrapping the fixed row.
 
-                                             11px, and 60px of room in a 64px cell, is what
-                                             makes the widest bundled face fit. The rail now
-                                             follows the app font instead of forcing Segoe,
-                                             and Uncial Antiqua / Cormorant are noticeably
-                                             wider than Segoe UI: at the old 12px/56px the
-                                             eight-character captions ("Affinity",
-                                             "Settings") ellipsized to "Settin…" - the
-                                             caption looked broken rather than tight.
-                                             Dropping a point of size buys back more width
-                                             than shrinking the rail would, so the pane
-                                             keeps its 76px. -->
                                         <TextBlock x:Name="ItemLabel"
                                                    Text="{TemplateBinding Content}"
                                                    Width="56"
@@ -453,7 +231,6 @@
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
-                        <!-- Fluent System Icons, Apps 20 Filled (CC0/MIT microsoft/fluentui-system-icons). -->
                         <PathIcon Data="M4.5 17.0009C3.7203 17.0009 3.07955 16.406 3.00687 15.6454L3 15.5009V4.50092C3 3.72122 3.59489 3.08047 4.35554 3.00778L4.5 3.00092H9C9.7797 3.00092 10.4204 3.5958 10.4931 4.35646L10.5 4.50092V4.75534L12.6886 2.48609C13.2276 1.92691 14.0959 1.8766 14.6956 2.34798L14.8118 2.44922L17.5694 5.17386C18.1219 5.71976 18.1614 6.5886 17.68 7.18505L17.5767 7.30053L15.266 9.50034L15.5 9.50092C16.2797 9.50092 16.9204 10.0958 16.9931 10.8565L17 11.0009V15.5009C17 16.2806 16.4051 16.9214 15.6445 16.994L15.5 17.0009H4.5ZM9.5 10.5009H4V15.5009C4 15.7157 4.13542 15.8988 4.32553 15.9696L4.41012 15.9929L4.5 16.0009H9.5V10.5009ZM15.5 10.5009H10.5V16.0009H15.5C15.7455 16.0009 15.9496 15.824 15.9919 15.5908L16 15.5009V11.0009C16 10.7555 15.8231 10.5513 15.5899 10.509L15.5 10.5009ZM10.5 7.71034V9.50034H12.29L10.5 7.71034ZM9 4.00092H4.5C4.25454 4.00092 4.05039 4.17779 4.00806 4.41104L4 4.50092V9.50092H9.5V4.50092C9.5 4.28614 9.36458 4.10299 9.17447 4.0322L9.08988 4.00897L9 4.00092Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -463,7 +240,6 @@
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
-                        <!-- Fluent System Icons, Desktop 20 Filled (monitor = display/GPU drivers). -->
                         <PathIcon Data="M3.5 2C2.67157 2 2 2.67157 2 3.5V13.5C2 14.3284 2.67157 15 3.5 15H7V17H5.5C5.22386 17 5 17.2239 5 17.5C5 17.7761 5.22386 18 5.5 18H14.5C14.7761 18 15 17.7761 15 17.5C15 17.2239 14.7761 17 14.5 17H13V15H16.5C17.3284 15 18 14.3284 18 13.5V3.5C18 2.67157 17.3284 2 16.5 2H3.5ZM12 15V17H8V15H12Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -473,7 +249,6 @@
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
-                        <!-- Fluent System Icons, Pulse 20 Filled (tuning/monitoring). -->
                         <PathIcon Data="M7.00956 3.00006C7.34232 3.0043 7.63249 3.22731 7.72222 3.54778L10.5432 13.6226L12.7848 6.52415C12.8792 6.22514 13.1497 6.01644 13.4629 6.00092C13.7761 5.9854 14.0658 6.16635 14.1894 6.45456L15.4945 9.5H17.25C17.6642 9.5 18 9.83579 18 10.25C18 10.6642 17.6642 11 17.25 11H15C14.7 11 14.4288 10.8212 14.3106 10.5454L13.6067 8.90283L11.2152 16.4758C11.1153 16.7922 10.8194 17.0054 10.4877 16.9999C10.156 16.9944 9.86723 16.7717 9.77778 16.4522L6.96609 6.41048L5.71683 10.4706C5.62001 10.7853 5.32925 11 5 11H2.75C2.33579 11 2 10.6642 2 10.25C2 9.83579 2.33579 9.5 2.75 9.5H4.44607L6.28317 3.52944C6.38103 3.21136 6.6768 2.99582 7.00956 3.00006Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -483,7 +258,6 @@
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
-                        <!-- Fluent System Icons, Branch 20 Filled. -->
                         <PathIcon Data="M5.5 2C6.88071 2 8 3.11929 8 4.5V6H13.5C14.3644 6 15.1118 6.49525 15.5413 7.21041L15.65 7.4243L17.8184 12.0125C17.9352 12.2596 18.0002 12.5293 18.0002 12.8055C18.0028 13.9213 17.1517 14.8569 16.0353 14.9926L15.8053 15C14.7061 15 13.8052 14.1083 13.8052 13.003L13.8043 12.84L12.0002 9V15.5C12.0002 16.8285 10.963 17.9157 9.65487 17.9947L9.50025 18C8.16335 18 7.06877 16.9535 7.00551 15.6322L7.00025 15.5V8H5.5C4.16335 8 3.06877 6.95353 3.00551 5.63222L3 5.5C3 4.16335 4.04647 3.06877 5.36778 3.00551L5.5 3H5.50025V4.5H7.00025V6H5.5C5.4673 6 5.4349 6.00122 5.40284 6.00363L5.35086 6.00977C5.16104 6.03756 5.09351 6.05929 5.03554 6.08272C4.54589 6.28183 4.15615 6.64303 3.93175 7.10304C3.89679 7.17466 3.86438 7.26629 3.84443 7.33088C3.82092 7.40698 3.80216 7.47895 3.79133 7.55013H4C4 7.55013 4 7.50536 4.00412 7.4586C4.019 7.28976 4.08486 7.02692 4.25056 6.78443L4.31688 6.69537C4.59473 6.34568 5.00696 6.09675 5.51865 6.00025H7C7.51169 6.09675 7.92392 6.34568 8.20177 6.69537L8.26809 6.78443C8.42398 6.99839 8.5 7.22941 8.5 7.5H4C4 7.77614 4.22386 8 4.5 8H8.5C8.77614 8 9 7.77614 9 7.5C9 7.22941 8.92398 6.99839 8.76809 6.78443L8.70177 6.69537C8.42392 6.34568 8.01169 6.09675 7.50025 6H8C9.32854 6 10.4157 7.03703 10.4947 8.34513L10.5 8.5V11H12.5C12.7761 11 13 11.2239 13 11.5C13 11.7294 12.8368 11.9213 12.6176 11.9806L12.55 12H10.5V14.5C10.5 14.7761 10.2239 15 9.95 15C9.72064 15 9.52874 14.8368 9.46939 14.6176L9.45 14.55V8C9.45 6.67157 10.487 5.5843 11.7951 5.5053L11.95 5.5H13.5C14.0006 5.5 14.4552 5.68819 14.8 5.99222L14.8872 6.08253C14.949 6.15545 15.006 6.23358 15.0577 6.31681L15.1106 6.40698L17.279 10.9951C17.3496 11.1444 17.3912 11.3093 17.4243 11.4883L17.4398 11.5834L17.4492 11.6997C17.4497 12.28 16.9956 12.7607 16.4253 12.8258L16.3353 12.833L16.1453 12.8355C15.5458 12.8355 15.0506 12.3734 15.0258 11.7828L15.0243 11.6669V8.50025H13.5002C13.2241 8.50025 13.0002 8.72411 13.0002 9.00025V13.003L13.0016 13.11C13.0416 13.5519 13.4111 13.8824 13.8564 13.9039L13.9189 13.9056H16.0354H16.0851H16.1454C16.8927 13.9056 17.5199 13.4079 17.6534 12.6933C17.7001 12.4431 17.6853 12.1878 17.6087 11.9427L17.5683 11.8219L15.4 7.23376C14.9288 6.23668 13.9183 5.56834 12.8217 5.55018L12.65 5.5H8.00025C7.96541 5.5 7.93043 5.50294 7.89552 5.5087L7.8488 5.5186L7.8488 4.5H5.50025Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -552,14 +326,11 @@
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
-                        <!-- Fluent System Icons, Settings 20 Filled. -->
                         <PathIcon Data="M1.91099 7.38266C2.28028 6.24053 2.88863 5.19213 3.69133 4.30364C3.82707 4.15339 4.04002 4.09984 4.23069 4.16802L6.14897 4.85392C6.66905 5.03977 7.24131 4.76883 7.42716 4.24875C7.44544 4.19762 7.45952 4.14507 7.46925 4.09173L7.83471 2.08573C7.87104 1.88627 8.02422 1.7285 8.22251 1.6863C8.8027 1.5628 9.39758 1.5 10.0003 1.5C10.6026 1.5 11.1971 1.56273 11.7769 1.68607C11.9752 1.72824 12.1284 1.88591 12.1648 2.08529L12.5313 4.09165C12.6303 4.63497 13.1511 4.9951 13.6944 4.89601C13.7479 4.88627 13.8004 4.87219 13.8515 4.85395L15.7698 4.16802C15.9605 4.09984 16.1734 4.15339 16.3092 4.30364C17.1119 5.19213 17.7202 6.24053 18.0895 7.38266C18.1518 7.57534 18.0918 7.78658 17.9374 7.91764L16.3825 9.23773C15.9615 9.5952 15.9101 10.2263 16.2675 10.6473C16.3027 10.6887 16.3411 10.7271 16.3825 10.7623L17.9374 12.0824C18.0918 12.2134 18.1518 12.4247 18.0895 12.6173C17.7202 13.7595 17.1119 14.8079 16.3092 15.6964C16.1734 15.8466 15.9605 15.9002 15.7698 15.832L13.8515 15.1461C13.3315 14.9602 12.7592 15.2312 12.5733 15.7512C12.5551 15.8024 12.541 15.8549 12.5312 15.9085L12.1648 17.9147C12.1284 18.1141 11.9752 18.2718 11.7769 18.3139C11.1971 18.4373 10.6026 18.5 10.0003 18.5C9.39758 18.5 8.8027 18.4372 8.22251 18.3137C8.02422 18.2715 7.87104 18.1137 7.83471 17.9143L7.46926 15.9084C7.37018 15.365 6.8494 15.0049 6.30608 15.104C6.25265 15.1137 6.20011 15.1278 6.14906 15.1461L4.23069 15.832C4.04002 15.9002 3.82707 15.8466 3.69133 15.6964C2.88863 14.8079 2.28028 13.7595 1.91099 12.6173C1.84869 12.4247 1.90876 12.2134 2.06313 12.0824L3.61798 10.7623C4.03897 10.4048 4.09046 9.77373 3.73299 9.35274C3.69784 9.31135 3.65937 9.27288 3.618 9.23775L2.06313 7.91764C1.90876 7.78658 1.84869 7.57534 1.91099 7.38266ZM8.00026 10C8.00026 11.1046 8.89569 12 10.0003 12C11.1048 12 12.0003 11.1046 12.0003 10C12.0003 8.89543 11.1048 8 10.0003 8C8.89569 8 8.00026 8.89543 8.00026 10Z" />
                         </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <!-- No page card: pages fill the window over the backdrop. -->
-            <!-- Page transition lives here once, for every page. -->
             <Frame x:Name="ContentFrame" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" FontFamily="{StaticResource KaliteBodyFontFamily}">
                     <Frame.ContentTransitions>
                         <TransitionCollection>
@@ -573,34 +344,6 @@
                 </Frame>
         </NavigationView>
 
-            <!-- Shared selection indicator: a thin accent pill riding the left edge
-                 of the selected item's plate. 4x24 with CornerRadius 2 is a full
-                 pill.
-
-                 Geometry is matched to the Microsoft Store rail, measured off a
-                 screenshot rather than eyeballed: the plate there is 64x58 with a
-                 3px radius, and the bar is 4x24 sitting ON the plate's left edge.
-                 Height is 56 rather than the Store's measured 58 - two pixels
-                 taller read as slightly oversized on this rail.
-                 6 read as too rounded against this rail's small 64px plate, so
-                 the corner follows the measured 3. The old 3x18 bar read as a
-                 small tick instead of a selection indicator, and was most of why
-                 the item box read as a different shape from the Store's. (The
-                 comment here used to claim 4x18 while the element was actually
-                 3x18 - the numbers had drifted.)
-
-                 It is one element rather than one-per-item so a selection
-                 change MOVES it. Positioned from code-behind (UpdateNavPill), which
-                 runs on every layout pass.
-
-                 The travel is animated EXPLICITLY, not with RepositionThemeTransition:
-                 the theme transition fires off a layout diff it only observes on its
-                 own schedule, so a rapid double-switch could leave the pill parked a
-                 frame behind the row. Code instead snaps Margin to the new slot and
-                 animates the TranslateTransform below from wherever the pill is
-                 actually painted back to rest (AnimateNavPillToRest). Because the
-                 offset is read live, an interrupted glide continues from its current
-                 position instead of jumping. -->
             <Border
                 x:Name="NavPill"
                 Width="4"
@@ -618,11 +361,6 @@
         </Grid>
 
         <TitleBar x:Name="titleBar" Grid.Row="0" FontFamily="{StaticResource KaliteBodyFontFamily}" />
-        <!-- Title bar sits after NavShell so it paints on top. Caption fade, not
-             a band: chrome at the top edge dissolving to transparent by the
-             caption's bottom edge, so there is no hard seam line. The gradient
-             is built in code-behind (_titleFadeBrush): WinUI 3 Border has no
-             OpacityMask, and the stops must track the tint-blended chrome. -->
         <Border
             x:Name="TitleFade"
             Grid.Row="0"
@@ -630,11 +368,6 @@
             VerticalAlignment="Stretch"
             IsHitTestVisible="False" />
 
-        <!-- KaliteOS first-launch auto-provisioning overlay.
-             Visible only when HKLM\SOFTWARE\KaliteOS IsInstalled == 0,
-             shows live Windhawk install progress with determinate + indeterminate bars.
-             Background is solid/opaque (E6 ~90% black) so underlying UI is fully hidden;
-             no see-through ghost behind the progress card. -->
         <Border x:Name="KaliteOSStartupOverlay"
                 Grid.RowSpan="2"
                 Visibility="Collapsed"
@@ -682,16 +415,6 @@
             </Grid>
         </Border>
 
-        <!-- OS GATE. Visible by default so the very first frame is already
-             covered (no 1s flash of content): code-behind collapses it when the
-             system is a stamped KaliteOS install, otherwise it stays and nothing
-             inside is reachable. Fully opaque, above everything (ZIndex 200).
-
-             The copy is deliberately about the OS, not about verification. A user
-             hitting this on stock Windows has no idea what was or wasn't verified
-             - to them the only useful fact is that the app needs KaliteOS, so the
-             title says that. Internal "verification" naming stays in the code
-             (VerificationOverlay, App.VerificationFailed) where it belongs. -->
         <Border x:Name="VerificationOverlay"
                 Grid.RowSpan="2"
                 Visibility="Visible"
@@ -711,7 +434,6 @@
                         <TextBlock Text="You can only run this toolkit on KaliteOS."
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" FontSize="13" TextAlignment="Center" HorizontalAlignment="Center" />
-                        <!-- BUTTON-REVIEW: the gate stays a hand-built Border, not a ContentDialog. It must cover the window from the first frame (before code-behind runs), and a ContentDialog cannot be shown that early. Only the Exit button is stock. -->
                         <Button Content="Exit" Click="VerificationExit_Click" HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>

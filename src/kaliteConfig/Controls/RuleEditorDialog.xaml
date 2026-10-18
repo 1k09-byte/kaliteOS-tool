@@ -27,7 +27,6 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Target + applies to -->
             <Grid Grid.Row="0" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*" />
@@ -50,7 +49,6 @@
 
             <TextBlock Grid.Row="1" Text="Tab accepts the highlighted suggestion" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
-            <!-- Tabs -->
             <Grid Grid.Row="2" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -60,7 +58,6 @@
                 <Button x:Name="TabThreads" Grid.Column="1" Content="Thread rules" HorizontalAlignment="Stretch" Click="Tab_Click" Tag="Threads" />
             </Grid>
 
-            <!-- Process settings panel -->
             <StackPanel x:Name="SettingsPanel" Grid.Row="3" Spacing="8">
                 <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
                     <Grid ColumnSpacing="12">
@@ -156,17 +153,12 @@
                 </Border>
             </StackPanel>
 
-            <!-- Thread rules panel: same two-pane tuner as the Process tab's
-                 Threads dialog (Image 2) - saved rules on the left, the same
-                 per-thread editor on the right. A single saved rule (e.g. only
-                 .NET Finalizer) shows just that one row on the left. -->
             <Grid x:Name="ThreadsPanel" Grid.Row="3" Visibility="Collapsed" ColumnSpacing="20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Thread rule list -->
                 <Grid Grid.Column="0" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -216,7 +208,6 @@
                     <Button Grid.Row="2" Content="Delete rule" Click="ThreadRule_DeleteButton_Click" HorizontalAlignment="Left" />
                 </Grid>
 
-                <!-- Per-thread-rule editor -->
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" MaxHeight="480">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Select a thread rule to inspect and tune it." FontSize="12"
@@ -261,7 +252,6 @@
                 </ScrollViewer>
             </Grid>
 
-            <!-- Summary -->
             <Border Grid.Row="4" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,10">
                 <TextBlock x:Name="SummaryText" Text="0 process settings Â· 0 thread rules" Style="{StaticResource BodyTextBlockStyle}" />
             </Border>

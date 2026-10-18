@@ -22,14 +22,6 @@ using kaliteConfig.ProcessOptimizer.Services;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Image-3 style game mode: when a listed game is in the foreground, all
-/// background noise (launchers, overlays, updaters) is SUSPENDED; when you
-/// switch back, everything resumes. Nothing is terminated, everything is
-/// reversible - including across an app crash, via the on-disk journal:
-/// any PID recorded as suspended is resumed on next launch when it still
-/// matches, and ResumeAll runs on app exit.
-/// </summary>
 public sealed class ForegroundSuspendService : IDisposable
 {
     private readonly ProcessTuningService _tuning;
@@ -100,8 +92,6 @@ public sealed class ForegroundSuspendService : IDisposable
     {
         _tuning = tuning;
         LoadSettings();
-        // Crash orphans: a kill between suspend and resume leaves frozen apps.
-        // Resume anything still matching on a worker thread - never block startup.
         _ = Task.Run(async () =>
         {
             try { await ResumeJournalOrphansAsync().ConfigureAwait(false); }
@@ -109,8 +99,6 @@ public sealed class ForegroundSuspendService : IDisposable
         });
         if (Auto) StartWatcher();
     }
-
-    // ─── game list ──────────────────────────────────────────────
 
     public void AddGame(string exeName)
     {
@@ -141,9 +129,6 @@ public sealed class ForegroundSuspendService : IDisposable
         return name;
     }
 
-    // ─── manual controls ────────────────────────────────────────
-
-    /// <summary>Suspends background now for the hinted game, else the foreground game.</summary>
     public async Task<int> SuspendBackgroundNowAsync(string? gameExeHint = null)
     {
         string? game = gameExeHint != null ? NormalizeExe(gameExeHint) : ForegroundExe();
@@ -184,7 +169,6 @@ public sealed class ForegroundSuspendService : IDisposable
         StatusText = n > 0 ? $"Resumed {n} process(es)." : "Nothing suspended.";
     }
 
-    /// <summary>Synchronous variant for the app-exit path (no Task.Run hop).</summary>
     public void ResumeAllSync()
     {
         try
@@ -196,7 +180,6 @@ public sealed class ForegroundSuspendService : IDisposable
                 _suspended.Clear();
                 _activeGame = null;
             }
-            // Journal first: a kill mid-resume still leaves recoverable entries.
             SaveJournal(copy);
             foreach (var e in copy)
             {
@@ -207,7 +190,6 @@ public sealed class ForegroundSuspendService : IDisposable
         catch { }
     }
 
-    /// <summary>Counts suspendable background processes without touching anything.</summary>
     public int RefreshSuspendableCount(string? gameExeHint = null)
     {
         string? game = gameExeHint != null ? NormalizeExe(gameExeHint) : ForegroundExe();
@@ -217,8 +199,6 @@ public sealed class ForegroundSuspendService : IDisposable
             : $"{n} background process(es) would suspend for {game}.";
         return n;
     }
-
-    // ─── auto watcher ───────────────────────────────────────────
 
     private void StartWatcher()
     {
@@ -253,7 +233,6 @@ public sealed class ForegroundSuspendService : IDisposable
             bool listed = fg != null && IsGameListed(fg);
             if (listed && !string.Equals(active, fg, StringComparison.OrdinalIgnoreCase))
             {
-                // Switched (back) into a listed game: resume previous, suspend new set.
                 ResumeAllSync();
                 var targets = BuildBackgroundList(fg);
                 int n = 0;
@@ -282,8 +261,6 @@ public sealed class ForegroundSuspendService : IDisposable
     {
         lock (_gate) return _games.Contains(exe);
     }
-
-    // ─── core ───────────────────────────────────────────────────
 
     private static string? ForegroundExe()
     {
@@ -321,7 +298,7 @@ public sealed class ForegroundSuspendService : IDisposable
                 if (gameExe != null && name.Equals(gameExe, StringComparison.OrdinalIgnoreCase)) continue;
                 lock (_gate)
                 {
-                    if (_games.Contains(name)) continue; // other listed games are never noise
+                    if (_games.Contains(name)) continue;
                 }
                  if (ProcessTuningService.IsCritical(name, pid)) continue;
                  if (ProcessTuningService.IsSelf(pid)) continue;
@@ -336,7 +313,7 @@ public sealed class ForegroundSuspendService : IDisposable
                 lock (_gate)
                 {
                     if (_suspended.TryGetValue(pid, out var existing) && existing.StartTicks == ticks)
-                        continue; // already ours
+                        continue;
                 }
                 list.Add((pid, ticks, name));
             }
@@ -357,7 +334,6 @@ public sealed class ForegroundSuspendService : IDisposable
         catch { return false; }
     }
 
-    /// <summary>Synchronous suspend used by the watcher tick and exit path.</summary>
     private bool SuspendPidSync(int pid, long ticks, bool record)
     {
         try
@@ -411,7 +387,6 @@ public sealed class ForegroundSuspendService : IDisposable
                 using var thread = NativeMethods.Handles.OpenThread(
                     NativeMethods.ThreadAccess.SuspendResume, false, tid);
                 if (thread.IsInvalid) continue;
-                // Drain suspend counts so a stray suspend can't wedge the process.
                 for (int i = 0; i < 8; i++)
                 {
                     uint prev = NativeMethods.Threads.ResumeThread(thread);
@@ -448,8 +423,6 @@ public sealed class ForegroundSuspendService : IDisposable
     {
         lock (_gate) return _suspended.Values.ToList();
     }
-
-    // ─── persistence ────────────────────────────────────────────
 
     private void LoadSettings()
     {

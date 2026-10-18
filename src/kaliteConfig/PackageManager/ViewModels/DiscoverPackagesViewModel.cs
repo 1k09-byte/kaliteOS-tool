@@ -20,13 +20,11 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.ViewModels;
 
-/// <summary>Discover: search across checked sources, install selection.</summary>
 public sealed partial class DiscoverPackagesViewModel : PackageListViewModelBase
 {
     [ObservableProperty] public partial PackageSearchMode SearchMode { get; set; } = PackageSearchMode.Both;
     [ObservableProperty] public partial string Scope { get; set; } = "Default";
 
-    /// <summary>ComboBox-friendly mirror of SearchMode (Name/Id/Both/Exact/Similar order).</summary>
     public int SearchModeIndex
     {
         get => (int)SearchMode;
@@ -63,9 +61,7 @@ public sealed partial class DiscoverPackagesViewModel : PackageListViewModelBase
                     StatusLine = $"{source.DisplayName}: {ex.Message}";
                 }
             }
-            
-            // Cross-reference with the locally installed packages 
-            // so we can surface installed status and correct Winget's parse inversion
+
             var installedPackages = await Module.GetInstalledPackagesAsync();
             foreach (var pkg in found)
             {
@@ -74,9 +70,7 @@ public sealed partial class DiscoverPackagesViewModel : PackageListViewModelBase
                     (i.Id.EndsWith("…") && pkg.Id.StartsWith(i.Id.TrimEnd('…'), StringComparison.OrdinalIgnoreCase) && 
                      i.Name != null && pkg.Name != null && pkg.Name.StartsWith(i.Name.TrimEnd('…'), StringComparison.OrdinalIgnoreCase))
                 ));
-                
-                // Winget Search returns the remote catalog version in the Version column,
-                // which gets mistakenly parsed as InstalledVersion. Fix that here:
+
                 if (string.IsNullOrWhiteSpace(pkg.AvailableVersion)) 
                 {
                      pkg.AvailableVersion = pkg.InstalledVersion;
@@ -128,7 +122,6 @@ public sealed partial class DiscoverPackagesViewModel : PackageListViewModelBase
                 outcomes.Where(o => !o.Result.Success).Take(3).Select(o => $"{o.Item.DisplayName}: {o.Result.Message}"));
     }
 
-    /// <summary>Queues installs for the selection (bulk continues past failures).</summary>
     public async Task<IReadOnlyList<(PackageInfo Item, PackageOperationResult Result)>> InstallSelectionAsync(
         IReadOnlyList<PackageInfo> selection, CancellationToken ct)
     {
@@ -150,7 +143,6 @@ public sealed partial class DiscoverPackagesViewModel : PackageListViewModelBase
         return outcomes;
     }
 
-    /// <summary>Adds packages to a bundle (created when missing).</summary>
     public PackageBundle AddToBundle(IEnumerable<PackageInfo> selection, string bundleName)
     {
         var bundle = Module.Bundles.LoadAll()

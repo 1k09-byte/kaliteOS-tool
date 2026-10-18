@@ -50,7 +50,6 @@ namespace kaliteConfig.Pages
         {
             int n = AppList.SelectedItems.Count;
             SelectionText.Text = n == 0 ? string.Empty : $"{n} selected";
-            // Batch commands run off IsSelected - mirror the ListView selection into it.
             foreach (var removed in e.RemovedItems.OfType<UninstallerItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<UninstallerItem>())
@@ -95,7 +94,6 @@ namespace kaliteConfig.Pages
 
         private void DriverList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
-            // Batch removal runs off IsSelected - mirror the ListView selection into it.
             foreach (var removed in e.RemovedItems.OfType<DriverPackageItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<DriverPackageItem>())
@@ -134,12 +132,8 @@ namespace kaliteConfig.Pages
             RemoverPanel.Visibility = bar.SelectedItem == TabRemover ? Visibility.Visible : Visibility.Collapsed;
             StartupPanel.Visibility = startup ? Visibility.Visible : Visibility.Collapsed;
 
-            // The applications toolbar describes apps only - hide it on the
-            // Remover/Startup tabs.
             ViewModel.IsUninstallerTabActive = uninstaller;
 
-            // Lazy-load the startup scan on first open: WMI + schtasks take
-            // seconds, so the Uninstaller tab stays fast.
             if (startup && !_startupAutoloaded && !ViewModel.IsLoadingStartup)
             {
                 _startupAutoloaded = true;

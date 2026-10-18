@@ -18,13 +18,6 @@ using Windows.Storage.Streams;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Loads real per-app icons: Win32 via the shell thumbnail of the exe/DisplayIcon
-/// target (or an exe found in the install folder), AppX via the package logo file.
-/// Thumbnails are cached to %LocalAppData%\kaliteConfig\IconCache so repeat visits
-/// are instant. Everything returns null on failure - callers keep the letter-avatar
-/// fallback. Must be called on the UI thread (BitmapImage requires it).
-/// </summary>
 public static class AppIconService
 {
     private static string CacheDir => Path.Combine(
@@ -47,7 +40,7 @@ public static class AppIconService
         if (string.IsNullOrWhiteSpace(loc)) return null;
         try
         {
-            if (File.Exists(loc)) return loc; // points straight at a file
+            if (File.Exists(loc)) return loc;
             if (!Directory.Exists(loc)) return null;
             var exes = Directory.GetFiles(loc, "*.exe", SearchOption.TopDirectoryOnly);
             if (exes.Length == 0) return null;
@@ -55,7 +48,6 @@ public static class AppIconService
                 Path.GetFileNameWithoutExtension(e).Contains(n, StringComparison.OrdinalIgnoreCase))).ToArray();
             if (usable.Length == 0) usable = exes;
             if (usable.Length == 1) return usable[0];
-            // Prefer an exe whose name shares a token with the app name.
             var tokens = item.Name.Split(new[] { ' ', '-', '_', '(', ')', '.' }, StringSplitOptions.RemoveEmptyEntries)
                 .Where(t => t.Length > 2).Select(t => t.ToLowerInvariant()).ToArray();
             return usable.FirstOrDefault(e =>
@@ -69,14 +61,12 @@ public static class AppIconService
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var s = raw.Trim().Trim('"');
-        // DisplayIcon often looks like "C:\...\\app.exe,0" - drop the ",index".
         int comma = s.LastIndexOf(',');
         if (comma > 0)
         {
             var tail = s.Substring(comma + 1).Trim();
             if (int.TryParse(tail, out _)) s = s.Substring(0, comma).Trim().Trim('"');
         }
-        // Uninstall strings carry arguments - keep only a bare existing exe path.
         if (!File.Exists(s))
         {
             if (s.StartsWith("\""))
@@ -107,7 +97,6 @@ public static class AppIconService
         if (path == null) return null;
         try
         {
-            // Raw images load directly.
             if (path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                 path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
                 path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
@@ -115,7 +104,6 @@ public static class AppIconService
             {
                 return new BitmapImage(new Uri(path));
             }
-            // Disk cache: key = stable path hash + last-write time.
             var info = new FileInfo(path);
             string key = $"{StableHash(path):x8}_{info.LastWriteTimeUtc.Ticks:x16}.thumb";
             string cached = Path.Combine(CacheDir, key);
@@ -125,7 +113,6 @@ public static class AppIconService
             using var thumb = await file.GetThumbnailAsync(ThumbnailMode.SingleItem, 96, ThumbnailOptions.UseCurrentScale);
             if (thumb == null || thumb.Size == 0) return null;
 
-            // Persist the raw thumbnail bytes (already a valid image) for next time.
             try
             {
                 var buf = new Windows.Storage.Streams.Buffer((uint)thumb.Size);
@@ -138,7 +125,6 @@ public static class AppIconService
             }
             catch
             {
-                // Cache write failed - still show this session's icon.
                 var bmp = new BitmapImage();
                 thumb.Seek(0);
                 await bmp.SetSourceAsync(thumb);

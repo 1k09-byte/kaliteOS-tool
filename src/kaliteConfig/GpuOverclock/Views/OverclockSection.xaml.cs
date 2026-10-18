@@ -25,11 +25,6 @@ using Microsoft.UI.Xaml.Shapes;
 
 namespace kaliteConfig.GpuOverclock.Views
 {
-    /// <summary>
-    /// Overclock section embedded at the bottom of the Graphics page. Exposes
-    /// the ViewModel so the host page can re-detect (RefreshAsync) when the
-    /// GPU changes, and Teardown on unload.
-    /// </summary>
     public sealed partial class OverclockSection : UserControl
     {
         public OverclockViewModel Vm { get; }
@@ -48,8 +43,6 @@ namespace kaliteConfig.GpuOverclock.Views
             this.Unloaded += (_, _) => Vm.Teardown();
         }
 
-        // ---------------- x:Bind visibility helpers ----------------
-
         public static Visibility NotSupportedVis(bool isSupported)
             => isSupported ? Visibility.Collapsed : Visibility.Visible;
 
@@ -65,7 +58,6 @@ namespace kaliteConfig.GpuOverclock.Views
         public static Visibility SupportedVis(bool isSupported)
             => isSupported ? Visibility.Visible : Visibility.Collapsed;
 
-        // Risk gate covers the card until accepted (inverse of RiskAccepted).
         public static Visibility NotRiskAcceptedVis(bool riskAccepted)
             => riskAccepted ? Visibility.Collapsed : Visibility.Visible;
 
@@ -75,16 +67,9 @@ namespace kaliteConfig.GpuOverclock.Views
         public static Visibility FanCurveVis(GpuFanMode mode)
             => mode == GpuFanMode.Curve ? Visibility.Visible : Visibility.Collapsed;
 
-        // ---------------- slider commit (debounce on release, not per-tick) ----------------
-
-        // The commit handlers already track user edits in the ViewModel (the
-        // commit methods mirror the value into CoreOffsetValue etc., and the
-        // x:Bind feeds it back). ValueChanged fires again for that programmatic
-        // update - swallowing that echo prevents the revert resync / profile
-        // apply slider moves from being re-queued as fresh user writes.
         private void CoreOffsetSlider_ValueChanged(object sender, RoutedEventArgs e)
         {
-            if (Vm.IsBusy) return; // programmatic update, not a user edit
+            if (Vm.IsBusy) return;
             if (sender is Slider s && Vm is { IsSupported: true } && Vm.CoreOffsetValue != s.Value)
                 Vm.OnCoreOffsetCommitted(s.Value);
         }
@@ -116,11 +101,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 Vm.FanStaticPercent = (int)s.Value;
         }
 
-        /// <summary>
-        /// Keeps the Zero RPM switch in step with the view model when the state
-        /// changes somewhere other than the switch itself - a re-detect, or the
-        /// driver-reset handler turning it off.
-        /// </summary>
         private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName != nameof(OverclockViewModel.ZeroRpmEnabled)) return;
@@ -137,13 +117,6 @@ namespace kaliteConfig.GpuOverclock.Views
             }
         }
 
-        // ---------------- Zero RPM ----------------
-        //
-        // The toggle is pushed from the driver's state, not from the click: the
-        // write can be refused (fan forced to a mode, driver says no), and a
-        // switch left visually on after a refusal is worse than no switch. So
-        // every path ends in a resync back onto the toggle's IsOn.
-
         private bool _syncingZeroRpm;
 
         private void ZeroRpmToggle_Toggled(object sender, RoutedEventArgs e)
@@ -159,7 +132,6 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             await Vm.SetZeroRpmAsync(enabled);
 
-            // Snap the switch back to whatever the driver actually says.
             _syncingZeroRpm = true;
             try
             {
@@ -171,16 +143,6 @@ namespace kaliteConfig.GpuOverclock.Views
             }
         }
 
-        // ---------------- numeric text boxes (layout pass): validated at the
-        // input layer, committed through the SAME debounced-write + safety
-        // path as the sliders. Invalid keystrokes (NaN) never reach the
-        // write path; out-of-range values clamp to the live slider range.
-
-        /// <summary>
-        /// Shared typed-value commit: ignores invalid text, clamps to the
-        /// live range (re-firing into the equal path), and no-ops when the
-        /// value already matches (kills programmatic-update echoes).
-        /// </summary>
         private void CommitNumberBox(object sender, double min, double max, double current, Action<double> commit)
         {
             if (Vm.IsBusy) return;
@@ -234,21 +196,19 @@ namespace kaliteConfig.GpuOverclock.Views
             if (double.IsNaN(box.Value)) return;
             double clamped = Math.Clamp(box.Value, 0, 100);
             if (clamped != box.Value) { box.Value = clamped; return; }
-            // Same staging semantics as the static slider: sets the value;
-            // the ViewModel's change hook debounces the write in Static mode.
             if (Vm.FanStaticPercent != clamped) Vm.FanStaticPercent = (int)clamped;
         }
 
         private void FanIntervalBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
             if (sender is NumberBox box && !double.IsNaN(box.Value) && Vm.FanIntervalMs != box.Value)
-                Vm.FanIntervalMs = box.Value; // ViewModel clamps (100–10000) and pushes live to the loop
+                Vm.FanIntervalMs = box.Value;
         }
 
         private void FanRampBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
             if (sender is NumberBox box && !double.IsNaN(box.Value) && Vm.FanRampStep != box.Value)
-                Vm.FanRampStep = box.Value; // ViewModel clamps (0–100) and pushes live to the loop
+                Vm.FanRampStep = box.Value;
         }
 
         private void StartupReapply_Toggled(object sender, RoutedEventArgs e)
@@ -257,8 +217,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 Vm.ToggleStartupReapplyCommand.Execute(null);
         }
 
-        // Startup-default toggle: skip when the visual state was set
-        // programmatically by RefreshProfiles (IsOn already matches storage).
         private void StartupDefault_Toggled(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.Tag is OverclockProfile p
@@ -280,8 +238,6 @@ namespace kaliteConfig.GpuOverclock.Views
             if ((sender as FrameworkElement)?.Tag is OverclockProfile p)
                 Vm.DeleteProfileCommand.Execute(p);
         }
-
-        // ---------------- per-game bindings (v2 Part B) ----------------
 
         private void BindProfile_Click(object sender, RoutedEventArgs e)
         {
@@ -317,8 +273,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 _ = Vm.LockBindingPathAsync(r);
         }
 
-        // ---------------- V/F curve (v2): simple slider ----------------
-
         private void VfFlatSlider_ValueChanged(object sender, RoutedEventArgs e)
         {
             if (Vm.IsBusy) return;
@@ -337,8 +291,6 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void ApplyVfCurve_Click(object sender, RoutedEventArgs e) => Vm.ApplyVfCurveEdits();
 
-        // ---------------- V/F curve canvas: direct-drag graph ----------------
-
         private int _vfDragIndex = -1;
         private double _vfGrabDelta;
         private int _vfDragStartOffset;
@@ -349,15 +301,11 @@ namespace kaliteConfig.GpuOverclock.Views
             if (!Vm.HasVfCurve || Vm.VfPoints.Count == 0) return;
             var canvas = (Canvas)sender;
             var pos = e.GetCurrentPoint(canvas).Position;
-            // Miss (empty space, axis labels) grabs nothing and handles nothing,
-            // so the ScrollViewer can still scroll from the canvas.
             int hit = VfHitTest(pos);
             if (hit < 0 || !TryGetVfPlotGeom(out var g)) return;
             _vfDragIndex = hit;
             var row = Vm.VfPoints[_vfDragIndex];
             _vfDragStartOffset = row.OffsetMHz;
-            // Relative grab so the first movement doesn't snap the point
-            // to the cursor line when the grip does not touch the point.
             _vfGrabDelta = pos.Y - g.Y(row.EffectiveMHz);
             canvas.CapturePointer(e.Pointer);
             e.Handled = true;
@@ -368,9 +316,6 @@ namespace kaliteConfig.GpuOverclock.Views
             if (_vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
             var canvas = (Canvas)sender;
             var point = e.GetCurrentPoint(canvas);
-            // Capture can be lost mid-gesture (window deactivates, touch
-            // reroutes): without this, every later hover rewrite offsets
-            // with no button held. Only an in-contact pointer may edit.
             if (!point.IsInContact) { _vfDragIndex = -1; return; }
             var pos = point.Position;
 
@@ -379,13 +324,6 @@ namespace kaliteConfig.GpuOverclock.Views
             frac = Math.Clamp(frac, 0.0, 1.0);
             var row = Vm.VfPoints[_vfDragIndex];
             int want = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo)) - row.BaseFrequencyMHz;
-            // Monotonic envelope: the dragged point may touch its neighbours
-            // but never cross them, so a drag can no longer sculpt a curve the
-            // release commit has to reject (the old code let every drag cross,
-            // then errored on release - on flat-top boost tables that meant
-            // nearly every upward drag failed). Equal is allowed, matching the
-            // validator. An inverted envelope (neighbours already crossed from
-            // a bad base read) skips the assignment; release reports it.
             int lo = Math.Min(row.MinOffsetMHz, row.MaxOffsetMHz);
             int hi = Math.Max(row.MinOffsetMHz, row.MaxOffsetMHz);
             if (_vfDragIndex > 0)
@@ -417,14 +355,8 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void VfCurveCanvas_SizeChanged(object sender, RoutedEventArgs e) => RedrawVfCurve();
 
-        // Room for Y tick labels (left), X tick labels + title (bottom),
-        // and the Y axis title (top).
         private const double VfPadL = 46, VfPadR = 10, VfPadT = 20, VfPadB = 42;
 
-        /// <summary>
-        /// Plot geometry shared by drawing and drag hit-testing, so the
-        /// pointer math can never drift from what is on screen.
-        /// </summary>
         private sealed record VfPlotGeom(double PlotL, double PlotT, double PlotW, double PlotH,
             int VMin, int VMax, int FLo, int FHi)
         {
@@ -448,7 +380,6 @@ namespace kaliteConfig.GpuOverclock.Views
             return true;
         }
 
-        /// <summary>"Nice" tick step (1/2/2.5/5 × 10^n) for at most maxTicks ticks.</summary>
         private static (double Step, double First) VfNiceTicks(double min, double max, int maxTicks)
             => GraphTicks.NiceTicks(min, max, maxTicks);
 
@@ -473,7 +404,6 @@ namespace kaliteConfig.GpuOverclock.Views
 
             double plotR = g.PlotL + g.PlotW, plotB = g.PlotT + g.PlotH;
 
-            // Gridlines + X ticks (voltage, mV).
             var (xStep, xFirst) = VfNiceTicks(g.VMin, g.VMax, 6);
             for (double t = xFirst; t <= g.VMax + 1e-9; t += xStep)
             {
@@ -489,7 +419,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 VfCurveCanvas.Children.Add(label);
             }
 
-            // Gridlines + Y ticks (frequency, MHz).
             var (yStep, yFirst) = VfNiceTicks(g.FLo, g.FHi, 5);
             for (double t = yFirst; t <= g.FHi + 1e-9; t += yStep)
             {
@@ -505,13 +434,11 @@ namespace kaliteConfig.GpuOverclock.Views
                 VfCurveCanvas.Children.Add(label);
             }
 
-            // Axes.
             VfCurveCanvas.Children.Add(new Line
                 { X1 = g.PlotL, Y1 = g.PlotT, X2 = g.PlotL, Y2 = plotB, Stroke = secondary, StrokeThickness = 1.5 });
             VfCurveCanvas.Children.Add(new Line
                 { X1 = g.PlotL, Y1 = plotB, X2 = plotR, Y2 = plotB, Stroke = secondary, StrokeThickness = 1.5 });
 
-            // Curves: stock dashed gray underneath, live accent on top.
             var stock = new Polyline
             {
                 Stroke = secondary,
@@ -528,8 +455,6 @@ namespace kaliteConfig.GpuOverclock.Views
             VfCurveCanvas.Children.Add(stock);
             VfCurveCanvas.Children.Add(live);
 
-            // Thumbs: every point when few, decimated when many (hit-testing
-            // still considers ALL points by nearest-X, so decimation is visual only).
             int step = pts.Count <= 48 ? 1 : (pts.Count + 47) / 48;
             for (int i = 0; i < pts.Count; i += step)
             {
@@ -545,7 +470,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 VfCurveCanvas.Children.Add(dot);
             }
 
-            // Axis titles (drawn last so they stay readable).
             var yTitle = new TextBlock { Text = "Frequency (MHz)", FontSize = 11, Foreground = secondary };
             Canvas.SetLeft(yTitle, g.PlotL);
             Canvas.SetTop(yTitle, 0);
@@ -560,12 +484,6 @@ namespace kaliteConfig.GpuOverclock.Views
             VfAxisCenter.Text = $"{pts.Count} points · {g.FLo}–{g.FHi} MHz envelope";
         }
 
-        /// <summary>
-        /// Dot hit-test: the press must land near an actual dot. The old
-        /// nearest-X-always version grabbed a point from anywhere on the canvas,
-        /// so stray presses yanked the line and release auto-committed the
-        /// damage to the driver.
-        /// </summary>
         private int VfHitTest(Windows.Foundation.Point pos)
         {
             if (!TryGetVfPlotGeom(out var g)) return -1;
@@ -591,14 +509,7 @@ namespace kaliteConfig.GpuOverclock.Views
             try { ((Canvas)sender).ReleasePointerCapture(e.Pointer); } catch { }
             if (idx < 0 || idx >= Vm.VfPoints.Count) return;
             var row = Vm.VfPoints[idx];
-            // Tap without a move: nothing changed, so skip the driver write
-            // and the safety-machine churn entirely.
             if (row.OffsetMHz == _vfDragStartOffset) { e.Handled = true; return; }
-            // Commit on release: validates monotonicity, then routes through
-            // the same safety state machine as every other control. A rejected
-            // curve snaps the dragged point back: the old code kept the invalid
-            // value in the row, so the graph displayed a curve that was never
-            // applied and every later Apply kept failing on it.
             Vm.ApplyVfCurveEdits();
             if (!string.IsNullOrEmpty(Vm.VfCurveError))
                 row.OffsetMHz = _vfDragStartOffset;
@@ -607,17 +518,10 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void VfCurveCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
         {
-            // Drag aborted (touch canceled, capture lost): put the dragged
-            // point back where the gesture found it.
             if (_vfDragIndex >= 0 && _vfDragIndex < Vm.VfPoints.Count)
                 Vm.VfPoints[_vfDragIndex].OffsetMHz = _vfDragStartOffset;
             _vfDragIndex = -1;
         }
-
-        // ---------------- Fan curve graph: drag ↔ table two-way sync ----------------
-        // The TABLE stays the commit path (Apply curve button) - the graph only
-        // edits row values, exactly like typing in the table cells. No write
-        // logic changes: dragging never starts the loop by itself.
 
         private int _fanDragIndex = -1;
 
@@ -680,7 +584,6 @@ namespace kaliteConfig.GpuOverclock.Views
 
             double plotR = g.PlotL + g.PlotW, plotB = g.PlotT + g.PlotH;
 
-            // Fixed 0–100 % scale so drags read true; units baked into labels.
             var (yStep, yFirst) = GraphTicks.NiceTicks(0, 100, 4);
             for (double t = yFirst; t <= 100 + 1e-9; t += yStep)
             {
@@ -748,7 +651,6 @@ namespace kaliteConfig.GpuOverclock.Views
             _fanDragIndex = -1;
             if (Vm.CurvePoints.Count == 0) return;
             var canvas = (Canvas)sender;
-            // Miss grabs nothing and handles nothing (scroll still works).
             int hit = FanHitTest(e.GetCurrentPoint(canvas).Position);
             if (hit < 0) return;
             _fanDragIndex = hit;
@@ -760,12 +662,10 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             if (_fanDragIndex < 0 || _fanDragIndex >= Vm.CurvePoints.Count) return;
             var point = e.GetCurrentPoint((Canvas)sender);
-            // See VF handler: never edit on a hover after lost capture.
             if (!point.IsInContact) { _fanDragIndex = -1; return; }
             if (!TryGetFanPlotGeom(out var g)) return;
             var pos = point.Position;
             double frac = 1.0 - (pos.Y - g.PlotT) / Math.Max(1.0, g.PlotH);
-            // Table rows are int %; the setter path is identical to typing.
             Vm.CurvePoints[_fanDragIndex].FanPercent = (int)Math.Round(Math.Clamp(frac, 0.0, 1.0) * 100.0);
             e.Handled = true;
         }
@@ -775,8 +675,6 @@ namespace kaliteConfig.GpuOverclock.Views
             if (_fanDragIndex < 0) return;
             _fanDragIndex = -1;
             try { ((Canvas)sender).ReleasePointerCapture(e.Pointer); } catch { }
-            // Deliberately NO auto-commit: the table + Apply curve button
-            // stays the single commit path for Curve mode.
             e.Handled = true;
         }
 
@@ -784,8 +682,6 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             _fanDragIndex = -1;
         }
-
-        // ---------------- Monitor graphs (live history incl. hotspot) ----------------
 
         private void MonitorCanvas_SizeChanged(object sender, RoutedEventArgs e) => RedrawMonitor();
 
@@ -814,11 +710,6 @@ namespace kaliteConfig.GpuOverclock.Views
             }, 0, 100);
         }
 
-        /// <summary>
-        /// Draws autoscaled history sparklines (nulls break the line - gaps,
-        /// never fabricated zeros). Fixed bounds pin scales where they carry
-        /// meaning (0–100 % fan, watts from 0).
-        /// </summary>
         private void DrawMonitorSeries(Canvas canvas,
             IReadOnlyList<MonitorSample> history,
             (Func<MonitorSample, double?> Get, string BrushKey)[] series,

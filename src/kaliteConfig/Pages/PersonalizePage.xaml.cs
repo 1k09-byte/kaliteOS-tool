@@ -17,7 +17,6 @@ namespace kaliteConfig.Pages;
 
 public sealed partial class PersonalizePage : Page
 {
-    // PERSONALIZE-REVIEW: the 15-second window is a fixed default; not user-configurable.
     private const int KeepSeconds = 15;
 
     private static readonly string[] WallpaperExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
@@ -31,8 +30,6 @@ public sealed partial class PersonalizePage : Page
         DataContext = ViewModel;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
     }
-
-    // ---- Lifecycle and re-read on activation ----------------------------------------
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -53,7 +50,6 @@ public sealed partial class PersonalizePage : Page
     private void RefreshFromSystem()
     {
         ViewModel.Reload();
-        SyncLibraryVisibility();
         UpdatePreview();
     }
 
@@ -61,9 +57,6 @@ public sealed partial class PersonalizePage : Page
     {
         switch (e.PropertyName)
         {
-            case nameof(PersonalizeViewModel.LibraryEmpty):
-                SyncLibraryVisibility();
-                break;
             case nameof(PersonalizeViewModel.SelectedWallpaper):
             case nameof(PersonalizeViewModel.SelectedFit):
                 UpdatePreview();
@@ -71,13 +64,6 @@ public sealed partial class PersonalizePage : Page
         }
     }
 
-    private void SyncLibraryVisibility()
-    {
-        LibraryEmptyState.Visibility = ViewModel.LibraryEmpty ? Visibility.Visible : Visibility.Collapsed;
-        LibraryGrid.Visibility = ViewModel.LibraryEmpty ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    /// <summary>Shows the selected wallpaper decoded at preview size, with an approximate fit.</summary>
     private void UpdatePreview()
     {
         var item = ViewModel.SelectedWallpaper;
@@ -93,11 +79,9 @@ public sealed partial class PersonalizePage : Page
             WallpaperFit.Fit => Stretch.Uniform,
             WallpaperFit.Stretch => Stretch.Fill,
             WallpaperFit.Center or WallpaperFit.Tile => Stretch.None,
-            _ => Stretch.UniformToFill, // Fill and Span
+            _ => Stretch.UniformToFill,
         };
     }
-
-    // ---- Section switching ----------------------------------------------------------
 
     private void SectionBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
@@ -106,11 +90,16 @@ public sealed partial class PersonalizePage : Page
         CursorSection.Visibility = tag == "cursor" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // ---- Wallpaper pickers ------------------------------------------------------------
-
     private async void AddWallpaper_Click(object sender, RoutedEventArgs e)
     {
         if (App.MainWindow is null) return;
+
+        if (SectionBar.SelectedItem is not Microsoft.UI.Xaml.Controls.SelectorBarItem selectedItem ||
+            selectedItem.Tag is not string tag || tag != "wallpaper")
+        {
+            return;
+        }
+
         var picker = new FileOpenPicker
         {
             ViewMode = PickerViewMode.Thumbnail,
@@ -125,8 +114,6 @@ public sealed partial class PersonalizePage : Page
         await ViewModel.AddWallpaperAsync(file.Path);
         UpdatePreview();
     }
-
-    // ---- Cursor ---------------------------------------------------------------------
 
     private async void ApplyCursor_Click(object sender, RoutedEventArgs e)
     {
@@ -155,10 +142,6 @@ public sealed partial class PersonalizePage : Page
         if (results.Any(r => r.Ok)) await ConfirmKeepAsync(ViewModel.RevertCursorSection);
     }
 
-    /// <summary>
-    /// Asks the user to keep the cursor change. If they do not answer within
-    /// <see cref="KeepSeconds"/>, or choose anything other than keep, the change is reverted.
-    /// </summary>
     private async Task ConfirmKeepAsync(Action revert)
     {
         var remaining = KeepSeconds;
@@ -202,8 +185,6 @@ public sealed partial class PersonalizePage : Page
 
     private static string CountdownText(int seconds) =>
         $"The cursor change will be reverted in {seconds} seconds unless you keep it.";
-
-    // ---- Global revert ----------------------------------------------------------------
 
     private async void RevertEverything_Click(object sender, RoutedEventArgs e)
     {

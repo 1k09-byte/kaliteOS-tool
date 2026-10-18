@@ -28,11 +28,6 @@ namespace kaliteConfig.ViewModels;
 
 public sealed partial class ThreadTunerViewModel : ObservableObject
 {
-    /// <summary>
-    /// Hard ceiling on process-tree depth. Real chains are 2-4 deep; the cap
-    /// exists only so a PID cycle (parent chain that loops back on itself,
-    /// possible while PIDs are being recycled) can't spin forever.
-    /// </summary>
     private const int MaxTreeDepth = 24;
 
     private readonly ProcessTuningService _tuning;
@@ -47,25 +42,15 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private bool _initialThreadsLoaded;
     private DispatcherQueueTimer? _searchTimer;
 
-    /// <summary>
-    /// First-load state only, not the 2 s poll - a spinner on every tick would
-    /// flicker forever.
-    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsProcessListLoadingVis))]
     public partial bool IsProcessListLoading { get; set; } = true;
 
-    /// <summary>Overlay visibility for the loading flag.</summary>
     public Microsoft.UI.Xaml.Visibility IsProcessListLoadingVis =>
         IsProcessListLoading ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    /// <summary>PIDs we already attempted an icon load for (avoids re-hitting
-    /// disk every 2 s tick for icon-less pseudo-processes).</summary>
     private readonly HashSet<int> _iconTried = new();
 
-    /// <summary>Cached fallback bitmap: the real wininit.exe icon. Icon-less
-    /// pseudo-processes (System, Registry, ...) show this instead of the
-    /// blank-page glyph, matching the wininit.exe row.</summary>
     private Microsoft.UI.Xaml.Media.Imaging.BitmapImage? _fallbackAppIcon;
 
     private readonly string _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "threadtuner-settings.json");
@@ -76,45 +61,21 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     }
 
     public ObservableCollection<TunerProcessRow> Processes { get; } = new();
-    /// <summary>Filtered view of Processes driven by RulesFilter (search box).
-    /// Rebuilt whenever the filter changes or a process row is added/removed.</summary>
     public ObservableCollection<TunerProcessRow> DisplayedProcesses { get; } = new();
     public ObservableCollection<TunerProfile> Profiles { get; } = new();
     public ObservableCollection<TunerProfile> DisplayedProfiles { get; } = new();
     public ObservableCollection<TunerProfile> DisplayedProcessProfiles { get; } = new();
     public ObservableCollection<TunerProfile> DisplayedThreadProfiles { get; } = new();
 
-    /// <summary>Full flat list of thread-boost rows (Thread Tune tab).</summary>
     public ObservableCollection<ThreadBoostRow> ThreadBoostRows { get; } = new();
-    /// <summary>Filtered view driven by RulesFilter search box.</summary>
     public ObservableCollection<ThreadBoostRow> DisplayedThreadBoostRows { get; } = new();
-    /// <summary>Set by the page when the Thread Tune tab is selected - gates the expensive per-thread scan.</summary>
     [ObservableProperty]
     public partial bool IsThreadTuneTabActive { get; set; }
 
-    /// <summary>
-    /// True only while the PRC page is actually on screen. The 2 s poll does a
-    /// WMI process scan plus a CPU sample, which is wasted work - and needless
-    /// UI churn - while the user is on any other page. Set from the page's
-    /// OnNavigatedTo / OnNavigatedFrom.
-    ///
-    /// Defaulted to true so the list is populated on first construction, before
-    /// any navigation event has fired.
-    /// </summary>
     public bool IsPageVisible { get; set; } = true;
 
-    /// <summary>
-    /// True only while the window is the foreground window.
-    ///
-    /// <see cref="IsPageVisible"/> alone is not enough: this page stays "visible"
-    /// when the app is minimised or sitting behind something else, so the poll kept
-    /// walking every process - and, with the delta columns on, taking a full thread
-    /// snapshot of every process in the system - with nobody looking. This is what
-    /// made the counters appear to keep running in the background.
-    /// </summary>
     public bool IsWindowActive { get; set; } = true;
 
-    /// <summary>Both must hold before the poll does any work.</summary>
     private bool ShouldPoll => IsPageVisible && IsWindowActive;
 
     [ObservableProperty]
@@ -123,35 +84,23 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     [ObservableProperty]
     public partial string ThreadTuneLoadingText { get; set; } = "Scanning system threads...";
 
-    /// <summary>
-    /// Shows the Context switches / Cycles delta columns. Turning it off also
-    /// stops collecting them: <see cref="ProcessTuningService.CollectCounters"/>
-    /// is set from here, so the per-tick thread snapshot is skipped entirely
-    /// rather than computed and thrown away.
-    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowCounterDeltasVis))]
     public partial bool ShowCounterDeltas { get; set; }
 
-    /// <summary>Header cells for the counter columns collapse with the toggle.</summary>
     public Microsoft.UI.Xaml.Visibility ShowCounterDeltasVis =>
         ShowCounterDeltas ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
     partial void OnShowCounterDeltasChanged(bool value)
     {
         _tuning.CollectCounters = value;
-        // Coming back on: the stored baseline is stale by however long the
-        // toggle was off, so the first tick would show a huge bogus delta.
         if (value) _tuning.ResetCounterBaselines();
-        // Re-mirror onto the rows so their columns collapse immediately.
         RefreshDisplayedProcesses();
         _ = SaveSettingsAsync();
     }
 
-    /// <summary>PIDs the user has collapsed in the process tree.</summary>
     private readonly HashSet<int> _collapsed = new();
 
-    /// <summary>Unnamed threads are always hidden; no toggle exists in the UI.</summary>
     public bool HideUnnamedThreads => true;
 
     public Task AutoDisableUnnamedBoostsAsync()
@@ -207,7 +156,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     public ThreadTunerViewModel()
     {
-        // Safe defaults for designer / DI
         _tuning = App.Current.ProcessTuning;
         _cpuSets = App.Current.CpuSets;
         _threads = App.Current.ThreadTuning;
@@ -221,25 +169,16 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             _timer.Interval = TimeSpan.FromSeconds(2);
             _timer.Tick += async (s, e) =>
             {
-                // Never let a slow tick overlap the next one: two refreshes at
-                // once double the UI churn and make the list feel frozen.
                 if (_refreshing)
                 {
                     return;
                 }
 
-                // Benchmark capture in progress: the tuner's own polling
-                // (WMI process scan + CPU sampling every 2 s) skews frametime
-                // stats. Stand down until the capture finishes.
                 if (BenchmarkViewModel.CaptureInProgress)
                 {
                     return;
                 }
 
-                // Off-page OR window not in the foreground: skip the process scan
-                // and CPU sampling entirely. The rules engine's own watchers are
-                // separate from this poll and keep running, so nothing about rule
-                // application depends on it.
                 if (!ShouldPoll)
                 {
                     return;
@@ -265,7 +204,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             _ = LoadProcessesAsync();
         }
 
-        // Setup base profiles binding
         foreach (var p in _profiles.ActiveProfiles)
         {
             Profiles.Add(p);
@@ -290,7 +228,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 ShowCounterDeltas = settings.ShowCounterDeltas;
             }
             }
-            // No settings file yet: honor the default without writing one out.
             _tuning.CollectCounters = ShowCounterDeltas;
         }
         catch { }
@@ -307,10 +244,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         catch { }
     }
 
-    /// <summary>
-    /// Reconciles the bound collections with the service store. Always runs
-    /// on the UI thread (the service raises RulesChanged there).
-    /// </summary>
     public void SyncProfiles()
     {
         var selected = SelectedProfile;
@@ -348,20 +281,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         _searchTimer?.Start();
     }
 
-    /// <summary>Search matches process name and PID on the Processes tab, and
-    /// rule name/pattern on the Rules tab - one box serves both tabs.</summary>
-    /// <summary>
-    /// Refreshes the process list right now, bypassing the 2 s poll. Used when
-    /// navigating back into the page so the list is never a tick stale.
-    /// Fire-and-forget: callers discard the task, and a failure here only means
-    /// the next poll tick catches up.
-    /// </summary>
-    /// <summary>
-    /// Called when the window comes back to the foreground. The poll stood down
-    /// while hidden, so the counter baselines are stale by the whole hidden period
-    /// and the first delta would read as one enormous jump. Resetting them makes
-    /// the next tick measure from now instead of averaging over dead time.
-    /// </summary>
     public void OnReturningToForeground()
     {
         _tuning.ResetCounterBaselines();
@@ -392,12 +311,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             ? OrderAsTree(Processes)
             : FlattenMatches(filter);
 
-        // Depth / HasChildren were recomputed by OrderAsTree above even though the
-        // visible set may not have changed (a child can come or go between
-        // ticks without the set itself changing).
-
-        // Mirror the counter toggle onto every row, including filtered-out ones,
-        // so the template binds per row and rehydrates correctly.
         bool showCounters = ShowCounterDeltas;
         foreach (var p in Processes)
         {
@@ -439,22 +352,12 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Depth-first ordering that nests each process under its parent, skipping
-    /// the subtree of a collapsed row. Returns the rows in display order.
-    ///
-    /// A process whose parent is not in the live list (already exited, or we
-    /// couldn't read the parent PID) becomes a root. Cycles are broken by the
-    /// <c>visited</c> set plus <see cref="MaxTreeDepth"/>.
-    /// </summary>
     private List<TunerProcessRow> OrderAsTree(IEnumerable<TunerProcessRow> all)
     {
         var byPid = new Dictionary<int, TunerProcessRow>();
         var children = new Dictionary<int, List<TunerProcessRow>>();
         var roots = new List<TunerProcessRow>();
 
-        // Materialized once: this runs on every 2 s tick and the walk below
-        // iterates the source several times.
         var allRows = all as IReadOnlyList<TunerProcessRow> ?? all.ToList();
 
         foreach (var p in allRows)
@@ -485,8 +388,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             Walk(root, 0, children, ordered, visited);
         }
 
-        // Anything the walk didn't reach (shouldn't happen, but a cycle among
-        // non-root rows could) still has to be visible rather than dropped.
         foreach (var p in allRows)
         {
             if (!visited.Contains(p.Pid))
@@ -518,11 +419,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Search result set. A search flattens the tree on purpose: matching a
-    /// child should not require its parent to match too, and a filtered list
-    /// that re-nests under rows which aren't shown reads as random indentation.
-    /// </summary>
     private List<TunerProcessRow> FlattenMatches(string filter)
     {
         var matching = new List<TunerProcessRow>();
@@ -539,7 +435,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         return matching;
     }
 
-    /// <summary>Expands or collapses a process row's children in the tree.</summary>
     public void ToggleExpanded(TunerProcessRow row)
     {
         if (row is null || !row.HasChildren) return;
@@ -561,9 +456,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 || p.Pattern.Contains(filter, StringComparison.OrdinalIgnoreCase))
             {
                 DisplayedProfiles.Add(p);
-                // Rules tab is bound to DisplayedProcessProfiles: it must list
-                // every profile, including thread-only rules (no process
-                // actions). Those were previously filtered out and never appeared.
                 DisplayedProcessProfiles.Add(p);
 
                 if (p.ThreadRules.Count > 0)
@@ -591,12 +483,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 var existing = Processes.FirstOrDefault(x => x.Pid == p.Pid);
                 if (existing is null)
                 {
-                    // New process: take the row as enumerated.
                     Processes.Add(p);
                     changed = true;
-                    // Unconditional: a protected process has no readable Path but
-                    // ExtractIconAsync falls back to System32, so gating on a
-                    // non-empty Path is what kept locked processes icon-less.
                     _ = ExtractIconAsync(p);
                 }
                 else
@@ -610,14 +498,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     if (existing.BoostAllowed != p.BoostAllowed) existing.BoostAllowed = p.BoostAllowed;
                     if (existing.State != p.State) existing.State = p.State;
                     if (existing.Error != p.Error) existing.Error = p.Error;
-                    // Backfill: rows that were icon-less before the wininit
-                    // fallback existed get one retry so the blank glyph disappears.
                     if (existing.AppIcon == null && _iconTried.Add(existing.Pid))
                         _ = ExtractIconAsync(existing);
                 }
             }
 
-            // Remove dead
             for (int i = Processes.Count - 1; i >= 0; i--)
             {
                 if (!livePids.Contains(Processes[i].Pid))
@@ -632,7 +517,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 RefreshDisplayedProcesses();
             }
 
-            // First real pass has landed: drop the spinner for good.
             if (IsProcessListLoading && Processes.Count > 0)
             {
                 IsProcessListLoading = false;
@@ -640,20 +524,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         });
     }
 
-    /// <summary>
-    /// Loads the row's executable icon.
-    ///
-    /// Protected processes (csrss.exe, winlogon.exe, ...) cannot have their module
-    /// path read, so <see cref="TunerProcessRow.Path"/> is empty and there is
-    /// nothing to open. Those still have a real icon on disk - the one Windows
-    /// itself shows in Task Manager - so fall back to locating the image by name
-    /// in System32 / SysWOW64. This is what keeps locked processes showing their
-    /// genuine icon instead of the generic glyph.
-    ///
-    /// Pseudo-processes with no file at all (System, Registry, ...) get the
-    /// wininit.exe icon as the shared fallback, so no row ever shows the
-    /// blank-page glyph.
-    /// </summary>
     private async Task ExtractIconAsync(TunerProcessRow row)
     {
         _iconTried.Add(row.Pid);
@@ -676,11 +546,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 }
                 catch { }
             }
-            // No file-backed icon (System, Registry, ...): fall back to the
-            // wininit.exe bytes - the blue window icon from the PRC list.
-            // Copied to a byte array once, so every row decodes from its own
-            // in-memory stream: sharing one thumbnail stream across rows raced
-            // on Seek and left some rows icon-less.
             byte[]? fallbackBytes = null;
             if (thumb == null)
             {
@@ -702,7 +567,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                         row.AppIcon = bmp;
                         return;
                     }
-                    // Reuse the shared bitmap when another row already decoded it.
                     if (_fallbackAppIcon != null)
                     {
                         row.AppIcon = _fallbackAppIcon;
@@ -727,8 +591,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     private byte[]? _fallbackIconBytes;
 
-    /// <summary>Reads the wininit.exe thumbnail into memory once. Every
-    /// icon-less row decodes its own copy, so no stream is ever shared.</summary>
     private async Task<byte[]?> GetFallbackIconBytesAsync()
     {
         if (_fallbackIconBytes != null) return _fallbackIconBytes;
@@ -750,11 +612,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         catch { return null; }
     }
 
-    /// <summary>
-    /// Finds a system executable's file by bare name, for processes whose real
-    /// path is unreadable. Checks System32 then SysWOW64 (a 32-bit process on
-    /// 64-bit Windows lives in the latter).
-    /// </summary>
     private static string? ResolveSystemImagePath(string exeName)
     {
         if (string.IsNullOrWhiteSpace(exeName)) return null;
@@ -778,13 +635,10 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     private async Task RefreshCpuAsync()
     {
         if (Processes.Count == 0) return;
-        
-        // Pass the read-only projection directly to the tuning service
+
         await _tuning.SampleCpuAsync(Processes.ToList());
         _tuning.PruneCache(Processes.Select(p => p.Pid));
     }
-
-    // ─── Thread Tune tab ───────────────────────────────────────────
 
     private bool IsProcessProtected(string exeName)
     {
@@ -804,11 +658,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         return false;
     }
 
-    /// <summary>
-    /// Scans every thread of every process and reads its priority-boost state.
-    /// Differential update: existing rows are patched in-place so the ListView
-    /// doesn't reset scroll position.
-    /// </summary>
     public async Task LoadThreadBoostRowsAsync()
     {
         if (!_initialThreadsLoaded)
@@ -867,13 +716,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                         {
                             desc = NativeSnapshotService.TryGetThreadDescription((uint)tid) ?? "(unnamed)";
 
-                            // Visual enforcement: if the user made an explicit
-                            // choice for this thread, show THAT rather than
-                            // whatever the process-wide default last wrote to
-                            // it. Both directions are honoured - a thread the
-                            // user switched back on must not read as "off"
-                            // just because the process-level preference turned
-                            // it off.
                             bool? wanted = BoostPreferenceService.Instance.GetPreference(
                                 procName, tid, desc, string.Empty);
                             if (wanted.HasValue)
@@ -912,14 +754,12 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             }
             var liveTids = new HashSet<int>(allRows.Select(r => r.Tid));
 
-            // Remove dead threads
             for (int i = ThreadBoostRows.Count - 1; i >= 0; i--)
             {
                 if (!liveTids.Contains(ThreadBoostRows[i].Tid))
                     ThreadBoostRows.RemoveAt(i);
             }
 
-            // Upsert
             var existingByTid = new Dictionary<int, ThreadBoostRow>();
             foreach (var r in ThreadBoostRows) existingByTid[r.Tid] = r;
 
@@ -927,7 +767,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             {
                 if (existingByTid.TryGetValue(r.Tid, out var existing))
                 {
-                    // Patch in place - don't touch BoostEnabled if user is toggling
                     if (!existing.IsBusy && existing.BoostEnabled != r.BoostEnabled)
                         existing.BoostEnabled = r.BoostEnabled;
                     if (existing.ProcessName != r.ProcessName) existing.ProcessName = r.ProcessName;
@@ -963,9 +802,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             }
         }
 
-        // Identical set+order (the common poll case): leave the collection
-        // alone - Clear/Add resets the ListView scroll position and the
-        // user's mouse wheel position every tick.
         if (DisplayedThreadBoostRows.Count == visible.Count)
         {
             bool same = true;
@@ -976,10 +812,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
             if (same) return;
         }
 
-        // Minimal in-place edit: remove only rows that left the view and
-        // insert only rows that joined it, at their correct positions. A
-        // Clear()+Add() rebuild fires a full items-reset that snaps the
-        // ListView back to the top every time any thread appears or dies.
         var desired = new HashSet<ThreadBoostRow>(visible);
         for (int i = DisplayedThreadBoostRows.Count - 1; i >= 0; i--)
         {

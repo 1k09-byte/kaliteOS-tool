@@ -15,7 +15,6 @@ using kaliteConfig.Models;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Min/avg/max summary of one sensor channel plus throttle markers. Pure.</summary>
 public sealed class SensorChannelSummary
 {
     public bool HasData { get; set; }
@@ -31,12 +30,9 @@ public sealed class SensorSummary
     public SensorChannelSummary GpuUtilPct { get; set; } = new();
     public SensorChannelSummary CpuPct { get; set; } = new();
     public int ThrottleMarks { get; set; }
-    /// <summary>Throttle positions as 0..1 fractions of the capture (frame
-    /// timestamps have arbitrary origin, so joins are proportional).</summary>
     public List<double> ThrottleFracs { get; set; } = new();
 }
 
-/// <summary>Pure sensor math (unit-tested in BenchVerify).</summary>
 public static class BenchmarkSensorStats
 {
     public static SensorSummary Summarize(IReadOnlyList<SensorSample> samples)
@@ -71,7 +67,6 @@ public static class BenchmarkSensorStats
         };
     }
 
-    /// <summary>Sample at a 0..1 capture fraction (hover join, proportional).</summary>
     public static SensorSample? NearestAt(IReadOnlyList<SensorSample> samples, double frac)
     {
         if (samples == null || samples.Count == 0) return null;
@@ -79,7 +74,6 @@ public static class BenchmarkSensorStats
         return samples[i];
     }
 
-    /// <summary>GPU-util series resampled to bucketCount points (0..100, NaN gaps).</summary>
     public static List<double> GpuUtilSeries(IReadOnlyList<SensorSample> samples, int bucketCount)
     {
         var out_ = new List<double>();
