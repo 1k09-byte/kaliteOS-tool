@@ -111,44 +111,52 @@ namespace kaliteConfig.Pages
             DeviceDetailsDialog.Hide();
         }
 
-        private async void ViewChanges_Click(object sender, RoutedEventArgs e)
+        private sealed class ChangeListRow
         {
-            string content;
-            if (ViewModel.TrackedChanges.Count == 0)
+            public ChangeListRow(string device, string detail)
             {
-                content = "No changes have been made yet.";
-            }
-            else
-            {
-                var sb = new System.Text.StringBuilder();
-                foreach (var c in ViewModel.TrackedChanges)
-                {
-                    string oldVal = FormatValue(c.PropertyName, c.OldValue);
-                    string newVal = FormatValue(c.PropertyName, c.NewValue);
-                    sb.AppendLine($"• {c.DeviceName}");
-                    sb.AppendLine($"    {c.PropertyName}: {oldVal} → {newVal}");
-                    sb.AppendLine();
-                }
-                content = sb.ToString().TrimEnd();
+                Device = device;
+                Detail = detail;
             }
 
+            public string Device { get; }
+            public string Detail { get; }
+        }
+
+        private async void ViewChanges_Click(object sender, RoutedEventArgs e)
+        {
             var dialog = new ContentDialog
             {
                 Title = $"Tracked Changes ({ViewModel.TrackedChanges.Count})",
-                Content = new ScrollViewer
-                {
-                    MaxHeight = 400,
-                    Content = new TextBlock
-                    {
-                        Text = content,
-                        TextWrapping = TextWrapping.Wrap,
-                        IsTextSelectionEnabled = true
-                    }
-                },
                 CloseButtonText = "Close",
                 XamlRoot = XamlRoot,
                 Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style
             };
+            if (ViewModel.TrackedChanges.Count == 0)
+            {
+                dialog.Content = new TextBlock
+                {
+                    Text = "No changes have been made yet.",
+                    TextWrapping = TextWrapping.Wrap
+                };
+            }
+            else
+            {
+                var rows = new System.Collections.Generic.List<ChangeListRow>();
+                foreach (var c in ViewModel.TrackedChanges)
+                {
+                    string oldVal = FormatValue(c.PropertyName, c.OldValue);
+                    string newVal = FormatValue(c.PropertyName, c.NewValue);
+                    rows.Add(new ChangeListRow(c.DeviceName, $"{c.PropertyName}: {oldVal} → {newVal}"));
+                }
+                dialog.Content = new ListView
+                {
+                    ItemsSource = rows,
+                    ItemTemplate = (DataTemplate)Resources["ChangeRowTemplate"],
+                    ItemContainerStyle = (Style)Resources["AffinityRowContainerStyle"],
+                    SelectionMode = ListViewSelectionMode.None
+                };
+            }
             await dialog.ShowAsync();
         }
 
