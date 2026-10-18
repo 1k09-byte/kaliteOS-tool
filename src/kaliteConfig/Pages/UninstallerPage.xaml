@@ -14,26 +14,8 @@
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
-        <Style x:Key="RemoverCard" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="5" />
-            <Setter Property="Padding" Value="16" />
-        </Style>
-        <Style x:Key="RemoverSectionTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-        </Style>
-        <Style x:Key="RemoverCaption" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <Style x:Key="RemoverFlatListItemStyle" TargetType="ListViewItem">
-            <Setter Property="Margin" Value="0,4" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Style x:Key="RemoverCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+            <Setter Property="Padding" Value="12" />
         </Style>
     </Page.Resources>
 
@@ -70,9 +52,9 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <AutoSuggestBox CornerRadius="12" Grid.Column="0" PlaceholderText="Search name or publisher..." QueryIcon="Find"
+            <AutoSuggestBox CornerRadius="{ThemeResource ControlCornerRadius}" Grid.Column="0" PlaceholderText="Search name or publisher..." QueryIcon="Find"
                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
-            <ComboBox CornerRadius="12" Grid.Column="1" SelectedIndex="{Binding SortIndex, Mode=TwoWay}" Width="130" VerticalAlignment="Center"
+            <ComboBox CornerRadius="{ThemeResource ControlCornerRadius}" Grid.Column="1" SelectedIndex="{Binding SortIndex, Mode=TwoWay}" Width="130" VerticalAlignment="Center"
                       Header="Sort" FontSize="12">
                 <ComboBoxItem Content="Name" />
                 <ComboBoxItem Content="Publisher" />
@@ -122,7 +104,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                </Grid.RowDefinitions>                        <Border Grid.Row="0" Margin="0,0,0,8" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="12,8">
+                </Grid.RowDefinitions>                        <Border Grid.Row="0" Margin="0,0,0,8" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8">
                         <Grid>
                             <Grid.Margin>0</Grid.Margin>
                     <Grid.ColumnDefinitions>
@@ -140,36 +122,31 @@
                 </Grid>
                 </Border>
 
-                <ListView CornerRadius="12" x:Name="AppList" Grid.Row="1" ItemsSource="{Binding FilteredApps}" SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
+                <ListView x:Name="AppList" Grid.Row="1" ItemsSource="{Binding FilteredApps}" SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
                           SelectionMode="Extended" ShowsScrollingPlaceholders="True" SelectionChanged="AppList_SelectionChanged"
-                          Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="6">
-                    <ListView.ItemContainerStyle>
-                        <StaticResource ResourceKey="RemoverFlatListItemStyle" />
-                    </ListView.ItemContainerStyle>
+                          HorizontalContentAlignment="Stretch"
+                          Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="4">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:UninstallerItem">
-                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                    BorderThickness="1" CornerRadius="12" Padding="12,10">
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="40" />
-                                        <ColumnDefinition Width="3*" />
-                                        <ColumnDefinition Width="2*" />
-                                        <ColumnDefinition Width="2*" />
-                                        <ColumnDefinition Width="2*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+                            <Grid Padding="8,6" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
 
                                     <Grid Grid.Column="0" Width="32" Height="32" HorizontalAlignment="Left" VerticalAlignment="Center">
                                         <Image Source="{Binding Icon}" Width="32" Height="32" Stretch="Uniform"
                                                Visibility="{Binding HasRealIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         <Grid Visibility="{Binding HasRealIcon, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
-                                            <Border CornerRadius="16" Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.2" />
-                                            <TextBlock Text="{Binding Initial}" FontSize="15" FontWeight="SemiBold"
+                                            <Border CornerRadius="{ThemeResource ControlCornerRadius}" Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.2" />
+                                            <TextBlock Text="{Binding Initial}" Style="{StaticResource BodyStrongTextBlockStyle}"
                                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            <Border Width="16" Height="16" CornerRadius="12" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                            <Border Width="16" Height="16" CornerRadius="{ThemeResource ControlCornerRadius}" Background="{ThemeResource LayerFillColorDefaultBrush}"
                                                     BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1"
                                                     HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4">
                                                 <FontIcon Glyph="{Binding Glyph}" FontSize="9" />
@@ -178,45 +155,44 @@
                                     </Grid>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Publisher}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Publisher}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
 
-                                    <TextBlock Grid.Column="2" Text="{Binding Version}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    <TextBlock Grid.Column="2" Text="{Binding Version}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
 
                                     <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,8,0"
                                                 ToolTipService.ToolTip="{Binding ExactSizeBytes}">
-                                        <TextBlock Text="{Binding FormattedSize}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <ProgressBar Value="{Binding SizeBarValue}" Maximum="1" Height="6" Margin="0,5,0,0"
+                                        <TextBlock Text="{Binding FormattedSize}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                        <ProgressBar Value="{Binding SizeBarValue}" Maximum="1" Height="4" Margin="0,4,0,0"
                                                      Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"
                                                      Visibility="{Binding HasSize, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                        <TextBlock Text="Unknown size" FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                        <TextBlock Text="Unknown size" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorDisabledBrush}"
                                                    Visibility="{Binding HasSize, Converter={StaticResource InvertedBoolToVisibilityConverter}}" />
                                     </StackPanel>
 
-                                    <TextBlock Grid.Column="4" Text="{Binding FormattedInstallDate}" FontSize="12"
+                                    <TextBlock Grid.Column="4" Text="{Binding FormattedInstallDate}" Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
 
-                                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="4" Padding="8,3"
+                                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
                                                 Visibility="{Binding IsStoreApp, Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <TextBlock Text="STORE" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                            <TextBlock Text="STORE" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                         </Border>
                                         <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                                BorderThickness="1" CornerRadius="4" Padding="8,3"
+                                                BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
                                                 Visibility="{Binding IsStoreApp, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
-                                            <TextBlock Text="{Binding SourceLabel}" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         </Border>
-                                        <Border Background="#FFD700" CornerRadius="4" Padding="8,3"
+                                        <Border Background="{ThemeResource SystemFillColorCautionBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
                                                 Visibility="{Binding HasUninstaller, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
-                                            <TextBlock Text="!" FontSize="10" FontWeight="Bold" Foreground="Black"
+                                            <TextBlock Text="!" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="Bold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                                                        ToolTipService.ToolTip="No registered uninstaller - use Force Remove" />
                                         </Border>
                                     </StackPanel>
-                                </Grid>
-                            </Border>
+                            </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
@@ -224,7 +200,7 @@
                 <TextBlock Grid.Row="1" Text="No applications match your filters." HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Visibility="{Binding ShowEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
-                <Border Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.9" CornerRadius="12"
+                <Border Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.9" CornerRadius="{ThemeResource ControlCornerRadius}"
                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="380">
                         <ProgressRing IsActive="{Binding IsLoading}" Width="44" Height="44" HorizontalAlignment="Center" />
@@ -235,7 +211,7 @@
             </Grid>
 
             <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="20">
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="20">
                 <Grid>
                     <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Visibility="{Binding SelectedApp, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert}">
@@ -249,7 +225,7 @@
                             <Grid Width="56" Height="56" HorizontalAlignment="Left">
                                 <Image Source="{Binding SelectedApp.Icon}" Width="56" Height="56" Stretch="Uniform"
                                        Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                <Border CornerRadius="28" Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.2"
+                                <Border CornerRadius="{ThemeResource OverlayCornerRadius}" Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.2"
                                         Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource InvertedBoolToVisibilityConverter}}" />
                                 <TextBlock Text="{Binding SelectedApp.Initial}" FontSize="24" FontWeight="SemiBold"
                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
@@ -261,13 +237,13 @@
                                 <TextBlock Text="{Binding SelectedApp.Publisher}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
                                     <TextBlock Text="{Binding SelectedApp.Version}" FontSize="11" />
                                 </Border>
-                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
                                     <TextBlock Text="{Binding SelectedApp.FormattedSize}" FontSize="11" FontWeight="SemiBold" />
                                 </Border>
-                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="4" Padding="8,3"
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3"
                                         Visibility="{Binding SelectedApp.IsStoreApp, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock Text="STORE" FontSize="11" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                 </Border>
@@ -308,14 +284,14 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,0,8">
+                        <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,8">
                         <Grid ColumnSpacing="12">
                             <Grid.Margin>0</Grid.Margin>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" MaxWidth="420" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <AutoSuggestBox CornerRadius="12" Grid.Column="0" PlaceholderText="Search provider, name, class, INF..." QueryIcon="Find"
+                            <AutoSuggestBox CornerRadius="{ThemeResource ControlCornerRadius}" Grid.Column="0" PlaceholderText="Search provider, name, class, INF..." QueryIcon="Find"
                                             Text="{Binding DriverSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
                             <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadDriversCommand}" VerticalAlignment="Center" />
                         </Grid>
@@ -334,16 +310,13 @@
                             <TextBlock Grid.Column="3" Text="Class" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Grid.Column="4" Text="INF" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </Grid>
-                        <ListView CornerRadius="12" x:Name="DriverList" Grid.Row="2" ItemsSource="{Binding FilteredDrivers}" SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
+                        <ListView x:Name="DriverList" Grid.Row="2" ItemsSource="{Binding FilteredDrivers}" SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
                                   SelectionMode="Extended" ShowsScrollingPlaceholders="True" SelectionChanged="DriverList_SelectionChanged"
-                                  Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="6"
-                                  ItemContainerStyle="{StaticResource RemoverFlatListItemStyle}">
+                                  HorizontalContentAlignment="Stretch"
+                                  Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="4">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:DriverPackageItem">
-                                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                            BorderThickness="1" CornerRadius="12" Padding="12,10">
-                                        <Grid ColumnSpacing="8">
+                                    <Grid Padding="8,6" ColumnSpacing="8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="3*" />
                                                 <ColumnDefinition Width="2*" />
@@ -362,18 +335,17 @@
                                             <TextBlock Grid.Column="3" Text="{Binding FriendlyClass}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
                                             <Border Grid.Column="4" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding PublishedName}" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </Border>
                                         </Grid>
-                                    </Border>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
                         <TextBlock Grid.Row="2" Text="No driver packages match." HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    Visibility="{Binding ShowDriversEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        <Border Grid.Row="2" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.9" CornerRadius="12"
+                        <Border Grid.Row="2" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.9" CornerRadius="{ThemeResource ControlCornerRadius}"
                                 Visibility="{Binding IsLoadingDrivers, Converter={StaticResource BoolToVisibilityConverter}}">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="380">
                                 <ProgressRing IsActive="{Binding IsLoadingDrivers}" Width="44" Height="44" HorizontalAlignment="Center" />
@@ -383,7 +355,7 @@
                         </Border>
                     </Grid>
                     <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="20">
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="20">
                         <Grid>
                             <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                                         Visibility="{Binding SelectedDriver, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert}">
@@ -399,13 +371,13 @@
                                         <TextBlock Text="{Binding SelectedDriver.Provider}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
                                             <TextBlock Text="{Binding SelectedDriver.DriverVersion}" FontSize="11" />
                                         </Border>
-                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
                                             <TextBlock Text="{Binding SelectedDriver.FriendlyClass}" FontSize="11" />
                                         </Border>
-                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,3">
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
                                             <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" />
                                         </Border>
                                     </StackPanel>
@@ -442,7 +414,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" CornerRadius="12" Padding="8,12"
+                    <Border Grid.Column="0" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,12"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                         <Grid RowSpacing="8">
@@ -453,7 +425,7 @@
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Margin="8,0,0,0" Text="Sources" FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <ListView CornerRadius="12" Grid.Row="1" ItemsSource="{Binding StartupSections}"
+                            <ListView CornerRadius="{ThemeResource ControlCornerRadius}" Grid.Row="1" ItemsSource="{Binding StartupSections}"
                                       SelectedIndex="{Binding StartupSectionIndex, Mode=TwoWay}"
                                       SelectionMode="Single" Background="Transparent" BorderThickness="0"
                                       HorizontalAlignment="Stretch">
@@ -499,7 +471,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <AutoSuggestBox CornerRadius="12" Grid.Column="0" PlaceholderText="Search name or command..." QueryIcon="Find"
+                        <AutoSuggestBox CornerRadius="{ThemeResource ControlCornerRadius}" Grid.Column="0" PlaceholderText="Search name or command..." QueryIcon="Find"
                                         Text="{Binding StartupSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
                         <CheckBox Grid.Column="1" Content="Hide Microsoft services" IsChecked="{Binding HideMicrosoftServices, Mode=TwoWay}"
                                   VerticalAlignment="Center" Visibility="{Binding MicrosoftFilterVis}"
@@ -531,7 +503,7 @@
                                         <DataTemplate x:DataType="models:StartupEntry">
                                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="12" Padding="12,8" Margin="0,0,0,4">
+                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -579,7 +551,7 @@
                                         <DataTemplate x:DataType="models:StartupEntry">
                                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="12" Padding="12,8" Margin="0,0,0,4">
+                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -627,7 +599,7 @@
                                         <DataTemplate x:DataType="models:StartupEntry">
                                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="12" Padding="12,8" Margin="0,0,0,4">
+                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -676,7 +648,7 @@
                                         <DataTemplate x:DataType="models:StartupEntry">
                                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="12" Padding="12,8" Margin="0,0,0,4">
+                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
