@@ -56,6 +56,11 @@ namespace kaliteConfig.Pages
                 added.IsSelected = true;
         }
 
+        private void DetailsClose_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            AppList.SelectedItems.Clear();
+        }
+
         private async void DetailsUninstall_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             var targets = ViewModel.Apps.Where(a => a.IsSelected).ToList();
