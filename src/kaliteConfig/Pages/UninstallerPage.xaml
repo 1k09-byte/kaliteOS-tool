@@ -39,7 +39,7 @@
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Uninstall" Style="{StaticResource TitleLargeTextBlockStyle}" Margin="0,2,0,0"
                            ToolTipService.ToolTip="Uninstaller &amp; remover - applications, driver packages, startup entries" />
-                <TextBlock Text="{Binding SummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
+                <TextBlock Text="{Binding SummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,4,0,0" />
             </StackPanel>
             <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadAppsCommand}" VerticalAlignment="Bottom" />
         </Grid>
@@ -76,7 +76,7 @@
             <Button Content="Export list..." Command="{Binding ExportListCommand}" />
             <CheckBox Content="Show system components" Margin="8,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ShowSystem, Mode=TwoWay}"
                       ToolTipService.ToolTip="Include Windows system components in the list" />
-            <TextBlock x:Name="SelectionText" Text="" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+            <TextBlock x:Name="SelectionText" Text="" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
         </StackPanel>
         </Border>
 
@@ -114,11 +114,11 @@
                         <ColumnDefinition Width="2*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="1" Text="Version" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="2" Text="Size" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="3" Text="Installed" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Grid.Column="4" Text="Source" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="0" Text="Name" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="Version" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="2" Text="Size" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="3" Text="Installed" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="4" Text="Source" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Grid>
                 </Border>
 
@@ -210,8 +210,7 @@
                 </Border>
             </Grid>
 
-            <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="20">
+            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="20">
                 <Grid>
                     <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Visibility="{Binding SelectedApp, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert}">
@@ -227,45 +226,45 @@
                                        Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 <Border CornerRadius="{ThemeResource OverlayCornerRadius}" Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.2"
                                         Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource InvertedBoolToVisibilityConverter}}" />
-                                <TextBlock Text="{Binding SelectedApp.Initial}" FontSize="24" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding SelectedApp.Initial}" Style="{StaticResource TitleTextBlockStyle}" FontWeight="SemiBold"
                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource InvertedBoolToVisibilityConverter}}" />
                             </Grid>
                             <StackPanel Spacing="2">
                                 <TextBlock Text="{Binding SelectedApp.Name}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding SelectedApp.Publisher}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding SelectedApp.Publisher}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
-                                    <TextBlock Text="{Binding SelectedApp.Version}" FontSize="11" />
+                                    <TextBlock Text="{Binding SelectedApp.Version}" Style="{StaticResource CaptionTextBlockStyle}" />
                                 </Border>
                                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
-                                    <TextBlock Text="{Binding SelectedApp.FormattedSize}" FontSize="11" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedApp.FormattedSize}" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" />
                                 </Border>
                                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3"
                                         Visibility="{Binding SelectedApp.IsStoreApp, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <TextBlock Text="STORE" FontSize="11" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                    <TextBlock Text="STORE" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                 </Border>
                             </StackPanel>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Installed" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="{Binding SelectedApp.FormattedInstallDate}" FontSize="12" />
+                                <TextBlock Text="Installed" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{Binding SelectedApp.FormattedInstallDate}" Style="{StaticResource CaptionTextBlockStyle}" />
                             </StackPanel>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Location" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="{Binding SelectedApp.InstallLocation}" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                <TextBlock Text="Location" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{Binding SelectedApp.InstallLocation}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                             </StackPanel>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Uninstall command" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="{Binding SelectedApp.UninstallString}" FontSize="11" TextWrapping="Wrap"
+                                <TextBlock Text="Uninstall command" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{Binding SelectedApp.UninstallString}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                            IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                             <Button Content="Uninstall" HorizontalAlignment="Stretch"
                                     Click="DetailsUninstall_Click" />
                             <Button Content="Force Remove..." HorizontalAlignment="Stretch" Click="DetailsForceRemove_Click" />
                             <Button Content="Open install folder" HorizontalAlignment="Stretch" Command="{Binding OpenInstallFolderCommand}" />
-                            <TextBlock Text="{Binding ActionStatus}" FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="{Binding ActionStatus}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Visibility="{Binding ActionStatus, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
                         </StackPanel>
@@ -284,7 +283,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,8">
+                        <Border Grid.Row="0" Style="{StaticResource CardBorder}" Padding="12,8" Margin="0,0,0,8">
                         <Grid ColumnSpacing="12">
                             <Grid.Margin>0</Grid.Margin>
                             <Grid.ColumnDefinitions>
@@ -304,11 +303,11 @@
                                 <ColumnDefinition Width="2*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Driver" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="1" Text="Version" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="2" Text="Date" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="3" Text="Class" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Grid.Column="4" Text="INF" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="0" Text="Driver" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="Version" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Date" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Class" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="INF" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </Grid>
                         <ListView x:Name="DriverList" Grid.Row="2" ItemsSource="{Binding FilteredDrivers}" SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
                                   SelectionMode="Extended" ShowsScrollingPlaceholders="True" SelectionChanged="DriverList_SelectionChanged"
@@ -325,18 +324,18 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
-                                                <TextBlock Text="{Binding FriendlyKind}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Subtitle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding FriendlyKind}" FontWeight="SemiBold" Style="{StaticResource BodyTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="{Binding DriverVersion}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            <TextBlock Grid.Column="1" Text="{Binding DriverVersion}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="2" Text="{Binding DriverDate}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            <TextBlock Grid.Column="2" Text="{Binding DriverDate}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="3" Text="{Binding FriendlyClass}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            <TextBlock Grid.Column="3" Text="{Binding FriendlyClass}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
                                             <Border Grid.Column="4" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                                                     BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding PublishedName}" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <TextBlock Text="{Binding PublishedName}" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </Border>
                                         </Grid>
                                 </DataTemplate>
@@ -354,8 +353,7 @@
                             </StackPanel>
                         </Border>
                     </Grid>
-                    <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="20">
+                    <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="20">
                         <Grid>
                             <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                                         Visibility="{Binding SelectedDriver, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert}">
@@ -368,39 +366,39 @@
                                 <StackPanel Spacing="12">
                                     <StackPanel Spacing="2">
                                         <TextBlock Text="{Binding SelectedDriver.FriendlyKind}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding SelectedDriver.Provider}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SelectedDriver.Provider}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
-                                            <TextBlock Text="{Binding SelectedDriver.DriverVersion}" FontSize="11" />
+                                            <TextBlock Text="{Binding SelectedDriver.DriverVersion}" Style="{StaticResource CaptionTextBlockStyle}" />
                                         </Border>
                                         <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
-                                            <TextBlock Text="{Binding SelectedDriver.FriendlyClass}" FontSize="11" />
+                                            <TextBlock Text="{Binding SelectedDriver.FriendlyClass}" Style="{StaticResource CaptionTextBlockStyle}" />
                                         </Border>
                                         <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
-                                            <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" />
+                                            <TextBlock Text="{Binding SelectedDriver.PublishedName}" Style="{StaticResource CaptionTextBlockStyle}" />
                                         </Border>
                                     </StackPanel>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="Driver date" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Text="{Binding SelectedDriver.DriverDate}" FontSize="12" />
+                                        <TextBlock Text="Driver date" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.DriverDate}" Style="{StaticResource CaptionTextBlockStyle}" />
                                     </StackPanel>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="Signer" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Text="{Binding SelectedDriver.SignerName}" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="Signer" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.SignerName}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="Driver store size" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Text="{Binding SelectedDriver.FormattedSize}" FontSize="12" />
+                                        <TextBlock Text="Driver store size" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.FormattedSize}" Style="{StaticResource CaptionTextBlockStyle}" />
                                     </StackPanel>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="Published INF" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Text="{Binding SelectedDriver.PublishedName}" FontSize="11" TextWrapping="Wrap"
+                                        <TextBlock Text="Published INF" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding SelectedDriver.PublishedName}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <Button Content="Remove package" HorizontalAlignment="Stretch"
                                             Click="DetailsRemoveDriver_Click" />
-                                    <TextBlock Text="{Binding DriverActionStatus}" FontSize="12" TextWrapping="Wrap"
+                                    <TextBlock Text="{Binding DriverActionStatus}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                Visibility="{Binding DriverActionStatus, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
                                 </StackPanel>
@@ -414,16 +412,14 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,12"
-                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="12">
                         <Grid RowSpacing="8">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Margin="8,0,0,0" Text="Sources" FontSize="12"
+                            <TextBlock Grid.Row="0" Margin="8,0,0,0" Text="Sources" Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <ListView CornerRadius="{ThemeResource ControlCornerRadius}" Grid.Row="1" ItemsSource="{Binding StartupSections}"
                                       SelectedIndex="{Binding StartupSectionIndex, Mode=TwoWay}"
@@ -436,19 +432,19 @@
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" FontSize="13"
+                                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" Style="{StaticResource BodyTextBlockStyle}"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <Border Grid.Column="1" Padding="6,1" VerticalAlignment="Center"
                                                     Background="{ThemeResource ControlFillColorSecondaryBrush}"
                                                     CornerRadius="{ThemeResource ControlCornerRadius}">
-                                                <TextBlock Text="{x:Bind CountText, Mode=OneWay}" FontSize="11"
+                                                <TextBlock Text="{x:Bind CountText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
                             </ListView>
-                            <TextBlock Grid.Row="2" Margin="8,4,8,0" FontSize="11" TextWrapping="Wrap"
+                            <TextBlock Grid.Row="2" Margin="8,4,8,0" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                        Text="A checkbox switches an entry on or off straight away; the trash button deletes it."
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </Grid>
@@ -462,7 +458,7 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Spacing="2">
                             <TextBlock Text="{Binding CurrentStartupSection.Title}" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{Binding CurrentStartupSection.Hint}" FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="{Binding CurrentStartupSection.Hint}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                     <Grid Grid.Row="1" ColumnSpacing="12" Margin="0,0,0,8">
@@ -477,7 +473,7 @@
                                   VerticalAlignment="Center" Visibility="{Binding MicrosoftFilterVis}"
                                   ToolTipService.ToolTip="Hide services whose binary reports a Microsoft company name" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding StartupSummaryText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            <TextBlock Text="{Binding StartupSummaryText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                             <Button Content="Refresh" Command="{Binding LoadStartupCommand}" VerticalAlignment="Center" />
                         </StackPanel>
@@ -493,17 +489,15 @@
                                         <ColumnDefinition Width="4*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="0" Text="Start" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding FilteredHkcu}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:StartupEntry">
-                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
+                                            <Border Style="{StaticResource CardBorder}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -513,12 +507,12 @@
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" Style="{StaticResource BodyTextBlockStyle}"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
@@ -541,17 +535,15 @@
                                         <ColumnDefinition Width="4*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="0" Text="Start" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding FilteredHklm}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:StartupEntry">
-                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
+                                            <Border Style="{StaticResource CardBorder}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -561,12 +553,12 @@
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" Style="{StaticResource BodyTextBlockStyle}"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
@@ -589,17 +581,15 @@
                                         <ColumnDefinition Width="4*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="0" Text="Start" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding FilteredServices}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:StartupEntry">
-                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
+                                            <Border Style="{StaticResource CardBorder}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -610,12 +600,12 @@
                                                     </Grid.ColumnDefinitions>
                                                     <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
                                                               ToolTipService.ToolTip="Checked = automatic start; unchecked = disabled" />
-                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" Style="{StaticResource BodyTextBlockStyle}"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
@@ -638,17 +628,15 @@
                                         <ColumnDefinition Width="4*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="1" Text="Name" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="2" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Grid.Column="3" Text="Command / Value" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="0" Text="Start" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="Name" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3" Text="Command / Value" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding FilteredTasks}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:StartupEntry">
-                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8" Margin="0,0,0,4">
+                                            <Border Style="{StaticResource CardBorder}" Padding="12,8" Margin="0,0,0,4">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -658,12 +646,12 @@
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <CheckBox Grid.Column="0" IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontWeight="SemiBold" Style="{StaticResource BodyTextBlockStyle}"
                                                                TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Id}" />
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" FontSize="12"
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind EntryType}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" FontSize="12"
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind Command}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
                                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                                ToolTipService.ToolTip="{x:Bind Command}" />
@@ -677,10 +665,10 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <TextBlock Text="Nothing to show - this source has no entries, or the search hides them all." FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="Nothing to show - this source has no entries, or the search hides them all." Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                        Visibility="{Binding EmptyVis}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Text="{Binding StartupStatusText}" FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="{Binding StartupStatusText}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Visibility="{Binding StartupStatusText, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
                         </StackPanel>
