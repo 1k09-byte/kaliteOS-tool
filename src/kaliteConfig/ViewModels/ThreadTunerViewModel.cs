@@ -174,11 +174,6 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                     return;
                 }
 
-                if (BenchmarkViewModel.CaptureInProgress)
-                {
-                    return;
-                }
-
                 if (!ShouldPoll)
                 {
                     return;

@@ -169,16 +169,6 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Bench" Tag="BenchmarkPage" AutomationProperties.Name="Benchmark Lab" Padding="0">
-                    <ToolTipService.ToolTip>
-                        <ToolTip Visibility="Collapsed" />
-                    </ToolTipService.ToolTip>
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9D2;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
