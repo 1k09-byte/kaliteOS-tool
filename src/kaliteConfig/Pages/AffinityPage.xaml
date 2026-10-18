@@ -8,84 +8,171 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <Style x:Key="GroupHeaderButtonStyle" TargetType="Button">
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Style x:Key="AffinityRowContainerStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="12,10" />
-            <Setter Property="Margin" Value="8,2" />
         </Style>
 
-        <Style x:Key="DeviceRowButtonStyle" TargetType="Button">
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="8,0" />
-        </Style>
+        <GridLength x:Key="AffinityDeviceColumn">2.6*</GridLength>
+        <GridLength x:Key="AffinityMsiColumn">0.85*</GridLength>
+        <GridLength x:Key="AffinityLimitColumn">0.85*</GridLength>
+        <GridLength x:Key="AffinityMaxMsiColumn">0.9*</GridLength>
+        <GridLength x:Key="AffinityPolicyColumn">1.35*</GridLength>
+        <GridLength x:Key="AffinityPriorityColumn">1.1*</GridLength>
+        <GridLength x:Key="AffinityProcessorsColumn">1.4*</GridLength>
+        <GridLength x:Key="AffinityChevronColumn">16</GridLength>
 
-        <Style x:Key="TableCellLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-        </Style>
+        <DataTemplate x:Key="AffinityDeviceRowTemplate" x:DataType="models:AffinityDeviceItem">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                </Grid.ColumnDefinitions>
 
-        <Style x:Key="TableCellValueStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-        </Style>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind Name}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
+                    <TextBlock Text="{x:Bind CategoryLabel}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{x:Bind MsiEnabledText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="{x:Bind MsiLimitText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Text="{x:Bind MaxMsiLimitText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Text="{x:Bind DevicePolicyShort, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="5" Text="{x:Bind DevicePriorityShort, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="6" Text="{x:Bind AffinityText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <FontIcon Grid.Column="7" Glyph="&#xE76C;"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                          VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
 
-        <DataTemplate x:Key="AffinityTableRowTemplate" x:DataType="models:AffinityDeviceItem">
-            <Button Style="{StaticResource DeviceRowButtonStyle}" Click="DeviceRow_Click" Tag="{x:Bind}">
-                <Grid>
-                    <Grid Padding="20,11" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2.4*" />
-                            <ColumnDefinition Width="0.9*" />
-                            <ColumnDefinition Width="0.9*" />
-                            <ColumnDefinition Width="0.9*" />
-                            <ColumnDefinition Width="1.4*" />
-                            <ColumnDefinition Width="1.2*" />
-                            <ColumnDefinition Width="1.4*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource BodyTextBlockStyle}"
-                                       Text="{x:Bind Name}"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
-                            <TextBlock Style="{StaticResource GalleryMetaLabel}" Text="{x:Bind CategoryLabel}" />
-                        </StackPanel>
-                        <TextBlock Grid.Column="1" Style="{StaticResource TableCellValueStyle}"
-                                   Text="{x:Bind MsiEnabledText, Mode=OneWay}" />
-                        <TextBlock Grid.Column="2" Style="{StaticResource TableCellValueStyle}"
-                                   Text="{x:Bind MsiLimitText, Mode=OneWay}" />
-                        <TextBlock Grid.Column="3" Style="{StaticResource TableCellValueStyle}"
-                                   Text="{x:Bind MaxMsiLimitText, Mode=OneWay}" />
-                        <TextBlock Grid.Column="4" Style="{StaticResource TableCellValueStyle}"
-                                   Text="{x:Bind DevicePolicyShort, Mode=OneWay}" />
-                        <TextBlock Grid.Column="5" Style="{StaticResource TableCellValueStyle}"
-                                   Text="{x:Bind DevicePriorityShort, Mode=OneWay}" />
-                        <TextBlock Grid.Column="6" Style="{StaticResource TableCellValueStyle}"
-                                   Text="{x:Bind AffinityText, Mode=OneWay}" />
-                        <FontIcon Grid.Column="7" FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                  FontSize="12" Width="12" VerticalAlignment="Center"
-                                  Glyph="&#xE76C;"
-                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                    </Grid>
-
-                    <Border Height="1" VerticalAlignment="Bottom" Margin="20,0"
-                            Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+        <DataTemplate x:Key="AffinityDeviceRowNarrowTemplate" x:DataType="models:AffinityDeviceItem">
+            <StackPanel Spacing="4">
+                <StackPanel>
+                    <TextBlock Text="{x:Bind Name}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                               TextWrapping="Wrap"
+                               ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
+                    <TextBlock Text="{x:Bind CategoryLabel}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="MSI"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind MsiEnabledText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
                 </Grid>
-            </Button>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Limit"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind MsiLimitText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Max MSI"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind MaxMsiLimitText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Policy"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind DevicePolicyShort, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Priority"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind DevicePriorityShort, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Processors"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind AffinityText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ChangeRowTemplate">
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Device}"
+                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="{Binding Detail}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
         </DataTemplate>
     </Page.Resources>
 
@@ -106,6 +193,10 @@
                         <Setter Target="Toolbar.(Grid.Column)" Value="0" />
                         <Setter Target="Toolbar.HorizontalAlignment" Value="Left" />
                         <Setter Target="SummaryStrip.Orientation" Value="Vertical" />
+                        <Setter Target="GraphicsList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                        <Setter Target="NetworkList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                        <Setter Target="UsbList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                        <Setter Target="AudioList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -389,172 +480,261 @@
                       HorizontalContentAlignment="Stretch"
                       VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
                       HorizontalScrollBarVisibility="Disabled">
-            <StackPanel HorizontalAlignment="Stretch" Spacing="16">
+            <StackPanel HorizontalAlignment="Stretch" Spacing="8">
 
-                <Border Style="{StaticResource GalleryCard}" Padding="0">
-                    <StackPanel>
-                        <Grid Padding="28,16,28,10" ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2.4*" />
-                                <ColumnDefinition Width="0.9*" />
-                                <ColumnDefinition Width="0.9*" />
-                                <ColumnDefinition Width="0.9*" />
-                                <ColumnDefinition Width="1.4*" />
-                                <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="1.4*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Style="{StaticResource TableCellLabelStyle}" Text="Device" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource TableCellLabelStyle}" Text="MSI" />
-                            <TextBlock Grid.Column="2" Style="{StaticResource TableCellLabelStyle}" Text="Limit" />
-                            <TextBlock Grid.Column="3" Style="{StaticResource TableCellLabelStyle}" Text="Max MSI" />
-                            <TextBlock Grid.Column="4" Style="{StaticResource TableCellLabelStyle}" Text="Policy" />
-                            <TextBlock Grid.Column="5" Style="{StaticResource TableCellLabelStyle}" Text="Priority" />
-                            <TextBlock Grid.Column="6" Style="{StaticResource TableCellLabelStyle}" Text="Processors" />
-                            <Border Grid.Column="7" Width="12" />
-                        </Grid>
-
-                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
-
-                        <Button Style="{StaticResource GroupHeaderButtonStyle}"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}" CommandParameter="Graphics"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}">
-                            <Grid ColumnSpacing="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Grid.Column="0" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="12"
-                                          VerticalAlignment="Center"
-                                          Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsGraphicsExpanded), Mode=OneWay}" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource BodyStrongTextBlockStyle}"
-                                           Text="Graphics cards" VerticalAlignment="Center" />
-                                <Border Grid.Column="2" Style="{StaticResource GalleryPill}" Padding="8,1"
-                                        VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                               Text="{x:Bind local:AffinityPage.CountText(ViewModel.GraphicsDevices.Count), Mode=OneWay}" />
-                                </Border>
-                            </Grid>
-                        </Button>
-                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.GraphicsDevices, Mode=OneWay}"
-                                       ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                       HorizontalAlignment="Stretch"
-                                       Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsGraphicsExpanded), Mode=OneWay}">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Spacing="0" />
-                            </ItemsRepeater.Layout>
-                        </ItemsRepeater>
-
-                        <Button Style="{StaticResource GroupHeaderButtonStyle}"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}" CommandParameter="Network"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}">
-                            <Grid ColumnSpacing="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Grid.Column="0" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="12"
-                                          VerticalAlignment="Center"
-                                          Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsNetworkExpanded), Mode=OneWay}" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource BodyStrongTextBlockStyle}"
-                                           Text="Network controllers" VerticalAlignment="Center" />
-                                <Border Grid.Column="2" Style="{StaticResource GalleryPill}" Padding="8,1"
-                                        VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                               Text="{x:Bind local:AffinityPage.CountText(ViewModel.NetworkDevices.Count), Mode=OneWay}" />
-                                </Border>
-                            </Grid>
-                        </Button>
-                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.NetworkDevices, Mode=OneWay}"
-                                       ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                       HorizontalAlignment="Stretch"
-                                       Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsNetworkExpanded), Mode=OneWay}">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Spacing="0" />
-                            </ItemsRepeater.Layout>
-                        </ItemsRepeater>
-
-                        <Button Style="{StaticResource GroupHeaderButtonStyle}"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}" CommandParameter="Usb"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}">
-                            <Grid ColumnSpacing="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Grid.Column="0" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="12"
-                                          VerticalAlignment="Center"
-                                          Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsUsbExpanded), Mode=OneWay}" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource BodyStrongTextBlockStyle}"
-                                           Text="USB controllers" VerticalAlignment="Center" />
-                                <Border Grid.Column="2" Style="{StaticResource GalleryPill}" Padding="8,1"
-                                        VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                               Text="{x:Bind local:AffinityPage.CountText(ViewModel.UsbDevices.Count), Mode=OneWay}" />
-                                </Border>
-                            </Grid>
-                        </Button>
-                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.UsbDevices, Mode=OneWay}"
-                                       ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                       HorizontalAlignment="Stretch"
-                                       Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsUsbExpanded), Mode=OneWay}">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Spacing="0" />
-                            </ItemsRepeater.Layout>
-                        </ItemsRepeater>
-
-                        <Button Style="{StaticResource GroupHeaderButtonStyle}"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}" CommandParameter="Audio"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}">
-                            <Grid ColumnSpacing="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Grid.Column="0" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="12"
-                                          VerticalAlignment="Center"
-                                          Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsAudioExpanded), Mode=OneWay}" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource BodyStrongTextBlockStyle}"
-                                           Text="Audio controllers" VerticalAlignment="Center" />
-                                <Border Grid.Column="2" Style="{StaticResource GalleryPill}" Padding="8,1"
-                                        VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                               Text="{x:Bind local:AffinityPage.CountText(ViewModel.AudioDevices.Count), Mode=OneWay}" />
-                                </Border>
-                            </Grid>
-                        </Button>
-                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.AudioDevices, Mode=OneWay}"
-                                       ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                       HorizontalAlignment="Stretch"
-                                       Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsAudioExpanded), Mode=OneWay}">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Spacing="0" />
-                            </ItemsRepeater.Layout>
-                        </ItemsRepeater>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource GalleryCard}" Padding="20,16">
-                    <Grid ColumnSpacing="14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Grid.Column="0" Glyph="&#xE946;" FontSize="18" VerticalAlignment="Top"
-                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <StackPanel Grid.Column="1" Spacing="4">
-                            <TextBlock Text="What these settings do" Style="{StaticResource GallerySectionTitle}" />
-                            <TextBlock Style="{StaticResource GalleryPageCaption}"
-                                       Text="MSI replaces line-based interrupts with messages, which avoids shared IRQ contention. The limit caps in-flight messages; automatic lets Windows pick." />
-                            <TextBlock Style="{StaticResource GalleryPageCaption}"
-                                       Text="The processor mask pins this device's interrupts to specific logical processors. Changes apply the next time the device restarts." />
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsGraphicsExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Graphics cards"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.GraphicsDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
-                    </Grid>
-                </Border>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="GraphicsList"
+                                  ItemsSource="{x:Bind ViewModel.GraphicsDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsNetworkExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Network controllers"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.NetworkDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="NetworkList"
+                                  ItemsSource="{x:Bind ViewModel.NetworkDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsUsbExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="USB controllers"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.UsbDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="UsbList"
+                                  ItemsSource="{x:Bind ViewModel.UsbDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsAudioExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Audio controllers"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.AudioDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="AudioList"
+                                  ItemsSource="{x:Bind ViewModel.AudioDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <InfoBar IsOpen="True"
+                         IsClosable="False"
+                         Severity="Informational"
+                         Title="What these settings do"
+                         Message="MSI replaces line-based interrupts with messages, which avoids shared IRQ contention. The limit caps in-flight messages; automatic lets Windows pick. The processor mask pins this device's interrupts to specific logical processors. Changes apply the next time the device restarts." />
             </StackPanel>
         </ScrollViewer>
     </Grid>
