@@ -217,7 +217,7 @@
                                            HorizontalAlignment="Left">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="0"
+                                                     MinItemHeight="176"
                                                      MinColumnSpacing="16"
                                                      MinRowSpacing="16"
                                                      Orientation="Horizontal"
@@ -240,7 +240,7 @@
                                            HorizontalAlignment="Left">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="0"
+                                                     MinItemHeight="176"
                                                      MinColumnSpacing="16"
                                                      MinRowSpacing="16"
                                                      Orientation="Horizontal"
@@ -263,7 +263,7 @@
                                            HorizontalAlignment="Left">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="0"
+                                                     MinItemHeight="176"
                                                      MinColumnSpacing="16"
                                                      MinRowSpacing="16"
                                                      Orientation="Horizontal"
@@ -286,7 +286,7 @@
                                            HorizontalAlignment="Left">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="0"
+                                                     MinItemHeight="176"
                                                      MinColumnSpacing="16"
                                                      MinRowSpacing="16"
                                                      Orientation="Horizontal"

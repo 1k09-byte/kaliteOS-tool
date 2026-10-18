@@ -90,7 +90,7 @@ public sealed partial class PersonalizePage : Page
         CursorSection.Visibility = tag == "cursor" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private async void AddWallpaper_Click(object sender, RoutedEventArgs e)
+    private void AddWallpaper_Click(object sender, RoutedEventArgs e)
     {
         if (App.MainWindow is null) return;
 
@@ -100,19 +100,28 @@ public sealed partial class PersonalizePage : Page
             return;
         }
 
-        var picker = new FileOpenPicker
+        DispatcherQueue.TryEnqueue(async () =>
         {
-            ViewMode = PickerViewMode.Thumbnail,
-            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
-        };
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
-        foreach (var ext in WallpaperExtensions) picker.FileTypeFilter.Add(ext);
+            try
+            {
+                var picker = new FileOpenPicker
+                {
+                    ViewMode = PickerViewMode.Thumbnail,
+                    SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+                };
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
+                foreach (var ext in WallpaperExtensions) picker.FileTypeFilter.Add(ext);
 
-        var file = await picker.PickSingleFileAsync();
-        if (file is null) return;
+                var file = await picker.PickSingleFileAsync();
+                if (file is null) return;
 
-        await ViewModel.AddWallpaperAsync(file.Path);
-        UpdatePreview();
+                await ViewModel.AddWallpaperAsync(file.Path);
+                UpdatePreview();
+            }
+            catch (Exception)
+            {
+            }
+        });
     }
 
     private async void ApplyCursor_Click(object sender, RoutedEventArgs e)
