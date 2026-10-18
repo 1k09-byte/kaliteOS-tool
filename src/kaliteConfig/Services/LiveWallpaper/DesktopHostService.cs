@@ -78,6 +78,16 @@ public sealed class DesktopHostService : IDesktopHostService
             DesktopHostNative.SetWindowExStyle(host, new IntPtr(style));
         }
         catch { }
+        try
+        {
+            long style = DesktopHostNative.GetWindowStyle(host).ToInt64();
+            style &= ~DesktopHostNative.WS_POPUP;
+            style &= ~DesktopHostNative.WS_CAPTION;
+            style &= ~DesktopHostNative.WS_THICKFRAME;
+            style |= DesktopHostNative.WS_CHILD;
+            DesktopHostNative.SetWindowStyle(host, new IntPtr(style));
+        }
+        catch { }
         IntPtr parent = FindWallpaperLayer();
         if (parent == IntPtr.Zero)
         {
@@ -141,6 +151,14 @@ public sealed class DesktopHostService : IDesktopHostService
         {
             if (host == IntPtr.Zero) return;
             DesktopHostNative.SetParent(host, IntPtr.Zero);
+        }
+        catch { }
+        try
+        {
+            long style = DesktopHostNative.GetWindowStyle(host).ToInt64();
+            style &= ~DesktopHostNative.WS_CHILD;
+            style |= DesktopHostNative.WS_POPUP;
+            DesktopHostNative.SetWindowStyle(host, new IntPtr(style));
         }
         catch { }
     }

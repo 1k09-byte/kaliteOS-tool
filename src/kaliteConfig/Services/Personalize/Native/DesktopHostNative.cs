@@ -9,6 +9,11 @@ internal static class DesktopHostNative
     public const uint SMTO_NORMAL = 0x0000;
 
     public const int GWL_EXSTYLE = -20;
+    public const int GWL_STYLE = -16;
+    public const long WS_CHILD = 0x40000000L;
+    public const long WS_POPUP = 0x80000000L;
+    public const long WS_CAPTION = 0x00C00000L;
+    public const long WS_THICKFRAME = 0x00040000L;
     public const long WS_EX_TRANSPARENT = 0x00000020L;
     public const long WS_EX_NOACTIVATE = 0x08000000L;
     public const long WS_EX_TOOLWINDOW = 0x00000080L;
@@ -104,6 +109,12 @@ internal static class DesktopHostNative
 
     public static IntPtr SetWindowExStyle(IntPtr hWnd, IntPtr style) =>
         IntPtr.Size == 8 ? SetWindowLongPtr64(hWnd, GWL_EXSTYLE, style) : SetWindowLong32(hWnd, GWL_EXSTYLE, style);
+
+    public static IntPtr GetWindowStyle(IntPtr hWnd) =>
+        IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, GWL_STYLE) : GetWindowLong32(hWnd, GWL_STYLE);
+
+    public static IntPtr SetWindowStyle(IntPtr hWnd, IntPtr style) =>
+        IntPtr.Size == 8 ? SetWindowLongPtr64(hWnd, GWL_STYLE, style) : SetWindowLong32(hWnd, GWL_STYLE, style);
 
     [DllImport("user32.dll")]
     public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc proc, IntPtr data);
