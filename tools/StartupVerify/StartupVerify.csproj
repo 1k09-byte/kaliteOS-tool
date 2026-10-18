@@ -21,8 +21,8 @@
 
   <ItemGroup>
     <!-- The REAL startup code, same files the app ships. -->
-    <Compile Include="..\..\Models\StartupEntry.cs" Link="Models\StartupEntry.cs" />
-    <Compile Include="..\..\Services\StartupManagerService.cs" Link="Services\StartupManagerService.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Models\StartupEntry.cs" Link="Models\StartupEntry.cs" />
+    <Compile Include="..\..\src\kaliteConfig\Services\System\StartupManagerService.cs" Link="Services\StartupManagerService.cs" />
   </ItemGroup>
 
   <ItemGroup>

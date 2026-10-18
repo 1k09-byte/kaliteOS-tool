@@ -43,43 +43,6 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool NothingToInstall { get; set; } = false;
 
-        [ObservableProperty]
-        public partial AppViewMode ViewMode { get; set; } = AppViewMode.Card;
-
-        public bool IsCardView => ViewMode == AppViewMode.Card;
-        public bool IsCompactView => ViewMode == AppViewMode.Compact;
-
-        partial void OnViewModeChanged(AppViewMode value)
-        {
-            OnPropertyChanged(nameof(IsCardView));
-            OnPropertyChanged(nameof(IsCompactView));
-            SaveViewMode(value);
-        }
-
-        private static readonly string ViewModeKey = "InstallerViewMode";
-
-        private void SaveViewMode(AppViewMode mode)
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\kaliteConfig");
-                key?.SetValue(ViewModeKey, mode.ToString());
-            }
-            catch {  }
-        }
-
-        public void LoadViewMode()
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\kaliteConfig");
-                var raw = key?.GetValue(ViewModeKey) as string;
-                if (raw != null && Enum.TryParse<AppViewMode>(raw, out var mode))
-                    ViewMode = mode;
-            }
-            catch {  }
-        }
-
         partial void OnShowInstalledChanged(bool value)
         {
             UpdateVisibilityFilters();

@@ -27,13 +27,17 @@ namespace StartupVerify
                 "\"X\",\"\\Microsoft\\Windows\\Update\\Updater\",\"N/A\",\"Ready\",\"SYSTEM\",\"-1\",\"0\",\"MS\",\"C:\\Windows\\updater.exe\",\"N/A\",\"OS task\",\"Ready\",\"Disabled\",\"Stop\"\n" +
                 "\"X\",\"\\BrokenRow\"\n";
             var rows = StartupManagerService.ParseTaskListCsv(csv);
-            Check(rows.Count == 1, $"one row parsed, MS subtree + short row skipped (got {rows.Count})");
-            if (rows.Count == 1)
+            Check(rows.Count == 2, $"Google + Microsoft rows parsed, short row skipped (got {rows.Count})");
+            if (rows.Count == 2)
             {
                 Check(rows[0].Name == "\\GoogleUpdateTaskSystem", $"task name (got '{rows[0].Name}')");
                 Check(rows[0].State == "Ready", $"state (got '{rows[0].State}')");
                 Check(rows[0].Command.Contains("updater.exe") && rows[0].Command.Contains("--wake"),
                     $"quoted command with comma intact (got '{rows[0].Command}')");
+                Check(StartupManagerService.IsMicrosoftTask(rows[1].Name),
+                    $"Microsoft subtree row kept and flagged (got '{rows[1].Name}')");
+                Check(!StartupManagerService.IsMicrosoftTask(rows[0].Name),
+                    "third-party task is not flagged as Microsoft");
             }
 
             const string logonXml =
@@ -128,8 +132,8 @@ namespace StartupVerify
             Check(!threw, "live scan completes without throwing");
             if (scan is null) return;
             Check(scan.Tasks.All(t => t.Name.Length > 0), $"all {scan.Tasks.Count} task rows have names");
-            Check(scan.Tasks.All(t => !t.Name.StartsWith(@"\Microsoft\", StringComparison.OrdinalIgnoreCase)),
-                "no Microsoft-subtree tasks listed");
+            Check(scan.Tasks.Any(t => StartupManagerService.IsMicrosoftCompany(t.Company)),
+                "Microsoft tasks are listed and flagged so the filter can hide them");
             Check(scan.Tasks.All(t => t.Command.Length > 0), "all task rows have a command line");
             Check(scan.Services.All(s => s.Name.Length > 0), $"all {scan.Services.Count} service rows have names");
             Console.WriteLine($"  (hkcu={scan.UserRun.Count}, hklm={scan.MachineRun.Count}, " +

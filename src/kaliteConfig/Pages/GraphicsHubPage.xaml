@@ -10,18 +10,23 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <SelectorBar x:Name="ViewSelector" Grid.Row="0" Margin="40,28,40,4"
+        <StackPanel Grid.Row="0" Padding="36,28,36,0" Spacing="4">
+            <TextBlock Text="Graphics" Style="{StaticResource GalleryPageTitle}" />
+            <TextBlock Style="{StaticResource GalleryPageCaption}"
+                       Text="Drivers, GPU overclocking and display controls for this machine." />
+        </StackPanel>
+
+        <SelectorBar x:Name="ViewSelector" Grid.Row="1" Margin="36,16,36,4"
                      SelectionChanged="ViewSelector_SelectionChanged">
-            <SelectorBarItem Tag="Drivers" Text="Drivers" IsSelected="True"
-                             FontSize="18" FontWeight="SemiBold" Padding="24,10" />
-            <SelectorBarItem Tag="Overclock" Text="Overclock"
-                             FontSize="18" FontWeight="SemiBold" Padding="24,10" />
+            <SelectorBarItem Tag="Drivers" Text="Drivers" IsSelected="True" />
+            <SelectorBarItem Tag="Overclock" Text="Overclock" />
         </SelectorBar>
 
-        <Frame x:Name="ContentFrame" Grid.Row="1">
+        <Frame x:Name="ContentFrame" Grid.Row="2">
             <Frame.ContentTransitions>
                 <TransitionCollection>
                     <NavigationThemeTransition>

@@ -32,16 +32,19 @@ public sealed class SettingApplier
             _snapshots.CaptureIfNeeded(def.Id, def.SubKey, def.Name);
 
             HkcuRegistry.Write(def.SubKey, def.Name, def.Value, def.Kind);
-            bool liveOk = def.LiveSync?.Invoke() ?? true;
 
             var readBack = HkcuRegistry.ReadEntry(def.SubKey, def.Name);
-            if (liveOk && readBack.Exists && HkcuRegistry.SameValue(readBack.Data, def.Value))
-                return new SettingResult(def.Id, true, "Applied.");
+            bool written = readBack.Exists && HkcuRegistry.SameValue(readBack.Data, def.Value);
+            if (!written)
+            {
+                return Rollback(def, before, snapshotIsNew,
+                    "Windows did not keep the new value. It may be locked by policy.");
+            }
 
-            string reason = liveOk
-                ? "Windows did not keep the new value. It may be locked by policy."
-                : "Windows rejected the change.";
-            return Rollback(def, before, snapshotIsNew, reason);
+            bool liveOk = def.LiveSync?.Invoke() ?? true;
+            return liveOk
+                ? new SettingResult(def.Id, true, "Applied.")
+                : new SettingResult(def.Id, true, "Applied. The live refresh call did not report success; the new value may need a sign-out or restart to appear.");
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

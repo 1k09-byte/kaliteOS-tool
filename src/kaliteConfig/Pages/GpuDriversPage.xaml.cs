@@ -76,6 +76,11 @@ namespace kaliteConfig.Pages
             return InstallBtnVis(status) == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         }
 
+        public static Visibility UpToDateVis(GpuDriverStatus status)
+        {
+            return status == GpuDriverStatus.UpToDate ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         public static Visibility ProgressVis(GpuDriverStatus status)
         {
             return status is GpuDriverStatus.Downloading or GpuDriverStatus.Installing
@@ -115,6 +120,13 @@ namespace kaliteConfig.Pages
         {
             if (string.IsNullOrEmpty(vendor)) return Visibility.Collapsed;
             return IsAmd(vendor) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public static Visibility ToolsVis(string vendor)
+        {
+            bool hasTools = NvidiaToolsVis(vendor) == Visibility.Visible
+                || AmdToolsVis(vendor) == Visibility.Visible;
+            return hasTools ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public static string SlimmerButtonText(bool installed)

@@ -54,6 +54,7 @@ namespace kaliteConfig.ViewModels
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ChangeCountText))]
+        [NotifyPropertyChangedFor(nameof(ChangeCountNumberText))]
         public partial int ChangeCount { get; set; }
 
         [ObservableProperty]
@@ -69,6 +70,21 @@ namespace kaliteConfig.ViewModels
             => OnPropertyChanged(nameof(CanRestoreDefaults));
 
         public string ChangeCountText => $"View Changes ({ChangeCount})";
+
+        public string ChangeCountNumberText => ChangeCount.ToString();
+
+        // Headline numbers for the summary strip. Recomputed on every rescan so the
+        // page can show what was found without a second pass over the device list.
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DeviceCountText))]
+        public partial int DeviceCount { get; set; }
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(MsiEnabledCountText))]
+        public partial int MsiEnabledCount { get; set; }
+
+        public string DeviceCountText => DeviceCount.ToString();
+        public string MsiEnabledCountText => MsiEnabledCount.ToString();
 
         private void RefreshChangeState()
         {
@@ -328,6 +344,8 @@ namespace kaliteConfig.ViewModels
                 }
 
                 int total = devices.Count;
+                DeviceCount = total;
+                MsiEnabledCount = devices.Count(d => d.MsiEnabled);
                 StatusText = total == 0
                     ? "No tunable devices found."
                     : $"{total} device{(total == 1 ? "" : "s")} found."

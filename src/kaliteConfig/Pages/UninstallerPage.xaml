@@ -10,10 +10,101 @@
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <SolidColorBrush x:Key="StartupRowHoverBrush" Color="{ThemeResource SubtleFillColorSecondary}" />
+        <SolidColorBrush x:Key="StartupRowPressedBrush" Color="{ThemeResource SubtleFillColorTertiary}" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
-        <Style x:Key="StretchListViewItemStyle" TargetType="ListViewItem">
+        <Style x:Key="CardListViewItemStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <!-- The card's own border shows selection; the stock rectangular focus
+                 visual would override the rounded shape. -->
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Card" CornerRadius="8"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1" Padding="{TemplateBinding Padding}">
+                            <!-- ListViewItem folds selection into CommonStates, so the selected
+                                 variants have to be listed here or a selected+pointer-over row
+                                 falls back to the plain unselected look. -->
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <!-- Selection is shown with a neutral emphasis: a brighter
+                                         edge and a filled surface. An accent-coloured outline
+                                         read as a warning against the tinted backdrop. -->
+                                    <VisualState x:Name="Selected">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                                            <Setter Target="Card.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="PointerOverSelected">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                                            <Setter Target="Card.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="PressedSelected">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                                            <Setter Target="Card.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Opacity" Value="0.5" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              HorizontalContentAlignment="Stretch"
+                                              VerticalContentAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SourcesCardListViewItemStyle" TargetType="ListViewItem"
+               BasedOn="{StaticResource CardListViewItemStyle}">
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+        <!-- Table rows draw their own rounded hover/press surface (the item template's
+             Border), so the container stays a bare presenter: no stock rectangular
+             ListViewItem highlight. The right margin keeps the last column clear of the
+             list's overlay scrollbar. -->
+        <Style x:Key="TableRowListViewItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,1,12,1" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="Stretch"
+                                          VerticalContentAlignment="Center" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Page.Resources>
 
@@ -118,18 +209,22 @@
             </Grid>
 
             <SplitView x:Name="AppDetailsPane" Grid.Row="2" DisplayMode="Inline" PanePlacement="Right"
-                       OpenPaneLength="320" IsPaneOpen="False">
+                       OpenPaneLength="320" IsPaneOpen="False" PaneBackground="Transparent">
                 <SplitView.Pane>
-                    <Grid Padding="24,0,16,0" RowSpacing="12">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                            CornerRadius="8" Padding="16" Margin="8,0,0,0">
+                    <Grid RowSpacing="12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                            <Grid ColumnSpacing="12">
+                            <Grid ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="32" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <Grid Width="32" Height="32" VerticalAlignment="Center">
                                     <Image Source="{Binding SelectedApp.Icon}" Stretch="Uniform"
@@ -146,6 +241,13 @@
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
+                                <Button Grid.Column="2" Click="DetailsClose_Click" Width="32" Height="32"
+                                        Padding="0" Background="Transparent" BorderThickness="0"
+                                        VerticalAlignment="Top"
+                                        AutomationProperties.Name="Close details"
+                                        ToolTipService.ToolTip="Close">
+                                    <FontIcon Glyph="&#xE711;" FontSize="12" />
+                                </Button>
                             </Grid>
 
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -219,6 +321,7 @@
                                            Visibility="{Binding ActionStatus, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
                             </StackPanel>
                     </Grid>
+                    </Border>
                 </SplitView.Pane>
 
                 <Grid>
@@ -250,11 +353,13 @@
                     <ListView x:Name="AppList" Grid.Row="1" ItemsSource="{Binding FilteredApps}"
                               SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
                               SelectionMode="Single" SelectionChanged="AppList_SelectionChanged"
-                              ItemContainerStyle="{StaticResource StretchListViewItemStyle}"
+                              ItemContainerStyle="{StaticResource CardListViewItemStyle}"
                               Visibility="{Binding IsLoading, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:UninstallerItem">
-                                <Grid ColumnSpacing="12" Padding="0,8">
+                                <Grid ColumnSpacing="12"
+                                      PointerPressed="AppRow_PointerPressed"
+                                      PointerReleased="AppRow_PointerReleased">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="96" />
@@ -348,21 +453,37 @@
             </Grid>
 
             <SplitView x:Name="DriverDetailsPane" Grid.Row="1" DisplayMode="Inline" PanePlacement="Right"
-                       OpenPaneLength="320" IsPaneOpen="False">
+                       OpenPaneLength="320" IsPaneOpen="False" PaneBackground="Transparent">
                 <SplitView.Pane>
-                    <Grid Padding="24,0,16,0" RowSpacing="12">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                            CornerRadius="8" Padding="16" Margin="8,0,0,0">
+                    <Grid RowSpacing="12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="{Binding SelectedDriver.FriendlyKind}"
-                                           Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding SelectedDriver.Provider}"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                            </StackPanel>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding SelectedDriver.FriendlyKind}"
+                                               Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding SelectedDriver.Provider}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Click="DetailsCloseDriver_Click" Width="32" Height="32"
+                                        Padding="0" Background="Transparent" BorderThickness="0"
+                                        VerticalAlignment="Top"
+                                        AutomationProperties.Name="Close details"
+                                        ToolTipService.ToolTip="Close">
+                                    <FontIcon Glyph="&#xE711;" FontSize="12" />
+                                </Button>
+                            </Grid>
 
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <StackPanel Spacing="12">
@@ -428,6 +549,7 @@
                                            Visibility="{Binding DriverActionStatus, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=invert, FallbackValue=Collapsed}" />
                             </StackPanel>
                     </Grid>
+                    </Border>
                 </SplitView.Pane>
 
                 <Grid>
@@ -459,11 +581,13 @@
                     <ListView x:Name="DriverList" Grid.Row="1" ItemsSource="{Binding FilteredDrivers}"
                               SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
                               SelectionMode="Single" SelectionChanged="DriverList_SelectionChanged"
-                              ItemContainerStyle="{StaticResource StretchListViewItemStyle}"
+                              ItemContainerStyle="{StaticResource CardListViewItemStyle}"
                               Visibility="{Binding IsLoadingDrivers, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:DriverPackageItem">
-                                <Grid ColumnSpacing="12" Padding="0,8">
+                                <Grid ColumnSpacing="12"
+                                      PointerPressed="DriverRow_PointerPressed"
+                                      PointerReleased="DriverRow_PointerReleased">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="96" />
@@ -530,7 +654,7 @@
                 <ListView ItemsSource="{Binding StartupSections}"
                           SelectedIndex="{Binding StartupSectionIndex, Mode=TwoWay}"
                           SelectionMode="Single"
-                          ItemContainerStyle="{StaticResource StretchListViewItemStyle}">
+                          ItemContainerStyle="{StaticResource SourcesCardListViewItemStyle}">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:StartupSectionVm">
                             <Grid ColumnSpacing="8">
@@ -577,10 +701,10 @@
                     </Grid.ColumnDefinitions>
                     <AutoSuggestBox Grid.Column="0" PlaceholderText="Search name or command..." QueryIcon="Find"
                                     Text="{Binding StartupSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <CheckBox Grid.Column="1" Content="Hide Microsoft services" VerticalAlignment="Center"
-                              IsChecked="{Binding HideMicrosoftServices, Mode=TwoWay}"
+                    <CheckBox Grid.Column="1" Content="Hide Microsoft entries" VerticalAlignment="Center"
+                              IsChecked="{Binding HideMicrosoftEntries, Mode=TwoWay}"
                               Visibility="{Binding MicrosoftFilterVis}"
-                              ToolTipService.ToolTip="Hide services whose binary reports a Microsoft company name" />
+                              ToolTipService.ToolTip="Hide Microsoft services and Microsoft scheduled tasks" />
                     <TextBlock Grid.Column="2" Text="{Binding StartupSummaryText}"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -596,13 +720,13 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0" Padding="12,8" ColumnSpacing="12">
+                    <Grid Grid.Row="0" Padding="12,8" Margin="0,0,12,0" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="56" />
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="96" />
                             <ColumnDefinition Width="4*" />
-                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="48" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Start" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -618,16 +742,21 @@
 
                     <ListView Grid.Row="1" ItemsSource="{Binding CurrentStartupEntries}"
                               SelectionMode="None"
-                              ItemContainerStyle="{StaticResource StretchListViewItemStyle}">
+                              ItemContainerStyle="{StaticResource TableRowListViewItemStyle}">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:StartupEntry">
-                                <Grid ColumnSpacing="12" Padding="0,8">
+                                <Border x:Name="RowSurface" CornerRadius="8" Background="Transparent" Padding="12,8"
+                                        PointerEntered="StartupRow_PointerEntered"
+                                        PointerExited="StartupRow_PointerExited"
+                                        PointerPressed="StartupRow_PointerPressed"
+                                        PointerReleased="StartupRow_PointerReleased">
+                                <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="56" />
                                         <ColumnDefinition Width="2*" />
                                         <ColumnDefinition Width="96" />
                                         <ColumnDefinition Width="4*" />
-                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="48" />
                                     </Grid.ColumnDefinitions>
                                     <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" OnContent="" OffContent=""
                                                   VerticalAlignment="Center"
@@ -647,12 +776,14 @@
                                                IsTextSelectionEnabled="True" VerticalAlignment="Center"
                                                ToolTipService.ToolTip="{x:Bind Command}" />
                                     <Button Grid.Column="4" Click="DeleteStartupEntry_Click" Tag="{x:Bind}"
-                                            VerticalAlignment="Center"
+                                            Width="32" Height="32" Padding="0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Center"
                                             AutomationProperties.Name="Delete entry"
                                             ToolTipService.ToolTip="Delete this entry">
-                                        <FontIcon Glyph="&#xE74D;" />
+                                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
                                     </Button>
                                 </Grid>
+                                </Border>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>

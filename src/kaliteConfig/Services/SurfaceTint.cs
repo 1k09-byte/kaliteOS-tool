@@ -20,10 +20,9 @@ internal static class SurfaceTint
         "LayerFillColorDefaultBrush",
         "SubtleFillColorSecondaryBrush",
         "SubtleFillColorTertiaryBrush",
-        "CardStrokeColorDefaultBrush",
-        "ControlStrokeColorDefaultBrush",
-        "SurfaceStrokeColorDefaultBrush",
         "ApplicationPageBackgroundThemeBrush",
+        // Strokes stay neutral on purpose: tinting them turned every card outline
+        // into a coloured line, which reads as a selection rather than an edge.
     };
 
     private static readonly Dictionary<string, Color> Base = new(StringComparer.Ordinal);

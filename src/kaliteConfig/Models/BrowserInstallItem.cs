@@ -90,12 +90,6 @@ namespace kaliteConfig.Models
         public ObservableCollection<ExtensionItem> Extensions { get; set; } = new();
     }
 
-    public enum AppViewMode
-    {
-        Card,
-
-        Compact,
-    }
 
     public enum BrowserInstallStatus
     {
