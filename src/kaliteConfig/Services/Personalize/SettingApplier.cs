@@ -121,6 +121,8 @@ public sealed class SettingApplier
         }
         if (e.Kind == "DWord")
             HkcuRegistry.Write(e.SubKey, e.Name, int.Parse(e.Value ?? "0", CultureInfo.InvariantCulture), RegistryValueKind.DWord);
+        else if (e.Kind == "Binary")
+            HkcuRegistry.Write(e.SubKey, e.Name, SnapshotStore.RestoreValue(e)!, RegistryValueKind.Binary);
         else
             HkcuRegistry.Write(e.SubKey, e.Name, e.Value ?? "", RegistryValueKind.String);
     }

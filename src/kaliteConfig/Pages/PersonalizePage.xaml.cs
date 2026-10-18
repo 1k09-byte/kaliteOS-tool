@@ -147,6 +147,11 @@ public sealed partial class PersonalizePage : Page
         if (results.Any(r => r.Ok)) await ConfirmKeepAsync(ViewModel.RevertCursorSection);
     }
 
+    private void PreviewAccent_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.PreviewAccentCommand.Execute(null);
+    }
+
     private async void ApplyCursorPack_Click(object sender, RoutedEventArgs e)
     {
         try
