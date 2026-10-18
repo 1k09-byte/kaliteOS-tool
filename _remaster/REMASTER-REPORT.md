@@ -638,3 +638,111 @@ as an explicit narrow state.
 5. **`PackageManagerPage` and its five child pages are unreachable.** Decide: wire the
    package-manager section into the nav, or delete it. Currently it is ~640 lines of XAML plus
    ViewModels that no user can reach.
+
+---
+
+# Addendum 5 — Crash fix, empty space, Uninstaller restock
+
+## Commits
+| Commit | Contents |
+|---|---|
+| `5ac198b` | Register PersonalizeViewModel in DI to fix Personalize page crash |
+| `3da2aa5` | Stop category cards stretching and tighten tile size on Apps page |
+| `349f382` | Restock Uninstaller Remover and Startup panels and convert typography to stock type ramp |
+
+Debug x64 build **0 errors, 0 warnings**.
+
+## Crash fixed — `PersonalizePage` and `SettingsPage` — `5ac198b`
+
+### How it was found
+`crash.log` in the repo root is stale (Oct 7). `App.xaml.cs:88` writes real crashes to
+`%LOCALAPPDATA%\kaliteConfig\logs\crash.log`, and that file was **empty** and last written
+Oct 13 — so the current failure was not reaching the `UnhandledException` handler. Guessing
+from the source was not working, so a temporary probe was added to `MainWindow` that drove the
+real navigation path (`NavView.SelectedItem`) through the rail and logged each outcome. The
+probe was removed again in the same pass; `git status` is clean apart from the fix.
+
+### The bug
+`Pages/PersonalizePage.xaml.cs:28`
+
+```csharp
+ViewModel = App.Services.Get<PersonalizeViewModel>();
+```
+
+`ServiceCollectionExtensions.Get<T>()` (`ServiceCollectionExtensions.cs:61`) returns
+`default` for an unregistered type, so `ViewModel` was `null` and the very next statement
+
+```csharp
+ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+```
+
+threw `NullReferenceException` in the constructor. Captured verbatim:
+
+```
+[ERR] PersonalizePage: TargetInvocationException
+ ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at kaliteConfig.Pages.PersonalizePage..ctor() ... PersonalizePage.xaml.cs:line 31
+```
+
+`PersonalizeViewModel` was the **only** page ViewModel missing from the DI list — the other
+twelve (`AffinityViewModel`, `NetworkViewModel`, `InstallerViewModel`, `PowerPlansViewModel`,
+`ThreadTunerViewModel`, `SnipViewModel`, `BiosManagerViewModel`, `GpuDriversViewModel`,
+`UninstallerViewModel`, `UpdateViewModel`, `EtwManagerViewModel`,
+`ReservedCpuSetsViewModel`, `WindhawkProvisioningViewModel`) are all registered. Its four
+constructor dependencies (`IThemeSettingsService`, `ICursorService`, `IWallpaperService`,
+`WindowsCapabilityService`) were already registered; only the ViewModel was not.
+
+Fix: `s.AddTransient<PersonalizeViewModel>();`
+
+Post-fix probe through the real rail navigation:
+
+```
+[03:03:06] Settings navigated OK
+[03:03:08] PersonalizePage navigated OK
+[03:03:09] AppsPage navigated OK
+```
+
+### This was pre-existing, not caused by the remaster
+Nothing in this branch touched `PersonalizePage`'s constructor, its ViewModel, or the DI
+registrations. `PersonalizePage` would have thrown the same way before the remaster. The
+reported "settings" crash was the same stale-build confusion as the Apps page — once the DI
+fix was in, both Settings and Personalize navigate cleanly.
+
+## Empty space on Apps page — `3da2aa5`
+
+Cause: the four category cards sat in a 2×2 `Grid` with `Auto` rows. `Border` defaults to
+`VerticalAlignment="Stretch"`, so **Launcher and Utilities were stretched to the height of the
+tallest card in their row** (Web Browsers / Socials), leaving a large empty region inside each
+short card.
+
+Fix:
+- `VerticalAlignment="Top"` on `BrowserCard`, `LauncherCard`, `SocialCard`, `UtilityCard` —
+  each card now hugs its content.
+- `UniformGridLayout` `MinItemWidth` 184 → 160 and `MinItemHeight` 192 → 176 on all four
+  categories, so tiles are denser and the tall categories are shorter.
+
+## Uninstaller page restocked — `349f382`
+
+The earlier pass only covered the Uninstaller tab's main app list. The Remover and Startup
+panels were still fully custom, and 89 `TextBlock` elements across the whole page still set
+fixed `FontSize` values.
+
+**Typography:** all **79** `TextBlock` `FontSize` attributes converted to the stock type ramp
+(`9/10/11/12` → `CaptionTextBlockStyle`, `13/14/15` → `BodyTextBlockStyle`,
+`16/17` → `BodyStrongTextBlockStyle`, `18/19/20` → `SubtitleTextBlockStyle`,
+`22+` → `TitleTextBlockStyle`). The 7 `FontIcon` `FontSize` values were left alone — icon
+glyph size is not text typography.
+
+**Remover and Startup panels:** 8 `Border`s carrying hand-written
+`CardBackgroundFillColorDefaultBrush` + `CardStrokeColorDefaultBrush` + `BorderThickness="1"`
++ `CornerRadius` were replaced with `Style="{StaticResource CardBorder}"`, plus one more on
+the Startup panel.
+
+**Page totals now:** `TextBlock FontSize` **0**, literal `CornerRadius` **0**, hardcoded hex
+**0**, leftover `RemoverSectionTitle`/`RemoverCaption`/`RemoverFlatListItemStyle` **0**. All 15
+`x:Name`s intact.
+
+## Still outstanding
+Unchanged from Addendum 3: 32 pages not remade, ~1,600 `FontSize` attributes and ~160 literal
+`CornerRadius` on other pages, ~90 hardcoded colours in C# drawing code, 22 dialogs, the inert
+font-preference feature, and no light/dark/high-contrast/scaling verification.
