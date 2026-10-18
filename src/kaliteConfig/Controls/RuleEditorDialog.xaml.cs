@@ -480,6 +480,37 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
     }
 
+    private async void ViewLiveThreads_Click(object sender, RoutedEventArgs e)
+    {
+        string name = (Draft.Name ?? string.Empty).Trim();
+        int paren = name.IndexOf(" (", StringComparison.Ordinal);
+        if (paren > 0) name = name[..paren];
+        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            name = name[..^4];
+        if (string.IsNullOrEmpty(name))
+        {
+            RuleEditorStatus("Type a target process name first.", true);
+            return;
+        }
+        Process? target = null;
+        try { target = Process.GetProcessesByName(name).FirstOrDefault(); } catch { }
+        if (target is null)
+        {
+            RuleEditorStatus($"'{name}' is not running right now.", true);
+            return;
+        }
+        try
+        {
+            var dlg = new ThreadListDialog();
+            await dlg.ShowForProcessAsync(target.Id, target.ProcessName, this.XamlRoot);
+        }
+        catch (Exception ex)
+        {
+            RuleEditorStatus("Could not open live threads: " + ex.Message, true);
+        }
+        finally { try { target.Dispose(); } catch { } }
+    }
+
     private void ThreadRule_DeleteButton_Click(object sender, RoutedEventArgs e)
     {
         var rule = _selectedRule

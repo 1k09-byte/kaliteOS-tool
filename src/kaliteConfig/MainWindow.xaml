@@ -45,7 +45,7 @@
             x:Name="NavRailMask"
             Grid.Row="0"
             Grid.RowSpan="2"
-            Width="68"
+            Width="76"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -67,8 +67,8 @@
             IsSettingsVisible="False"
             IsPaneToggleButtonVisible="False"
             PaneDisplayMode="Left"
-            OpenPaneLength="68"
-            CompactPaneLength="68"
+            OpenPaneLength="76"
+            CompactPaneLength="76"
             IsPaneOpen="True"
             SelectionChanged="NavView_SelectionChanged">
             
@@ -169,6 +169,10 @@
                     <ToolTipService.ToolTip><ToolTip Visibility="Collapsed" /></ToolTipService.ToolTip>
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE7A8;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Fix" Tag="TroubleshootingPage" AutomationProperties.Name="Troubleshooting" Padding="0">
+                    <ToolTipService.ToolTip><ToolTip Visibility="Collapsed" /></ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE7BA;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Settings" Tag="Settings" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
@@ -263,29 +267,5 @@
             </Grid>
         </Border>
 
-        <Border x:Name="VerificationOverlay"
-                Grid.RowSpan="2"
-                Visibility="Visible"
-                Background="{ThemeResource ContentDialogBackground}"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch"
-                Canvas.ZIndex="200">
-            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="28">
-                    <StackPanel Spacing="16" HorizontalAlignment="Center">
-                        <FontIcon Glyph="&#xE72E;" FontSize="32" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="KaliteOS only" Style="{StaticResource SubtitleTextBlockStyle}" TextAlignment="Center" HorizontalAlignment="Center" />
-                        <TextBlock Text="You can only run this toolkit on KaliteOS."
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap" FontSize="13" TextAlignment="Center" HorizontalAlignment="Center" />
-                        <Button Content="Exit" Click="VerificationExit_Click" HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
     </Grid>
 </Window>

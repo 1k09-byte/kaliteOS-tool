@@ -33,6 +33,8 @@
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
+                    CornerRadius="8"
+                    Padding="12,8"
                     Click="BrowserCard_Click"
                     Tag="{x:Bind}"
                     Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
@@ -83,9 +85,9 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Margin="40,24,40,0" Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
+        <TextBlock Grid.Row="0" Margin="28,16,28,0" Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
 
-        <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="40,8,40,0"
+        <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="28,4,28,0"
                      HorizontalAlignment="Left"
                      SelectionChanged="MainSelectorBar_SelectionChanged">
             <SelectorBarItem x:Name="TabInstall" Text="Install" IsSelected="True" />
@@ -93,8 +95,8 @@
         </SelectorBar>
 
         <Grid x:Name="InstallPanel" Grid.Row="2">
-            <ScrollViewer Padding="40,4,40,28" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
-                <Grid x:Name="CategoryGrid" MaxWidth="1400" Margin="0,8,0,32" RowSpacing="16" ColumnSpacing="16">
+            <ScrollViewer Padding="28,4,28,20" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                <Grid x:Name="CategoryGrid" MaxWidth="1400" Margin="0,4,0,16" RowSpacing="8" ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
@@ -106,16 +108,16 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Spacing="12">
-                        <Border Style="{StaticResource CardBorder}" Padding="12,8">
-                            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <StackPanel Grid.Row="0" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center"
+                                    HorizontalAlignment="Right">
                                 <ToggleSwitch IsOn="{x:Bind ViewModel.ShowInstalled, Mode=TwoWay}"
+                                              OnContent="" OffContent="" MinWidth="0"
                                               ToolTipService.ToolTip="Reveal installed apps (with uninstall option)." />
                                 <TextBlock Text="Show installed apps" VerticalAlignment="Center"
                                            Style="{StaticResource BodyTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                        </Border>
+                        </StackPanel>
 
                         <InfoBar Message="Everything here is already installed - nothing left to install."
                                  Severity="Informational" IsOpen="True" IsClosable="False"
@@ -123,8 +125,8 @@
                     </StackPanel>
 
                     <Border x:Name="BrowserCard" Grid.Row="1" Grid.Column="0" VerticalAlignment="Top"
-                            Padding="0,4,0,18">
-                        <StackPanel Spacing="12">
+                            Padding="0,0,0,8">
+                        <StackPanel Spacing="8">
                             <TextBlock Text="Web Browsers" Style="{StaticResource SubtitleTextBlockStyle}" />
                             <ItemsRepeater x:Name="BrowserList" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
@@ -133,8 +135,8 @@
                     </Border>
 
                     <Border x:Name="LauncherCard" Grid.Row="2" Grid.Column="0" VerticalAlignment="Top"
-                            Padding="0,4,0,18">
-                        <StackPanel Spacing="12">
+                            Padding="0,0,0,8">
+                        <StackPanel Spacing="8">
                             <TextBlock Text="Game Launchers" Style="{StaticResource SubtitleTextBlockStyle}" />
                             <ItemsRepeater x:Name="LauncherList" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
@@ -143,8 +145,8 @@
                     </Border>
 
                     <Border x:Name="SocialCard" Grid.Row="3" Grid.Column="0" VerticalAlignment="Top"
-                            Padding="0,4,0,18">
-                        <StackPanel Spacing="12">
+                            Padding="0,0,0,8">
+                        <StackPanel Spacing="8">
                             <TextBlock Text="Socials &amp; Communication" Style="{StaticResource SubtitleTextBlockStyle}" />
                             <ItemsRepeater x:Name="SocialList" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
@@ -153,8 +155,8 @@
                     </Border>
 
                     <Border x:Name="UtilityCard" Grid.Row="4" Grid.Column="0" VerticalAlignment="Top"
-                            Padding="0,4,0,18">
-                        <StackPanel Spacing="12">
+                            Padding="0,0,0,8">
+                        <StackPanel Spacing="8">
                             <TextBlock Text="Utilities" Style="{StaticResource SubtitleTextBlockStyle}" />
                             <ItemsRepeater x:Name="UtilityList" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
