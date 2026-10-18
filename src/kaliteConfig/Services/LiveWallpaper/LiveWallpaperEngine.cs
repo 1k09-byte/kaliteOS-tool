@@ -108,9 +108,11 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
         if (targets.Count == 0)
             return (false, "There is nothing to play on.");
         _queue = DispatcherQueue.GetForCurrentThread();
-        StopHosts();
+        try { StopHosts(); } catch { }
         State = LiveState.Starting;
         Notify();
+        try
+        {
         foreach (var (area, item) in targets)
         {
             if (item.Kind == LiveKind.Video && !System.IO.File.Exists(item.Path))
@@ -141,6 +143,14 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
                 return (false, error ?? attachError ?? "The wallpaper could not be placed behind the desktop icons.");
             }
             _active.Add(host);
+        }
+        }
+        catch (Exception ex)
+        {
+            try { StopHosts(); } catch { }
+            State = LiveState.Failed;
+            Notify();
+            return (false, "The wallpaper could not start: " + ex.Message);
         }
         CurrentItem = targets[0].Item;
         _userPaused = false;
@@ -207,13 +217,15 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
 
     public void StopAndRestore()
     {
+        try
+        {
         if (_queue is not null && !_queue.HasThreadAccess)
         {
             try { _queue.TryEnqueue(StopAndRestore); } catch { }
             return;
         }
-        StopTimers();
-        StopHosts();
+        try { StopTimers(); } catch { }
+        try { StopHosts(); } catch { }
         CurrentItem = null;
         _userPaused = false;
         _monitorPaused = false;
@@ -224,13 +236,15 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
             State = LiveState.Stopped;
             Notify();
         }
+        }
+        catch { }
     }
 
     public async Task<(bool Ok, string? Error)> TryResumeOnLaunchAsync()
     {
         var settings = _store.LoadSettings();
         _settings = settings;
-        if (!settings.FeatureEnabled || !settings.ResumeOnLaunch || string.IsNullOrEmpty(settings.LastItemId))
+        if (!settings.FeatureEnabled || string.IsNullOrEmpty(settings.LastItemId))
             return (true, null);
         var item = _library.List().FirstOrDefault(i => i.Id == settings.LastItemId);
         if (item is null) return (true, null);
