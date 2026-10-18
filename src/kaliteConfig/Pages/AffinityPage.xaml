@@ -8,12 +8,6 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
-        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
-        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
-        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
-        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
-        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
         <Style x:Key="AffinityRowContainerStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
