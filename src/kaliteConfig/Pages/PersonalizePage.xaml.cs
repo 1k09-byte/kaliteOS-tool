@@ -19,6 +19,8 @@ public sealed partial class PersonalizePage : Page
 {
     private const int KeepSeconds = 15;
 
+    private bool _systemPickerOpen;
+
     private static readonly string[] WallpaperExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
 
     public PersonalizeViewModel ViewModel { get; }
@@ -44,12 +46,21 @@ public sealed partial class PersonalizePage : Page
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {
-        if (args.WindowActivationState != WindowActivationState.Deactivated) RefreshFromSystem();
+        if (args.WindowActivationState == WindowActivationState.Deactivated) return;
+        if (_systemPickerOpen) return;
+        RefreshFromSystem();
     }
 
     private void RefreshFromSystem()
     {
-        ViewModel.Reload();
+        try
+        {
+            ViewModel.Reload();
+        }
+        catch
+        {
+            return;
+        }
         UpdatePreview();
     }
 
@@ -102,6 +113,7 @@ public sealed partial class PersonalizePage : Page
 
         DispatcherQueue.TryEnqueue(async () =>
         {
+            _systemPickerOpen = true;
             try
             {
                 var picker = new FileOpenPicker
@@ -113,13 +125,18 @@ public sealed partial class PersonalizePage : Page
                 foreach (var ext in WallpaperExtensions) picker.FileTypeFilter.Add(ext);
 
                 var file = await picker.PickSingleFileAsync();
-                if (file is null) return;
-
-                await ViewModel.AddWallpaperAsync(file.Path);
-                UpdatePreview();
+                if (file is not null)
+                {
+                    await ViewModel.AddWallpaperAsync(file.Path);
+                    UpdatePreview();
+                }
             }
-            catch (Exception)
+            catch
             {
+            }
+            finally
+            {
+                _systemPickerOpen = false;
             }
         });
     }
@@ -139,7 +156,21 @@ public sealed partial class PersonalizePage : Page
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
         picker.FileTypeFilter.Add("*");
 
-        var folder = await picker.PickSingleFolderAsync();
+        _systemPickerOpen = true;
+        Windows.Storage.StorageFolder? folder;
+        try
+        {
+            folder = await picker.PickSingleFolderAsync();
+        }
+        catch
+        {
+            return;
+        }
+        finally
+        {
+            _systemPickerOpen = false;
+        }
+
         if (folder is null) return;
 
         await ViewModel.ScanSchemeFolderAsync(folder.Path);
