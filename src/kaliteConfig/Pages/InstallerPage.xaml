@@ -99,7 +99,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Apps" Style="{StaticResource KalitePageTitle}" />
+            <TextBlock Text="Apps" Style="{StaticResource TitleLargeTextBlockStyle}" />
             <StackPanel x:Name="ViewModePanel" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                 <RadioButton x:Name="ViewCardBtn" GroupName="AppViewMode" Content="Cards"
                              IsChecked="True" Click="ViewMode_Click"
@@ -117,7 +117,7 @@
             <SelectorBarItem x:Name="TabUninstall" Text="Uninstall" />
         </SelectorBar>
 
-        <Grid x:Name="InstallPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="InstallPanel" Grid.Row="2">
         <ScrollViewer
             Padding="40,0,40,28"
             VerticalScrollBarVisibility="Auto"
@@ -136,7 +136,7 @@
                          Severity="Informational" IsOpen="True" IsClosable="False"
                          Visibility="{x:Bind ViewModel.NothingToInstall, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 <StackPanel Spacing="20">
-                    <TextBlock Text="Web Browsers" Style="{StaticResource KaliteSectionTitle}" />
+                    <TextBlock Text="Web Browsers" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <ItemsRepeater x:Name="BrowserGrid" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -156,7 +156,7 @@
                 </StackPanel>
 
                 <StackPanel Spacing="20">
-                    <TextBlock Text="Game Launchers" Style="{StaticResource KaliteSectionTitle}" />
+                    <TextBlock Text="Game Launchers" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <ItemsRepeater x:Name="LauncherGrid" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -176,7 +176,7 @@
                 </StackPanel>
 
                 <StackPanel Spacing="20">
-                    <TextBlock Text="Socials &amp; Communication" Style="{StaticResource KaliteSectionTitle}" />
+                    <TextBlock Text="Socials &amp; Communication" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <ItemsRepeater x:Name="SocialGrid" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -196,7 +196,7 @@
                 </StackPanel>
 
                 <StackPanel Spacing="20">
-                    <TextBlock Text="Utilities" Style="{StaticResource KaliteSectionTitle}" />
+                    <TextBlock Text="Utilities" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <ItemsRepeater x:Name="UtilityGrid" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
                                    ItemTemplate="{StaticResource InstallerCardTemplate}"
                                    HorizontalAlignment="Left">
@@ -237,7 +237,7 @@
             <StackPanel Spacing="16">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                      <Image Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" Source="{x:Bind ViewModel.SelectedBrowser.ImagePath, Mode=OneWay, Converter={StaticResource AssetPathConverter}}"/>
-                     <TextBlock Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
+                     <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.SelectedBrowser.Name, Mode=OneWay}"/>
                 </StackPanel>
 
                 <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.SelectedBrowser.Description, Mode=OneWay}"/>

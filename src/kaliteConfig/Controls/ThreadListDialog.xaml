@@ -94,7 +94,7 @@
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            x:Name="NoSelectionText" />
                 <StackPanel Spacing="10" x:Name="EditorPanel" Visibility="Collapsed">
-                    <TextBlock x:Name="EditorTitle" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="EditorTitle" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                     <TextBlock x:Name="EditorSub" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                     <TextBlock Text="Thread priority" Style="{StaticResource CaptionTextBlockStyle}" />

@@ -250,7 +250,7 @@
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE713;" FontSize="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Setting up KaliteOS" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" />
+                                <TextBlock Text="Setting up KaliteOS" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
                             </StackPanel>
                             <TextBlock Text="First launch detected - installing Windhawk and importing mods. This may take a few minutes…"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -295,7 +295,7 @@
                         Padding="28">
                     <StackPanel Spacing="16" HorizontalAlignment="Center">
                         <FontIcon Glyph="&#xE72E;" FontSize="32" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="KaliteOS only" Style="{StaticResource KaliteSectionTitle}" TextAlignment="Center" HorizontalAlignment="Center" />
+                        <TextBlock Text="KaliteOS only" Style="{StaticResource SubtitleTextBlockStyle}" TextAlignment="Center" HorizontalAlignment="Center" />
                         <TextBlock Text="You can only run this toolkit on KaliteOS."
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" FontSize="13" TextAlignment="Center" HorizontalAlignment="Center" />
