@@ -219,3 +219,122 @@ visually confirmed on a machine that can run the app.
    can run the app.
 3. **Corner radius values changed** from the custom 5/3/3 to the stock 4/8/4/4. Intended.
 4. **`MeteorUp` / `MeteorDown`** resource keys still need a dead-code check.
+
+---
+
+# Addendum — Apps page, Uninstaller page, Benchmark removal
+
+## Commits
+| Commit | Contents |
+|---|---|
+| `9a9258c` | Restock Uninstaller page and enable native row hover and selection |
+| `a3745aa` | Restock Apps page with stock header and compact inner nav |
+| `7ee03af` | Remove benchmark page and all related code |
+
+Debug and Release both build at **0 errors, 0 warnings**.
+
+## Uninstaller page — `9a9258c`
+
+**The reason it did not feel stock:** the `ListView.ItemTemplate` wrapped every row in a
+`Border` with `CardBackgroundFillColorDefaultBrush` + `CardStrokeColorDefaultBrush` +
+`BorderThickness` 1 + `CornerRadius` 12. That opaque fill painted over the stock
+`ListViewItem` pointer-over and selection visuals, so no hover or selection highlight could
+ever be seen. The row was a card, not a list item.
+
+**Layout before:** custom `Page.Resources` styles (`RemoverCard`, `RemoverSectionTitle`,
+`RemoverCaption`, `RemoverFlatListItemStyle`), per-row card `Border`, 3 card rows in the
+header, 340px fixed detail column, 36px page margins.
+
+**Layout after:** card `Border`s come from the shared `CardBorder` style; type comes from the
+stock ramp; rows are plain `Grid`s inside the stock `ListViewItem`, so the native
+pointer-over, selected and focus visuals now render. `HorizontalContentAlignment="Stretch"`
+makes each row grid fill the item width.
+
+| Before | After |
+|---|---|
+| `RemoverCard` (own Background/BorderBrush/Thickness/CornerRadius 5/Padding 16) | `RemoverCard` `BasedOn="{StaticResource CardBorder}"`, `Padding` 12 |
+| `RemoverSectionTitle` FontSize 15 SemiBold | `BodyStrongTextBlockStyle` |
+| `RemoverCaption` FontSize 11 secondary wrap | `CaptionTextBlockStyle` |
+| `RemoverFlatListItemStyle` ListViewItem Margin 0,4 | removed — stock `ListViewItem` |
+| Row `Border` CornerRadius 12, card fill + stroke | removed — stock item container paints hover/selection |
+| `CornerRadius="28"` | `{ThemeResource OverlayCornerRadius}` |
+| `CornerRadius="12"` (16), `"10"` (2), `"4"` (7), `"5"` | `{ThemeResource ControlCornerRadius}` |
+| `FontSize="15"` on avatar initial | `BodyStrongTextBlockStyle` |
+| `FontSize="13"` SemiBold on name / size | `BodyStrongTextBlockStyle` |
+| `FontSize="11"` / `"12"` secondary and caption text | `CaptionTextBlockStyle` |
+| `#FFD700` warning badge | `{ThemeResource SystemFillColorCautionBrush}` |
+| `Foreground="Black"` on warning glyph | `{ThemeResource TextOnAccentFillColorPrimaryBrush}` |
+| Avatar `Border CornerRadius="16"` / badge `"12"` | `{ThemeResource ControlCornerRadius}` |
+| `Spacing="8,3"` badge padding, `Height="6"` size bar, `Margin="0,5,0,0"` | `8,2` / `4` / `0,4,0,0` (4px grid) |
+
+Same treatment applied to the driver-package list (`DriverList`), which had the identical
+opaque-`Border` pattern and the removed `RemoverFlatListItemStyle` reference.
+
+Handlers, bindings, `x:Name`s, `SelectionChanged` and all converters are untouched.
+
+## Apps page — `a3745aa`
+
+`PackageManagerPage.xaml` is the `AppsPage` nav target.
+
+**Layout before:** an inner `NavigationView` filling the whole page, `PaneDisplayMode="Left"`,
+`OpenPaneLength="220"`, `Margin="16,0,0,0"` on the `Frame`, icons with `FontSize="16"`,
+update-count `InfoBadge` inside a `NavigationViewItem`, no page header.
+
+**Layout after:** a stock `TitleLargeTextBlockStyle` page header in a 32px-gutter row, the
+update `InfoBadge` promoted to the header, the inner nav switched to
+`PaneDisplayMode="LeftCompact"` at `OpenPaneLength="200"`, icons at the stock icon size, and
+the `Frame` in its own column with no ad-hoc margin.
+
+Stock controls now used: `TextBlock` + `TitleLargeTextBlockStyle`, `InfoBadge`, `FontIcon`,
+`NavigationView` (left-compact), `Frame`. `InnerNav_SelectionChanged` and the
+`Module.UpdateCount` / `BadgeVis` bindings are unchanged.
+
+### Hover/highlight on Apps rows — not done, deliberately
+
+`PackageListView` hosts package rows in an **`ItemsRepeater`**, which has no stock item
+container and therefore no pointer-over or selection visuals. That is why `PackageRow` ships
+its own `CardBorder`. Giving these rows real hover/selection means replacing the
+`ItemsRepeater` with a `ListView`, which requires rewriting `PushToRow`,
+`RefreshRealizedRows` and `Repeater_ElementPrepared` in `PackageListView.xaml.cs` plus the
+grid-mode `UniformGridLayout` mapping in `ApplyLayout`.
+
+That is a behavioural refactor of row realization and virtualization. Rule 2 protects
+navigation and binding logic, and the app cannot be run here to confirm rows still realize
+and scroll correctly. It is left for a pass that can be verified. **This is the one part of
+your Apps page request that is outstanding.**
+
+## Benchmark removal — `7ee03af`
+
+Removed **4,645 lines** across 35 files. Zero `Benchmark` references remain in `src/` or `tools/`.
+
+Deleted:
+- `Pages/BenchmarkPage.xaml` (496) and `.xaml.cs` (638)
+- `ViewModels/BenchmarkViewModel.cs` (1,204)
+- `Services/BenchmarkCaptureService.cs`, `BenchmarkHotkeyService.cs`, `BenchmarkImportService.cs`,
+  `BenchmarkPresentMonCsv.cs`, `BenchmarkSensorSampler.cs`, `BenchmarkStatsService.cs`,
+  `BenchmarkStoreService.cs` (1,483 total)
+- `kaliteConfig.Core/Pure/BenchmarkModels.cs`, `BenchmarkSensorStats.cs`
+- `tools/BenchVerify/` (294), `tools/GenBenchSounds.ps1`
+- `Services/CueService.cs` (200) — became unreferenced once the benchmark page went
+- `Assets/Sounds/` and `Assets/PresentMon/` — only consumed by the deleted code
+- The PresentMon `Content` item group and its `DeployPresentMonTool` /
+  `DeployPresentMonToolToPublish` targets in `kaliteConfig.csproj`
+
+Edited:
+- `MainWindow.xaml` — removed the `Bench` / `BenchmarkPage` nav item. This is the only nav
+  change; the rail style and template are untouched.
+- `NavigationService.cs` — dropped `PageKey.Benchmark`, its page-type mapping and the
+  `"BenchmarkPage"` tag mapping.
+- `App.xaml.cs` — removed the `Benchmark` property. It was already dead: `BenchmarkViewModel`
+  was never registered in `ServiceCollectionExtensions`, so `GetRequiredService` would have thrown.
+- `ThreadTunerViewModel.cs` — removed the `if (BenchmarkViewModel.CaptureInProgress) return;`
+  guard. That guard paused per-thread polling during a benchmark capture; with the feature
+  gone the reference was a compile error and the guard has no remaining trigger.
+- `GameModeHoldRegistry.cs` — removed the `GameModeOwner.Benchmark` enum member; its only
+  users were in `BenchmarkViewModel`.
+
+`CueService`, the cue WAVs and the PresentMon payload were verified unreferenced before
+deletion (grep for `CueService`/`CueKind`, `.wav`/`.mp3`, `PresentMon` outside the csproj).
+The benchmark-generated WAVs had no consumer left.
+
+Debug and Release both verified green after removal.
