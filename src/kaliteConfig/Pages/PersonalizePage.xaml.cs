@@ -147,6 +147,17 @@ public sealed partial class PersonalizePage : Page
         if (results.Any(r => r.Ok)) await ConfirmKeepAsync(ViewModel.RevertCursorSection);
     }
 
+    private async void ApplyCursorPack_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ViewModel.SelectCursorPackAsync(ViewModel.SelectedCursorPack);
+        }
+        catch
+        {
+        }
+    }
+
     private void RevertCursor_Click(object sender, RoutedEventArgs e) => ViewModel.RevertCursorSection();
 
     private async void PickCursorFolder_Click(object sender, RoutedEventArgs e)
@@ -173,7 +184,7 @@ public sealed partial class PersonalizePage : Page
 
         if (folder is null) return;
 
-        await ViewModel.ScanSchemeFolderAsync(folder.Path);
+        await ViewModel.ImportCursorPackAsync(folder.Path);
     }
 
     private async void ApplyScheme_Click(object sender, RoutedEventArgs e)

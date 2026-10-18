@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -19,6 +20,79 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     private readonly ICursorService _cursor;
     private readonly IWallpaperService _wallpaper;
     private IReadOnlyDictionary<string, string>? _pendingScheme;
+
+    public ObservableCollection<CursorPack> CursorPacks { get; } = new();
+
+    [ObservableProperty] public partial CursorPack? SelectedCursorPack { get; set; }
+
+    private void ReloadCursorPacks()
+    {
+        string? keep = SelectedCursorPack?.FolderPath;
+        CursorPacks.Clear();
+        foreach (var pack in _cursor.Packs())
+            CursorPacks.Add(pack);
+        SelectedCursorPack = CursorPacks.FirstOrDefault(p => p.FolderPath == keep)
+            ?? CursorPacks.FirstOrDefault();
+    }
+
+    public async Task SelectCursorPackAsync(CursorPack? pack)
+    {
+        if (pack is null) return;
+        var scan = await Task.Run(() => _cursor.ScanSchemeFolder(pack.FolderPath));
+        if (scan.Mapping.Count == 0)
+        {
+            Show(InfoBarSeverity.Warning, $"No usable cursor files were found in '{pack.Name}'.");
+            return;
+        }
+        _pendingScheme = scan.Mapping;
+        SchemeFolder = pack.FolderPath;
+        SchemeFileCount = scan.Mapping.Count;
+        Report(_cursor.ApplyScheme(scan.Mapping), $"Cursor pack '{pack.Name}' applied.");
+    }
+
+    public async Task ImportCursorPackAsync(string folder)
+    {
+        var scan = await Task.Run(() => _cursor.ScanSchemeFolder(folder));
+        if (scan.Mapping.Count == 0)
+        {
+            Show(InfoBarSeverity.Warning, "No cursor files were found in that folder.");
+            return;
+        }
+
+        string root = Path.Combine(SchemeRootForPacks(), "cursor-packs");
+        string name = new DirectoryInfo(folder).Name;
+        string target = Path.Combine(root, name);
+        try
+        {
+            Directory.CreateDirectory(root);
+            if (!Directory.Exists(target)) CopyFolder(folder, target);
+        }
+        catch (Exception ex)
+        {
+            Show(InfoBarSeverity.Warning, "Could not save that pack: " + ex.Message);
+        }
+
+        _pendingScheme = scan.Mapping;
+        SchemeFolder = folder;
+        SchemeFileCount = scan.Mapping.Count;
+        ReloadCursorPacks();
+        Report(_cursor.ApplyScheme(scan.Mapping), $"Cursor pack '{name}' applied.");
+    }
+
+    private string SchemeRootForPacks() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "kaliteConfig", "personalize", "cursors");
+
+    private static void CopyFolder(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var file in Directory.EnumerateFiles(from))
+        {
+            string ext = Path.GetExtension(file).ToLowerInvariant();
+            if (ext is not (".cur" or ".ani")) continue;
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)), overwrite: true);
+        }
+    }
 
     public PersonalizeViewModel(
         IThemeSettingsService theme,
@@ -70,6 +144,7 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         CaretWidth = _cursor.CurrentCaretWidth();
 
         ReloadLibrary();
+        ReloadCursorPacks();
 
         Monitors.Clear();
         Monitors.Add(new MonitorChoice(null, "All monitors"));

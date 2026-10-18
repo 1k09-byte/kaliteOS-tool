@@ -17,6 +17,7 @@ public interface ICursorService
 
     (string? Path, string? Error) ImportCursorFile(string sourcePath);
     SchemeScan ScanSchemeFolder(string folder);
+    IReadOnlyList<CursorPack> Packs();
 
     IReadOnlyList<SettingResult> ApplyScheme(IReadOnlyDictionary<string, string> roleToPath);
     IReadOnlyList<SettingResult> ApplyPointerSize(int size);
