@@ -83,9 +83,7 @@
             </Button>
         </Grid>
 
-        <Border x:Name="CardBorder" CornerRadius="10" Padding="14" Visibility="Collapsed"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+        <Border x:Name="CardBorder" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="14" Visibility="Collapsed">
             <StackPanel Spacing="6">
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>

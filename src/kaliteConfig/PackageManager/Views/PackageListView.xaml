@@ -8,14 +8,26 @@
     xmlns:local="using:kaliteConfig.PackageManager.Views"
     mc:Ignorable="d">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
-        <ItemsRepeater x:Name="Repeater" ElementPrepared="Repeater_ElementPrepared">
-            <ItemsRepeater.ItemTemplate>
-                <DataTemplate>
-                    <local:PackageRow Margin="0,0,0,8" HorizontalAlignment="Stretch"
-                                      HorizontalContentAlignment="Stretch" />
-                </DataTemplate>
-            </ItemsRepeater.ItemTemplate>
-        </ItemsRepeater>
-    </ScrollViewer>
+    <ListView x:Name="PackageList"
+              SelectionMode="None"
+              HorizontalContentAlignment="Stretch"
+              ScrollViewer.HorizontalScrollMode="Disabled"
+              ScrollViewer.VerticalScrollMode="Auto"
+              ContainerContentChanging="PackageList_ContainerContentChanging">
+        <ListView.Resources>
+            <ItemsPanelTemplate x:Key="ListLayoutPanel">
+                <ItemsStackPanel Orientation="Vertical" />
+            </ItemsPanelTemplate>
+            <ItemsPanelTemplate x:Key="GridLayoutPanel">
+                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="248" ItemHeight="168" />
+            </ItemsPanelTemplate>
+        </ListView.Resources>
+        <ListView.ItemTemplate>
+            <DataTemplate>
+                <local:PackageRow Margin="0,0,0,8"
+                                  HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch" />
+            </DataTemplate>
+        </ListView.ItemTemplate>
+    </ListView>
 </UserControl>
