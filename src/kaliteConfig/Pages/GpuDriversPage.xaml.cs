@@ -73,6 +73,7 @@ namespace kaliteConfig.Pages
         public static Visibility CheckBtnVis(GpuDriverStatus status, string vendor)
         {
             if (IsAmd(vendor)) return Visibility.Collapsed;
+            if (status == GpuDriverStatus.UpToDate) return Visibility.Collapsed;
             return InstallBtnVis(status) == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         }
 
