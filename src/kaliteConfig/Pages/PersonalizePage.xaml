@@ -14,6 +14,9 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:NotNullToBoolConverter x:Key="NotNullToBoolConverter" />
+        <converters:IntToFileCountConverter x:Key="IntToFileCountConverter" />
+        <converters:ZeroVisibilityConverter x:Key="ZeroVisibilityConverter" />
+        <converters:NonZeroVisibilityConverter x:Key="NonZeroToVisibilityConverter" />
         <Style x:Key="PersonalizeCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
     </Page.Resources>
 
@@ -127,51 +130,65 @@
             <StackPanel x:Name="CursorSection" Spacing="16" Visibility="Collapsed">
                 <Border Style="{StaticResource PersonalizeCard}" Padding="16">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Pointer" Style="{StaticResource BodyStrongTextBlockStyle}" />
-
-                        <NumberBox Header="Pointer size" Value="{Binding PointerSize, Mode=TwoWay}"
-                                   Minimum="32" Maximum="256" SpinButtonPlacementMode="Inline"
-                                   SmallChange="16" LargeChange="32" />
-
-                        <Slider Header="Pointer speed" Value="{Binding PointerSpeed, Mode=TwoWay}"
-                                Minimum="1" Maximum="20" StepFrequency="1" TickFrequency="1" />
-
-                        <ToggleSwitch Header="Enhance pointer precision"
-                                      IsOn="{Binding EnhancedPrecision, Mode=TwoWay}"
-                                      OnContent="On" OffContent="Off" />
-
-                        <NumberBox Header="Pointer trails (0 turns trails off)"
-                                   Value="{Binding Trails, Mode=TwoWay}"
-                                   Minimum="0" Maximum="12" SpinButtonPlacementMode="Inline" />
-
-                        <NumberBox Header="Lines to scroll per notch"
-                                   Value="{Binding WheelLines, Mode=TwoWay}"
-                                   Minimum="1" Maximum="100" SpinButtonPlacementMode="Inline" />
-
-                        <NumberBox Header="Text cursor (caret) thickness"
-                                   Value="{Binding CaretWidth, Mode=TwoWay}"
-                                   Minimum="1" Maximum="20" SpinButtonPlacementMode="Inline" />
-
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Apply cursor settings" Click="ApplyCursor_Click"
-                                    Style="{StaticResource AccentButtonStyle}" />
-                            <Button Content="Reset pointer to Windows default" Command="{Binding ResetCursorToDefaultsCommand}" />
-                            <Button Content="Restore cursor section" Click="RevertCursor_Click" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Cursor scheme" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock Text="Choose a folder of .cur and .ani files. Each file is mapped to a standard pointer role by its name."
+                        <TextBlock Text="Cursor packs" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="Choose a pack of custom cursor files. Each .cur or .ani file is matched to a pointer role by its name."
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding SchemeFolder}" TextTrimming="CharacterEllipsis"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                        <StackPanel Spacing="8" HorizontalAlignment="Center"
+                                    Visibility="{Binding CursorPacks.Count, Converter={StaticResource ZeroVisibilityConverter}}">
+                            <FontIcon Glyph="&#xE7F4;" FontSize="32"
+                                      Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                      HorizontalAlignment="Center" />
+                            <TextBlock Text="No cursor packs found" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Import a folder of .cur and .ani files to get started."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <ListView x:Name="CursorPackList"
+                                  ItemsSource="{Binding CursorPacks}"
+                                  SelectedItem="{Binding SelectedCursorPack, Mode=TwoWay}"
+                                  SelectionMode="Single"
+                                  MaxHeight="320"
+                                  HorizontalContentAlignment="Stretch"
+                                  Visibility="{Binding CursorPacks.Count, Converter={StaticResource NonZeroToVisibilityConverter}}"
+                                  AutomationProperties.Name="Cursor packs">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="8,6" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       Text="{Binding FileCount, Converter={StaticResource IntToFileCountConverter}}" />
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
+                                                VerticalAlignment="Center"
+                                                Visibility="{Binding IsBundled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="BUNDLED" Style="{StaticResource CaptionTextBlockStyle}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Choose scheme folder..." Click="PickCursorFolder_Click" />
-                            <Button Content="Apply scheme" Click="ApplyScheme_Click" />
+                            <Button Content="Apply selected pack" Click="ApplyCursorPack_Click"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    IsEnabled="{Binding SelectedCursorPack, Converter={StaticResource NotNullToBoolConverter}}" />
+                            <Button Content="Import pack from folder..." Click="PickCursorFolder_Click" />
+                            <Button Content="Reset to Windows default" Command="{Binding ResetCursorToDefaultsCommand}" />
+                            <Button Content="Restore cursor section" Click="RevertCursor_Click" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

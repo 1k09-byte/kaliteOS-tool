@@ -120,6 +120,53 @@ public sealed class CursorService : ICursorService
         return (destFull, null);
     }
 
+    public IReadOnlyList<CursorPack> Packs()
+    {
+        var packs = new List<CursorPack>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (root, source) in PackRoots())
+        {
+            if (!Directory.Exists(root)) continue;
+            IEnumerable<string> dirs;
+            try { dirs = Directory.EnumerateDirectories(root); }
+            catch { continue; }
+
+            foreach (var dir in dirs.OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                string name = Path.GetFileName(dir);
+                if (name.StartsWith('.')) continue;
+                if (!seen.Add(name)) continue;
+
+                int count = 0;
+                try
+                {
+                    count = Directory.EnumerateFiles(dir)
+                        .Count(f => Path.GetExtension(f).ToLowerInvariant() is ".cur" or ".ani");
+                }
+                catch { continue; }
+
+                if (count == 0) continue;
+                packs.Add(new CursorPack(name, dir, source, count));
+            }
+        }
+
+        return packs;
+    }
+
+    private IEnumerable<(string Root, string Source)> PackRoots()
+    {
+        yield return (Path.Combine(Path.GetDirectoryName(_store.TrimEnd('\\'))!, "cursor-packs"), "My packs");
+
+        string? dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 4 && dir is not null; i++)
+        {
+            string candidate = Path.Combine(dir, "Assets", "cursors");
+            if (Directory.Exists(candidate)) { yield return (candidate, "Bundled"); break; }
+            dir = Path.GetDirectoryName(dir.TrimEnd('\\'));
+        }
+    }
+
     public SchemeScan ScanSchemeFolder(string folder)
     {
         var mapping = new Dictionary<string, string>();
