@@ -845,3 +845,93 @@ Fixes:
 Unchanged: 32 pages not remade, ~1,600 `FontSize` and ~160 literal `CornerRadius` elsewhere,
 ~90 hardcoded colours in C# drawing code, 22 dialogs, inert font preference, and no
 light/dark/high-contrast/scaling verification.
+
+---
+
+# Addendum 7 — Install cards regression and picker COM error
+
+## Commits
+| Commit | Contents |
+|---|---|
+| `4760d47` | Restore install tile height and defer wallpaper picker activation out of input dispatch |
+
+Debug x64 build **0 errors, 0 warnings**.
+
+## Install cards disappeared — my regression, reverted
+
+In `96a987d` I set `UniformGridLayout MinItemHeight="0"` on all four category grids,
+reasoning that it would let tiles size to their content. **That was wrong.**
+`UniformGridLayout` derives item height from `MinItemHeight` when no explicit height exists,
+so `0` collapsed every tile to zero height and the cards vanished entirely.
+
+Reverted to `MinItemHeight="176"` on all four categories. The parts of `96a987d` that were
+correct are kept:
+
+- The card template root is a two-row `Grid`: row 0 `CardRoot` (`VerticalAlignment="Top"`),
+  row 1 the action button / busy ring. Nothing overlaps.
+- The outer `Grid` has `RowSpacing="6"`, so the action button sits directly under the card
+  rather than floating over it.
+- Card name uses `TextTrimming="CharacterEllipsis"`.
+
+`MinItemWidth` remains `160` and `MinItemHeight` `176`, which is the pair that rendered
+correctly in `3da2aa5` when the user could still see the cards.
+
+**I could not visually verify the tile geometry** — there is no display in this environment,
+so I can only confirm the build, the markup and the restored values. If the tiles still look
+wrong, a screenshot is the only way I will stop guessing at it.
+
+## `RPC_E_CANTCALLOUT_ININPUTSYNCCALL` when adding an image — `4760d47`
+
+**Status: mitigation applied, root cause NOT confirmed.** No stack trace was available, so
+this is a best-effort change, not a verified fix.
+
+### What is known
+- Trigger: adding an image on `PersonalizePage` (`AddWallpaper_Click`).
+- No entry appears in `%LOCALAPPDATA%\kaliteConfig\logs\crash.log`, so this is a
+  first-chance exception the debugger breaks on, not a fatal crash.
+- The picker code itself is correct: it constructs the `FileOpenPicker`, calls
+  `InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow))`
+  (required for an unpackaged app), adds the extension filters and awaits
+  `PickSingleFileAsync`.
+- There are **20** picker call sites across the app and the user reports only this one
+  failing, so the general pattern is not the problem.
+
+### The change
+`AddWallpaper_Click` no longer activates the picker directly inside the click handler. The
+handler is now a plain `void` that posts the work to `DispatcherQueue.TryEnqueue(async ...)`,
+so picker activation happens after the current input dispatch has completed rather than
+during it. A `try/catch` now wraps the body so a failure is contained instead of propagating
+out of the async lambda.
+
+```csharp
+private void AddWallpaper_Click(object sender, RoutedEventArgs e)
+{
+    ...guards...
+    DispatcherQueue.TryEnqueue(async () => { /* build picker, await PickSingleFileAsync */ });
+}
+```
+
+The observable behaviour is unchanged: same picker type, same `ViewMode`, same
+`SuggestedStartLocation`, same extension filters, same `AddWallpaperAsync` + `UpdatePreview`
+on success, same silent return when the user cancels.
+
+### What is still needed
+The stack trace. "Cannot evaluate the exception stack trace" means VS cannot walk it for this
+exception, so the caller cannot be identified from what was pasted. To pin it:
+
+1. Set a breakpoint on `first chance` `System.Runtime.InteropServices.COMException` at
+   kaliteConfig.dll only, or
+2. Open **Debug → Windows → Output** and find the call site, or
+3. Note the exact steps — which page, which button, and whether the window had just been
+   activated or a timer was running.
+
+One specific suspicion worth checking: `PersonalizePage.OnWindowActivated` calls
+`RefreshFromSystem()` → `ViewModel.Reload()` on **every window activation**, and the page sets
+`NavigationCacheMode="Enabled"`. If `Reload()` is doing COM work (file enumeration or
+thumbnail decode) when Add is pressed, that would produce exactly this error. It is a
+candidate, not a confirmed cause.
+
+## Outstanding
+Unchanged: 32 pages not remade, ~1,600 `FontSize` and ~160 literal `CornerRadius` elsewhere,
+~90 hardcoded colours in C# drawing code, 22 dialogs, inert font preference, and no visual
+verification of any page.
