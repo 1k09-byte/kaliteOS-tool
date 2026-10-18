@@ -96,6 +96,45 @@ namespace kaliteConfig.Pages
             catch (Exception ex) { ShowStatus("Install failed", ex.Message); }
         }
 
+        public static string RowActionLabel(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.UpdateAvailable ? "Update" : "Install";
+
+        public static Visibility RowActionVisibility(BrowserInstallStatus status)
+            => status is BrowserInstallStatus.NotInstalled
+                      or BrowserInstallStatus.UpdateAvailable
+                      or BrowserInstallStatus.Failed
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        public static bool IsBusyStatus(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.Downloading || status == BrowserInstallStatus.Installing;
+
+        public static Visibility BusyVisibility(BrowserInstallStatus status)
+            => IsBusyStatus(status) ? Visibility.Visible : Visibility.Collapsed;
+
+        private async void RowAction_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not BrowserInstallItem item) return;
+
+            ViewModel.SelectedBrowser = item;
+            btn.IsEnabled = false;
+            try
+            {
+                if (item.Status == BrowserInstallStatus.UpdateAvailable)
+                    await ViewModel.UpdateBrowserCommand.ExecuteAsync(item);
+                else
+                    await ViewModel.InstallBrowserCommand.ExecuteAsync(item);
+            }
+            catch (Exception ex)
+            {
+                ShowStatus("Install failed", ex.Message);
+            }
+            finally
+            {
+                btn.IsEnabled = !IsBusyStatus(item.Status);
+            }
+        }
+
         private void ShowStatus(string title, string message)
         {
             try
