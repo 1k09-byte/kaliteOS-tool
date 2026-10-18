@@ -102,9 +102,9 @@ public sealed class DesktopHostService : IDesktopHostService
             failReason = "The host window could not be placed behind the desktop icons.";
             return false;
         }
-        if (!Verify(host, area))
+        if (!VerifyDetail(host, area, out string verifyDetail))
         {
-            failReason = "Placement verification failed, so the host was removed.";
+            failReason = "Placement verification failed (" + verifyDetail + "), so the host was removed.";
             Detach(host);
             return false;
         }
@@ -113,17 +113,26 @@ public sealed class DesktopHostService : IDesktopHostService
 
     public bool Verify(IntPtr host, MonitorRect area)
     {
+        return VerifyDetail(host, area, out _);
+    }
+
+    public bool VerifyDetail(IntPtr host, MonitorRect area, out string detail)
+    {
+        detail = string.Empty;
         try
         {
-            if (host == IntPtr.Zero || !DesktopHostNative.IsWindowVisible(host)) return false;
+            if (host == IntPtr.Zero) { detail = "host handle is zero"; return false; }
+            if (!DesktopHostNative.IsWindowVisible(host)) { detail = "host window is not visible"; return false; }
             IntPtr parent = DesktopHostNative.GetParent(host);
-            if (parent == IntPtr.Zero || !DesktopHostNative.IsChild(parent, host)) return false;
-            if (!DesktopHostNative.GetWindowRect(host, out var r)) return false;
+            if (parent == IntPtr.Zero) { detail = "host has no parent"; return false; }
+            if (!DesktopHostNative.IsChild(parent, host)) { detail = "host is not a child of its parent"; return false; }
+            if (!DesktopHostNative.GetWindowRect(host, out var r)) { detail = "host rectangle could not be read"; return false; }
             int w = r.Right - r.Left;
             int h = r.Bottom - r.Top;
-            return w >= area.Width - 2 && h >= area.Height - 2;
+            if (w < area.Width - 8 || h < area.Height - 8) { detail = $"host is {w}x{h}, expected {area.Width}x{area.Height}"; return false; }
+            return true;
         }
-        catch { return false; }
+        catch (Exception ex) { detail = ex.Message; return false; }
     }
 
     public void Detach(IntPtr host)

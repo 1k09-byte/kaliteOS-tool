@@ -113,6 +113,20 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
         Notify();
         foreach (var (area, item) in targets)
         {
+            if (item.Kind == LiveKind.Video && !System.IO.File.Exists(item.Path))
+            {
+                StopHosts();
+                State = LiveState.Failed;
+                Notify();
+                return (false, "The video file is missing: " + item.Path + ". Remove it from the library and add it again.");
+            }
+            if (item.Kind == LiveKind.Html && !System.IO.Directory.Exists(item.Path))
+            {
+                StopHosts();
+                State = LiveState.Failed;
+                Notify();
+                return (false, "The HTML folder is missing: " + item.Path + ". Remove it from the library and add it again.");
+            }
             LiveHost host = item.Kind == LiveKind.Video
                 ? new LiveVideoHost(area)
                 : new LiveHtmlHost(area);
