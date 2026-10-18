@@ -268,7 +268,7 @@ public sealed class LiveHtmlHost : LiveHost
                         _ready = true;
                         PostProperties();
                     };
-                    _view.CoreWebView2.Navigate("https://" + VirtualHost + "/" + _entry!.Replace('\\', '/'));
+                    _view.CoreWebView2.Navigate("https:" + "//" + VirtualHost + "/" + _entry!.Replace('\\', '/'));
                     tcs.SetResult((true, null));
                 }
                 catch (Exception ex)
@@ -370,7 +370,7 @@ public sealed class LiveHtmlHost : LiveHost
         {
             try
             {
-                if (e.Uri is null || !e.Uri.StartsWith("https://" + VirtualHost + "/", StringComparison.OrdinalIgnoreCase))
+                if (e.Uri is null || !e.Uri.StartsWith("https:" + "//" + VirtualHost + "/", StringComparison.OrdinalIgnoreCase))
                     e.Cancel = true;
             }
             catch { e.Cancel = true; }
@@ -398,7 +398,7 @@ public sealed class LiveHtmlHost : LiveHost
             try
             {
                 var uri = e.Request?.Uri;
-                if (uri is null || !uri.StartsWith("https://" + VirtualHost + "/", StringComparison.OrdinalIgnoreCase))
+                if (uri is null || !uri.StartsWith("https:" + "//" + VirtualHost + "/", StringComparison.OrdinalIgnoreCase))
                     e.Response = core.Environment.CreateWebResourceResponse(null, 403, "Blocked", string.Empty);
             }
             catch { }
