@@ -242,17 +242,6 @@ namespace kaliteConfig
                     App.ShutdownTrace("tray-exit.close-returned");
                 });
             };
-            DispatcherQueue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    await System.Threading.Tasks.Task.Delay(System.TimeSpan.FromSeconds(15));
-                    var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
-                    if (live is not null && live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Stopped)
-                        await live.TryResumeOnLaunchAsync();
-                }
-                catch { }
-            });
             _tray.OnTakeScreenshot += (mode) =>
             {
                 DispatcherQueue.TryEnqueue(async () =>
