@@ -32,8 +32,6 @@ namespace kaliteConfig
         public static bool IsDryRun { get; private set; }
         public static bool IsAdmin { get; private set; }
 
-        public static bool VerificationFailed { get; private set; }
-
         public static bool StartedToTray { get; private set; }
 
         public IThemeService? ThemeService { get; set; }
@@ -237,28 +235,6 @@ namespace kaliteConfig
 
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            VerificationFailed = !IsDryRun && !SystemVerificationService.IsVerified();
-            if (VerificationFailed)
-            {
-                try
-                {
-                    var cmdArgs = Environment.GetCommandLineArgs();
-                    bool background = cmdArgs.Any(a =>
-                        a.Equals("--tray", StringComparison.OrdinalIgnoreCase) ||
-                        a.StartsWith("--apply-", StringComparison.OrdinalIgnoreCase));
-                    if (background)
-                    {
-                        Environment.Exit(0);
-                        return;
-                    }
-                }
-                catch
-                {
-                    Environment.Exit(0);
-                    return;
-                }
-            }
-
             using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
             {
                 currentProcess.PriorityClass = System.Diagnostics.ProcessPriorityClass.Idle;

@@ -135,6 +135,14 @@ public sealed partial class PersonalizeViewModel : ObservableObject
 
     [ObservableProperty] public partial bool MatchAccentToWallpaper { get; set; } = true;
 
+    [ObservableProperty] public partial Color AccentColor { get; set; } = Color.FromArgb(255, 0, 120, 212);
+
+    [ObservableProperty] public partial bool AppsUseLightTheme { get; set; } = true;
+
+    [ObservableProperty] public partial bool SystemUsesLightTheme { get; set; } = true;
+
+    private bool _syncingTheme;
+
     [ObservableProperty] public partial string AccentPreviewText { get; set; } = "";
 
     [ObservableProperty] public partial int AccentPreviewArgb { get; set; } = unchecked((int)0xFF0078D4);
@@ -146,6 +154,10 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     public void Reload()
     {
         var theme = _theme.Current();
+        _syncingTheme = true;
+        AppsUseLightTheme = theme.AppsUseLight;
+        SystemUsesLightTheme = theme.SystemUsesLight;
+        _syncingTheme = false;
         PointerSize = _cursor.CurrentPointerSize();
         var mouse = _cursor.CurrentMouse();
         PointerSpeed = mouse.PointerSpeed;
@@ -232,6 +244,59 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         if (SelectedWallpaper is null) return;
         var results = ApplyAccentFrom(SelectedWallpaper);
         Report(results, "Accent colours updated from the wallpaper.");
+    }
+
+    [RelayCommand]
+    private void ApplyManualAccent()
+    {
+        int argb = unchecked((int)((((uint)AccentColor.A) << 24) | (((uint)AccentColor.R) << 16) | (((uint)AccentColor.G) << 8) | AccentColor.B));
+        AccentPreviewArgb = argb;
+        AccentPreviewText = $"Accent #{argb & 0xFFFFFF:X6}";
+        Report(_theme.ApplyAccentColor(argb), "Accent colour applied.");
+    }
+
+    partial void OnAppsUseLightThemeChanged(bool value) => ApplyWindowsTheme();
+
+    partial void OnSystemUsesLightThemeChanged(bool value) => ApplyWindowsTheme();
+
+    private void ApplyWindowsTheme()
+    {
+        if (_syncingTheme) return;
+        var current = _theme.Current();
+        Report(_theme.Apply(new ThemeOptions(AppsUseLightTheme, SystemUsesLightTheme, current.Transparency, current.TitleBarAccent)), "Windows theme updated.");
+    }
+
+    [RelayCommand]
+    private void RemoveSelectedCursorPack()
+    {
+        if (SelectedCursorPack is null)
+        {
+            Show(InfoBarSeverity.Warning, "Select a cursor pack first.");
+            return;
+        }
+        if (SelectedCursorPack.IsBundled)
+        {
+            Show(InfoBarSeverity.Warning, "Bundled packs cannot be removed.");
+            return;
+        }
+        try
+        {
+            string root = SchemeRootForPacks();
+            string full = Path.GetFullPath(SelectedCursorPack.FolderPath);
+            if (!full.StartsWith(Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase) || !Directory.Exists(full))
+            {
+                Show(InfoBarSeverity.Warning, "That pack lives outside the app library and cannot be removed here.");
+                return;
+            }
+            Directory.Delete(full, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            Show(InfoBarSeverity.Warning, "Could not remove that pack: " + ex.Message);
+            return;
+        }
+        ReloadCursorPacks();
+        Show(InfoBarSeverity.Success, "Cursor pack removed.");
     }
 
     [RelayCommand]

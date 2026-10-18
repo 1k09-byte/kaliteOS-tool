@@ -21,8 +21,8 @@
         <Style x:Key="PersonalizeCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
     </Page.Resources>
 
-    <ScrollViewer>
-        <StackPanel Padding="28,0,28,24" Spacing="16">
+    <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Padding="28,8,28,16" Spacing="12">
 
             <StackPanel Spacing="4">
                 <TextBlock Text="Personalize" Style="{StaticResource TitleLargeTextBlockStyle}" />
@@ -31,6 +31,11 @@
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" />
             </StackPanel>
+
+            <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
+                <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
+                <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />
+            </SelectorBar>
 
             <Button Content="Revert everything to how it was before this app changed it"
                     Click="RevertEverything_Click" />
@@ -44,14 +49,9 @@
                      Title="High contrast is on"
                      Message="Some appearance settings won't visibly apply while a high contrast theme is active." />
 
-            <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
-                <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
-                <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />
-            </SelectorBar>
-
-            <StackPanel x:Name="WallpaperSection" Spacing="16">
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
+            <StackPanel x:Name="WallpaperSection" Spacing="12">
+                <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                    <StackPanel Spacing="8">
                         <TextBlock Text="Desktop wallpaper" Style="{StaticResource BodyStrongTextBlockStyle}" />
 
                         <Grid ColumnSpacing="12">
@@ -69,7 +69,7 @@
                         </Grid>
 
                         <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                CornerRadius="4" Height="240" HorizontalAlignment="Stretch">
+                                CornerRadius="8" Height="200" HorizontalAlignment="Stretch">
                             <Image x:Name="PreviewImage" Stretch="UniformToFill"
                                    AutomationProperties.Name="Wallpaper preview" />
                         </Border>
@@ -105,6 +105,18 @@
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     <Button Content="Apply colours now" Click="PreviewAccent_Click"
                                             IsEnabled="{Binding SelectedWallpaper, Converter={StaticResource NotNullToBoolConverter}}" />
+                                    <Button Content="Choose your own accent colour...">
+                                        <Button.Flyout>
+                                            <Flyout>
+                                                <StackPanel Spacing="8">
+                                                    <ColorPicker Color="{Binding AccentColor, Mode=TwoWay}"
+                                                                 IsAlphaEnabled="False"
+                                                                 AutomationProperties.Name="Accent colour" />
+                                                    <Button Content="Apply accent colour" Command="{Binding ApplyManualAccentCommand}" />
+                                                </StackPanel>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -149,9 +161,9 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel x:Name="CursorSection" Spacing="16" Visibility="Collapsed">
-                <Border Style="{StaticResource PersonalizeCard}" Padding="16">
-                    <StackPanel Spacing="12">
+            <StackPanel x:Name="CursorSection" Spacing="12" Visibility="Collapsed">
+                <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                    <StackPanel Spacing="8">
                         <TextBlock Text="Cursor packs" Style="{StaticResource BodyStrongTextBlockStyle}" />
                         <TextBlock Text="Choose a pack of custom cursor files. Each .cur or .ani file is matched to a pointer role by its name."
                                    Style="{StaticResource CaptionTextBlockStyle}"
@@ -221,12 +233,28 @@
                                     Style="{StaticResource AccentButtonStyle}"
                                     IsEnabled="{Binding SelectedCursorPack, Converter={StaticResource NotNullToBoolConverter}}" />
                             <Button Content="Import pack from folder..." Click="PickCursorFolder_Click" />
+                            <Button Content="Remove selected pack" Command="{Binding RemoveSelectedCursorPackCommand}"
+                                    IsEnabled="{Binding SelectedCursorPack, Converter={StaticResource NotNullToBoolConverter}}" />
                             <Button Content="Reset to Windows default" Command="{Binding ResetCursorToDefaultsCommand}" />
                             <Button Content="Restore cursor section" Click="RevertCursor_Click" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>
+
+            <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Windows theme" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="Switch all of Windows between light and dark."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                    <ToggleSwitch Header="Apps" IsOn="{Binding AppsUseLightTheme, Mode=TwoWay}"
+                                  OnContent="Light" OffContent="Dark" />
+                    <ToggleSwitch Header="Windows shell" IsOn="{Binding SystemUsesLightTheme, Mode=TwoWay}"
+                                  OnContent="Light" OffContent="Dark" />
+                </StackPanel>
+            </Border>
 
         </StackPanel>
     </ScrollViewer>

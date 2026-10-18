@@ -99,7 +99,6 @@
                         <FontIcon Glyph="&#xE899;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="Tools" Content="Tools" Icon="Edit" Style="{StaticResource HubTabStyle}"/>
                 <NavigationViewItem Tag="Settings" Content="Settings" Icon="Setting" Style="{StaticResource HubTabStyle}"/>
             </NavigationView.MenuItems>
             
@@ -672,14 +671,6 @@
                                          </DataTemplate>
                                      </GridView.ItemTemplate>
                                  </GridView>
-                             </StackPanel>
-                        </Grid>
-
-                        <Grid x:Name="ViewTools" Visibility="Collapsed">
-                             <StackPanel Spacing="16">
-                                 <TextBlock Text="Tools" Style="{StaticResource TitleLargeTextBlockStyle}" />
-                                 <TextBlock Text="Analysis and Pixel Operations go here." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                 <StackPanel x:Name="IconTestPanel" Spacing="4" />
                              </StackPanel>
                         </Grid>
 

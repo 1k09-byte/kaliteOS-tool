@@ -294,23 +294,17 @@ namespace kaliteConfig
 
             NavShell.LayoutUpdated += (_, _) => UpdateNavPill();
 
-            EnforceVerificationLock();
-
-            if (!App.VerificationFailed)
-            {
-                var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
-                    .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
-                _suppressRailPop = true;
-                if (appsItem != null)
-                    NavView.SelectedItem = appsItem;
-                else if (NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault() is NavigationViewItem first)
-                    NavView.SelectedItem = first;
-                _suppressRailPop = false;
-            }
+            var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
+                .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
+            _suppressRailPop = true;
+            if (appsItem != null)
+                NavView.SelectedItem = appsItem;
+            else if (NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault() is NavigationViewItem first)
+                NavView.SelectedItem = first;
+            _suppressRailPop = false;
 
             NavView.Loaded += async (_, _) => 
             {
-                if (App.VerificationFailed) return;
                 SuppressSidebarTooltips();
                 if (!App.IsAdmin && !App.StartedToTray)
                 {
@@ -318,7 +312,7 @@ namespace kaliteConfig
                 }
                 await TryRunKaliteOSAutoSetupAsync();
             };
-            this.Activated += (_, _) => { if (!App.VerificationFailed) GuardedActivationAsync(TryRunKaliteOSAutoSetupAsync); };
+            this.Activated += (_, _) => { GuardedActivationAsync(TryRunKaliteOSAutoSetupAsync); };
             SuppressSidebarTooltips();
         }
 
@@ -868,7 +862,6 @@ namespace kaliteConfig
 
         private async Task TryRunKaliteOSAutoSetupAsync()
         {
-            if (App.VerificationFailed) return;
             if (_kaliteOSAutoSetupRan) return;
 
             int isInstalled;
@@ -996,24 +989,6 @@ namespace kaliteConfig
                 await Task.Delay(6000);
                 DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
             }
-        }
-
-        private void EnforceVerificationLock()
-        {
-            if (!App.VerificationFailed)
-            {
-                VerificationOverlay.Visibility = Visibility.Collapsed;
-                return;
-            }
-            VerificationOverlay.Visibility = Visibility.Visible;
-            try { NavView.IsEnabled = false; } catch { }
-            try { ContentFrame.IsEnabled = false; } catch { }
-        }
-
-        private void VerificationExit_Click(object sender, RoutedEventArgs e)
-        {
-            try { Application.Current.Exit(); } catch { }
-            try { Environment.Exit(0); } catch { }
         }
 
         private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement

@@ -8,20 +8,36 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
+        <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
+        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
+        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
+        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
         <Style x:Key="AffinityRowContainerStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,2,0,2" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <GridLength x:Key="AffinityDeviceColumn">2.6*</GridLength>
+        <GridLength x:Key="AffinityDeviceColumn">3.2*</GridLength>
         <GridLength x:Key="AffinityMsiColumn">0.85*</GridLength>
         <GridLength x:Key="AffinityLimitColumn">0.85*</GridLength>
         <GridLength x:Key="AffinityMaxMsiColumn">0.9*</GridLength>
-        <GridLength x:Key="AffinityPolicyColumn">1.35*</GridLength>
+        <GridLength x:Key="AffinityPolicyColumn">1.15*</GridLength>
         <GridLength x:Key="AffinityPriorityColumn">1.1*</GridLength>
-        <GridLength x:Key="AffinityProcessorsColumn">1.4*</GridLength>
+        <GridLength x:Key="AffinityProcessorsColumn">1.2*</GridLength>
         <GridLength x:Key="AffinityChevronColumn">16</GridLength>
 
         <DataTemplate x:Key="AffinityDeviceRowTemplate" x:DataType="models:AffinityDeviceItem">
+            <Border CornerRadius="8"
+                    Padding="12,10"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
@@ -37,6 +53,8 @@
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="{x:Bind Name}"
                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                               TextWrapping="WrapWholeWords"
+                               MaxLines="2"
                                TextTrimming="CharacterEllipsis"
                                ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
                     <TextBlock Text="{x:Bind CategoryLabel}"
@@ -74,9 +92,15 @@
                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                           VerticalAlignment="Center" />
             </Grid>
+            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="AffinityDeviceRowNarrowTemplate" x:DataType="models:AffinityDeviceItem">
+            <Border CornerRadius="8"
+                    Padding="12,10"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
             <StackPanel Spacing="4">
                 <StackPanel>
                     <TextBlock Text="{x:Bind Name}"
@@ -162,6 +186,7 @@
                                TextWrapping="Wrap" />
                 </Grid>
             </StackPanel>
+            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="ChangeRowTemplate">
@@ -218,8 +243,10 @@
                 <x:Double x:Key="ContentDialogMaxWidth">1180</x:Double>
                 <x:Double x:Key="ContentDialogMaxHeight">900</x:Double>
             </ContentDialog.Resources>
-            <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
-                <StackPanel Spacing="24">
+            <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
+                          HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,0,12,0">
+                <StackPanel Spacing="24" Padding="0,0,4,0">
                     <StackPanel Spacing="4">
                         <TextBlock Text="{x:Bind ViewModel.SelectedDevice.CategoryLabel, Mode=OneWay, FallbackValue=''}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
@@ -240,6 +267,7 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" />
                         <NumberBox Header="MSI limit"
+                                   HorizontalAlignment="Stretch"
                                    SpinButtonPlacementMode="Inline"
                                    Value="{x:Bind ViewModel.SelectedDevice.MsiLimit, Mode=TwoWay}"
                                    Minimum="0"
@@ -341,7 +369,7 @@
             </ScrollViewer>
         </ContentDialog>
 
-        <Grid Grid.Row="0" Padding="36,24,36,0" ColumnSpacing="16">
+        <Grid Grid.Row="0" Padding="28,16,28,0" ColumnSpacing="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -376,7 +404,7 @@
             </CommandBar>
         </Grid>
 
-        <StackPanel Grid.Row="1" Padding="36,12,36,0" Spacing="12">
+        <StackPanel Grid.Row="1" Padding="28,8,28,0" Spacing="8">
             <ProgressBar IsIndeterminate="True"
                          Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsRefreshing), Mode=OneWay}" />
             <StackPanel x:Name="SummaryStrip" Orientation="Horizontal" Spacing="24">
@@ -426,7 +454,7 @@
                        TextWrapping="Wrap" />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="2" Padding="36,12,36,36"
+        <ScrollViewer Grid.Row="2" Padding="28,8,28,20"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
                       VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"

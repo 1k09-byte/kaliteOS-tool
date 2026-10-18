@@ -48,7 +48,7 @@
                     <Setter Property="BorderBrush" Value="Transparent" />
                     <Setter Property="BorderThickness" Value="0" />
                     <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
-                    <Setter Property="Width" Value="60" />
+                    <Setter Property="Width" Value="68" />
                     <Setter Property="Height" Value="56" />
                     <Setter Property="Margin" Value="0,2" />
                     <Setter Property="Padding" Value="0" />
@@ -57,7 +57,7 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="NavigationViewItem">
-                                <Grid x:Name="LayoutRoot" Background="Transparent" Width="60" Height="56">
+                                <Grid x:Name="LayoutRoot" Background="Transparent" Width="68" Height="56">
                                     <VisualStateManager.VisualStateGroups>
                                         <VisualStateGroup x:Name="CommonStates">
                                             <VisualStateGroup.Transitions>
@@ -157,8 +157,8 @@
 
                                         <TextBlock x:Name="ItemLabel"
                                                    Text="{TemplateBinding Content}"
-                                                   Width="56"
-                                                   FontSize="11"
+                                                   Width="64"
+                                                   FontSize="10"
                                                    FontFamily="Segoe UI Variable Text, Segoe UI, sans-serif"
                                                    FontWeight="SemiBold"
                                                    TextAlignment="Center"

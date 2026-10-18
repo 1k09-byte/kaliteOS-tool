@@ -339,9 +339,7 @@ public sealed partial class SnipPage : Page
             ViewGallery.Visibility = (tag == "Gallery") ? Visibility.Visible : Visibility.Collapsed;
             ViewBin.Visibility = (tag == "Bin") ? Visibility.Visible : Visibility.Collapsed;
             ViewStickers.Visibility = (tag == "Stickers") ? Visibility.Visible : Visibility.Collapsed;
-            ViewTools.Visibility = (tag == "Tools") ? Visibility.Visible : Visibility.Collapsed;
             ViewSettings.Visibility = (tag == "Settings") ? Visibility.Visible : Visibility.Collapsed;
-            if (tag == "Tools" && IconTestPanel.Children.Count == 0) BuildIconTestPanel();
             if (tag == "Stickers") RefreshStickerGallery();
             if (tag == "Bin") _ = RefreshBinViewAsync();
         }
@@ -505,52 +503,6 @@ public sealed partial class SnipPage : Page
 
     private void StickerGallery_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-    }
-
-    [System.Diagnostics.Conditional("DEBUG")]
-    private void BuildIconTestPanel()
-    {
-        foreach (var (name, glyph) in SnipIcons.All)
-        {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            var label = new TextBlock { Text = name, Width = 110, VerticalAlignment = VerticalAlignment.Center };
-            var code = new TextBlock
-            {
-                Text = DescribeGlyph(glyph),
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono, Consolas, Segoe UI"),
-                FontSize = 12,
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
-                Width = 90,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            row.Children.Add(label);
-            row.Children.Add(code);
-            foreach (var size in new double[] { 16, 20, 24 })
-            {
-                row.Children.Add(new Microsoft.UI.Xaml.Controls.FontIcon
-                {
-                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                    Glyph = glyph,
-                    FontSize = size,
-                    Width = size + 12,
-                    VerticalAlignment = VerticalAlignment.Center,
-                });
-            }
-            IconTestPanel.Children.Add(row);
-        }
-    }
-
-    private static string DescribeGlyph(string glyph)
-    {
-        var text = new System.Text.StringBuilder();
-        for (var i = 0; i < glyph.Length; i++)
-        {
-            var codepoint = char.ConvertToUtf32(glyph, i);
-            if (char.IsHighSurrogate(glyph[i]) && i + 1 < glyph.Length) i++;
-            if (text.Length > 0) text.Append(' ');
-            text.Append($"U+{codepoint:X4}");
-        }
-        return text.Length == 0 ? "-" : text.ToString();
     }
 
     private async void RefreshGallery_Click(object sender, RoutedEventArgs e)

@@ -6,6 +6,8 @@
     Title="New rule"
     PrimaryButtonText="Apply"
     CloseButtonText="Cancel"
+    PrimaryButtonStyle="{StaticResource RuleDialogButtonStyle}"
+    CloseButtonStyle="{StaticResource RuleDialogButtonStyle}"
     DefaultButton="Primary"
     CornerRadius="12"
     PrimaryButtonClick="Dialog_PrimaryClick">
@@ -13,6 +15,9 @@
 
     <ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
+        <Style x:Key="RuleDialogButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
     </ContentDialog.Resources>
 
     <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
@@ -135,7 +140,7 @@
                         <CheckBox Grid.Column="0" Content="CPU affinity" VerticalAlignment="Center"
                                   IsChecked="{x:Bind AffinityEnabled, Mode=TwoWay}" />
                         <TextBlock Grid.Column="1" x:Name="DraftAffinitySummaryText" Text="All logical processors" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
-                        <Button Grid.Column="2" x:Name="AffinityChooseButton" Content="Choose..." Click="AffinityChoose_Click" />
+                        <Button Grid.Column="2" x:Name="AffinityChooseButton" Content="Choose..." Click="AffinityChoose_Click" CornerRadius="8" />
                     </Grid>
                 </Border>
                 <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
@@ -148,7 +153,7 @@
                         <CheckBox Grid.Column="0" Content="CPU Sets" VerticalAlignment="Center"
                                   IsChecked="{x:Bind CpuSetsEnabled, Mode=TwoWay}" />
                         <TextBlock Grid.Column="1" x:Name="CpuSetsSummaryText" Text="All logical processors" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
-                        <Button Grid.Column="2" x:Name="CpuSetsChooseButton" Content="Choose..." Click="CpuSetsChoose_Click" />
+                        <Button Grid.Column="2" x:Name="CpuSetsChooseButton" Content="Choose..." Click="CpuSetsChoose_Click" CornerRadius="8" />
                     </Grid>
                 </Border>
             </StackPanel>
@@ -205,7 +210,11 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                    <Button Grid.Row="2" Content="Delete rule" Click="ThreadRule_DeleteButton_Click" HorizontalAlignment="Left" />
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                        <Button Content="View live threads" Click="ViewLiveThreads_Click" CornerRadius="8"
+                                ToolTipService.ToolTip="Open the running threads of the target process" />
+                        <Button Content="Delete rule" Click="ThreadRule_DeleteButton_Click" CornerRadius="8" />
+                    </StackPanel>
                 </Grid>
 
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" MaxHeight="480">
@@ -242,7 +251,7 @@
                             <Grid x:Name="RuleIdealCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                             <Button Content="Apply ideal processor" Click="RuleIdealApply_Click" HorizontalAlignment="Left" />
 
-                            <Button Content="Delete rule" HorizontalAlignment="Left" Click="ThreadRule_DeleteButton_Click"
+                            <Button Content="Delete rule" HorizontalAlignment="Left" Click="ThreadRule_DeleteButton_Click" CornerRadius="8"
                                     ToolTipService.ToolTip="Remove this thread rule from the profile" />
 
                             <TextBlock x:Name="RuleEditorStatusBox" FontSize="12" TextWrapping="Wrap"

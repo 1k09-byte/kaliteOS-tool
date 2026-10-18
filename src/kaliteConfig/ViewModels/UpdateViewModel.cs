@@ -202,13 +202,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             var info = new FileInfo(installerPath);
             UpdateCheckService.LogDiag($"update: downloaded {info.Name} ({info.Length} bytes) for version {_pending.Version}");
 
-            if (!kaliteConfig.Services.SystemVerificationService.IsVerified())
-            {
-                UpdateCheckService.LogDiag("update: not launching installer, OS gate");
-                StatusText = "kaliteConfig can only run on KaliteOS.";
-                return;
-            }
-
             StatusText = "Launching installer…";
             var logPath = UpdateCheckService.SetupLogPath(_pending.Version);
             UpdateCheckService.WritePendingUpdate(_pending.Version, installerPath, logPath);
