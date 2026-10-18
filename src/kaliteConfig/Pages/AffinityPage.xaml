@@ -42,11 +42,6 @@
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
         </Style>
 
-        <Style x:Key="StatValueStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="26" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-
         <DataTemplate x:Key="AffinityTableRowTemplate" x:DataType="models:AffinityDeviceItem">
             <Button Style="{StaticResource DeviceRowButtonStyle}" Click="DeviceRow_Click" Tag="{x:Bind}">
                 <Grid>
@@ -87,7 +82,6 @@
                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                     </Grid>
 
-                    <!-- Hairline keeps the rows readable without turning every row into a card. -->
                     <Border Height="1" VerticalAlignment="Bottom" Margin="20,0"
                             Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 </Grid>
@@ -96,13 +90,35 @@
     </Page.Resources>
 
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="641" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="NarrowState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="Toolbar.(Grid.Row)" Value="1" />
+                        <Setter Target="Toolbar.(Grid.Column)" Value="0" />
+                        <Setter Target="Toolbar.HorizontalAlignment" Value="Left" />
+                        <Setter Target="SummaryStrip.Orientation" Value="Vertical" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <ContentDialog x:Name="DeviceDetailsDialog"
-                       Grid.RowSpan="2"
+                       Grid.RowSpan="3"
                        Style="{StaticResource DefaultContentDialogStyle}"
                        Title="{x:Null}"
                        PrimaryButtonText=""
@@ -283,126 +299,100 @@
             </ScrollViewer>
         </ContentDialog>
 
-        <ScrollViewer Grid.Row="1" Padding="36,8,36,32"
+        <Grid Grid.Row="0" Padding="36,24,36,0" ColumnSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel x:Name="TitleBlock" Grid.Row="0" Grid.Column="0" Spacing="4">
+                <TextBlock Text="Interrupts &amp; affinity" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <CommandBar x:Name="Toolbar" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                        DefaultLabelPosition="Right">
+                <AppBarButton Icon="Refresh" Label="Rescan" Command="{x:Bind ViewModel.RefreshDevicesCommand}" />
+                <AppBarButton Icon="Undo" Label="Undo" Command="{x:Bind ViewModel.UndoCommand}"
+                              IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}" />
+                <AppBarButton Icon="Redo" Label="Redo" Command="{x:Bind ViewModel.RedoCommand}"
+                              IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}" />
+                <AppBarButton Icon="View" Label="{x:Bind ViewModel.ChangeCountText, Mode=OneWay}"
+                              Click="ViewChanges_Click" />
+                <CommandBar.SecondaryCommands>
+                    <AppBarButton Label="Restore defaults" Icon="RepeatAll"
+                                  Command="{x:Bind ViewModel.RestoreCommand}"
+                                  IsEnabled="{x:Bind ViewModel.CanRestoreDefaults, Mode=OneWay}"
+                                  ToolTipService.ToolTip="Set every device back to IrqPolicyMachineDefault with MSI Priority undefined, then restart them all." />
+                </CommandBar.SecondaryCommands>
+            </CommandBar>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Padding="36,12,36,0" Spacing="12">
+            <ProgressBar IsIndeterminate="True"
+                         Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsRefreshing), Mode=OneWay}" />
+            <StackPanel x:Name="SummaryStrip" Orientation="Horizontal" Spacing="24">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.DeviceCountText, Mode=OneWay}"
+                               Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Devices" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="tunable adapters found" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.MsiEnabledCountText, Mode=OneWay}"
+                               Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="MSI enabled" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="devices using message-signaled interrupts" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.ChangeCountNumberText, Mode=OneWay}"
+                               Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Changes" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="edits you can undo this session" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+            <TextBlock Text="Every edit is written immediately and stays reversible until the app closes."
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="2" Padding="36,12,36,36"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
                       VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel HorizontalAlignment="Stretch" Spacing="16">
 
-                <!-- Page header: what this page is, what was found, and one refresh action. -->
-                <Grid ColumnSpacing="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Spacing="4">
-                        <TextBlock Text="Interrupts &amp; affinity" Style="{StaticResource GalleryPageTitle}" />
-                        <TextBlock Style="{StaticResource GalleryPageCaption}"
-                                   Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
-                    </StackPanel>
-                    <Button Grid.Column="1" VerticalAlignment="Center"
-                            Command="{x:Bind ViewModel.RefreshDevicesCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
-                            <TextBlock Text="Rescan" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-
-                <!-- Summary strip: the numbers a hardware tuner checks first. -->
-                <Grid ColumnSpacing="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Column="0" Style="{StaticResource GalleryCard}" Padding="20,16">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="Devices" Style="{StaticResource GalleryMetaLabel}" />
-                            <TextBlock Style="{StaticResource StatValueStyle}"
-                                       Text="{x:Bind ViewModel.DeviceCountText, Mode=OneWay}" />
-                            <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                       Text="tunable adapters found" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Column="1" Style="{StaticResource GalleryCard}" Padding="20,16">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="MSI enabled" Style="{StaticResource GalleryMetaLabel}" />
-                            <TextBlock Style="{StaticResource StatValueStyle}"
-                                       Text="{x:Bind ViewModel.MsiEnabledCountText, Mode=OneWay}" />
-                            <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                       Text="devices using message-signaled interrupts" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Column="2" Style="{StaticResource GalleryCard}" Padding="20,16">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="Changes" Style="{StaticResource GalleryMetaLabel}" />
-                            <TextBlock Style="{StaticResource StatValueStyle}"
-                                       Text="{x:Bind ViewModel.ChangeCountNumberText, Mode=OneWay}" />
-                            <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                       Text="edits you can undo this session" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- Session card: the undo stack and the bulk reset live together. -->
-                <Border Style="{StaticResource GalleryCard}" Padding="20,16">
-                    <Grid ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                            <TextBlock Text="Session history" Style="{StaticResource GallerySectionTitle}" />
-                            <TextBlock Style="{StaticResource GalleryMetaLabel}"
-                                       Text="Every edit is written immediately and stays reversible until the app closes." />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <Button Command="{x:Bind ViewModel.UndoCommand}" IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
-                                    ToolTipService.ToolTip="Undo the last change">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE7A7;" />
-                                    <TextBlock Text="Undo" />
-                                </StackPanel>
-                            </Button>
-                            <Button Command="{x:Bind ViewModel.RedoCommand}" IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
-                                    ToolTipService.ToolTip="Redo the last undone change">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE7A7;" RenderTransformOrigin="0.5,0.5">
-                                        <FontIcon.RenderTransform>
-                                            <ScaleTransform ScaleX="-1" />
-                                        </FontIcon.RenderTransform>
-                                    </FontIcon>
-                                    <TextBlock Text="Redo" />
-                                </StackPanel>
-                            </Button>
-                            <Button Click="ViewChanges_Click"
-                                    ToolTipService.ToolTip="List every change made this session">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE890;" />
-                                    <TextBlock Text="{x:Bind ViewModel.ChangeCountText, Mode=OneWay}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Command="{x:Bind ViewModel.RestoreCommand}" IsEnabled="{x:Bind ViewModel.CanRestoreDefaults, Mode=OneWay}"
-                                    ToolTipService.ToolTip="Set every device back to IrqPolicyMachineDefault with MSI Priority undefined, then restart them all.">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE777;" />
-                                    <TextBlock Text="Restore defaults" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- Device table: one card, grouped by hardware class, hairlines between rows. -->
                 <Border Style="{StaticResource GalleryCard}" Padding="0">
                     <StackPanel>
-                        <!-- Inset matches the row button margin (8) plus its grid padding (20)
-                             so the star columns line up with the values underneath. -->
                         <Grid Padding="28,16,28,10" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2.4*" />
@@ -411,12 +401,10 @@
                                 <ColumnDefinition Width="0.9*" />
                                 <ColumnDefinition Width="1.4*" />
                                 <ColumnDefinition Width="1.2*" />
-                            <ColumnDefinition Width="1.4*" />
-                            <!-- Same Auto slot as the row chevron, so the star columns
-                                 divide the same width in header and rows. -->
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Style="{StaticResource TableCellLabelStyle}" Text="Device" />
+                                <ColumnDefinition Width="1.4*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource TableCellLabelStyle}" Text="Device" />
                             <TextBlock Grid.Column="1" Style="{StaticResource TableCellLabelStyle}" Text="MSI" />
                             <TextBlock Grid.Column="2" Style="{StaticResource TableCellLabelStyle}" Text="Limit" />
                             <TextBlock Grid.Column="3" Style="{StaticResource TableCellLabelStyle}" Text="Max MSI" />
@@ -550,7 +538,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Explainer card: the same neutral card language as the rest of the page. -->
                 <Border Style="{StaticResource GalleryCard}" Padding="20,16">
                     <Grid ColumnSpacing="14">
                         <Grid.ColumnDefinitions>
