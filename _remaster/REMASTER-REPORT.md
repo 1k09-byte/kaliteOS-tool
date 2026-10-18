@@ -935,3 +935,79 @@ candidate, not a confirmed cause.
 Unchanged: 32 pages not remade, ~1,600 `FontSize` and ~160 literal `CornerRadius` elsewhere,
 ~90 hardcoded colours in C# drawing code, 22 dialogs, inert font preference, and no visual
 verification of any page.
+
+---
+
+# Addendum 8 — Root cause of the picker COM error, and measured verification of install cards
+
+## Commit
+| Commit | Contents |
+|---|---|
+| `24cc786` | Stop wallpaper COM re-activation during system file picker on Personalize page |
+
+Debug x64 build **0 errors, 0 warnings**.
+
+## `RPC_E_CANTCALLOUT_ININPUTSYNCCALL` — actual root cause found
+
+The earlier `4760d47` change (deferring picker activation via `DispatcherQueue`) was a
+**mitigation, not the fix**. The real cause is a different call entirely.
+
+### Chain
+
+1. `PersonalizePage.OnWindowActivated` calls `RefreshFromSystem()` on **every** window
+   activation.
+2. `RefreshFromSystem()` → `PersonalizeViewModel.Reload()` (`PersonalizeViewModel.cs:61`).
+3. `Reload()` line 76 → `_wallpaper.GetMonitors()`.
+4. `WallpaperService.GetMonitors()` → `new DesktopWallpaperApi()`.
+5. `DesktopWallpaperInterop.cs:58` → `Activator.CreateInstance(type)` — a **CoCreateInstance**
+   of the `IDesktopWallpaper` COM class, which is CLSID
+   **`{C2CF3110-460E-4FC1-B9D0-8A1C0C9CC4BD}`**, matching the reported error exactly.
+
+Opening a `FileOpenPicker` deactivates and reactivates the host window. That activation
+arrives while the dispatcher is still servicing the input-synchronous click, so the
+`CoCreateInstance` inside `Reload()` is an outgoing COM call made during an input-synchronous
+dispatch — `RPC_E_CANTCALLOUT_ININPUTSYNCCALL`. The picker itself was never the problem, and
+neither was `BitmapDecoder` in `WallpaperService.AddToLibraryAsync`.
+
+### Fix — `24cc786`
+
+- New `bool _systemPickerOpen` field.
+- `OnWindowActivated` returns early while `_systemPickerOpen` is true, so activating or
+  deactivating the window around a picker can no longer drive a COM activation.
+- `AddWallpaper_Click` sets `_systemPickerOpen = true` before `PickSingleFileAsync()` and
+  clears it in a `finally`. `PickCursorFolder_Click` does the same.
+- `RefreshFromSystem()` wraps `ViewModel.Reload()` in a `try/catch`, so a transient COM
+  failure can no longer take down the page even if some other path re-enters it.
+- The `DispatcherQueue.TryEnqueue` deferral from `4760d47` is kept: it is harmless and still
+  avoids activating the picker from inside the click dispatch.
+
+Behaviour is unchanged — the monitors still refresh on activation once the picker closes.
+
+## Install cards — measured, not assumed
+
+To stop guessing about "cards are gone", the live visual tree was measured at runtime. A
+temporary probe navigated the frame to `InstallerPage`, walked the tree, and logged each
+realized item's `ActualWidth`/`ActualHeight`. It was removed afterwards; `git status` is clean
+apart from the fix.
+
+```
+page=InstallerPage contentSize=1355x704
+ItemsRepeater realizedChildren=3  item[0] Grid 160x164 vis=Visible
+                                  item[1] Grid 160x164 vis=Visible
+                                  item[2] Grid 160x164 vis=Visible
+ItemsRepeater realizedChildren=5  item[0..4] Grid 160x164 vis=Visible
+ItemsRepeater realizedChildren=0  visible=Collapsed   <- compact list variant, card mode
+SUMMARY repeaters=9 items=11 zeroSized=0
+```
+
+- **11 realized tiles, `zeroSized=0`** — every tile has real geometry. The cards are present
+  and sized; the `MinItemHeight="0"` regression is genuinely gone.
+- Content width **1355** is above the **1100** breakpoint, so `WideCategoryLayout` is active
+  and the two-column layout is in effect.
+- The `Collapsed` repeaters are the compact-list variants, which are correctly hidden while
+  card view mode is active.
+- Repeaters reporting `0` realized but `Visible` are the categories whose items are filtered
+  out by the current `ShowInstalled` / status filters, not a layout fault.
+
+This confirms the tile geometry numerically. It does **not** confirm how the page *looks* —
+no rendering is available in this environment.
