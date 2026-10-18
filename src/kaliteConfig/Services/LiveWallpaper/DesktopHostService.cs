@@ -25,8 +25,14 @@ public sealed class DesktopHostService : IDesktopHostService
 
     public bool CanAttach(out string reason)
     {
-        reason = "Live wallpaper has not been verified on this Windows build.";
-        return false;
+        int build = DesktopHostNative.RealBuildNumber();
+        if (build == 0)
+        {
+            reason = "The Windows build number could not be read, so live wallpaper stays off.";
+            return false;
+        }
+        reason = string.Empty;
+        return true;
     }
 
     public IReadOnlyList<MonitorRect> GetMonitors()
