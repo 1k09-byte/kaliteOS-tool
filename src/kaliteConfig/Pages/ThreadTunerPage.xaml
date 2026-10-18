@@ -98,7 +98,7 @@
             </SelectorBar>
         </Grid>
 
-        <Grid x:Name="ProcessesPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="ProcessesPanel" Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -305,7 +305,7 @@
             </Grid>
         </Grid>
 
-        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -321,7 +321,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <TextBox CornerRadius="8" Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
                          Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">

@@ -14,7 +14,7 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <Style x:Key="PowerCard" TargetType="Border" BasedOn="{StaticResource KaliteCard}" />
+        <Style x:Key="PowerCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />

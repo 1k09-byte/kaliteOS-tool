@@ -55,7 +55,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Uninstall" Style="{StaticResource KalitePageTitle}" Margin="0,2,0,0"
+                <TextBlock Text="Uninstall" Style="{StaticResource TitleLargeTextBlockStyle}" Margin="0,2,0,0"
                            ToolTipService.ToolTip="Uninstaller &amp; remover - applications, driver packages, startup entries" />
                 <TextBlock Text="{Binding SummaryText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
             </StackPanel>
@@ -112,7 +112,7 @@
             </SelectorBar>
 
             <Grid Grid.Row="1">
-        <Grid x:Name="UninstallerPanel" Margin="0,12,0,0" ColumnSpacing="16" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="UninstallerPanel" Margin="0,12,0,0" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="340" />
@@ -257,7 +257,7 @@
                                            Visibility="{Binding SelectedApp.HasRealIcon, Converter={StaticResource InvertedBoolToVisibilityConverter}}" />
                             </Grid>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{Binding SelectedApp.Name}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding SelectedApp.Name}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                                 <TextBlock Text="{Binding SelectedApp.Publisher}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -297,7 +297,7 @@
                 </Grid>
             </Border>
         </Grid>
-                <Grid x:Name="RemoverPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                <Grid x:Name="RemoverPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="340" />
@@ -395,7 +395,7 @@
                                           Visibility="{Binding SelectedDriver, Converter={StaticResource NullToVisibilityConverter}}">
                                 <StackPanel Spacing="12">
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding SelectedDriver.FriendlyKind}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SelectedDriver.FriendlyKind}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding SelectedDriver.Provider}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -436,7 +436,7 @@
                         </Grid>
                     </Border>
                 </Grid>
-                <Grid x:Name="StartupPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                <Grid x:Name="StartupPanel" Margin="0,12,0,0" ColumnSpacing="16" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="248" MinWidth="200" />
                         <ColumnDefinition Width="*" />

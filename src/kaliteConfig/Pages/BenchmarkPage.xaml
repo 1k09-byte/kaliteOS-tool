@@ -11,7 +11,7 @@
     <Page.Resources>
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-        <Style x:Key="BenchCard" TargetType="Border" BasedOn="{StaticResource KaliteCard}">
+        <Style x:Key="BenchCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
             <Setter Property="Padding" Value="16" />
         </Style>
         <Style x:Key="BenchSectionTitle" TargetType="TextBlock">
@@ -87,7 +87,7 @@
         <ProgressBar Grid.Row="2" Margin="28,0,28,8" IsIndeterminate="True"
                      Visibility="{x:Bind ViewModel.IsCapturing, Mode=OneWay}" />
 
-        <Grid x:Name="CapturePanel" Grid.Row="3" Margin="28,0,28,24" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="CapturePanel" Grid.Row="3" Margin="28,0,28,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
@@ -201,7 +201,7 @@
             </Border>
         </Grid>
 
-        <Grid x:Name="RunsPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="RunsPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
@@ -282,7 +282,7 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceScrollViewer}">
+        <ScrollViewer x:Name="AnalysisPanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
             <StackPanel x:Name="AnalysisContent" Spacing="12">
                 <TextBlock x:Name="ReportHeader" Text="{x:Bind ViewModel.ReportHeaderText, Mode=OneWay}"
                            FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
@@ -382,7 +382,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Grid x:Name="ComparePanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="ComparePanel" Grid.Row="3" Margin="28,0,28,24" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />

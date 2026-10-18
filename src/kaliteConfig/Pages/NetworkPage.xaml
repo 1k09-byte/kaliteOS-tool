@@ -15,7 +15,7 @@
     <Page.Resources>
         <DataTemplate x:Key="PropGroupTemplate" x:DataType="vm:NetPropGroup">
             <StackPanel Spacing="8" Margin="0,0,0,16">
-                <TextBlock Text="{x:Bind Category}" Style="{StaticResource KaliteSectionTitle}"/>
+                <TextBlock Text="{x:Bind Category}" Style="{StaticResource SubtitleTextBlockStyle}"/>
                 <ItemsControl ItemsSource="{x:Bind Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:NetPropEdit">
@@ -110,7 +110,7 @@
 
         <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="5" Padding="16">
         <StackPanel Spacing="14">
-            <TextBlock Text="Network" Style="{StaticResource KalitePageTitle}"/>
+            <TextBlock Text="Network" Style="{StaticResource TitleLargeTextBlockStyle}"/>
             <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="3" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
             <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
@@ -155,7 +155,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap"/>
+            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
             <InfoBar Grid.Row="1" x:Name="NetInfoBar" IsOpen="False" IsClosable="True" Severity="Informational" Margin="0,0,0,8">
                 <InfoBar.ActionButton>
                     <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
@@ -196,7 +196,7 @@
                             <TextBlock Text="Every setting the driver exposes, matched by RegistryKeyword. Editing needs elevation; changes apply after preview + restart."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.PropGroups, Mode=OneWay}" ItemTemplate="{StaticResource PropGroupTemplate}"/>
-                            <TextBlock Text="Pending changes (preview)" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Pending changes (preview)" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.PendingDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
                             <CheckBox Content="I understand: virtual, VPN or disabled adapters, and this restarts the adapter (brief disconnect)." IsChecked="{x:Bind ViewModel.ConfirmRiskyEdit, Mode=TwoWay}"
                                       Visibility="{x:Bind ViewModel.IsRiskyTarget, Mode=OneWay}"/>
@@ -204,9 +204,9 @@
                                 <Button Content="Apply" Click="Apply_Click" Style="{ThemeResource AccentButtonStyle}"/>
                                 <Button Content="Reset to driver defaults" Click="ResetDefaults_Click"/>
                             </StackPanel>
-                            <TextBlock Text="Applied / failed per setting" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Applied / failed per setting" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.ApplyResults, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
-                            <TextBlock Text="Snapshots" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Snapshots" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="SnapshotPicker" MinWidth="260"
                                           ItemsSource="{x:Bind ViewModel.Snapshots, Mode=OneWay}"
@@ -452,16 +452,16 @@
                 <TabViewItem IsClosable="False" Header="Tools">
                     <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
                         <StackPanel Spacing="16">
-                            <TextBlock Text="Speed test" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Speed test" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="{x:Bind ViewModel.SpeedButtonText, Mode=OneWay}" Click="SpeedToggle_Click" VerticalAlignment="Bottom"/>
-                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
                                 <TextBlock Text="/" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
                             </StackPanel>
                             <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind ViewModel.SpeedProgress, Mode=OneWay}"/>
                             <TextBlock Text="{x:Bind ViewModel.SpeedStatus, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="Export" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Export" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="ExportFormatBox" SelectedIndex="0" MinWidth="120">
                                     <ComboBoxItem Content="JSON"/>
@@ -472,13 +472,13 @@
                                 <Button Content="Export..." Click="Export_Click"/>
                                 <Button Content="Copy as text" Click="CopyText_Click"/>
                             </StackPanel>
-                            <TextBlock Text="Import profile" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Import profile" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Pick JSON..." Click="Import_Click"/>
                                 <Button Content="Stage import" Click="StageImport_Click"/>
                             </StackPanel>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.ImportDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
-                            <TextBlock Text="Compare adapters" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Compare adapters" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="CompareABox" MinWidth="200" DisplayMemberPath="Name"
                                           ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"

@@ -214,7 +214,7 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    x:Name="RuleNoSelectionText" />
                         <StackPanel Spacing="10" x:Name="RuleEditorPanel" Visibility="Collapsed">
-                            <TextBlock x:Name="RuleEditorTitle" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="RuleEditorTitle" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                             <TextBlock x:Name="RuleEditorSub" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                             <TextBlock Text="Thread priority" Style="{StaticResource CaptionTextBlockStyle}" />

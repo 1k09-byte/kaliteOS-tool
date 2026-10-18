@@ -87,7 +87,7 @@
                                 <Flyout Opened="StickerFlyout_Opened">
                                     <StackPanel Width="280">
                                         <Grid Margin="0,0,0,12">
-                                            <TextBlock Text="Stickers" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Stickers" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
                                             <Button Content="Import..." HorizontalAlignment="Right" Click="BtnImportSticker_Click"/>
                                         </Grid>
                                         <GridView x:Name="StickerGridView" SelectionMode="Single"
@@ -116,7 +116,7 @@
                             <Button.Flyout>
                                 <Flyout Opening="ResizeFlyout_Opening">
                                     <StackPanel Width="220" Spacing="8">
-                                        <TextBlock Text="Resize selection" Style="{StaticResource KaliteSectionTitle}"/>
+                                        <TextBlock Text="Resize selection" Style="{StaticResource SubtitleTextBlockStyle}"/>
                                         <TextBlock x:Name="ResizeHint" Text="Select one sticker or shape first."
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap"/>
                                         <NumberBox x:Name="ResizeWidthBox" Header="Width (px)" Minimum="8" Maximum="8192" Value="128"

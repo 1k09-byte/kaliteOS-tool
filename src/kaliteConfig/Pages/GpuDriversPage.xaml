@@ -55,7 +55,7 @@
                             <FontIcon Glyph="&#xE7F4;" FontSize="22" />
                         </Border>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Graphics" Style="{StaticResource KaliteSectionTitle}" />
+                            <TextBlock Text="Graphics" Style="{StaticResource SubtitleTextBlockStyle}" />
                             <TextBlock Text="{x:Bind ViewModel.DetectStatusText, Mode=OneWay}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
@@ -110,7 +110,7 @@
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
                                             <TextBlock Text="{x:Bind Vendor}" FontSize="14"
                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontWeight="SemiBold" />
-                                            <TextBlock Text="{x:Bind HardwareName}" Style="{StaticResource KalitePageTitle}"
+                                            <TextBlock Text="{x:Bind HardwareName}" Style="{StaticResource TitleLargeTextBlockStyle}"
                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">

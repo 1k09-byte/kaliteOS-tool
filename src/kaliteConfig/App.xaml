@@ -13,12 +13,6 @@
                 <ResourceDictionary Source="ms-appx:///Themes/SideNavResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <Style TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="{StaticResource KaliteBodyFontFamily}" />
-                <Setter Property="FontSize" Value="14" />
-                <Setter Property="LineHeight" Value="20" />
-            </Style>
-
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -29,7 +29,7 @@
             HorizontalAlignment="Stretch"
             Margin="36,24,36,0"
             AutomationProperties.HeadingLevel="Level1"
-            Style="{StaticResource KalitePageTitle}"
+            Style="{StaticResource TitleLargeTextBlockStyle}"
             Text="Settings" />
         <ScrollViewer
             Grid.Row="1"

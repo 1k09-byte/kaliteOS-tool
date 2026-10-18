@@ -107,7 +107,7 @@
             <Grid Padding="4">
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <Grid>
-                        <Grid x:Name="ViewCapture" Visibility="Visible" Style="{StaticResource KaliteEntranceGrid}">
+                        <Grid x:Name="ViewCapture" Visibility="Visible">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -125,7 +125,7 @@
                             
 
 
-                            <TextBlock Grid.Row="2" Text="Capture Profile" Style="{StaticResource KaliteSectionTitle}" Margin="0,0,0,12"/>
+                            <TextBlock Grid.Row="2" Text="Capture Profile" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,12"/>
                             <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,0,0,24">
                                 <ComboBox x:Name="ProfilePicker" Width="260" SelectedIndex="0" AutomationProperties.Name="Capture profile" SelectionChanged="ProfilePicker_SelectionChanged">
                                     <ComboBoxItem Content="Default (High Quality PNG)"/>
@@ -136,7 +136,7 @@
                             </StackPanel>
 
                             <Grid Grid.Row="4" Margin="0,0,0,8">
-                                <TextBlock Text="Recent Snips" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Recent Snips" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
                                 <HyperlinkButton Content="View all" HorizontalAlignment="Right" Click="ViewAllSnips_Click"/>
                             </Grid>
                             <ListView Grid.Row="5" MaxHeight="172" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollMode="Auto" ScrollViewer.VerticalScrollMode="Disabled" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.ZoomMode="Disabled" ItemsSource="{x:Bind ViewModel.RecentSnips}" ContainerContentChanging="RecentList_ContainerContentChanging" SelectionMode="None" ItemContainerStyle="{StaticResource SnipCardContainerStyleListView}">
@@ -211,7 +211,7 @@
                                 </ListView.ItemTemplate>
                             </ListView>
 
-                            <TextBlock Grid.Row="6" Text="Quick tools" Style="{StaticResource KaliteSectionTitle}" Margin="0,16,0,12"/>
+                            <TextBlock Grid.Row="6" Text="Quick tools" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,16,0,12"/>
                             <StackPanel Grid.Row="7" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
                                 <Button Content="Open image" Click="QuickOpenImage_Click"/>
                                 <Button Content="Copy text from screen" Click="QuickCopyText_Click"/>
@@ -225,7 +225,7 @@
                             <TextBlock Grid.Row="9" Text="{x:Bind ViewModel.StorageText, Mode=OneWay}" Margin="0,12,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}"/>
                         </Grid>
 
-                        <Grid x:Name="ViewGallery" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                        <Grid x:Name="ViewGallery" Visibility="Collapsed">
                              <Grid.RowDefinitions>
                                  <RowDefinition Height="Auto"/>
                                  <RowDefinition Height="Auto"/>
@@ -237,7 +237,7 @@
                                      <ColumnDefinition Width="*"/>
                                      <ColumnDefinition Width="Auto"/>
                                  </Grid.ColumnDefinitions>
-                                 <TextBlock Text="Gallery" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center"/>
+                                 <TextBlock Text="Gallery" Style="{StaticResource TitleLargeTextBlockStyle}" VerticalAlignment="Center"/>
                                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                      <Button Content="Import Images..." Click="ImportImages_Click"/>
                                      <Button Content="Find blanks..." Click="FindBlanks_Click"
@@ -503,7 +503,7 @@
                                  <Border Grid.Row="0" Grid.RowSpan="4" Grid.Column="1" Margin="16,0,0,0" Padding="16" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
                                      <ScrollViewer VerticalScrollBarVisibility="Hidden" Padding="0,0,8,0">
                                          <StackPanel Spacing="12">
-                                             <TextBlock Text="Item Details" Style="{StaticResource KaliteSectionTitle}"/>
+                                             <TextBlock Text="Item Details" Style="{StaticResource SubtitleTextBlockStyle}"/>
                                              <TextBlock Text="Select a snip to see its details." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                                                         Visibility="{x:Bind ViewModel.DetailsEmptyVisibility, Mode=OneWay}"/>
                                              <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.DetailsContentVisibility, Mode=OneWay}">
@@ -601,9 +601,9 @@
                              </Grid>
                         </Grid>
 
-                        <Grid x:Name="ViewStickers" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                        <Grid x:Name="ViewStickers" Visibility="Collapsed">
                              <StackPanel Spacing="16">
-                                 <TextBlock Text="Stickers" Style="{StaticResource KalitePageTitle}" />
+                                 <TextBlock Text="Stickers" Style="{StaticResource TitleLargeTextBlockStyle}" />
                                  <TextBlock Text="Import your own stickers, then stamp them onto captures with the sticker tool (K) in the capture overlay." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                  <StackPanel Orientation="Horizontal" Spacing="8">
                                      <Button Content="Import Stickers..." Click="ImportStickers_Click"/>
@@ -637,9 +637,9 @@
                              </StackPanel>
                         </Grid>
 
-                        <Grid x:Name="ViewBin" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                        <Grid x:Name="ViewBin" Visibility="Collapsed">
                              <StackPanel Spacing="16">
-                                 <TextBlock Text="Bin" Style="{StaticResource KalitePageTitle}" />
+                                 <TextBlock Text="Bin" Style="{StaticResource TitleLargeTextBlockStyle}" />
                                  <TextBlock Text="Deleted snips wait here until you restore them or empty the bin. Nothing is purged automatically." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                  <StackPanel Orientation="Horizontal" Spacing="8">
                                      <Button Content="Restore Selected" Click="RestoreTrash_Click"/>
@@ -675,17 +675,17 @@
                              </StackPanel>
                         </Grid>
 
-                        <Grid x:Name="ViewTools" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                        <Grid x:Name="ViewTools" Visibility="Collapsed">
                              <StackPanel Spacing="16">
-                                 <TextBlock Text="Tools" Style="{StaticResource KalitePageTitle}" />
+                                 <TextBlock Text="Tools" Style="{StaticResource TitleLargeTextBlockStyle}" />
                                  <TextBlock Text="Analysis and Pixel Operations go here." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                  <StackPanel x:Name="IconTestPanel" Spacing="4" />
                              </StackPanel>
                         </Grid>
 
-                        <Grid x:Name="ViewSettings" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+                        <Grid x:Name="ViewSettings" Visibility="Collapsed">
                             <StackPanel Spacing="16" MaxWidth="800" HorizontalAlignment="Left">
-                                <TextBlock Text="Snip Configuration" Style="{StaticResource KalitePageTitle}" />
+                                <TextBlock Text="Snip Configuration" Style="{StaticResource TitleLargeTextBlockStyle}" />
                                 
                                 <Grid Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                                     <Grid.ColumnDefinitions>
