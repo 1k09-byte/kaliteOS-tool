@@ -35,21 +35,11 @@ namespace kaliteConfig.Pages
             };
         }
 
-        private void FilterChip_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton clicked) return;
-            int index = 0;
-            if (clicked.Tag is string s) int.TryParse(s, out index);
-            else if (clicked.Tag is int i) index = i;
-            ViewModel.FilterIndex = index;
-            foreach (var chip in new[] { ChipAll, ChipDesktop, ChipStore, ChipNoUn })
-                chip.IsChecked = chip == clicked;
-        }
-
         private void AppList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
             int n = AppList.SelectedItems.Count;
             SelectionText.Text = n == 0 ? string.Empty : $"{n} selected";
+            AppDetailsPane.IsPaneOpen = n > 0;
             foreach (var removed in e.RemovedItems.OfType<UninstallerItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<UninstallerItem>())
@@ -74,7 +64,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = lines + "\n\nRuns each registered uninstaller, then cleans leftovers.", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Uninstall",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -90,7 +80,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = $"Scans for leftover files, folders and registry keys of {name} and deletes what it finds. The app itself is not uninstalled by this.", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Force remove",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -99,6 +89,7 @@ namespace kaliteConfig.Pages
 
         private void DriverList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
+            DriverDetailsPane.IsPaneOpen = DriverList.SelectedItems.Count > 0;
             foreach (var removed in e.RemovedItems.OfType<DriverPackageItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<DriverPackageItem>())
@@ -118,7 +109,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = lines + "\n\nDeletes each package from the driver store and uninstalls it from devices using it. Those devices may stop working until a driver is reinstalled or the PC restarts.", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Remove",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -164,7 +155,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = warning, TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Delete",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
