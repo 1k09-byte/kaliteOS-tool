@@ -137,11 +137,12 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
             if (!ok || !_hosts.TryAttach(host.Hwnd, area, out attachError))
             {
                 try { host.Dispose(); } catch { }
-                StopHosts();
+                try { StopHosts(); } catch { }
                 State = LiveState.Failed;
                 Notify();
                 return (false, error ?? attachError ?? "The wallpaper could not be placed behind the desktop icons.");
             }
+            host.IsAttached = true;
             _active.Add(host);
         }
         }
@@ -458,7 +459,11 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
     {
         foreach (var host in _active)
         {
-            try { _hosts.Detach(host.Hwnd); } catch { }
+            try
+            {
+                if (host.IsAttached) _hosts.Detach(host.Hwnd);
+            }
+            catch { }
             try { host.Dispose(); } catch { }
         }
         _active.Clear();

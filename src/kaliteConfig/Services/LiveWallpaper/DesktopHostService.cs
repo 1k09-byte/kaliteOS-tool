@@ -152,12 +152,20 @@ public sealed class DesktopHostService : IDesktopHostService
         try
         {
             if (host == IntPtr.Zero) return;
-            DesktopHostNative.SetParent(host, IntPtr.Zero);
+            if (!DesktopHostNative.IsWindow(host)) return;
+            try { DesktopHostNative.ShowWindow(host, DesktopHostNative.SW_HIDE); } catch { }
+            IntPtr parent = DesktopHostNative.GetParent(host);
+            if (parent != IntPtr.Zero)
+            {
+                try { DesktopHostNative.SetParent(host, IntPtr.Zero); } catch { }
+            }
         }
         catch { }
         try
         {
+            if (!DesktopHostNative.IsWindow(host)) return;
             long style = DesktopHostNative.GetWindowStyle(host).ToInt64();
+            if ((style & DesktopHostNative.WS_CHILD) == 0) return;
             style &= ~DesktopHostNative.WS_CHILD;
             style |= DesktopHostNative.WS_POPUP;
             DesktopHostNative.SetWindowStyle(host, new IntPtr(style));
