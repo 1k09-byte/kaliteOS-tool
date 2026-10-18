@@ -60,18 +60,47 @@ public sealed class SnapshotStore
     public static SnapshotEntry ReadCurrent(string id, string subKey, string name)
     {
         var entry = HkcuRegistry.ReadEntry(subKey, name);
-        if (entry.Exists && entry.Kind is not (RegistryValueKind.DWord or RegistryValueKind.String))
-            throw new NotSupportedException($"{subKey}\\{name} has type {entry.Kind}; only DWORD and string values are supported.");
+        if (entry.Exists && entry.Kind is not (RegistryValueKind.DWord or RegistryValueKind.String or RegistryValueKind.Binary))
+            throw new NotSupportedException($"{subKey}\\{name} has type {entry.Kind}; only DWORD, string and binary values are supported.");
+
+        string kind = entry.Kind switch
+        {
+            RegistryValueKind.DWord => "DWord",
+            RegistryValueKind.Binary => "Binary",
+            _ => "String",
+        };
+
+        string? value = entry.Exists
+            ? entry.Kind == RegistryValueKind.Binary
+                ? Convert.ToHexString((byte[])entry.Data!)
+                : Convert.ToString(entry.Data, CultureInfo.InvariantCulture)
+            : null;
+
         return new SnapshotEntry
         {
             Id = id,
             SubKey = subKey,
             Name = name,
             Existed = entry.Exists,
-            Kind = entry.Kind == RegistryValueKind.DWord ? "DWord" : "String",
-            Value = entry.Exists ? Convert.ToString(entry.Data, CultureInfo.InvariantCulture) : null,
+            Kind = kind,
+            Value = value,
         };
     }
+
+    public static object? RestoreValue(SnapshotEntry entry)
+    {
+        if (entry.Kind == "Binary")
+        {
+            if (string.IsNullOrEmpty(entry.Value)) return Array.Empty<byte>();
+            return Convert.FromHexString(entry.Value);
+        }
+        return entry.Value;
+    }
+
+    public static RegistryValueKind RestoreKind(SnapshotEntry entry) =>
+        entry.Kind == "Binary" ? RegistryValueKind.Binary
+        : entry.Kind == "DWord" ? RegistryValueKind.DWord
+        : RegistryValueKind.String;
 
     public void Remove(string id)
     {

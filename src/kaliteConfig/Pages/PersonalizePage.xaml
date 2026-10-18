@@ -14,6 +14,7 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:NotNullToBoolConverter x:Key="NotNullToBoolConverter" />
+        <converters:ArgbToBrushConverter x:Key="ArgbToBrushConverter" />
         <converters:IntToFileCountConverter x:Key="IntToFileCountConverter" />
         <converters:ZeroVisibilityConverter x:Key="ZeroVisibilityConverter" />
         <converters:NonZeroVisibilityConverter x:Key="NonZeroToVisibilityConverter" />
@@ -86,6 +87,27 @@
                                     IsEnabled="{Binding SelectedWallpaper, Converter={StaticResource NotNullToBoolConverter}}" />
                             <Button Content="Restore wallpaper section" Command="{Binding RevertWallpaperSectionCommand}" />
                         </StackPanel>
+
+                        <Border Style="{StaticResource PersonalizeCard}" Padding="12">
+                            <StackPanel Spacing="8">
+                                <ToggleSwitch Header="Match Windows colours to the wallpaper"
+                                              IsOn="{Binding MatchAccentToWallpaper, Mode=TwoWay}"
+                                              OnContent="On" OffContent="Off" />
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="When applying a wallpaper, its dominant colour also becomes the Windows accent, and the system light/dark setting follows the image brightness." />
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Border Width="28" Height="28" CornerRadius="{ThemeResource ControlCornerRadius}"
+                                            Background="{Binding AccentPreviewArgb, Converter={StaticResource ArgbToBrushConverter}}" />
+                                    <TextBlock Text="{Binding AccentPreviewText}" VerticalAlignment="Center"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Button Content="Apply colours now" Click="PreviewAccent_Click"
+                                            IsEnabled="{Binding SelectedWallpaper, Converter={StaticResource NotNullToBoolConverter}}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
                         <TextBlock Text="Library" Style="{StaticResource BodyStrongTextBlockStyle}" />
 

@@ -127,6 +127,12 @@ public sealed partial class PersonalizeViewModel : ObservableObject
     [ObservableProperty] public partial int SchemeFileCount { get; set; }
 
     [ObservableProperty] public partial bool LibraryEmpty { get; set; }
+
+    [ObservableProperty] public partial bool MatchAccentToWallpaper { get; set; } = true;
+
+    [ObservableProperty] public partial string AccentPreviewText { get; set; } = "";
+
+    [ObservableProperty] public partial int AccentPreviewArgb { get; set; } = unchecked((int)0xFF0078D4);
     [ObservableProperty] public partial bool IsHighContrast { get; set; }
     [ObservableProperty] public partial bool StatusOpen { get; set; }
     [ObservableProperty] public partial string StatusMessage { get; set; } = "";
@@ -187,7 +193,40 @@ public sealed partial class PersonalizeViewModel : ObservableObject
             Show(InfoBarSeverity.Warning, "Choose a wallpaper first.");
             return;
         }
-        Report(_wallpaper.Apply(SelectedMonitor?.MonitorId, SelectedWallpaper, SelectedFit), "Wallpaper applied.");
+        var results = new List<SettingResult>();
+        results.AddRange(_wallpaper.Apply(SelectedMonitor?.MonitorId, SelectedWallpaper, SelectedFit));
+        if (MatchAccentToWallpaper) results.AddRange(ApplyAccentFrom(SelectedWallpaper));
+        Report(results, "Wallpaper applied.");
+    }
+
+    private SettingResult[] ApplyAccentFrom(WallpaperLibraryItem item)
+    {
+        try
+        {
+            var extraction = AccentExtractor.Extract(item.FullPath);
+            AccentPreviewArgb = extraction.Argb;
+            AccentPreviewText = $"Accent #{extraction.Argb & 0xFFFFFF:X6}";
+
+            var results = new List<SettingResult>(_theme.ApplyAccentColor(extraction.Argb));
+            results.AddRange(_theme.Apply(new ThemeOptions(
+                _theme.Current().AppsUseLight,
+                extraction.Luminance < 0.35,
+                _theme.Current().Transparency,
+                _theme.Current().TitleBarAccent)));
+            return results.ToArray();
+        }
+        catch (Exception ex)
+        {
+            return new[] { new SettingResult("theme.accent", false, "Could not read the wallpaper colours: " + ex.Message) };
+        }
+    }
+
+    [RelayCommand]
+    private void PreviewAccent()
+    {
+        if (SelectedWallpaper is null) return;
+        var results = ApplyAccentFrom(SelectedWallpaper);
+        Report(results, "Accent colours updated from the wallpaper.");
     }
 
     [RelayCommand]
