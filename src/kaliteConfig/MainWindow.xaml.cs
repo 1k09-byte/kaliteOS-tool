@@ -190,6 +190,41 @@ namespace kaliteConfig
             {
                 DispatcherQueue.TryEnqueue(ShowMainWindow);
             };
+            _tray.LiveStateQuery = () =>
+            {
+                try
+                {
+                    var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                    bool active = live is not null && (live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Playing || live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Paused);
+                    return (active, active);
+                }
+                catch { return (false, false); }
+            };
+            _tray.OnPauseLive += () =>
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                        if (live?.State == kaliteConfig.Services.LiveWallpaper.LiveState.Playing) live.Pause();
+                        else if (live?.State == kaliteConfig.Services.LiveWallpaper.LiveState.Paused) live.Resume();
+                    }
+                    catch { }
+                });
+            };
+            _tray.OnStopLive += () =>
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                        live?.StopAndRestore();
+                    }
+                    catch { }
+                });
+            };
             _tray.OnExit += () =>
             {
                 DispatcherQueue.TryEnqueue(() =>

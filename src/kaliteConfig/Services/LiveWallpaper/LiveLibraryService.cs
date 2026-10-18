@@ -17,6 +17,7 @@ public interface ILiveLibraryService
     Task<(LiveWallpaperItem? Item, string? Error)> AddPackageAsync(string zipPath);
     bool Rename(string id, string name);
     bool Remove(string id);
+    Task<StorageItemThumbnail?> ReadVideoThumbnailAsync(string path);
 }
 
 public sealed class LiveLibraryService : ILiveLibraryService

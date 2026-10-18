@@ -17,6 +17,9 @@ public sealed class TrayIconService : IDisposable
 {
     public Action? OnOpen;
     public Action? OnExit;
+    public Action? OnPauseLive;
+    public Action? OnStopLive;
+    public Func<(bool CanPause, bool CanStop)>? LiveStateQuery;
     public event Action<SnipMode>? OnTakeScreenshot;
 
     public enum SnipMode
@@ -50,6 +53,8 @@ public sealed class TrayIconService : IDisposable
     private const uint ID_VERSION = 99;
     private const uint ID_OPEN = 100;
     private const uint ID_TAKE_SNIP = 101;
+    private const uint ID_PAUSE_LIVE = 102;
+    private const uint ID_STOP_LIVE = 103;
     private const uint ID_SEPARATOR1 = 107;
     private const uint ID_EXIT = 108;
 
@@ -321,6 +326,16 @@ public sealed class TrayIconService : IDisposable
 
             AppendMenuW(menu, MF_STRING, ID_TAKE_SNIP, "Take Screenshot");
 
+            bool canPause = false;
+            bool canStop = false;
+            try
+            {
+                if (LiveStateQuery is { } query) (canPause, canStop) = query();
+            }
+            catch { }
+            AppendMenuW(menu, canPause ? MF_STRING : MF_STRING | MF_GRAYED, ID_PAUSE_LIVE, "Pause live wallpaper");
+            AppendMenuW(menu, canStop ? MF_STRING : MF_STRING | MF_GRAYED, ID_STOP_LIVE, "Stop live wallpaper");
+
             AppendMenuW(menu, MF_SEPARATOR, ID_SEPARATOR1, null);
 
             AppendMenuW(menu, MF_STRING, ID_EXIT, "Exit");
@@ -356,6 +371,12 @@ public sealed class TrayIconService : IDisposable
                 break;
             case ID_TAKE_SNIP:
                 OnTakeScreenshot?.Invoke(SnipMode.Region);
+                break;
+            case ID_PAUSE_LIVE:
+                OnPauseLive?.Invoke();
+                break;
+            case ID_STOP_LIVE:
+                OnStopLive?.Invoke();
                 break;
             case ID_EXIT:
                 OnExit?.Invoke();

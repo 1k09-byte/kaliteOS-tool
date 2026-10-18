@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using kaliteConfig.Services.DependencyInjection;
+using kaliteConfig.Services.LiveWallpaper;
 using kaliteConfig.Services.Personalize;
 using kaliteConfig.ViewModels;
 using Microsoft.UI.Xaml;
@@ -24,6 +25,9 @@ public sealed partial class PersonalizePage : Page
     private static readonly string[] WallpaperExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
 
     public PersonalizeViewModel ViewModel { get; }
+    public LiveWallpaperViewModel LiveViewModel { get; }
+
+    private static readonly string[] LiveVideoExtensions = { ".mp4", ".m4v", ".mov", ".wmv", ".webm", ".mkv" };
 
     public PersonalizePage()
     {
@@ -31,11 +35,15 @@ public sealed partial class PersonalizePage : Page
         ViewModel = App.Services.Get<PersonalizeViewModel>();
         DataContext = ViewModel;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        LiveViewModel = App.Services.Get<LiveWallpaperViewModel>();
+        LiveSection.DataContext = LiveViewModel;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         RefreshFromSystem();
+        _ = LiveViewModel.ReloadLibraryAsync();
+        _ = LiveViewModel.ResumeOnLaunchAsync();
         if (App.MainWindow is { } window) window.Activated += OnWindowActivated;
     }
 
@@ -99,6 +107,7 @@ public sealed partial class PersonalizePage : Page
         var tag = (sender.SelectedItem as SelectorBarItem)?.Tag as string;
         WallpaperSection.Visibility = tag == "wallpaper" ? Visibility.Visible : Visibility.Collapsed;
         CursorSection.Visibility = tag == "cursor" ? Visibility.Visible : Visibility.Collapsed;
+        LiveSection.Visibility = tag == "live" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void AddWallpaper_Click(object sender, RoutedEventArgs e)
@@ -241,6 +250,122 @@ public sealed partial class PersonalizePage : Page
 
     private static string CountdownText(int seconds) =>
         $"The cursor change will be reverted in {seconds} seconds unless you keep it.";
+
+    private void LiveLibrary_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is LiveWallpaperItem item) LiveViewModel.SelectedItem = item;
+    }
+
+    private void LiveLibrary_DragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+    }
+
+    private async void LiveLibrary_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                return;
+            var items = await e.DataView.GetStorageItemsAsync();
+            foreach (var storage in items)
+            {
+                try
+                {
+                    if (storage is Windows.Storage.StorageFile file)
+                        await LiveViewModel.AddVideoPathAsync(file.Path);
+                    else if (storage is Windows.Storage.StorageFolder folder)
+                        await LiveViewModel.AddFolderPathAsync(folder.Path);
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    private async void LiveAddVideo_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.MainWindow is null) return;
+        var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.VideosLibrary };
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
+        foreach (var ext in LiveVideoExtensions) picker.FileTypeFilter.Add(ext);
+        _systemPickerOpen = true;
+        try
+        {
+            var file = await picker.PickSingleFileAsync();
+            if (file is not null) await LiveViewModel.AddVideoPathAsync(file.Path);
+        }
+        catch { }
+        finally { _systemPickerOpen = false; }
+    }
+
+    private async void LiveAddFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.MainWindow is null) return;
+        var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.ComputerFolder };
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
+        picker.FileTypeFilter.Add("*");
+        _systemPickerOpen = true;
+        try
+        {
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is not null) await LiveViewModel.AddFolderPathAsync(folder.Path);
+        }
+        catch { }
+        finally { _systemPickerOpen = false; }
+    }
+
+    private async void LiveAddPackage_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.MainWindow is null) return;
+        var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.Downloads };
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
+        picker.FileTypeFilter.Add(".zip");
+        _systemPickerOpen = true;
+        try
+        {
+            var file = await picker.PickSingleFileAsync();
+            if (file is not null) await LiveViewModel.AddPackagePathAsync(file.Path);
+        }
+        catch { }
+        finally { _systemPickerOpen = false; }
+    }
+
+    private void LiveSetAll_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is LiveWallpaperItem item)
+        {
+            LiveViewModel.SameItem = item;
+            LiveViewModel.SelectedItem = item;
+        }
+    }
+
+    private void LiveRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is LiveWallpaperItem item)
+        {
+            LiveViewModel.SelectedItem = item;
+            LiveViewModel.RemoveSelectedCommand.Execute(null);
+        }
+    }
+
+    private async void LiveRename_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not LiveWallpaperItem item) return;
+        LiveViewModel.SelectedItem = item;
+        var box = new TextBox { Text = item.Name };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Rename",
+            Content = box,
+            PrimaryButtonText = "Rename",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            LiveViewModel.RenameSelected(box.Text);
+    }
 
     private async void RevertEverything_Click(object sender, RoutedEventArgs e)
     {

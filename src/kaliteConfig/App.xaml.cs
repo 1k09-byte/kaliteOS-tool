@@ -285,6 +285,12 @@ namespace kaliteConfig
 
                 try { GamingMode.ReleaseAll(); }
                 catch { }
+                try
+                {
+                    var live = Services.GetService(typeof(Services.LiveWallpaper.ILiveWallpaperEngine)) as Services.LiveWallpaper.ILiveWallpaperEngine;
+                    live?.StopAndRestore();
+                }
+                catch { }
                 ShutdownTrace("closed.end");
             };
 
