@@ -338,3 +338,95 @@ deletion (grep for `CueService`/`CueKind`, `.wav`/`.mp3`, `PresentMon` outside t
 The benchmark-generated WAVs had no consumer left.
 
 Debug and Release both verified green after removal.
+
+---
+
+# Addendum 2 — Meteor removal and Apps page redesign
+
+## Commits
+| Commit | Contents |
+|---|---|
+| `ace380b` | Remove meteor live background control |
+| `aefef26` | Redesign Apps page and restore unreachable Installed and Bundles sections |
+
+Debug build **0 errors, 0 warnings**.
+
+## Meteor live background removed — `ace380b`
+
+Deleted in full:
+- `src/kaliteConfig/Controls/KaliteBackdrop.xaml` — 36 hand-placed `<Line>` elements with
+  absolute `X1`/`Y1`/`X2`/`Y2` coordinates and per-line `StrokeThickness`, plus the
+  `MeteorUp` / `MeteorDown` `LinearGradientBrush` resources (the only hardcoded colours left
+  in a control's own resources).
+- `src/kaliteConfig/Controls/KaliteBackdrop.xaml.cs` — the 36-entry `Meteors` table
+  (name, direction, delay), the `CompositionTarget.Rendering` frame loop at 15 fps
+  (`FrameInterval = 1.0/15.0`), the `TranslateTransform` array, the `MinDelta` culling, the
+  window-activation hook and the `MaxRenderFaults` guard.
+- The `<controls:KaliteBackdrop x:Name="Backdrop">` element in `MainWindow.xaml`.
+
+`MainWindow.xaml.cs` was verified to hold no reference to the control — the `x:Name` was only
+declared, never read or written, so no code-behind changed.
+
+This also removes the last `CompositionTarget.Rendering` subscription in the app, so the
+window no longer forces a continuous per-frame render pass while idle.
+
+**Behaviour note:** `ApplicationPageBackgroundThemeBrush` is still pinned to `Transparent` in
+`SideNavResources.xaml`. It is no longer backdrop-dependent, but it **is** tint-dependent:
+`MainWindow.xaml.cs` paints the user's backdrop tint into the `TintLayer` behind the content,
+and six pages rely on a transparent page background for that tint to remain visible. Restoring
+the stock opaque brush would silently hide the tint feature, so the exception stays.
+
+## Apps page redesigned — `aefef26`
+
+The complaint was that the page still looked the same. The cause: the page was built around a
+**nested `NavigationView`** — a navigation rail inside a navigation rail — so restyling it
+produced the same silhouette. That control is now gone.
+
+**Layout before:** inner `NavigationView` filling the page, `PaneDisplayMode="Left"`,
+`OpenPaneLength="200"`, `Frame` with an ad-hoc margin, icons at a fixed size, update badge
+buried inside a `NavigationViewItem`, no page header.
+
+**Layout after:** a flat, Gallery-style page —
+1. **Header block** — `TitleLargeTextBlockStyle` "Apps" title with the update `InfoBadge`
+   inline beside it, and a `BodyTextBlockStyle` secondary helper line.
+2. **Horizontal `SelectorBar`** across the top, replacing the nested nav entirely.
+3. **Card-framed content region** — the `Frame` inside a `CardBorder` `Border` so the
+   sub-pages sit on a themed surface with a stroke, instead of floating on bare transparency.
+
+Stock controls now used: `TextBlock` + `TitleLargeTextBlockStyle` /
+`BodyTextBlockStyle`, `InfoBadge`, `SelectorBar` + `SelectorBarItem` + `FontIcon`,
+`Border` + `CardBorder`, `Frame`. No nested `NavigationView`.
+
+### Latent bug fixed: two sections were unreachable
+
+`InstalledPackagesPage` and `PackageBundlesPage` are fully implemented pages (104 and 67
+lines of XAML, each with a full code-behind), and the tag→page map in the code-behind already
+had `"Installed"` and `"Bundles"` entries — but **no menu item ever pointed at them**, so they
+could not be opened from anywhere in the app. The new `SelectorBar` gives all five mapped
+sections a visible entry: Discover, Installed, Updates, Bundles, Managers.
+
+### Handler change
+
+`InnerNav_SelectionChanged` became `SectionBar_SelectionChanged`, and the tag→page mapping
+moved verbatim into a new `NavigateToTag(string)` helper. The navigation logic itself —
+all five tag cases and the `ContentFrame.Navigate` call — is unchanged.
+
+`InnerNav` and its three `NavigationViewItem`s were replaced by `SectionBar` and five
+`SelectorBarItem`s, so those `x:Name`s no longer exist. This is recorded as an intentional
+exception to the keep-every-`x:Name` rule: the control type was replaced, not moved, and the
+`NavigationView` `SelectionChanged` signature differs from `SelectorBar`'s in this SDK
+(`SelectorBarSelectionChangedEventArgs` exposes no `SelectedItem`, so the handler reads
+`sender.SelectedItem`).
+
+The `Loaded` initialisation still selects the first section and still calls
+`Module.RefreshUpdateCountAsync()`; the `BadgeVis` helper and the `x:Bind` on `Module.UpdateCount`
+are unchanged.
+
+## Not done
+
+The Apps **row** hover/hover-highlight from the previous round is still outstanding:
+`PackageListView` hosts rows in an `ItemsRepeater`, which has no stock item container, so
+rows carry their own `CardBorder` and show no native pointer-over or selection. Converting it
+to a `ListView` means rewriting `PushToRow`, `RefreshRealizedRows` and `Repeater_ElementPrepared`
+plus the grid-mode `UniformGridLayout` mapping in `ApplyLayout` — a row-realization and
+virtualization refactor that still needs to be verified by running the app.
