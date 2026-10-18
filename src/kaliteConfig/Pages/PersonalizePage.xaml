@@ -21,6 +21,18 @@
         <converters:ZeroVisibilityConverter x:Key="ZeroVisibilityConverter" />
         <converters:NonZeroVisibilityConverter x:Key="NonZeroToVisibilityConverter" />
         <Style x:Key="PersonalizeCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
+        <SolidColorBrush x:Key="GridViewItemBackgroundSelected" Color="Transparent" />
+        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPressed" Color="Transparent" />
+        <SolidColorBrush x:Key="GridViewItemBorderBrushSelected" Color="Transparent" />
+        <SolidColorBrush x:Key="GridViewItemBorderBrushSelectedPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="GridViewItemBorderBrushSelectedPressed" Color="Transparent" />
+        <Style x:Key="LiveLibraryItemStyle" TargetType="GridViewItem">
+            <Setter Property="Margin" Value="0,0,12,12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
     </Page.Resources>
 
     <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
@@ -331,6 +343,7 @@
                         <GridView ItemsSource="{Binding Items}"
                                   SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                                   SelectionMode="Single" IsItemClickEnabled="True" ItemClick="LiveLibrary_ItemClick"
+                                  ItemContainerStyle="{StaticResource LiveLibraryItemStyle}"
                                   AllowDrop="True" Drop="LiveLibrary_Drop" DragOver="LiveLibrary_DragOver"
                                   MaxHeight="320" AutomationProperties.Name="Live wallpaper library"
                                   Visibility="{Binding LibraryEmpty, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
