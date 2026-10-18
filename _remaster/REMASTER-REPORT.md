@@ -746,3 +746,102 @@ the Startup panel.
 Unchanged from Addendum 3: 32 pages not remade, ~1,600 `FontSize` attributes and ~160 literal
 `CornerRadius` on other pages, ~90 hardcoded colours in C# drawing code, 22 dialogs, the inert
 font-preference feature, and no light/dark/high-contrast/scaling verification.
+
+---
+
+# Addendum 6 — COM exception, install card layout, snip tray blocking call
+
+## Commits
+| Commit | Contents |
+|---|---|
+| `96a987d` | Fix install card layout: stop action button overlaying card and remove fixed tile height |
+| `4a2d71e` | Stop blocking UI thread on WinRT encoder during snip tray drag start |
+
+Debug x64 build **0 errors, 0 warnings**.
+
+## COM exception `0x8001010D` — `4a2d71e`
+
+```
+System.Runtime.InteropServices.COMException
+  Message=Retrieving the COM class factory for component with CLSID
+  {C2CF3110-460E-4FC1-B9D0-8A1C0C9CC4BD} failed ... 8001010d
+  An outgoing call cannot be made since the application is dispatching
+  an input-synchronous call. (RPC_E_CANTCALLOUT_ININPUTSYNCCALL)
+```
+
+### Root cause
+`Windows/SnipTrayWindow.xaml.cs`, `OnDragStarting` — a **drag-start input handler** — blocked
+the UI thread on a WinRT call:
+
+```csharp
+var encoderTask = BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream).AsTask();
+encoderTask.Wait();          // UI thread blocks
+var encoder = encoderTask.Result;
+encoder.SetSoftwareBitmap(_img);
+var flushTask = encoder.FlushAsync().AsTask();
+flushTask.Wait();            // UI thread blocks
+```
+
+`BitmapEncoder.CreateAsync` is a WinRT async whose activation and completion must be pumped by
+the UI thread's STA message loop. Calling `.Wait()` from inside a handler that the dispatcher
+is already servicing as an input-synchronous call means the outgoing COM call is made while
+the apartment is mid-dispatch — precisely `RPC_E_CANTCALLOUT_ININPUTSYNCCALL`. The empty
+`catch (Exception)` swallowed the failure, so the drag simply carried no thumbnail.
+
+The CLSID was checked in the registry: `{C2CF3110-…}` carries only an `AppId` and no
+`InprocServer32`, i.e. an in-process WinRT/Immersive class rather than a normal COM server,
+which is consistent with a WinRT async activation.
+
+### Fix
+The thumbnail is now encoded **ahead of the drag** and cached, so `OnDragStarting` only reads
+it:
+
+- `PrepareDragBitmap()` — starts `EncodeDragBitmapAsync()` once per image.
+- `EncodeDragBitmapAsync()` — `await`s `BitmapEncoder.CreateAsync` and `FlushAsync` properly
+  instead of blocking, then stores a `RandomAccessStreamReference` in `_dragBitmap`.
+- `OnPointerPressed` calls `PrepareDragBitmap()`, so encoding is already in flight before the
+  user can start dragging.
+- `OnDragStarting` calls `PrepareDragBitmap()` as a backstop and sets the bitmap only if the
+  cached reference exists. No blocking call remains on the input path.
+
+No other `.Wait()` / `.Result` on a UI-thread path remains in `Windows/` or `Controls/`
+(verified by grep).
+
+This bug is **pre-existing** and not introduced by the remaster.
+
+### Note on diagnosis
+No new entry appeared in `%LOCALAPPDATA%\kaliteConfig\logs\crash.log`, so this is a
+**first-chance** exception that the VS debugger breaks on rather than a fatal crash. If VS is
+configured to break on all COM exceptions, Debug → Windows → Exception Settings →
+"COMException" can be set to *Do not break* to confirm the app itself is healthy. If the
+exception occurs somewhere other than a snip-tray drag, the page and action are needed to pin
+it — this fix addresses the one call site in the codebase that provably matches the error.
+
+## Install card layout fixed — `96a987d`
+
+Two defects, both visible on the Apps page.
+
+**Floating "extra install button".** The card template root was a single `Grid` whose
+`CardRoot` button filled the whole grid, with `RowAction` and `RowBusy` positioned
+`VerticalAlignment="Bottom"` **on top of it**. The action button rendered as a stray floating
+button over the card rather than as part of the row.
+
+**Empty room.** `UniformGridLayout MinItemHeight="176"` with `ItemsStretch="None"` gave every
+tile at least 176px, while `CardRoot` was `VerticalAlignment="Stretch"`, so a card whose
+content is ~130px was padded out to 176px with dead space.
+
+Fixes:
+- Template root is now a two-row `Grid`: row 0 the card button (`VerticalAlignment="Top"`, so
+  it hugs its content), row 1 the action button / busy ring, with `RowSpacing` 6 between them.
+  Nothing overlaps any more.
+- `CardRoot`'s redundant inner `Grid Padding="14"` removed; the `StackPanel` `Spacing` went
+  10 → 8, and the status text is now a direct `TextBlock` instead of a wrapping `Grid`.
+- The card name gained `TextTrimming="CharacterEllipsis"` so long app names no longer force the
+  tile wider.
+- `MinItemHeight` set to `0` on all four category grids so tiles size to their content.
+- Tile `Margin` 8 → 12 to keep vertical rhythm between tiles now that heights vary.
+
+## Outstanding
+Unchanged: 32 pages not remade, ~1,600 `FontSize` and ~160 literal `CornerRadius` elsewhere,
+~90 hardcoded colours in C# drawing code, 22 dialogs, inert font preference, and no
+light/dark/high-contrast/scaling verification.
