@@ -30,6 +30,7 @@ public abstract class LiveHost : IDisposable
     public MonitorRect Area { get; }
     public Window View { get; }
     public IntPtr Hwnd { get; }
+    public bool IsAttached { get; set; }
 
     public abstract Task<(bool Ok, string? Error)> ShowAsync(LiveWallpaperItem item, LiveSettings settings);
     public abstract void ApplyPlayback(LiveSettings settings);
@@ -50,7 +51,16 @@ public abstract class LiveHost : IDisposable
 
     public virtual void Dispose()
     {
-        try { View.Close(); } catch { }
+        try
+        {
+            if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
+            {
+                queue.TryEnqueue(() => { try { View.Close(); } catch { } });
+                return;
+            }
+            View.Close();
+        }
+        catch { }
     }
 }
 

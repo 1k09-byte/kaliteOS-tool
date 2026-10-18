@@ -137,7 +137,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <SelectorBar x:Name="MainPivot" Grid.Row="0" Margin="40,0,40,4"
+        <SelectorBar x:Name="MainPivot" Grid.Row="0" Margin="28,0,28,4"
                      HorizontalAlignment="Left"
                      SelectionChanged="MainPivot_SelectionChanged">
             <SelectorBarItem x:Name="TabUninstaller" Text="Uninstaller" IsSelected="True" />
@@ -145,7 +145,7 @@
             <SelectorBarItem x:Name="TabStartup" Text="Startup" />
         </SelectorBar>
 
-        <Grid x:Name="UninstallerPanel" Grid.Row="1" Padding="40,0,40,24" RowSpacing="12">
+        <Grid x:Name="UninstallerPanel" Grid.Row="1" Padding="28,0,28,20" RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -425,9 +425,7 @@
                                Visibility="{Binding ShowEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
                 </Grid>
             </SplitView>
-        </Grid>
-
-        <Grid x:Name="RemoverPanel" Grid.Row="1" Padding="40,0,40,24" RowSpacing="12"
+        </Grid>         <Grid x:Name="RemoverPanel" Grid.Row="1" Padding="28,0,28,20" RowSpacing="12"
               Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -640,9 +638,7 @@
                                Visibility="{Binding ShowDriversEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
                 </Grid>
             </SplitView>
-        </Grid>
-
-        <Grid x:Name="StartupPanel" Grid.Row="1" Padding="40,0,40,24" ColumnSpacing="24"
+        </Grid>         <Grid x:Name="StartupPanel" Grid.Row="1" Padding="28,0,28,20" ColumnSpacing="24"
               Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="240" />
