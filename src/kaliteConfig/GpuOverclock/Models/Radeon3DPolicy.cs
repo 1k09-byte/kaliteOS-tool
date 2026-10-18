@@ -12,17 +12,8 @@ using System.Collections.Generic;
 
 namespace kaliteConfig.GpuOverclock.Models
 {
-    /// <summary>One intended ADLX write, in the order it must be issued.</summary>
     public sealed record Radeon3DWrite(Radeon3DSetting Setting, bool Enable, string Reason);
 
-    /// <summary>
-    /// What the driver currently says about the mutually exclusive group, plus
-    /// what this page owes the driver when Chill is switched off again.
-    ///
-    /// This is a value, not a cache: it is rebuilt from a fresh read-back after
-    /// every write, so what the UI shows is what the driver last confirmed
-    /// rather than what the user clicked.
-    /// </summary>
     public sealed record Radeon3DExclusiveGroup
     {
         public static readonly Radeon3DExclusiveGroup None = new();
@@ -31,13 +22,10 @@ namespace kaliteConfig.GpuOverclock.Models
         public bool BoostEnabled { get; init; }
         public bool ChillEnabled { get; init; }
 
-        /// <summary>Anti-Lag was on when this page had to switch it off for Chill.</summary>
         public bool RestoreAntiLag { get; init; }
 
-        /// <summary>Boost was on when this page had to switch it off for Chill.</summary>
         public bool RestoreBoost { get; init; }
 
-        /// <summary>Builds a group from a read-back of the three interfaces.</summary>
         public static Radeon3DExclusiveGroup FromReadback(bool antiLag, bool boost, bool chill)
             => new() { AntiLagEnabled = antiLag, BoostEnabled = boost, ChillEnabled = chill };
 
@@ -51,10 +39,6 @@ namespace kaliteConfig.GpuOverclock.Models
 
         public Radeon3DExclusiveGroup With(Radeon3DSetting setting, bool enabled) => setting switch
         {
-            // Switching a feature ON clears any pending restore: it is on, so
-            // there is nothing left to put back. Switching it off leaves the
-            // flag alone, because only Request knows whether this page turned it
-            // off for Chill or the user did.
             Radeon3DSetting.AntiLag => this with
             {
                 AntiLagEnabled = enabled,
@@ -69,39 +53,18 @@ namespace kaliteConfig.GpuOverclock.Models
             _ => this,
         };
 
-        /// <summary>What still needs switching on if Chill is turned off right now.</summary>
         public bool HasPendingRestore => RestoreAntiLag || RestoreBoost;
     }
 
-    /// <summary>
-    /// The writes a request needs, in order, and the group those writes imply.
-    /// </summary>
     public sealed record Radeon3DTransition(Radeon3DExclusiveGroup After, IReadOnlyList<Radeon3DWrite> Writes);
 
-    /// <summary>
-    /// The mutual-exclusivity rules of the driver's 3D settings, as pure data.
-    ///
-    /// The one hard rule AMD documents is that Chill cannot run at the same time
-    /// as Boost or Anti-Lag: all three compete for the same frame-pacing
-    /// mechanism. Boost and Anti-Lag are NOT mutually exclusive with each other -
-    /// Adrenalin lets you run both, and so does the driver - so this is a three
-    /// member group with one edge, not a radio group of three. The page presents
-    /// it as one card and says so, rather than pretending otherwise.
-    ///
-    /// The second half of the rule is the part that is easy to get wrong:
-    /// switching Chill on has to switch the others OFF, and switching it back
-    /// off has to switch them back ON to what they were. That is why the group
-    /// carries Restore* flags rather than just three booleans.
-    /// </summary>
     public static class Radeon3DPolicy
     {
-        /// <summary>The plain-language explanation shown above the group.</summary>
         public const string ExclusionExplanation =
             "Radeon Chill cannot run together with Radeon Boost or Radeon Anti-Lag - all three " +
             "drive the same frame-pacing hardware. Turning one on turns the others off, and " +
             "turning Chill off restores whatever was on before. Boost and Anti-Lag can run together.";
 
-        /// <summary>What the driver will not allow to be on at the same time as <paramref name="setting"/>.</summary>
         public static IReadOnlyList<Radeon3DSetting> ConflictsWith(Radeon3DSetting setting) => setting switch
         {
             Radeon3DSetting.Chill => new[] { Radeon3DSetting.Boost, Radeon3DSetting.AntiLag },
@@ -110,18 +73,8 @@ namespace kaliteConfig.GpuOverclock.Models
             _ => System.Array.Empty<Radeon3DSetting>(),
         };
 
-        /// <summary>
-        /// Plans the writes for one toggle. Pure: it reads the current read-back
-        /// and returns the ordered writes plus the group they imply, and touches
-        /// nothing. The caller issues the writes and then rebuilds the group from
-        /// a fresh read-back of all three interfaces.
-        /// </summary>
         public static Radeon3DTransition Request(Radeon3DExclusiveGroup current, Radeon3DSetting setting, bool enable)
         {
-            // Already in the requested state: nothing to do. This also makes the
-            // request idempotent, which matters because a UI toggle can raise
-            // its changed event when the page re-asserts the driver's value -
-            // that must not turn into a second write.
             if (current.IsEnabled(setting) == enable)
                 return new Radeon3DTransition(current, System.Array.Empty<Radeon3DWrite>());
 
@@ -144,9 +97,6 @@ namespace kaliteConfig.GpuOverclock.Models
             foreach (Radeon3DWrite write in writes)
                 after = after.With(write.Setting, write.Enable);
 
-            // Anything switched off to make room for Chill has to be remembered,
-            // because turning Chill off must put it back. The flag is "what it
-            // was before we touched it" - With() deliberately cannot infer that.
             if (setting == Radeon3DSetting.Chill && enable)
             {
                 if (!after.BoostEnabled && current.BoostEnabled) after = after with { RestoreBoost = true };
@@ -160,8 +110,6 @@ namespace kaliteConfig.GpuOverclock.Models
         {
             var writes = new List<Radeon3DWrite>();
 
-            // Off first: the driver will not accept Chill while a competitor is
-            // still on, so the order is not cosmetic.
             if (current.BoostEnabled)
                 writes.Add(new Radeon3DWrite(Radeon3DSetting.Boost, false,
                     "Radeon Boost was switched off because Chill cannot run alongside it."));
@@ -183,9 +131,6 @@ namespace kaliteConfig.GpuOverclock.Models
                 writes.Add(new Radeon3DWrite(Radeon3DSetting.Chill, false,
                     "Radeon Chill switched off."));
 
-            // Then put back whatever was on before this page had to take it
-            // off. Only what WE disabled is restored - a feature the user turns
-            // off by hand stays off.
             if (current.RestoreBoost)
                 writes.Add(new Radeon3DWrite(Radeon3DSetting.Boost, true,
                     "Radeon Boost restored to how it was before Chill."));
@@ -217,11 +162,6 @@ namespace kaliteConfig.GpuOverclock.Models
             return writes;
         }
 
-        /// <summary>
-        /// Why a feature is in the group but why it is NOT written: used by the
-        /// page's explanation, and by tests that assert the rule is one edge and
-        /// not a full radio group.
-        /// </summary>
         public static bool IsExclusive(Radeon3DSetting setting)
             => ConflictsWith(setting).Count > 0;
     }

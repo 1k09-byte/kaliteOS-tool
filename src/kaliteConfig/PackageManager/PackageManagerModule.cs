@@ -17,11 +17,6 @@ using kaliteConfig.PackageManager.Services;
 
 namespace kaliteConfig.PackageManager
 {
-    /// <summary>
-    /// Composition root for the package-manager module (mirrors the
-    /// GpuOverclock module pattern): one instance per process, explicit
-    /// services, no DI container. Observable so the nav update badge binds.
-    /// </summary>
     public sealed partial class PackageManagerModule : ObservableObject
     {
         private static readonly Lazy<PackageManagerModule> _lazy = new(() => new PackageManagerModule());
@@ -41,10 +36,6 @@ namespace kaliteConfig.PackageManager
             Bundles = new PackageBundleService();
         }
 
-        /// <summary>
-        /// Refreshes the nav badge count (best-effort; failures clear it).
-        /// Called on page entry and after update runs.
-        /// </summary>
         public async Task RefreshUpdateCountAsync()
         {
             try
@@ -67,9 +58,6 @@ namespace kaliteConfig.PackageManager
 
         private Task<System.Collections.Generic.IReadOnlyList<PackageInfo>>? _installedCacheTask;
 
-        /// <summary>
-        /// Returns a cached list of installed packages, fast enough to use inside search algorithms.
-        /// </summary>
         public Task<System.Collections.Generic.IReadOnlyList<PackageInfo>> GetInstalledPackagesAsync()
         {
             if (_installedCacheTask == null)

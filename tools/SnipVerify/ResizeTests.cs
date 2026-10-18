@@ -1,7 +1,6 @@
 using System;
 using kaliteConfig.Services;
 
-// Unit tests for the resize dimension math (SnipGalleryQuery.ComputeResizeDims).
 internal static class ResizeTests
 {
     public static void Run(Action<bool, string> check)

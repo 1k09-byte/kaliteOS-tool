@@ -6,8 +6,6 @@ internal static class SystemNotifier
 {
     private const uint TimeoutMs = 1000;
 
-    // WM_SETTINGCHANGE with an area name, e.g. "ImmersiveColorSet" for the app and
-    // system theme. Returns false if no window answered within the timeout.
     public static bool BroadcastSettingChange(string area)
     {
         IntPtr result = NativeMethods.SendMessageTimeout(
@@ -21,7 +19,6 @@ internal static class SystemNotifier
         return result != IntPtr.Zero;
     }
 
-    // Tells DWM the accent color changed, so title bars redraw.
     public static bool BroadcastDwmColorChanged()
     {
         IntPtr result = NativeMethods.SendMessageTimeout(

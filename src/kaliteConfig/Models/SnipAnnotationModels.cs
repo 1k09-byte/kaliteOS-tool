@@ -37,7 +37,6 @@ public class SnipArrow : SnipObject
     {
         ds.DrawLine((float)Start.X, (float)Start.Y, (float)End.X, (float)End.Y, Color, StrokeThickness);
 
-        // Calculate arrowhead
         double angle = Math.Atan2(End.Y - Start.Y, End.X - Start.X);
         double arrowLen = 15;
         double arrowAngle = Math.PI / 6;
@@ -53,7 +52,6 @@ public class SnipArrow : SnipObject
 
     public override bool HitTest(Point pt)
     {
-        // Simple distance to line hit test
         double l2 = Math.Pow(Start.X - End.X, 2) + Math.Pow(Start.Y - End.Y, 2);
         if (l2 == 0) return Math.Sqrt(Math.Pow(pt.X - Start.X, 2) + Math.Pow(pt.Y - Start.Y, 2)) < StrokeThickness * 2;
         
@@ -123,8 +121,7 @@ public class SnipRedactionBox : SnipObject
     public override void Draw(CanvasDrawingSession ds, CanvasBitmap? background = null)
     {
         if (background == null) return;
-        
-        // We want to blur or pixelate ONLY inside the Bounds region
+
         if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
 
         var crop = new Microsoft.Graphics.Canvas.Effects.CropEffect 
@@ -230,7 +227,6 @@ public class SnipEllipse : SnipObject
     public override Rect GetBounds() => Bounds;
 }
 
-/// <summary>Translucent wide ink stroke used by the highlighter tool.</summary>
 public class SnipHighlight : SnipInk
 {
     public SnipHighlight()
@@ -250,7 +246,6 @@ public class SnipHighlight : SnipInk
     }
 }
 
-/// <summary>Dims everything outside an ellipse so the marked area stands out.</summary>
 public class SnipSpotlight : SnipObject
 {
     public Rect Bounds { get; set; }
@@ -262,7 +257,6 @@ public class SnipSpotlight : SnipObject
     public override void Draw(CanvasDrawingSession ds, CanvasBitmap? background = null)
     {
         if (Bounds.Width <= 0 || Bounds.Height <= 0 || ScreenWidth <= 0) return;
-        // Four dim rectangles around the ellipse (cheap, correct silhouette).
         ds.FillRectangle(0, 0, ScreenWidth, (float)Bounds.Y, Dim);
         ds.FillRectangle(0, (float)(Bounds.Y + Bounds.Height), ScreenWidth, ScreenHeight - (float)(Bounds.Y + Bounds.Height), Dim);
         ds.FillRectangle(0, (float)Bounds.Y, (float)Bounds.X, (float)Bounds.Height, Dim);
@@ -285,7 +279,6 @@ public class SnipSpotlight : SnipObject
     public override Rect GetBounds() => Bounds;
 }
 
-/// <summary>Free-floating text annotation.</summary>
 public class SnipText : SnipObject
 {
     public string TextValue { get; set; } = "";
@@ -311,7 +304,6 @@ public class SnipText : SnipObject
         Math.Max(8, TextValue.Length * FontSize * 0.6), FontSize * 1.4);
 }
 
-/// <summary>Numbered step badge: filled circle with the next sequence number.</summary>
 public class SnipNumber : SnipObject
 {
     public int Number { get; set; } = 1;
@@ -396,8 +388,6 @@ public class SnipInk : SnipObject
     }
 }
 
-/// <summary>Stamped image annotation. Holds decoded BGRA pixels plus a per-device
-/// cached bitmap; draws (and exports) like any other retained object.</summary>
 public class SnipSticker : SnipObject
 {
     public byte[] Bgra { get; set; } = Array.Empty<byte>();
@@ -424,7 +414,7 @@ public class SnipSticker : SnipObject
             ds.DrawImage(_cached, Bounds,
                 new Rect(0, 0, PixelWidth, PixelHeight));
         }
-        catch { /* a bad sticker never breaks the whole frame */ }
+        catch {  }
     }
 
     public override bool HitTest(Point pt) =>

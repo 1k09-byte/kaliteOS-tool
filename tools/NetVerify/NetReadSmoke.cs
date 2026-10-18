@@ -5,8 +5,6 @@ using kaliteConfig.Services;
 
 namespace NetVerify;
 
-/// <summary>Live read smoke tests: real registry, real NICs, real netsh, real ping.
-/// Guarded so a failure reports instead of hanging.</summary>
 internal static class NetReadSmoke
 {
     public static async Task RunAsync(Action<bool, string> check)

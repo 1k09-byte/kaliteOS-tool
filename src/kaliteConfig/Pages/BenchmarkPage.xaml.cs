@@ -46,8 +46,6 @@ namespace kaliteConfig.Pages
                 _liveTimer = DispatcherQueue.CreateTimer();
                 _liveTimer.Interval = TimeSpan.FromSeconds(1);
                 _liveTimer.Tick += (_, _) => TailLive();
-                // Auto A/B finished: switch to the Compare tab so the user
-                // lands on the results immediately.
                 ViewModel.AutoAbNavigateRequested += () => DispatcherQueue.TryEnqueue(() =>
                 {
                     MainSelectorBar.SelectedItem = TabCompare;
@@ -61,7 +59,6 @@ namespace kaliteConfig.Pages
             return Application.Current.Resources[key] as Brush ?? new SolidColorBrush(fallback);
         }
 
-        // BUTTON-REVIEW: benchmark cards stay Border + PointerPressed. They are selectable cards that hold other controls, so a Button would nest interactive children.
         private void BenchmarkCard_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (sender is not FrameworkElement element) return;
@@ -130,22 +127,20 @@ namespace kaliteConfig.Pages
             if (sender.SelectedItem == TabCompare) RedrawCompare();
         }
 
-        // ─── Frametime chart (min/max buckets) ──────────────────────
         private void RedrawFrame()
         {
             FrameCanvas.Children.Clear();
             var run = ViewModel.SelectedRun;
             if (run?.FrametimesMs == null || run.FrametimesMs.Length < 2) return;
             double w = FrameCanvas.ActualWidth, h = FrameCanvas.ActualHeight;
-            const double padL = 44, padR = 8, padT = 8, padB = 26; // padB holds the time axis
+            const double padL = 44, padR = 8, padT = 8, padB = 26;
             if (w < padL + padR + 20 || h < padT + padB + 16) return;
 
             _buckets = BenchmarkDecimate.MinMaxBuckets(run.FrametimesMs, 2000);
             _bucketFrames = run.FrametimesMs.Length;
-            double lo = 0; // CapFrameX anchors the Y axis at zero
+            double lo = 0;
             double hi = _buckets.Max(b => b.Max);
             if (hi <= lo) hi = lo + 1;
-            // Y-Axis scale: clamp the view like CapFrameX "Full fit" vs caps.
             double? cap = YScaleCombo.SelectedIndex switch
             {
                 1 => 10.0,
@@ -165,7 +160,6 @@ namespace kaliteConfig.Pages
             var accent = Res("AccentFillColorDefaultBrush", Microsoft.UI.Colors.DodgerBlue);
             var crit = Res("SystemFillColorCriticalBrush", Microsoft.UI.Colors.Red);
 
-            // X axis: recording time in seconds.
             double totalSec = run.FrametimesMs.Sum(f => f) / 1000.0;
             const int xTicks = 6;
             for (int i = 0; i <= xTicks; i++)
@@ -194,7 +188,6 @@ namespace kaliteConfig.Pages
                 FrameCanvas.Children.Add(label);
             }
 
-            // Moving average first (so bars draw over it, CapFrameX style).
             double rollWin = Math.Max(1, _buckets.Count / 50);
             var ma = new PointCollection();
             for (int i = 0; i < _buckets.Count; i++)
@@ -215,7 +208,6 @@ namespace kaliteConfig.Pages
                 });
             }
 
-            // Min/max verticals per bucket (spikes survive decimation).
             for (int i = 0; i < _buckets.Count; i++)
             {
                 double x = X(i);
@@ -226,7 +218,6 @@ namespace kaliteConfig.Pages
                 });
             }
 
-            // Average line.
             var stats = ViewModel.SelectedStats;
             if (stats != null && stats.AverageFps > 0)
             {
@@ -243,7 +234,6 @@ namespace kaliteConfig.Pages
                 }
             }
 
-            // Stutter ticks + throttle ticks + selected marker.
             if (stats != null && stats.TotalTimeMs > 0)
             {
                 foreach (var ev in stats.StutterEvents.Take(500))
@@ -269,7 +259,6 @@ namespace kaliteConfig.Pages
                 }
             }
 
-            // Optional GPU-util overlay (normalized 0..100 to chart height, dashed).
             if (ViewModel.ShowSensorOverlay && run.Sensors != null && run.Sensors.Count > 1)
             {
                 var series = Services.BenchmarkSensorStats.GpuUtilSeries(run.Sensors, _buckets.Count);
@@ -337,7 +326,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        // ─── Live mini-graph (tails the in-progress CSV, 1 Hz) ──────
         private readonly List<float> _liveFrames = new();
         private long _liveOffset;
 
@@ -348,9 +336,6 @@ namespace kaliteConfig.Pages
                 string? path = ViewModel.LiveCsvPath;
                 if (!ViewModel.IsCapturing || string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
                     return;
-                // Incremental: parse only bytes appended since the last tick.
-                // The old full re-parse was O(n²) over the capture and perturbed
-                // the machine being measured.
                 var (chunk, newOffset) = Services.BenchmarkPresentMonCsv.ParseFileTail(
                     path, ViewModel.LivePid, _liveOffset);
                 _liveOffset = newOffset;
@@ -388,7 +373,6 @@ namespace kaliteConfig.Pages
             }
             catch
             {
-                // File locked mid-write or half line: skip this tick.
             }
         }
 
@@ -398,7 +382,6 @@ namespace kaliteConfig.Pages
             _liveOffset = 0;
         }
 
-        // ─── PNG report (Analysis tab → shareable card) ─────────────
         private async void SavePngReport_Click(object sender, RoutedEventArgs e)
         {
             if (AnalysisPanel.Visibility != Visibility.Visible
@@ -446,7 +429,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        // ─── Histogram ──────────────────────────────────────────────
         private void RedrawHist()
         {
             HistCanvas.Children.Clear();
@@ -496,8 +478,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        // ─── Compare bars (PresentMon-viewer style) ─────────────────
-        // Metric groups × per-run rounded bars, FPS x-axis, value labels, legend.
         private void RedrawCompare()
         {
             CompareCanvas.Children.Clear();
@@ -535,7 +515,6 @@ namespace kaliteConfig.Pages
             var primary = Res("TextFillColorPrimaryBrush", Microsoft.UI.Colors.White);
             var grid = Res("DividerStrokeColorDefaultBrush", Microsoft.UI.Colors.Gray);
 
-            // Legend.
             double lx = padL, ly = 6;
             foreach (var r in list)
             {
@@ -561,7 +540,6 @@ namespace kaliteConfig.Pages
                 lx += tw;
             }
 
-            // X axis (FPS).
             var (step, first) = GraphTicks.NiceTicks(0, maxV * 1.05, 12);
             double X(double v) => padL + v / (maxV * 1.05) * (w - padL - padR);
             for (double t = first; t <= maxV * 1.05 + 1e-9; t += step)
@@ -590,7 +568,6 @@ namespace kaliteConfig.Pages
             Canvas.SetTop(axisTitle, plotH - 14);
             CompareCanvas.Children.Add(axisTitle);
 
-            // Groups × bars.
             for (int g = 0; g < groups.Length; g++)
             {
                 double gy = legendH + g * groupH;
@@ -618,8 +595,6 @@ namespace kaliteConfig.Pages
                     Canvas.SetLeft(fill, padL);
                     Canvas.SetTop(fill, y);
                     CompareCanvas.Children.Add(fill);
-                    // Run name inside the bar when it fits, else the legend
-                    // above carries it (bar order matches legend order).
                     string shortName = r.ShortLabel + (r.IsBaseline ? " (base)" : "");
                     if (bw > 150)
                     {

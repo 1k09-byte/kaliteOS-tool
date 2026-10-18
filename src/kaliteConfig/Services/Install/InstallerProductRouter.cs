@@ -12,37 +12,14 @@ using System;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Resolves an Apps-tab entry to the product it actually installs, which is
-/// what the uninstall path keys off (registry lookup, processes to kill,
-/// residue to wipe).
-///
-/// This used to be a chain of <c>name.Contains(...)</c> tests evaluated in
-/// order, which silently mis-routed real products: "Steam".Contains("EA",
-/// OrdinalIgnoreCase) is TRUE - st-<b>ea</b>-m - and the EA test came first, so
-/// uninstalling Steam searched for and wiped the residue of the EA app.
-/// "Epic Games Launcher" likewise matched the shorter "Epic" test, and any
-/// future rename would re-break it without any compile error.
-///
-/// Entries now carry an explicit ProductId; this name-based path is only the
-/// fallback for entries that predate it.
-/// </summary>
 public static class InstallerProductRouter
 {
-    /// <summary>
-    /// The product id for an entry, or "Unknown" when nothing matches. Never
-    /// throws - a null item or a null name simply resolves to Unknown, which
-    /// is the safe answer because the caller then performs no destructive
-    /// work.
-    /// </summary>
     public static string Resolve(string? name, string? productId = null)
     {
         if (!string.IsNullOrWhiteSpace(productId)) return productId!;
 
         string n = name ?? string.Empty;
 
-        // Most specific first. "EA app" is matched as a PREFIX only - a bare
-        // Contains("EA") would match Steam, Among Us, CleanMyPC, ...
         if (n.Contains("Epic Games", StringComparison.OrdinalIgnoreCase)) return "Epic Games Launcher";
         if (n.Contains("Minecraft", StringComparison.OrdinalIgnoreCase)) return "Minecraft Launcher";
         if (n.Contains("Ubisoft", StringComparison.OrdinalIgnoreCase)) return "Ubisoft Connect";

@@ -3,8 +3,6 @@ using System.Globalization;
 
 namespace kaliteConfig.Services.Personalize;
 
-// Data only. Hex values are allowed here and nowhere in XAML. ResourceKey is the
-// .resw key for the swatch name, so the names are localized like every other string.
 public static class PersonalizationPresets
 {
     public sealed record AccentSwatch(string ResourceKey, string Hex);
@@ -21,7 +19,6 @@ public static class PersonalizationPresets
         new("Personalize_Accent_Gray", "#767676"),
     };
 
-    // Windows stores DWM colors as 0xAABBGGRR. The alpha byte is written as given.
     public static int ToAbgr(string hex, byte alpha)
     {
         if (string.IsNullOrWhiteSpace(hex) || hex.Length != 7 || hex[0] != '#')

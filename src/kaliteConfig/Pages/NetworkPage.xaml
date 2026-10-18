@@ -114,14 +114,9 @@
             <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="3" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
             <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
-            <!-- Advanced / Offloads / SysW edit raw driver registry values. -->
             <CheckBox x:Name="ShowAdvancedToggle" Content="Show advanced (registry-level) settings"
                       IsChecked="True" Checked="ShowAdvancedToggle_Changed" Unchecked="ShowAdvancedToggle_Changed"
                       ToolTipService.ToolTip="Advanced, Offloads and System-wide tabs" />
-            <!-- Same picker chrome as the Startup page's "Sources" list: the
-                 default ListViewItem template draws the rounded selection pill
-                 with the accent bar, so no ItemContainerStyle is applied here.
-                 An ItemContainerStyle is what removed it before. -->
             <ListView x:Name="AdapterList" ItemsSource="{x:Bind ViewModel.FilteredAdapters, Mode=OneWay}"
                       ScrollViewer.VerticalScrollBarVisibility="Hidden"
                       SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
@@ -270,8 +265,6 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Section picker: one group of system settings on screen at a
-                             time instead of four expanders stacked on one page. -->
                         <Border Grid.Column="0" CornerRadius="12" Padding="8,12" VerticalAlignment="Stretch"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -386,8 +379,6 @@
                                                                           ItemsSource="{x:Bind Def.Options}" SelectedValue="{x:Bind Proposed, Mode=TwoWay}"
                                                                           Visibility="{x:Bind EnumVis, Mode=OneWay}"
                                                                           IsEnabled="{x:Bind Editable, Mode=OneWay}"/>
-                                                                <!-- ValidationMode Disabled: the row validates before writing, so a
-                                                                     half-typed number is never clamped into an out-of-range write. -->
                                                                 <NumberBox Width="220"
                                                                            Minimum="{x:Bind MinD, Mode=OneWay}" Maximum="{x:Bind MaxD, Mode=OneWay}"
                                                                            Value="{x:Bind ProposedNumber, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
@@ -463,7 +454,6 @@
                         <StackPanel Spacing="16">
                             <TextBlock Text="Speed test" Style="{StaticResource KaliteSectionTitle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <!-- BUTTON-REVIEW: Start and Cancel are one toggle; the label follows SpeedRunning. -->
                                 <Button Content="{x:Bind ViewModel.SpeedButtonText, Mode=OneWay}" Click="SpeedToggle_Click" VerticalAlignment="Bottom"/>
                                 <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
                                 <TextBlock Text="/" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>

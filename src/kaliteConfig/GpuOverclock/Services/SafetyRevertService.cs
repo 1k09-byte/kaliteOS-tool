@@ -17,7 +17,6 @@ using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>States of the apply/confirm/revert machine (spec 4.2).</summary>
     public enum SafetyState
     {
         Idle,
@@ -26,10 +25,8 @@ namespace kaliteConfig.GpuOverclock.Services
         Reverting,
     }
 
-    /// <summary>A single control change inside a batch.</summary>
     public sealed record PendingChange(string ControlName, Func<GpuResult> Apply, string OldDisplay, string NewDisplay);
 
-    /// <summary>Arguments for state-machine transitions the UI listens to.</summary>
     public sealed class SafetyStateChangedEventArgs : EventArgs
     {
         public required SafetyState State { get; init; }
@@ -40,20 +37,6 @@ namespace kaliteConfig.GpuOverclock.Services
         public GpuResult? LastWriteResult { get; init; }
     }
 
-    /// <summary>
-    /// The core safety mechanism of the module: every write batch goes
-    /// Applying -> AwaitingConfirmation (visible countdown) -> confirmed (new
-    /// last-known-good) OR Reverting (restore the exact pre-batch state).
-    ///
-    /// Guarantees:
-    ///  - "last known good" is the state captured BEFORE the batch started, so
-    ///    a revert restores the user's prior working configuration, not defaults;
-    ///  - a failed write never enters AwaitingConfirmation;
-    ///  - a driver reset (TDR) during the window reverts immediately;
-    ///  - multiple controls changed together share one confirmation window and
-    ///    one revert action;
-    ///  - a manual "Revert now" is available at any point of the window.
-    /// </summary>
     public sealed class SafetyRevertService : IAsyncDisposable
     {
         private readonly IGpuTuningController _controller;
@@ -65,43 +48,28 @@ namespace kaliteConfig.GpuOverclock.Services
         private int _countdownRemaining;
         private int _nextBatchId = 1;
 
-        // State visible to UI (reads are atomic enough for int/enum; strings swapped by ref).
         private SafetyState _state = SafetyState.Idle;
         private int _batchId;
         private int _changeCount;
         private string? _revertReason;
         private GpuResult? _lastWriteResult;
 
-        // The pre-batch anchors - the whole point of the machine.
         private (int CoreMhz, int MemMhz)? _anchorOffsets;
         private (double PowerPct, int? TempC)? _anchorLimits;
         private bool _anchorFanWasAuto = true;
         private PendingChange[] _pending = Array.Empty<PendingChange>();
 
-        // v2 anchors: pre-batch V/F per-point offsets + voltage-boost percent.
-        // Captured only when the batch actually touches those controls.
         private int[]? _anchorVfOffsets;
         private uint? _anchorVoltageBoostPercent;
 
-        /// <summary>Countdown length; user-configurable per spec.</summary>
         public int ConfirmationSeconds { get; set; } = 15;
 
-        /// <summary>
-        /// Per-control-type countdown overrides (v2). Curve edits are
-        /// inherently more failure-prone than a single clock offset, so the
-        /// V/F curve and voltage-boost controls default to a longer window
-        /// (22 s vs the 15 s global default). A batch containing several
-        /// controls uses the LONGEST applicable window. Entries can be
-        /// reconfigured per control name (see OcControlNames) without
-        /// touching the global default.
-        /// </summary>
         public Dictionary<string, int> ConfirmationSecondsByControl { get; } = new()
         {
             [OcControlNames.VoltageFrequencyCurve] = 22,
             [OcControlNames.VoltageBoost] = 22,
         };
 
-        /// <summary>Longest confirmation window applicable to this batch.</summary>
         public int GetConfirmationSecondsFor(IEnumerable<string> controlNames)
         {
             int seconds = ConfirmationSeconds;
@@ -112,7 +80,7 @@ namespace kaliteConfig.GpuOverclock.Services
         }
 
         public event EventHandler<SafetyStateChangedEventArgs>? StateChanged;
-        public event Action<SafetyState, string?>? Reverted; // (state reached Idle with reason, detail)
+        public event Action<SafetyState, string?>? Reverted;
 
         public SafetyRevertService(IGpuTuningController controller, ITdrWatchdog watchdog, Action<AppliedChangeLogEntry> log)
         {
@@ -139,11 +107,6 @@ namespace kaliteConfig.GpuOverclock.Services
             });
         }
 
-        /// <summary>
-        /// Applies a batch of changes. Captures pre-batch anchors first; any
-        /// failed write aborts the batch (partial writes stay but no
-        /// confirmation window is opened - the caller surfaces the error).
-        /// </summary>
         public Task<bool> ApplyBatchAsync(IEnumerable<PendingChange> changes, OverclockChangeSource source)
         {
             var batch = changes.ToArray();
@@ -154,7 +117,7 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate)
             {
                 if (_state != SafetyState.Idle)
-                    return Task.FromResult(false); // a batch is already in flight
+                    return Task.FromResult(false);
                 _state = SafetyState.Applying;
                 _batchId = _nextBatchId++;
                 _changeCount = batch.Length;
@@ -164,14 +127,13 @@ namespace kaliteConfig.GpuOverclock.Services
                 Raise(SafetyState.Applying, 0, null, null);
             }
 
-            // Capture anchors BEFORE any write (prior working config, not defaults).
             var off = _controller.ReadCurrentOffsets();
             var lim = _controller.ReadCurrentLimits();
             lock (_gate)
             {
                 _anchorOffsets = off.IsSuccess ? (off.Value.CoreOffsetMHz, off.Value.MemOffsetMHz) : null;
                 _anchorLimits = lim.IsSuccess ? (lim.Value.PowerLimitPercent, lim.Value.TempLimitC) : null;
-                _anchorFanWasAuto = true; // fan batches are dedicated; see ApplyFanBatchAsync
+                _anchorFanWasAuto = true;
                 _anchorVfOffsets = null;
                 _anchorVoltageBoostPercent = null;
                 if (batch.Any(c => c.ControlName == OcControlNames.VoltageFrequencyCurve))
@@ -212,9 +174,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 return Task.FromResult(false);
             }
 
-            // Log every successful write now (the batch entered the confirmation
-            // window); if the window expires or a TDR hits, a second Reverted
-            // entry is appended per control by BeginRevert.
             if (logBatch != null)
             {
                 foreach (var e in logBatch) _log(e);
@@ -227,7 +186,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 Raise(SafetyState.AwaitingConfirmation, _countdownRemaining, null, _lastWriteResult);
             }
 
-            // Watch from now; a TDR reverts before the countdown ends.
             _watchdog.Arm();
             _countdownTimer ??= new Timer(_ => OnCountdownTick(), null, 1000, 1000);
             _countdownTimer.Change(1000, 1000);
@@ -236,10 +194,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return Task.FromResult(true);
         }
 
-        /// <summary>
-        /// Fan-only batch: anchors are "fan was on auto" and the revert action
-        /// is a real restore-to-default call rather than value writes.
-        /// </summary>
         public Task<bool> ApplyFanBatchAsync(PendingChange change, bool fanWasAuto, OverclockChangeSource source)
         {
             lock (_gate)
@@ -287,7 +241,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return Task.FromResult(true);
         }
 
-        /// <summary>User confirms: values become the new last-known-good.</summary>
         public void Confirm()
         {
             lock (_gate)
@@ -312,29 +265,17 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// Headless confirmation for STARTUP reapply only (spec 6): the user
-        /// cannot see a confirmation prompt at login time, so the designated
-        /// startup profile's window is allowed to expire naturally instead of
-        /// being force-confirmed - the countdown runs, the TDR watchdog is
-        /// armed the whole time, and only a real driver reset can trigger a
-        /// revert before the window closes. This keeps the full safety
-        /// mechanism (armed window + revert path) while not blocking a
-        /// headless session on UI that cannot be shown.
-        /// </summary>
         public void ConfirmSilently()
         {
             lock (_gate)
             {
                 if (_state != SafetyState.AwaitingConfirmation) return;
             }
-            // Mark the window as "user absent": expiry behaves like confirm.
             _silentWindow = true;
         }
 
         private bool _silentWindow;
 
-        /// <summary>Manual "Revert now" - available during the whole window.</summary>
         public void RevertNow() => BeginRevert("manual revert");
 
         private void OnCountdownTick()
@@ -355,8 +296,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             if (silent)
             {
-                // Headless startup window expired with no TDR: the batch becomes
-                // the new last-known-good - no revert, no UI prompt was shown.
                 ConfirmInternal();
                 return;
             }
@@ -365,7 +304,6 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private void OnDriverReset()
         {
-            // Immediate revert regardless of countdown position.
             BeginRevert("driver reset detected");
         }
 
@@ -397,7 +335,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 anchorVb = _anchorVoltageBoostPercent;
             }
 
-            // Revert writes (outside the lock - controller has its own).
             var failures = new List<string>();
             foreach (var change in toUndo)
             {
@@ -413,7 +350,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         => _controller.SetVoltageFrequencyCurveOffsets(anchorVf),
                     OcControlNames.VoltageBoost when anchorVb != null
                         => _controller.SetVoltageBoostPercent(anchorVb.Value),
-                    _ => GpuResult.Ok(), // nothing to restore for this control
+                    _ => GpuResult.Ok(),
                 };
                 if (!res.IsSuccess) failures.Add($"{change.ControlName}: {res.Detail ?? "revert write failed"}");
             }

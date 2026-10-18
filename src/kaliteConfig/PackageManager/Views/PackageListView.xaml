@@ -8,9 +8,6 @@
     xmlns:local="using:kaliteConfig.PackageManager.Views"
     mc:Ignorable="d">
 
-    <!-- Shared package list: one ItemsRepeater, row content delegated to
-         PackageRow. ViewMode/Action wiring is pushed into realized rows in
-         ElementPrepared (code), so no fragile cross-template bindings. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
         <ItemsRepeater x:Name="Repeater" ElementPrepared="Repeater_ElementPrepared">
             <ItemsRepeater.ItemTemplate>

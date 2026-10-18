@@ -23,7 +23,6 @@ public enum InstallType
 
 public sealed partial class UninstallerItem : ObservableObject
 {
-    // ProductCode, PFN, or Registry Key Name
     [ObservableProperty] public partial string Id { get; set; } = string.Empty;
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -47,7 +46,6 @@ public sealed partial class UninstallerItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasSize))]
     [NotifyPropertyChangedFor(nameof(ExactSizeBytes))]
     [NotifyPropertyChangedFor(nameof(SizeBarValue))]
-    // In bytes
     public partial long EstimatedSize { get; set; }
     [ObservableProperty]
     public partial bool IsSystemComponent { get; set; }
@@ -64,7 +62,6 @@ public sealed partial class UninstallerItem : ObservableObject
         get
         {
             if (string.IsNullOrWhiteSpace(InstallDate)) return string.Empty;
-            // Registry dates are usually yyyyMMdd; Store dates vary - parse leniently.
             if (InstallDate.Length == 8 &&
                 int.TryParse(InstallDate.Substring(0, 4), out int y) &&
                 int.TryParse(InstallDate.Substring(4, 2), out int m) &&
@@ -82,7 +79,6 @@ public sealed partial class UninstallerItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasSize))]
     [NotifyPropertyChangedFor(nameof(ExactSizeBytes))]
     [NotifyPropertyChangedFor(nameof(SizeBarValue))]
-    // real on-disk size, bytes
     public partial long ComputedSize { get; set; }
     public bool HasSize => EffectiveSize > 0;
 
@@ -91,20 +87,17 @@ public sealed partial class UninstallerItem : ObservableObject
     public string ExactSizeBytes => EffectiveSize <= 0 ? "Size unknown" : $"{EffectiveSize:N0} bytes";
     public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1).ToUpperInvariant();
     public string Glyph => InstallType switch { InstallType.AppX => "\uE8F9", InstallType.Msi => "\uE74C", _ => "\uE718" };
-    // Avatar color derived from name hash (stable per app)
     public string AvatarBrushKey => $"Avatar{(Math.Abs(Name.GetHashCode()) % 6)}";
     public double SizeBarValue
     {
         get
         {
             if (EffectiveSize <= 0) return 0;
-            // log scale 0..1 across B..100GB
             double v = Math.Log10((double)EffectiveSize + 1) / Math.Log10(100d * 1024 * 1024 * 1024);
             return Math.Clamp(v, 0.03, 1.0);
         }
     }
-    
-    // For UI batch selection
+
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
     

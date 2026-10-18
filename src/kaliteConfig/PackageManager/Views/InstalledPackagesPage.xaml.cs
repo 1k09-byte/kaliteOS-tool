@@ -68,10 +68,6 @@ namespace kaliteConfig.PackageManager.Views
             Vm.NotifySelectionChanged();
         }
 
-        /// <summary>
-        /// Single-row uninstall always confirms first (safety section): the
-        /// row has no direct command on purpose.
-        /// </summary>
         private async void ResultsList_ActionRequested(object sender, PackageInfo package)
         {
             var dialog = new ContentDialog

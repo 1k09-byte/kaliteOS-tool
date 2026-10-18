@@ -30,10 +30,6 @@ public sealed class PowerService
     {
         try
         {
-        // Clears ONLY the hidden bit (bit 0) of Attributes. Other bits carry
-        // OEM/platform meaning on laptops (Modern Standby overlays) - the old
-        // code overwrote the whole DWORD with 0 and broke Control Panel
-        // ("power plan information isn't available", empty Advanced list).
         using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
         using var powerKey = baseKey.OpenSubKey(PowerSettingsPath, true);
         if (powerKey == null) return;
@@ -50,17 +46,15 @@ public sealed class PowerService
                 using var settingKey = subgroupKey.OpenSubKey(settingId, true);
                 if (settingKey == null) continue;
                 try { ClearHiddenBit(settingKey); }
-                catch { } // per-key ACL failures must not abort the sweep
+                catch { }
             }
         }
         }
-        catch { } // not elevated / key read-only: enumeration still works, settings just stay hidden
+        catch { }
     }
 
     private static void ClearHiddenBit(RegistryKey key)
     {
-        // On modern Windows (Connected Standby), settings aren't just hidden by bit 0, 
-        // they are completely suppressed unless Attributes is explicitly forced to 2.
         key.SetValue("Attributes", 2, RegistryValueKind.DWord);
     }
 
@@ -122,8 +116,7 @@ public sealed class PowerService
             if (string.IsNullOrWhiteSpace(subgroup.Name)) subgroup.Name = subgroupGuid.ToString();
             
             PopulateSettings(schemeGuid, subgroup);
-            
-            // Only add subgroups that actually have settings
+
             if (subgroup.Settings.Count > 0)
                 scheme.Subgroups.Add(subgroup);
                 
@@ -148,11 +141,9 @@ public sealed class PowerService
             };
             if (string.IsNullOrWhiteSpace(setting.Name)) setting.Name = settingGuid.ToString();
 
-            // AC Value
             if (PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref schemeGuid, ref subgroupGuid, ref settingGuid, out uint acValue) == 0)
                 setting.AcValueIndex = acValue;
-                
-            // DC Value
+
             if (PowrProf.PowerReadDCValueIndex(IntPtr.Zero, ref schemeGuid, ref subgroupGuid, ref settingGuid, out uint dcValue) == 0)
                 setting.DcValueIndex = dcValue;
 
@@ -166,16 +157,6 @@ public sealed class PowerService
 
     private void PopulatePossibleValues(Guid subgroupGuid, PowerSetting setting)
     {
-        // Choice enumeration MUST terminate: range-type settings answer every
-        // index query with an error other than NO_MORE_ITEMS, which used to spin
-        // this loop forever and hang the page on "Loading".
-        //
-        // We probe via PowerReadPossibleFriendlyName, NOT PowerReadPossibleValue:
-        // the latter raised a fatal System.ExecutionEngineException (uncatchable,
-        // process-killing) even with a P/Invoke signature matching the Windows
-        // SDK header, so the API is avoided entirely. A choice exists at index i
-        // iff its friendly name can be read; enumerated settings have contiguous
-        // indices, so the first empty read means we are done.
         uint index = 0;
         const uint MaxChoices = 512;
         bool anyChoice = false;
@@ -191,16 +172,10 @@ public sealed class PowerService
                 index++;
             }
         }
-        catch { } // a native failure here must never take the page down
+        catch { }
 
-        // Fallback for known settings where the OS fails to report possible values via API
         if (!anyChoice)
         {
-            // The catalog first: it supplies real words for the settings
-            // Windows deliberately refuses to name (measured here: the OS
-            // returned no friendly name for ANY of the 174 settings it
-            // enumerates, so without this every hidden setting was a bare
-            // number). GUID-keyed, so it survives a language change.
             if (PowerSettingCatalog.TryGet(setting.Id, setting.Name, out var entry))
             {
                 if (entry.IsEnum)
@@ -213,9 +188,6 @@ public sealed class PowerService
                 {
                     foreach (var p in entry.Presets)
                         setting.PossibleChoices.Add(new PowerSettingChoice { ValueIndex = p.ValueIndex, Name = p.Label });
-                    // Presets are named values for a CONTINUOUS setting. The
-                    // raw number box has to stay reachable, so this is flagged
-                    // as a preset list rather than a true enumeration.
                     setting.IsPresetList = true;
                     anyChoice = true;
                 }
@@ -242,10 +214,6 @@ public sealed class PowerService
 
             if (anyChoice)
             {
-                // A value the current scheme already uses but the word list
-                // does not cover must still be selectable, or reading the
-                // setting back would silently snap it to the nearest option.
-                // Prefixed so it reads as a custom state, not a real option.
                 var curAc = (uint)setting.AcValueIndex;
                 var curDc = (uint)setting.DcValueIndex;
 
@@ -260,11 +228,6 @@ public sealed class PowerService
         setting.Type = anyChoice ? 2u : 0u;
     }
 
-    /// <summary>
-    /// Label for a value the word list does not cover. 0 and 0xFFFFFFFF are
-    /// the "never" sentinels in timeout settings - naming them is the whole
-    /// point, since 4294967295 seconds means "never", not "136 years".
-    /// </summary>
     private static string DescribeCustom(uint value) => value switch
     {
         0 => "Never",
@@ -344,8 +307,6 @@ public sealed class PowerService
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
-    // Apply operations - native return codes are checked so failures surface
-    // in the UI instead of silently doing nothing.
     public void SetActiveScheme(Guid schemeGuid)
     {
         uint res = PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref schemeGuid);
@@ -361,8 +322,6 @@ public sealed class PowerService
     public static bool IsBuiltInScheme(Guid id) =>
         id == BalancedGuid || id == HighPerformanceGuid || id == PowerSaverGuid || id == UltimatePerformanceGuid;
 
-    /// <summary>Restores Windows default schemes (recovery for broken CPL:
-    /// "power plan information isn't available"). Requires elevation.</summary>
     public static void RestoreDefaultSchemes()
     {
         using var p = Process.Start(new ProcessStartInfo("powercfg", "/restoredefaultschemes")

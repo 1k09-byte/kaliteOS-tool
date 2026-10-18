@@ -20,13 +20,6 @@ namespace kaliteConfig.ProcessOptimizer.Services;
 
 public static class ProcessStateSnapshotService
 {
-    /// <summary>
-    /// Snapshots everything game mode / the booster / the throttle can change
-    /// on a process: priority, boost flag, EcoQoS, memory priority, IO
-    /// priority, affinity, and default CPU Sets. Reads are best-effort and
-    /// individually nullable - restore skips what could not be read instead
-    /// of writing assumed defaults. Excludes protected processes.
-    /// </summary>
     public static ProcessBaselineSnapshot? CaptureSnapshot(int pid, IEnumerable<string>? customExclusions = null)
     {
         try
@@ -54,10 +47,8 @@ public static class ProcessStateSnapshotService
             try { snapshot.OriginalProcessorAffinity = proc.ProcessorAffinity; }
             catch { snapshot.OriginalProcessorAffinity = IntPtr.Zero; }
 
-            // Priority Class
             snapshot.OriginalPriorityClass = (int)NativeMethods.Priority.GetPriorityClass(process);
 
-            // EcoQoS
             var state = new ProcessPowerThrottlingState { Version = NativeMethods.Power.Version };
             if (NativeMethods.Power.GetProcessInformation(
                     process, ProcessInformationClass.ProcessPowerThrottling,
@@ -66,7 +57,6 @@ public static class ProcessStateSnapshotService
                 snapshot.OriginalEcoQos = (state.StateMask & NativeMethods.Power.ExecutionSpeed) != 0;
             }
 
-            // Priority boost flag (Aggressive throttle disables it; booster enables it).
             try
             {
                 if (NativeMethods.Priority.GetProcessPriorityBoost(process, out bool disabled))
@@ -74,8 +64,6 @@ public static class ProcessStateSnapshotService
             }
             catch { }
 
-            // Memory priority (real read; previously assumed 5 and restored
-            // wrong values for processes that never ran at Normal).
             try
             {
                 var mem = new ProcessMemoryPriorityInfo();
@@ -88,7 +76,6 @@ public static class ProcessStateSnapshotService
             }
             catch { }
 
-            // IO priority (real read via NtQueryInformationProcess, class 33).
             try
             {
                 uint io = 0;
@@ -101,10 +88,6 @@ public static class ProcessStateSnapshotService
             }
             catch { }
 
-            // Default CPU Sets. Nothing in Game Mode writes these any more (the
-            // automatic partition is gone - Docs/GameMode.md); they are still
-            // captured and restored because a per-rule CPU-set change lives on
-            // the same process and must survive a session either way.
             try
             {
                 uint[]? sets = ReadProcessCpuSets(process);
@@ -120,18 +103,12 @@ public static class ProcessStateSnapshotService
         }
     }
 
-    /// <summary>
-    /// Restores the process exactly to the provided snapshot, assuming PID and
-    /// StartTime still match. Restores priority, boost, Eco, memory, IO,
-    /// affinity, and default CPU Sets, plus background thread-memory originals.
-    /// </summary>
     public static void RestoreSnapshot(ProcessBaselineSnapshot snapshot)
     {
         if (snapshot == null) return;
         try
         {
             using var proc = Process.GetProcessById(snapshot.Pid);
-            // Protect against PID reuse: ensure the process we're restoring is the exact same session instance
             if (proc.HasExited || proc.StartTime != snapshot.ProcessStartTime) return;
 
             using var process = NativeMethods.Handles.OpenProcess(
@@ -139,20 +116,17 @@ public static class ProcessStateSnapshotService
 
             if (process.IsInvalid) return;
 
-            // 1. Restore Priority Class
             if (snapshot.OriginalPriorityClass != 0)
             {
                 NativeMethods.Priority.SetPriorityClass(process, (uint)snapshot.OriginalPriorityClass);
             }
 
-            // 2. Restore priority boost flag (throttle may have disabled it).
             if (snapshot.OriginalBoostDisabled.HasValue)
             {
                 try { NativeMethods.Priority.SetProcessPriorityBoost(process, snapshot.OriginalBoostDisabled.Value); }
                 catch { }
             }
 
-            // 3. Restore EcoQoS
             var state = new ProcessPowerThrottlingState
             {
                 Version = NativeMethods.Power.Version,
@@ -163,7 +137,6 @@ public static class ProcessStateSnapshotService
                 process, ProcessInformationClass.ProcessPowerThrottling,
                 ref state, NativeMethods.Power.StateSize());
 
-            // 4. Restore Memory Priority (only what was actually read).
             if (snapshot.OriginalMemoryPriority.HasValue)
             {
                 var memPriority = new ProcessMemoryPriorityInfo
@@ -175,7 +148,6 @@ public static class ProcessStateSnapshotService
                     ref memPriority, NativeMethods.Power.MemoryPrioritySize());
             }
 
-            // 5. Restore IO Priority (only what was actually read).
             if (snapshot.OriginalIoPriority.HasValue)
             {
                 uint ioPriority = (uint)snapshot.OriginalIoPriority.Value;
@@ -184,16 +156,12 @@ public static class ProcessStateSnapshotService
                     ref ioPriority, sizeof(uint));
             }
 
-            // 6. Restore Affinity. Game Mode no longer writes affinity, so this
-            // is a no-op for its own changes and stays for anything else that
-            // moved the process while the session was open.
             if (snapshot.OriginalProcessorAffinity != IntPtr.Zero)
             {
                 try { proc.ProcessorAffinity = snapshot.OriginalProcessorAffinity; }
                 catch { }
             }
 
-            // 7. Restore default CPU Sets (see the capture note above).
             if (snapshot.OriginalCpuSets is { Length: > 0 })
             {
                 try
@@ -204,21 +172,13 @@ public static class ProcessStateSnapshotService
                 catch { }
             }
 
-            // 8. Restore background thread-memory originals demoted by the throttle.
             BackgroundThrottleService.RestoreThreadMemory(snapshot.Pid, snapshot.ProcessStartTime.Ticks);
         }
         catch
         {
-            // Process exited mid-restore or access denied
         }
     }
 
-    /// <summary>
-    /// Snapshots live threads of the game process BEFORE the booster rewrites
-    /// them (priority, boost, Eco, memory priority, ideal processor, selected
-    /// CPU Sets). Threads born mid-session have no baseline and are left alone
-    /// on restore - they die with the game anyway.
-    /// </summary>
     public static (long StartTicks, List<GameThreadSnapshot> Threads) CaptureThreadSnapshots(int pid)
     {
         var list = new List<GameThreadSnapshot>();
@@ -266,9 +226,6 @@ public static class ProcessStateSnapshotService
 
                     try
                     {
-                        // BOOL return: the out parameter is only meaningful when
-                        // the call succeeded (a failed read used to be recorded
-                        // as a real ideal processor).
                         if (NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var ideal))
                         {
                             snap.IdealGroup = ideal.Group;
@@ -294,7 +251,6 @@ public static class ProcessStateSnapshotService
         return (ticks, list);
     }
 
-    /// <summary>Restores game threads captured by <see cref="CaptureThreadSnapshots"/>.</summary>
     public static void RestoreThreadSnapshots(int pid, long startTicks, List<GameThreadSnapshot> snapshots)
     {
         if (snapshots == null || snapshots.Count == 0) return;
@@ -304,7 +260,7 @@ public static class ProcessStateSnapshotService
             if (proc.HasExited) return;
             long nowTicks;
             try { nowTicks = proc.StartTime.Ticks; } catch { return; }
-            if (startTicks != 0 && nowTicks != startTicks) return; // PID reused
+            if (startTicks != 0 && nowTicks != startTicks) return;
 
             uint memSize = (uint)Marshal.SizeOf<ThreadMemoryPriorityInfo>();
             foreach (var snap in snapshots)
@@ -314,7 +270,7 @@ public static class ProcessStateSnapshotService
                     using var thread = NativeMethods.Handles.OpenThread(
                         NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation,
                         false, snap.Tid);
-                    if (thread.IsInvalid) continue; // thread exited mid-session
+                    if (thread.IsInvalid) continue;
 
                     NativeMethods.Priority.SetThreadPriority(thread, snap.Priority);
                     try { NativeMethods.Priority.SetThreadPriorityBoost(thread, snap.BoostDisabled); }
@@ -370,15 +326,12 @@ public static class ProcessStateSnapshotService
         catch { }
     }
 
-    // ─── helpers ────────────────────────────────────────────────────
-
     private static uint[]? ReadProcessCpuSets(SafeHandle process)
     {
-        // SafeHandle downcast: callers pass SafeProcessHandle.
         if (process is not SafeProcessHandle h || h.IsInvalid) return null;
         if (!NativeMethods.CpuSets.GetProcessDefaultCpuSets(h, null, 0, out uint required))
         {
-            if (Marshal.GetLastWin32Error() != 122) return null; // 122 = need buffer
+            if (Marshal.GetLastWin32Error() != 122) return null;
         }
         if (required == 0) return Array.Empty<uint>();
         uint[] ids = new uint[required];
@@ -393,13 +346,12 @@ public static class ProcessStateSnapshotService
         {
             if (Marshal.GetLastWin32Error() != 122) return null;
         }
-        if (required == 0) return Array.Empty<uint>(); // inheriting process defaults
+        if (required == 0) return Array.Empty<uint>();
         uint[] ids = new uint[required];
         if (!NativeMethods.CpuSets.GetThreadSelectedCpuSets(h, ids, required, out _)) return null;
         return ids;
     }
 
-    /// <summary>Full system CPU Set ID list (sync): the "unrestricted" restore target.</summary>
     internal static uint[] ReadSystemCpuSetIds()
     {
         try
@@ -420,7 +372,7 @@ public static class ProcessStateSnapshotService
                 uint size = BitConverter.ToUInt32(buffer, offset);
                 byte type = buffer[offset + 4];
                 if (size < 20 || offset + size > buffer.Length) break;
-                if (type == 0) // CpuSetInformation
+                if (type == 0)
                     ids.Add(BitConverter.ToUInt32(buffer, offset + 8));
                 offset += (int)size;
             }

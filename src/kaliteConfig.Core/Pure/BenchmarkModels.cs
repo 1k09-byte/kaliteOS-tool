@@ -13,7 +13,6 @@ using System.Collections.Generic;
 
 namespace kaliteConfig.Models;
 
-/// <summary>Hardware/software conditions a run was captured under (A/B captions).</summary>
 public sealed class BenchmarkSystemInfo
 {
     public string CpuName { get; set; } = string.Empty;
@@ -25,7 +24,6 @@ public sealed class BenchmarkSystemInfo
     public string CpuSetsPartition { get; set; } = string.Empty;
 }
 
-/// <summary>One sensor sample joined to frames by timestamp.</summary>
 public sealed class SensorSample
 {
     public DateTime Timestamp { get; set; }
@@ -36,15 +34,13 @@ public sealed class SensorSample
     public bool ThrottleFlag { get; set; }
 }
 
-/// <summary>A single stutter event (frametime &gt; 2.5x rolling median).</summary>
 public sealed class StutterEvent
 {
     public double TimestampMs { get; set; }
     public double DurationMs { get; set; }
-    public double Severity { get; set; } // duration / rolling median
+    public double Severity { get; set; }
 }
 
-/// <summary>A captured benchmark run. Frametimes in milliseconds.</summary>
 public sealed class BenchmarkRun
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -60,7 +56,6 @@ public sealed class BenchmarkRun
     public List<SensorSample> Sensors { get; set; } = new();
 }
 
-/// <summary>Computed statistics for a run (all FPS unless named ms).</summary>
 public sealed class BenchmarkStats
 {
     public int FrameCount { get; set; }

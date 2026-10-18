@@ -36,8 +36,7 @@ public abstract class PipelineActionBase : INotifyPropertyChanged
 
     [JsonIgnore]
     public abstract string IconGlyph { get; }
-    
-    // Tracks execution status during pipeline run
+
     private bool _isRunning;
     [JsonIgnore]
     public bool IsRunning 
@@ -51,14 +50,14 @@ public class CopyAction : PipelineActionBase
 {
     public override string DisplayName => "Copy to Clipboard";
     public override string Description => "Puts the image into the system clipboard.";
-    public override string IconGlyph => "\uE8C8"; // Copy
+    public override string IconGlyph => "\uE8C8";
 }
 
 public class SaveAction : PipelineActionBase
 {
     public override string DisplayName => "Save to Disk";
     public override string Description => "Saves the image to the default Snip directory.";
-    public override string IconGlyph => "\uE74E"; // Save
+    public override string IconGlyph => "\uE74E";
     
     public bool OverwriteExisting { get; set; } = false;
 }
@@ -67,37 +66,37 @@ public class EditorAction : PipelineActionBase
 {
     public override string DisplayName => "Open in Editor";
     public override string Description => "Launches the full Snip image editor window.";
-    public override string IconGlyph => "\uE70F"; // Edit
+    public override string IconGlyph => "\uE70F";
 }
 
 public class OcrAction : PipelineActionBase
 {
     public override string DisplayName => "Extract Text (OCR)";
     public override string Description => "Extracts text from the image and copies it.";
-    public override string IconGlyph => "\uE8D2"; // Textbox
+    public override string IconGlyph => "\uE8D2";
 }
 
 public class CompressAction : PipelineActionBase
 {
     public override string DisplayName => "Compress Image";
     public override string Description => "Applies WebP compression targeting a specific file size.";
-    public override string IconGlyph => "\uE8A8"; // Zip
+    public override string IconGlyph => "\uE8A8";
     
-    public int TargetSizeBytes { get; set; } = 204800; // 200 KB
+    public int TargetSizeBytes { get; set; } = 204800;
 }
 
 public class StampAction : PipelineActionBase
 {
     public override string DisplayName => "Watermark / Stamp";
     public override string Description => "Overlays timestamps and active app metadata onto the image.";
-    public override string IconGlyph => "\uE734"; // Edit
+    public override string IconGlyph => "\uE734";
 }
 
 public class WebhookAction : PipelineActionBase
 {
     public override string DisplayName => "Webhook POST";
     public override string Description => "Uploads the snip payload to a REST API endpoint.";
-    public override string IconGlyph => "\uE72A"; // Web
+    public override string IconGlyph => "\uE72A";
     
     public string TargetUrl { get; set; } = "";
 }

@@ -7,12 +7,6 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services.Personalize;
 
-// The one place where settings are written. For each value it:
-//   1. reads the value in place before the write (for rollback),
-//   2. records the original value in the snapshot (first change only),
-//   3. writes the new value, runs its LiveSync, and reads the value back,
-//   4. if any step fails, restores the value from step 1 and reports why.
-// Writes go only to HKCU. A failure never leaves a value half-applied.
 public sealed class SettingApplier
 {
     private readonly SnapshotStore _snapshots;
@@ -55,9 +49,6 @@ public sealed class SettingApplier
         }
     }
 
-    // Restores the value that was in place before this attempt and re-syncs the
-    // live state. If the restore itself fails, that is reported too, so the user
-    // can see that the value could not be put back.
     private SettingResult Rollback(SettingDef def, SnapshotEntry? before, bool snapshotIsNew, string reason)
     {
         string message = reason;
@@ -84,9 +75,6 @@ public sealed class SettingApplier
         return new SettingResult(def.Id, false, message);
     }
 
-    // Per-setting or per-section revert: restores the original value from the
-    // snapshot, deletes values that did not exist before, and forgets the snapshot.
-    // Live syncs run afterwards so Windows reflects the restored registry values.
     public IReadOnlyList<SettingResult> RevertWhere(
         Func<SnapshotEntry, bool> pick,
         IReadOnlyList<(string Area, Func<bool> Sync)> liveSyncs,

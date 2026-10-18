@@ -17,13 +17,6 @@ using kaliteConfig.Models;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Samples GPU telemetry + target-process CPU% during a capture only.
-/// Uses the shared <see cref="GpuTelemetryPollingService"/> at 500 ms and
-/// restores its previous interval on Stop (never stops a loop it didn't start).
-/// CPU% comes from process TotalProcessorTime deltas (no UI rows needed).
-/// Throttle mark: core temp &gt;= 83C, hotspot &gt;= 95C, or power &gt;= 98% of limit.
-/// </summary>
 public sealed class BenchmarkSensorSampler
 {
     private const double TempThrottleC = 83.0;

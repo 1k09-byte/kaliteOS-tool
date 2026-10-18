@@ -28,18 +28,8 @@ namespace kaliteConfig.Services
         private static readonly HttpClient _httpClient = new();
         private static Dictionary<string, string> _pfidCache = new(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>
-        /// Looks up the Product Family ID matching the detected GPU model string.
-        /// Tries the candidates in order (exact product names from the TypeID=3
-        /// list, e.g. "NVIDIA GeForce RTX 4070 SUPER" or laptop variants named
-        /// "… Laptop GPU"), then a fuzzy family match. Caches by primary name.
-        /// </summary>
         private async Task<string?> GetPfidFromModelStringAsync(string gpuModelName, bool notebookVariant, CancellationToken ct)
         {
-            // Candidate names: WMI name plus the notebook/desktop spelling of
-            // the same chip. NVIDIA lists laptop GPUs as their own products
-            // ("GeForce RTX 4070 Laptop GPU") whose driver packages differ
-            // from the desktop part, so the variant matters.
             bool wmiIsLaptop = gpuModelName.Contains("Laptop", StringComparison.OrdinalIgnoreCase);
             string stripped = gpuModelName.Replace(" Laptop GPU", "", StringComparison.OrdinalIgnoreCase)
                                           .Replace(" (Notebook)", "", StringComparison.OrdinalIgnoreCase).Trim();
@@ -64,7 +54,6 @@ namespace kaliteConfig.Services
                 var doc = XDocument.Parse(xmlResponse);
                 var lookupValues = doc.Descendants("LookupValue");
 
-                // Exact match on any candidate first
                 foreach (var node in lookupValues)
                 {
                     string? name = node.Element("Name")?.Value;
@@ -83,7 +72,6 @@ namespace kaliteConfig.Services
                     }
                 }
 
-                // If exact match fails, try fuzzy family match on the primary name
                 foreach (var node in lookupValues)
                 {
                     string? name = node.Element("Name")?.Value;
@@ -112,27 +100,18 @@ namespace kaliteConfig.Services
 
             var familyTokens = family.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             int matchCount = 0;
-            
-            // Typical family name: GEFORCE RTX 40
+
             foreach (var token in familyTokens)
             {
                 if (token == "NVIDIA" || token == "GEFORCE") continue;
-                
-                // If token is "40", we want to see if model contains "40" like "4090".
-                // But careful not to match "1650" if family is "16".
+
                 int idx = model.IndexOf(token);
                 if (idx != -1) 
                 {
                     matchCount++;
                 }
             }
-            
-            // Example:
-            // "GEFORCE RTX 40 SERIES" -> "RTX", "40"
-            // "GEFORCE RTX 4090" -> contains "RTX" and "40".
-            // It's a match!
-            // Wait, "RTX 30" -> "RTX", "30". Model "RTX 4090" -> contains "RTX" but not "30". No match.
-            
+
             List<string> keyTokens = familyTokens.Where(t => t != "NVIDIA" && t != "GEFORCE" && t != "TITAN" && t != "MX").ToList();
             if (keyTokens.Count == 0) return false;
             
@@ -143,22 +122,9 @@ namespace kaliteConfig.Services
         private int GetOsId()
         {
             var build = Environment.OSVersion.Version.Build;
-            // Build numbers >= 22000 return 135 (Win 11 64-bit); else 57 (Win 10 64-bit)
             return build >= 22000 ? 135 : 57;
         }
 
-        /// <summary>
-        /// Driver lookup with channel selection. VERIFIED against NVIDIA's own
-        /// driver-results page JS (clientlib-driverflownvlookup): the query is
-        ///   func=DriverManualLookup&pfid=…&osID=…&languageCode=1033
-        ///   &isWHQL={1 for Game Ready, 0 for Studio}&beta=0&dltype=-1&dch=1
-        ///   &upCRD={0 for Game Ready, 1 for Studio}&ctk=null&sort1=0
-        /// (dltype must stay -1; the old dltype=0/1 channel guess returns
-        /// DriverDownloadIDNotFound.)
-        /// ACCURACY FLAG: undocumented endpoint, reverse-engineered from
-        /// nvidia.com's own traffic; may change without notice. Empty result
-        /// list = "unable to check", never presented as ground truth.
-        /// </summary>
         public async Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, bool studioChannel, CancellationToken ct)
             => await GetDriversAsync(gpuModelName, numberOfResults, studioChannel, notebookVariant: false, ct);
 
@@ -171,7 +137,7 @@ namespace kaliteConfig.Services
 
             int osId = GetOsId();
             int upCrd = studioChannel ? 1 : 0;
-            int isWhql = studioChannel ? 0 : 1;   // Studio listings register as WHQL=0 in NVIDIA's own query
+            int isWhql = studioChannel ? 0 : 1;
             string apiUrl = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={osId}&languageCode=1033&isWHQL={isWhql}&beta=0&dltype=-1&dch=1&upCRD={upCrd}&ctk=null&sort1=0&numberOfResults={numberOfResults}";
 
             try
@@ -205,22 +171,13 @@ namespace kaliteConfig.Services
             return results;
         }
 
-        /// <summary>Game Ready channel convenience overload.</summary>
         public Task<List<NvidiaDriverPackage>> GetDriversAsync(string gpuModelName, int numberOfResults, CancellationToken ct)
             => GetDriversAsync(gpuModelName, numberOfResults, studioChannel: false, notebookVariant: false, ct);
 
-        /// <summary>
-        /// Lookup by PCI device ID (the DEV_XXXX hex from the PnP DeviceID).
-        /// VERIFIED LIVE: deviceID=2783 returns the correct Game Ready driver
-        /// for the RTX 4070 (DEV_2783) - works even when no driver is installed
-        /// and Windows can't name the card. Same undocumented endpoint; see the
-        /// accuracy flag on the name-based overload.
-        /// </summary>
         public async Task<List<NvidiaDriverPackage>> GetDriversByDeviceIdAsync(string pciDeviceId, int numberOfResults, bool studioChannel, CancellationToken ct)
         {
             var results = new List<NvidiaDriverPackage>();
 
-            // Extract the hex device id (DEV_2783 → "2783").
             var m = System.Text.RegularExpressions.Regex.Match(
                 pciDeviceId ?? "", @"DEV_([0-9A-F]{4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (!m.Success) return results;
@@ -258,7 +215,6 @@ namespace kaliteConfig.Services
             return results;
         }
 
-        /// <summary>Older JSON-query implementation - superseded by the channel-aware overload above.</summary>
         private static IEnumerable<string> FindNvidiaDisplayInfs(string extractedDir)
         {
             if (!System.IO.Directory.Exists(extractedDir)) return Array.Empty<string>();
@@ -339,10 +295,7 @@ namespace kaliteConfig.Services
 
         public async Task<int> UninstallSilentAsync(Action<string> logCallback, CancellationToken ct)
         {
-            // Silent uninstall:
-            // "%SystemRoot%\SysWOW64\RunDll32.EXE" "%ProgramFiles%\NVIDIA Corporation\Installer2\InstallerCore\NVI2.DLL",UninstallPackage Display.Driver -silent -n
-            // Launched via Process.Start + -Wait
-            
+
             string sysWow64 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "SysWOW64");
             string runDll32 = Path.Combine(sysWow64, "RunDll32.exe");
             

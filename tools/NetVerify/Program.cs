@@ -38,7 +38,6 @@ internal sealed class Program
 
     private static async System.Threading.Tasks.Task<int> Main()
     {
-        // Classification (recorded descriptions from this machine)
         Check(NetParsing.ClassifyAdapter("Realtek PCIe 2.5GbE Family Controller", "Ethernet 2") == NetAdapterKind.Ethernet, "classify Realtek Ethernet");
         Check(NetParsing.ClassifyAdapter("MediaTek Wi-Fi 7 MT7925 Wireless LAN Card", "Wi-Fi") == NetAdapterKind.WiFi, "classify MediaTek WiFi");
         Check(NetParsing.ClassifyAdapter("Hyper-V Virtual Ethernet Adapter", "vEthernet (Default Switch)") == NetAdapterKind.Virtual, "classify Hyper-V virtual");
@@ -55,7 +54,6 @@ internal sealed class Program
         Check(!NetParsing.IsListVisible(NetAdapterKind.Virtual, true, false, true), "list hides virtual without toggle");
         Check(NetParsing.IsListVisible(NetAdapterKind.Virtual, true, true, false), "list shows virtual on toggle");
 
-        // Categorization incl. vendor keywords
         Check(NetParsing.CategorizeKeyword("*SpeedDuplex") == "Speed & Duplex", "cat SpeedDuplex");
         Check(NetParsing.CategorizeKeyword("*LsoV2IPv4") == "Offloads", "cat LSO");
         Check(NetParsing.CategorizeKeyword("*TCPChecksumOffloadIPv4") == "Offloads", "cat checksum");
@@ -73,7 +71,6 @@ internal sealed class Program
         Check(NetParsing.CategorizeKeyword("GigaLite") == "Power Saving", "cat GigaLite vendor power");
         Check(NetParsing.CategorizeKeyword("SomeVendorX") == "Vendor", "cat bare vendor keyword");
 
-        // Changed detection + option text
         Check(!NetParsing.IsChanged("0", "0"), "unchanged equal");
         Check(NetParsing.IsChanged("1", "0"), "changed differs");
         Check(!NetParsing.IsChanged("", ""), "unchanged both empty");
@@ -84,7 +81,6 @@ internal sealed class Program
         var wol = Mk(NetFixtures.WifiReal()[3]);
         Check(wol.Changed, "recorded WoL differs from default");
 
-        // Validation
         Check(NetParsing.ValidateValue(speed, "6") is null, "validate enum ok");
         Check(NetParsing.ValidateValue(speed, "99") is not null, "validate enum rejects");
         var rx = Mk(NetFixtures.Realtek()[3]);
@@ -95,7 +91,6 @@ internal sealed class Program
         var vlan = Mk(NetFixtures.Realtek()[10]);
         Check(NetParsing.ValidateValue(vlan, "100") is null, "validate vlan ok");
 
-        // Diff + rollback plan
         var before = new Dictionary<string, string> { ["*EEE"] = "1", ["*RSS"] = "1" };
         var after = new Dictionary<string, string> { ["*EEE"] = "0", ["*RSS"] = "1" };
         var diffs = NetParsing.BuildDiff(before, after, k => k);
@@ -104,7 +99,6 @@ internal sealed class Program
             new Dictionary<string, string> { ["*EEE"] = "0" }, k => k);
         Check(plan.Count == 1 && plan[0].To == "1", "rollback restores snapshot value");
 
-        // netsh parsing on recorded output
         var tcp = NetParsing.ParseNetshKeyValues(NetFixtures.NetshTcpSample);
         Check(tcp["Receive Window Auto-Tuning Level"] == "normal", "parse autotuning");
         Check(tcp["Initial RTO"] == "1000", "parse RTO");
@@ -114,7 +108,6 @@ internal sealed class Program
         Check(wlan["AP BSSID"] == "80:23:95:11:b5:e1", "parse BSSID");
         Check(wlan["Signal"] == "77%", "parse signal");
 
-        // Offload blocks (recorded netsh interface ipv4 show offload)
         var off = NetParsing.ParseNetshOffload(NetFixtures.NetshOffloadSample);
         var eth2 = off.FirstOrDefault(o => o.Iface == "Ethernet 2");
         Check(eth2.Caps.Count == 7 && eth2.Caps.Contains("tcp giant send offload supported"), "parse offload block");
@@ -122,7 +115,6 @@ internal sealed class Program
         Check(eth3.Caps.Count == 0, "parse empty offload block");
         Check(off.Any(o => o.Iface == "Wi-Fi"), "parse wifi offload block");
 
-        // Ping math
         var ps = NetParsing.PingStats(20, new List<double> { 1, 2, 3, 4 });
         Check(ps.Received == 4 && ps.LossPct == 80.0 && Math.Abs(ps.AvgMs - 2.5) < 1e-9, "ping loss+avg");
         Check(Math.Abs(ps.JitterMs - 1.0) < 1e-9, "ping jitter mean abs diff");
@@ -141,15 +133,12 @@ internal sealed class Program
             new NetPingSummary(20, 20, 0, 1, 4, 20, 2));
         Check(v3 == "unproven", "latency unproven on total loss");
 
-        // Decimation keeps spikes
         var dec = NetParsing.DecimateMinMax(new List<double> { 1, 100, 2, 3, 4, 5 }, 3);
         Check(dec.Count == 3 && dec[0].Max == 100 && dec[0].Min == 1, "decimation keeps spike");
 
-        // VEN/DEV parse on the recorded Realtek ID
         var (ven, dev, subsys, rev) = NetParsing.ParseVenDev(@"PCI\VEN_10EC&DEV_8125&SUBSYS_E0001458&REV_0C");
         Check(ven == "10EC" && dev == "8125" && subsys == "E0001458" && rev == "0C", "parse VEN/DEV/SUBSYS/REV");
 
-        // Driver age + speed + lease
         var (years, old) = NetParsing.DriverAge("3-24-2025", new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc));
         Check(!old && years > 1.0 && years < 2.0, "driver age ~1.5y not flagged");
         var (_, old2) = NetParsing.DriverAge("1-01-2020", new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc));
@@ -162,14 +151,12 @@ internal sealed class Program
         var lease = NetParsing.LeaseToLocal(1789981934);
         Check(lease.Year == 2026, "lease epoch converts");
 
-        // Revert machine
         Check(NetParsing.RevertAdvance(NetRevertState.Idle, "arm") == NetRevertState.Armed, "revert arm");
         Check(NetParsing.RevertAdvance(NetRevertState.Armed, "confirm") == NetRevertState.Confirmed, "revert confirm");
         Check(NetParsing.RevertAdvance(NetRevertState.Armed, "timeout") == NetRevertState.Expired, "revert timeout");
         Check(NetParsing.RevertAdvance(NetRevertState.Expired, "revert") == NetRevertState.Reverted, "revert executes");
         Check(NetParsing.RevertAdvance(NetRevertState.Idle, "confirm") == NetRevertState.Idle, "revert ignores stray confirm");
 
-        // Doctor on the recorded Realtek facts
         var findings = NetParsing.DoctorRules(NetFixtures.RealtekFacts());
         Check(findings.Any(f => f.Title.Contains("power saving")), "doctor flags PowerSavingMode");
         Check(findings.Any(f => f.Title.Contains("turn this device off") && f.Severity == NetFindingSeverity.Warning), "doctor flags allow-off");

@@ -48,13 +48,9 @@ namespace kaliteConfig.ViewModels
 
             LoadCores();
 
-            // Construction fires the change callbacks above; nothing is dirty yet.
             HasPendingChanges = false;
         }
 
-        // Core ticks only stage changes - nothing is written until Apply is
-        // clicked. The button enables only while the staged selection differs
-        // from the saved mask, so reverting to the saved state greys it out.
         private void MarkDirty() => HasPendingChanges = CurrentMask() != VisibleSavedMask();
 
         private ulong CurrentMask()
@@ -123,8 +119,6 @@ namespace kaliteConfig.ViewModels
             try
             {
                 _service.SetReservedCpuMask(newMask);
-                // Startup reapply is always on: the saved reservation is
-                // re-asserted automatically when the app starts.
                 _service.SetApplyAtStartup(true);
                 _savedMask = newMask;
                 HasPendingChanges = false;
@@ -164,7 +158,7 @@ namespace kaliteConfig.ViewModels
         public CpuCoreItem(int index, bool isReserved, Action onChanged)
         {
             Index = index;
-            IsReserved = isReserved; // Fires before _onChanged is attached
+            IsReserved = isReserved;
             _onChanged = onChanged;
         }
 

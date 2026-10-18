@@ -25,33 +25,19 @@ using WinRT.Interop;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>One row of the pre-export review list: name → old value → new value.</summary>
 public sealed record ChangeSummary(string Name, string PathText, string OldValue, string NewValue);
 
-/// <summary>
-/// A settings-category entry for the left nav (WinUI Settings-style).
-/// Either a keyword bucket ("CPU", "PCIe", "Security"…) or the special
-/// "All settings" / "Modified" views. Rows are recomputed per document.
-/// </summary>
 public sealed class BiosCategory
 {
     public required string Key { get; init; }
     public required string DisplayName { get; init; }
     public int Count { get; init; }
-    // "All settings" and "Modified" don't carry static counts (Modified changes
-    // live); only keyword buckets show a badge.
     public string CountText => Count > 0 ? $"({Count})" : "";
 
     public static readonly BiosCategory All = new() { Key = "All", DisplayName = "All settings" };
     public static readonly BiosCategory Modified = new() { Key = "Modified", DisplayName = "Modified" };
 }
 
-/// <summary>
-/// Drives the BIOS Manager page: import a SCEWIN dump, browse the menu tree,
-/// filter settings, edit values with per-item reset, review a change list and
-/// export a SCEWIN-compatible file. Parsing and filtering run off the UI
-/// thread; results are marshaled back via <see cref="DispatcherQueue"/>.
-/// </summary>
 public sealed partial class BiosManagerViewModel : ObservableObject
 {
     private readonly DispatcherQueue _dispatcher;
@@ -65,8 +51,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     {
         _dispatcher = App.MainWindow?.DispatcherQueue ?? DispatcherQueue.GetForCurrentThread();
     }
-
-    // ---- observable state ----
 
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
@@ -105,8 +89,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     [ObservableProperty]
     public partial ObservableCollection<BiosSettingRow> Rows { get; set; } = new();
 
-    // ---- derived state ----
-
     public bool HasSelectedRow => SelectedRow is not null;
     public bool HasChanges => ModifiedCount > 0;
     public string ModifiedCountText => ModifiedCount == 0 ? "No changes" : $"{ModifiedCount} modified";
@@ -114,11 +96,9 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     public Visibility LoadingVisibility => IsLoading ? Visibility.Visible : Visibility.Collapsed;
     public Visibility EmptyVisibility => !IsLoading && !HasDocument ? Visibility.Visible : Visibility.Collapsed;
     public bool CanExportNow => !IsLoading;
-    /// <summary>Search/section filter returned zero rows while a document is loaded.</summary>
     public bool HasNoResults => HasDocument && Rows.Count == 0;
     public Visibility NoResultsVisibility => HasNoResults ? Visibility.Visible : Visibility.Collapsed;
     public Visibility ListVisibility => HasNoResults ? Visibility.Collapsed : Visibility.Visible;
-    /// <summary>Flat dump (no section headers): the nav tree would be a single useless node.</summary>
     public bool HasSections => Sections.Count > 1 || (Sections.Count == 1 && Sections[0].Children.Count > 0);
     public Visibility TreeVisibility => HasSections ? Visibility.Visible : Visibility.Collapsed;
     public GridLength TreeColumnWidth => HasSections ? new GridLength(260) : new GridLength(0);
@@ -129,8 +109,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     public Visibility EditingEnumeratedVisibility => EditingIsEnumerated ? Visibility.Visible : Visibility.Collapsed;
     public Visibility EditingFreeformVisibility => EditingIsEnumerated ? Visibility.Collapsed : Visibility.Visible;
 
-    // Read-only now: the ComboBox writes back via code-behind (a TwoWay
-    // binding could push an empty value while the picker repopulates).
     public string EditingSelectedToken => SelectedRow?.SelectedToken ?? "";
 
     [ObservableProperty]
@@ -178,21 +156,13 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         OnPropertyChanged(nameof(HasChanges));
     }
 
-    // ---- commands ----
-
     private bool _autoLoadStarted;
 
-    /// <summary>
-    /// Called when the page opens: without touching the UI, export the live
-    /// BIOS settings with the bundled SCEWIN tool and show them. A cached dump
-    /// from an earlier run is shown instantly while a fresh export runs.
-    /// </summary>
     public async Task AutoLoadAsync()
     {
         if (_autoLoadStarted || IsLoading) return;
         _autoLoadStarted = true;
 
-        // Instant content: replay the cached dump if one exists.
         if (ScewinExportService.HasCachedDump && !HasDocument)
         {
             await LoadPathAsync(ScewinExportService.DumpPath, "cached");
@@ -211,7 +181,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         await ExportAndLoadCommand.ExecuteAsync(null);
     }
 
-    /// <summary>Run the bundled SCEWIN tool and parse its dump (background thread).</summary>
     [RelayCommand]
     private async Task ExportAndLoadAsync()
     {
@@ -237,7 +206,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Parse an already-known dump file (background thread) and show it.</summary>
     private async Task LoadPathAsync(string path, string? tag = null)
     {
         var text = await Task.Run(() => File.ReadAllText(path));
@@ -247,7 +215,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
             $"Loaded {doc.Items.Count:N0} settings from {doc.SourceName}.";
     }
 
-    /// <summary>Pick and parse a SCEWIN dump on a background thread.</summary>
     [RelayCommand]
     private async Task LoadFileAsync()
     {
@@ -276,7 +243,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Export the document (edited Value lines only) to a new .txt.</summary>
     [RelayCommand]
     private async Task SaveFileAsync()
     {
@@ -296,7 +262,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Apply changes directly to the BIOS via SCEWIN.</summary>
     [RelayCommand]
     private async Task ApplyToBiosAsync()
     {
@@ -317,8 +282,7 @@ public sealed partial class BiosManagerViewModel : ObservableObject
             try { File.Delete(tempPath); } catch { }
             
             StatusText = $"Successfully applied {ModifiedCount} change(s) to BIOS.";
-            
-            // Re-export from BIOS to refresh the UI and confirm changes actually stuck
+
             await ExportAndLoadCommand.ExecuteAsync(null);
         }
         catch (Exception ex)
@@ -331,7 +295,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Debounced search filter (runs the match off the UI thread).</summary>
     [RelayCommand]
     private Task FilterAsync(string? text)
     {
@@ -351,22 +314,16 @@ public sealed partial class BiosManagerViewModel : ObservableObject
                     if (!ct.IsCancellationRequested) Rows = new ObservableCollection<BiosSettingRow>(rows);
                 });
             }
-            catch (OperationCanceledException) { /* newer filter superseded this one */ }
+            catch (OperationCanceledException) {  }
         });
     }
 
-    /// <summary>Filter the list to a menu section (null/All → every setting).</summary>
     public void SelectSection(BiosMenuSection? section)
     {
         _selectedSection = section ?? _document?.RootSection;
         ApplyFilterNow();
     }
 
-    // Rows is swapped wholesale by every filter change. The two visibilities
-    // are what the page actually binds (BiosManagerPage.xaml), so they have to
-    // be raised too - announcing only HasNoResults left the "no results"
-    // overlay stuck on screen with an empty list underneath it, and ListVisibility
-    // stuck showing nothing.
     partial void OnRowsChanged(ObservableCollection<BiosSettingRow> value)
     {
         OnPropertyChanged(nameof(HasNoResults));
@@ -374,11 +331,9 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         OnPropertyChanged(nameof(ListVisibility));
     }
 
-    /// <summary>Per-item reset to the BIOS default value.</summary>
     [RelayCommand]
     private void ResetSetting(BiosSettingRow? row) => row?.ResetToDefault();
 
-    /// <summary>Revert every changed setting back to its imported value.</summary>
     [RelayCommand]
     private void ResetAll()
     {
@@ -386,19 +341,15 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         StatusText = "All changes reverted.";
     }
 
-    /// <summary>Name → old → new list for the pre-export review dialog.</summary>
     public List<ChangeSummary> GetChanges() =>
         _allRows.Where(r => r.IsModified)
                 .Select(r => new ChangeSummary(r.Name, r.SectionText, r.Item.OriginalValue, r.Item.Value))
                 .ToList();
 
-    /// <summary>Items whose new value would be invalid, with reasons (non-blocking warnings).</summary>
     public List<(BiosSettingRow Row, string Message)> ValidateChanges() =>
         _allRows.Where(r => r.IsInvalid)
                 .Select(r => (r, r.ValidationMessage))
                 .ToList();
-
-    // ---- internals ----
 
     private void OnDocumentLoaded(ScewinDocument doc)
     {
@@ -456,11 +407,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         return baseRows.Where(r => r.Matches(query)).ToList();
     }
 
-    /// <summary>
-    /// Keyword buckets that map dump setting names/paths to friendly category
-    /// names (like the BIOS's own menu: CPU, PCIe, Security…). Evaluated per
-    /// document so the counts always match what the filter will show.
-    /// </summary>
     public static readonly Dictionary<string, string[]> CategoryKeywords = new()
     {
         ["CPU"] = new[] { "cpu", "processor", "core", "smt", "c-state", "cstate", "pstate", "cppc", "smt" },
@@ -477,7 +423,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         ["Boot"] = new[] { "boot", "uefi", "csm", "legacy" },
     };
 
-    /// <summary>Builds the category list (with live counts) for the loaded document.</summary>
     private void RebuildCategories()
     {
         Categories.Clear();
@@ -501,7 +446,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     private void ShowError(string? message)
     {
         ErrorText = message ?? "";
-        // Re-trigger the InfoBar even if it's already open (user may have closed it).
         if (HasError) HasError = false;
         HasError = message is not null;
     }
@@ -517,11 +461,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     private static nint Hwnd =>
         App.MainWindow is { } window ? WindowNative.GetWindowHandle(window) : 0;
 
-    /// <summary>
-    /// WinUI 3 desktop picker pattern (InitializeWithWindow + window handle).
-    /// Falls back to the Win32 IFileDialog when the app runs elevated, where
-    /// the brokered pickers throw E_ACCESSDENIED.
-    /// </summary>
     private static async Task<string?> PickDumpFileAsync()
     {
         try
@@ -563,7 +502,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Marshals parse progress to the UI thread without relying on SynchronizationContext.</summary>
     private sealed class UiProgress : IProgress<double>
     {
         private readonly DispatcherQueue _dispatcher;

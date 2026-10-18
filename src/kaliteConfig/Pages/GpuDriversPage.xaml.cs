@@ -27,9 +27,6 @@ namespace kaliteConfig.Pages
             this.ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<GpuDriversViewModel>(App.Services) ?? new GpuDriversViewModel();
             this.DataContext = ViewModel;
 
-            // Kick off hardware detection as soon as the page loads, then
-            // automatically check for updates so the card shows current vs
-            // latest without a manual click.
             this.Loaded += async (_, _) =>
             {
                 await ViewModel.DetectGpusCommand.ExecuteAsync(null);
@@ -58,22 +55,12 @@ namespace kaliteConfig.Pages
         public static Visibility PrimaryVis(bool isPrimary) => isPrimary ? Visibility.Visible : Visibility.Collapsed;
         public static Visibility SecondaryVis(bool isPrimary) => isPrimary ? Visibility.Collapsed : Visibility.Visible;
 
-        // One action button per card: install when a driver is ready to install,
-        // otherwise a plain "Check for updates".
         public static Visibility InstallBtnVis(GpuDriverStatus status)
         {
             return status is GpuDriverStatus.UpdateAvailable or GpuDriverStatus.NotInstalled or GpuDriverStatus.Failed
                 ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        /// <summary>
-        /// AMD cards get no driver action buttons at all - neither install/update
-        /// nor the secondary "Check for updates". Downloading an Adrenalin package
-        /// is ~890 MB and only leads to AMD's own installer being opened, so the
-        /// button is a large, expensive way to reach a vendor's UI, and it crowded
-        /// out the AMD tools below it. The card still reports the installed
-        /// version; the AMD tools section is the only action on it.
-        /// </summary>
         public static Visibility InstallBtnVis(GpuDriverStatus status, string vendor)
         {
             if (IsAmd(vendor)) return Visibility.Collapsed;
@@ -89,15 +76,12 @@ namespace kaliteConfig.Pages
             return InstallBtnVis(status) == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        // Progress block: visible while downloading or installing.
         public static Visibility ProgressVis(GpuDriverStatus status)
         {
             return status is GpuDriverStatus.Downloading or GpuDriverStatus.Installing
                 ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // Indeterminate bar during the install phase (no percentage available);
-        // during download it's a determinate bar fed by DownloadProgress.
         public static bool InstallPhaseVis(GpuDriverStatus status)
         {
             return status == GpuDriverStatus.Installing;
@@ -133,13 +117,11 @@ namespace kaliteConfig.Pages
             return IsAmd(vendor) ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        /// <summary>Say whether the button will fetch the tool or just start it.</summary>
         public static string SlimmerButtonText(bool installed)
             => installed ? "Open Radeon Software Slimmer" : "Get Radeon Software Slimmer";
 
         public static bool SlimmerEnabled(bool busy) => !busy;
 
-        /// <summary>-1 means "not downloading", which would otherwise read as a full bar.</summary>
         public static Visibility SlimmerProgressVis(double progress)
             => progress is >= 0 and < 100 ? Visibility.Visible : Visibility.Collapsed;
 

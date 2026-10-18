@@ -16,36 +16,11 @@ using kaliteConfig.Models;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Thrown when a file doesn't look like a SCEWIN dump at all.</summary>
 public sealed class ScewinParseException : Exception
 {
     public ScewinParseException(string message) : base(message) { }
 }
 
-/// <summary>
-/// Parses SCEWIN / AMISCE dump text into a <see cref="ScewinDocument"/>.
-///
-/// Real-world grammar (AMISCE Ver 5.05, confirmed against a live dump):
-///  - Records start at "Setup Question &lt;tab&gt;= ..." and run until the next
-///    record or EOF; records are separated by BLANK LINES (no dashed rules).
-///  - Fields: Help String / Token / Offset / Width / BIOS Default / Options /
-///    Value. "Token =09   // Do NOT change this line" carries an inline //
-///    comment that is NOT part of the value.
-///  - Enumerated items list choices across CONTINUATION LINES, one per line:
-///        Options  =*[00]Auto    // Move "*" to the desired Option
-///                 [01]Manual
-///    The leading "*" marks the CURRENT value. Numeric items have a
-///    "Value =&lt;550&gt;" line instead (angle brackets are the value syntax).
-///  - Some dumps add "----- Section ----- Sub -----"-style headers; this one
-///    does not, so items with no header land in the root "All settings".
-///
-/// Design goals:
-///  - Tolerant: splits key/value on the FIRST '=' per line and trims; CRLF/LF,
-///    missing optional fields and unknown keys are all accepted.
-///  - Round-trip faithful: every line lands in exactly one segment whose text
-///    is preserved verbatim; the exporter only rewrites the item's value line.
-///  - Pure: text in, model out - no file I/O, no UI dependencies.
-/// </summary>
 public static class ScewinParser
 {
     private const string KSetupQuestion = "setupquestion";
@@ -62,7 +37,6 @@ public static class ScewinParser
     private static readonly Regex OptionRange = new(
         @"^(?<low>0x[0-9A-Fa-f]+|\d+)\s*(?:\.\.|\.\.|-|–|-)\s*(?<high>0x[0-9A-Fa-f]+|\d+)$",
         RegexOptions.Compiled);
-    /// <summary>Bracketed option entry, e.g. "[00]Auto" or " *[01]Enabled".</summary>
     private static readonly Regex BracketOption = new(@"^\*?\[[0-9A-Fa-f]+\]", RegexOptions.Compiled);
 
     public static ScewinDocument Parse(string text, string? sourceName = null, IProgress<double>? progress = null)
@@ -82,9 +56,6 @@ public static class ScewinParser
             var raw = lines[i].Content + lines[i].Ending;
             var trimmed = lines[i].Content.Trim();
 
-            // A new "Setup Question" ALWAYS starts a new record - flush any
-            // open item first. This is the record separator for dumps without
-            // blank lines or dashed rules.
             int eq = lines[i].Content.IndexOf('=');
             string key = eq >= 0 ? NormalizeKey(lines[i].Content.AsSpan(0, eq)) : "";
             string value = eq >= 0 ? StripComment(lines[i].Content[(eq + 1)..]) : "";
@@ -99,8 +70,6 @@ public static class ScewinParser
 
             if (builder.IsOpen)
             {
-                // Option continuation lines ("         [01]Manual" or
-                // "     *[02]Advanced") join the open item's Options field.
                 if (key.Length == 0 &&
                     BracketOption.IsMatch(trimmed.TrimStart('*')))
                 {
@@ -111,7 +80,6 @@ public static class ScewinParser
                 continue;
             }
 
-            // Section headers and separators (only meaningful outside items).
             if (TryParseHeader(trimmed, out var headerPath))
             {
                 path = headerPath;
@@ -119,7 +87,6 @@ public static class ScewinParser
                 continue;
             }
 
-            // Comments, banners, blanks, orphan lines - kept verbatim.
             segments.Add(new OtherSegment { Raw = raw });
         }
         builder.FlushInto(items, segments, path);
@@ -129,9 +96,6 @@ public static class ScewinParser
             throw new ScewinParseException(
                 "No 'Setup Question' entries were found - this doesn't look like a SCEWIN dump.");
 
-        // Self-check: every "Setup Question" marker line must have produced
-        // exactly one item. A mismatch means the record-splitting logic lost
-        // records - fail loudly rather than silently showing a partial list.
         int markerCount = CountSetupQuestionMarkers(lines);
         if (markerCount != items.Count)
         {
@@ -141,9 +105,6 @@ public static class ScewinParser
                 "please report this with the dump file.");
         }
 
-        // Build the menu tree. Sections are keyed by their full path so repeated
-        // headers with the same path merge into one node, in first-appearance order.
-        // Flat dumps (the common case) put everything under the single root.
         var root = new BiosMenuSection("All settings", Array.Empty<string>(), parent: null);
         var byPath = new Dictionary<string, BiosMenuSection> { [PathKey(Array.Empty<string>())] = root };
         foreach (var item in items)
@@ -163,7 +124,6 @@ public static class ScewinParser
         };
     }
 
-    /// <summary>Splits text into (content-without-EOL, EOL) pairs, preserving original endings.</summary>
     internal static List<(string Content, string Ending)> SplitLines(string text)
     {
         var result = new List<(string, string)>(text.Length / 24 + 8);
@@ -195,11 +155,6 @@ public static class ScewinParser
         return result;
     }
 
-    /// <summary>
-    /// Strips a trailing "//" comment (and surrounding whitespace) from a
-    /// field value. Quoted "//" inside quotes is preserved. Returns the
-    /// comment-free value.
-    /// </summary>
     internal static string StripComment(string value)
     {
         int idx = value.IndexOf("//", StringComparison.Ordinal);
@@ -238,7 +193,6 @@ public static class ScewinParser
     private static string NormalizeKey(ReadOnlySpan<char> keySpan)
     {
         var sb = keySpan.ToString().Trim().ToLowerInvariant();
-        // Aliases seen across vendor dumps.
         if (sb is "question") return KSetupQuestion;
         if (sb is "default") return KBiosDefault;
         return sb.Replace(" ", "").Replace("_", "").Replace("biosdefault", KBiosDefault);
@@ -267,7 +221,6 @@ public static class ScewinParser
             .Where(t => t.Length > 0)
             .ToArray();
 
-    /// <summary>Accumulates one "Setup Question" item block and emits a <see cref="BiosSetting"/>.</summary>
     private sealed class ItemBuilder
     {
         private readonly List<string> _raw = new();
@@ -288,12 +241,10 @@ public static class ScewinParser
             if (key == KValue && _valueLineIndex < 0) _valueLineIndex = _raw.Count - 1;
         }
 
-        /// <summary>Joins a "[01]Manual" continuation line onto the Options field.</summary>
         public void AbsorbOptionContinuation(string raw, string trimmed)
         {
             _raw.Add(raw);
             _optionContinuations.Add(trimmed);
-            // Track the starred continuation too - the star can appear on any line.
             if (trimmed.StartsWith('*'))
                 _currentMarkerToken = ExtractRawToken(trimmed) ?? _currentMarkerToken;
         }
@@ -314,7 +265,6 @@ public static class ScewinParser
             }
             else if (_raw.Count > 0)
             {
-                // Key/value text outside any item (shouldn't happen) - keep verbatim.
                 segments.Add(new OtherSegment { Raw = string.Concat(_raw) });
             }
 
@@ -340,14 +290,10 @@ public static class ScewinParser
                 ParseOptions(optionsRaw, _optionContinuations, out options, out range);
             }
 
-            // Value resolution for script dumps with no "Value =" line:
-            //   1. explicit "Value =&lt;550&gt;" line (numeric items)
-            //   2. the "*" starred option (AMISCE marks the CURRENT value)
-            //   3. BIOS Default as last resort
             if (string.IsNullOrEmpty(value))
             {
                 if (_currentMarkerToken.Length > 0) value = _currentMarkerToken;
-                else if (options is { Count: > 0 }) value = options[0].RawToken; // first option ≈ default/current
+                else if (options is { Count: > 0 }) value = options[0].RawToken;
             }
             value ??= Get(KBiosDefault) ?? "";
 
@@ -384,11 +330,9 @@ public static class ScewinParser
             options = null;
             range = null;
 
-            // Continuation lines are real option entries, not comma parts.
             var parts = new List<string>();
             if (optionsRaw.Contains('[') && BracketOption.IsMatch(optionsRaw.TrimStart('*')))
             {
-                // First entry lives on the Options line itself; continuations follow.
                 parts.Add(optionsRaw.TrimStart('*').Trim());
             }
             else
@@ -399,7 +343,6 @@ public static class ScewinParser
             parts.AddRange(continuations.Select(c => c.TrimStart('*').Trim()));
             if (parts.Count == 0) return;
 
-            // "0x50..0xB4" style: a single numeric range → free numeric editor with bounds.
             if (parts.Count == 1 && !optionsRaw.Contains('['))
             {
                 var m = OptionRange.Match(parts[0]);
@@ -414,7 +357,6 @@ public static class ScewinParser
                 }
             }
 
-            // Bracketed entries: "[00]Auto" → token "00", label "Auto".
             var list = new List<BiosOption>(parts.Count);
             foreach (var part in parts)
             {

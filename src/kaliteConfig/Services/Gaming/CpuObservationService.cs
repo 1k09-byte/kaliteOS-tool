@@ -10,29 +10,6 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Answers "which CPU is this on RIGHT NOW" for threads and devices.
-///
-/// Windows exposes no user-mode API for another thread's current processor
-/// (GetCurrentProcessorNumberEx is the calling thread only; thread APIs return
-/// affinity and ideal processor, never the running CPU), so this observes the
-/// system instead: a real-time kernel ETW session (NT Kernel Logger) with
-///   - CSwitch (flag 0x10, opcode 36): payload starts with NewThreadId, and the
-///     event's buffer context carries the processor index - so every context
-///     switch records "thread X ran on CPU N".
-///   - DPC (flag 0x20, opcodes 66/68/69) and ISR (flag 0x40, opcode 67):
-///     payload is {int64 InitialTime, pointer Routine} - the routine address is
-///     mapped back to its kernel module (SystemModuleInformation), giving
-///     "driver X handled interrupts on CPU N".
-/// Device rows map to their function driver through
-/// HKLM\SYSTEM\CurrentControlSet\Enum\&lt;instanceId&gt;\Service, so a device
-/// shows the CPU its interrupts actually land on - whether or not it is pinned.
-///
-/// The session costs real CPU at context-switch rates, so it is ref-counted:
-/// AddRef while a live view is open, Release when it closes. Everything is
-/// best-effort: if the kernel logger is taken or ETW is unavailable, the views
-/// simply show "-" instead of numbers.
-/// </summary>
 public static class CpuObservationService
 {
     private static readonly object Gate = new();
@@ -43,16 +20,13 @@ public static class CpuObservationService
     private static ulong _sessionHandle;
     private static ulong _consumeHandle;
     private static System.Threading.Thread? _pump;
-    private static readonly EventRecordCallback _callback = OnEvent; // must stay alive for the native side
+    private static readonly EventRecordCallback _callback = OnEvent;
 
     private sealed record Entry(int Cpu, long Ticks, long Count);
     private static readonly Dictionary<int, Entry> _threadCpu = new();
     private static readonly Dictionary<string, Entry> _driverCpu = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, string?> _deviceDriver = new(StringComparer.OrdinalIgnoreCase);
 
-    // ---------------------------------------------------------------- session
-
-    /// <summary>Starts observation if this is the first consumer.</summary>
     public static void AddRef()
     {
         lock (Gate)
@@ -60,11 +34,10 @@ public static class CpuObservationService
             _refCount++;
             if (_running || _broken || _refCount <= 0) return;
             _running = StartSession();
-            if (!_running) _broken = true; // do not retry a failed kernel logger every tick
+            if (!_running) _broken = true;
         }
     }
 
-    /// <summary>Stops observation when the last consumer goes away.</summary>
     public static void Release()
     {
         lock (Gate)
@@ -76,11 +49,10 @@ public static class CpuObservationService
                 StopSession();
                 _running = false;
             }
-            _broken = false; // a later open may retry (e.g. the conflicting logger ended)
+            _broken = false;
         }
     }
 
-    /// <summary>True while the kernel session is delivering events.</summary>
     public static bool IsObserving { get { lock (Gate) return _running; } }
 
     private static bool StartSession()
@@ -116,12 +88,8 @@ public static class CpuObservationService
             Marshal.StructureToPtr(props, _propsBuffer, false);
 
             uint err = CpuObsNative.StartTraceW(out _sessionHandle, CpuObsNative.KernelLoggerName, _propsBuffer);
-            if (err == 183) // ERROR_ALREADY_EXISTS: someone owns the NT Kernel Logger.
+            if (err == 183)
             {
-                // A previous run of THIS app can leave an orphaned real-time session
-                // behind (started, then the consumer failed - it never gets stopped),
-                // which makes every later start fail with 183 forever. Stop the
-                // existing session by name and retry once.
                 Log("StartTraceW returned 183 (kernel logger already owned); stopping the existing session and retrying once.");
                 err = StopKernelSessionByName();
                 if (err == 0)
@@ -159,7 +127,7 @@ public static class CpuObservationService
                     ulong h = _consumeHandle;
                     CpuObsNative.ProcessTrace(new[] { h }, 1, IntPtr.Zero, IntPtr.Zero);
                 }
-                catch { /* session torn down */ }
+                catch {  }
             })
             { IsBackground = true, Name = "kaliteConfig cpu-obs" };
             _pump.Start();
@@ -173,11 +141,6 @@ public static class CpuObservationService
         }
     }
 
-    /// <summary>
-    /// Frees the properties buffer and, if a session was already created,
-    /// stops it. A session left running without a consumer keeps the single
-    /// NT Kernel Logger slot occupied, so every future start would fail.
-    /// </summary>
     private static void CleanupFailedStart()
     {
         try
@@ -187,7 +150,6 @@ public static class CpuObservationService
         catch { }
     }
 
-    /// <summary>Stops the NT Kernel Logger session by name; returns 0 on success.</summary>
     private static uint StopKernelSessionByName()
     {
         IntPtr buf = IntPtr.Zero;
@@ -227,7 +189,6 @@ public static class CpuObservationService
         _ => ""
     };
 
-    /// <summary>Best-effort diagnostics to %LOCALAPPDATA%\kaliteConfig\cpu-obs.log.</summary>
     private static void Log(string message)
     {
         try
@@ -238,7 +199,7 @@ public static class CpuObservationService
             System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "cpu-obs.log"),
                 $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}");
         }
-        catch { /* logging must never break observation */ }
+        catch {  }
     }
 
     private static void StopSession()
@@ -272,19 +233,17 @@ public static class CpuObservationService
         _consumeHandle = 0;
     }
 
-    // ---------------------------------------------------------------- events
-
     private static void OnEvent(IntPtr ev)
     {
         try
         {
-            byte opcode = Marshal.ReadByte(ev + 45);                 // EVENT_HEADER.EventDescriptor.Opcode
-            int cpu = Marshal.ReadInt16(ev + 80) & 0xFFFF;           // ETW_BUFFER_CONTEXT.ProcessorIndex
-            IntPtr userData = Marshal.ReadIntPtr(ev + 96);           // EVENT_RECORD.UserData
+            byte opcode = Marshal.ReadByte(ev + 45);
+            int cpu = Marshal.ReadInt16(ev + 80) & 0xFFFF;
+            IntPtr userData = Marshal.ReadIntPtr(ev + 96);
             if (userData == IntPtr.Zero) return;
             long now = Environment.TickCount64;
 
-            if (opcode == 36) // CSwitch: NewThreadId (uint32) at offset 0
+            if (opcode == 36)
             {
                 int tid = Marshal.ReadInt32(userData);
                 if (tid > 0)
@@ -292,13 +251,13 @@ public static class CpuObservationService
                     lock (Gate)
                     {
                         _threadCpu[tid] = new Entry(cpu, now, _threadCpu.TryGetValue(tid, out var e) ? e.Count + 1 : 1);
-                        if (_threadCpu.Count > 60000) _threadCpu.Clear(); // pathological churn safety
+                        if (_threadCpu.Count > 60000) _threadCpu.Clear();
                     }
                 }
             }
-            else if (opcode == 67 || opcode == 66 || opcode == 68 || opcode == 69) // ISR / ThreadDPC / DPC / TimerDPC
+            else if (opcode == 67 || opcode == 66 || opcode == 68 || opcode == 69)
             {
-                long routine = Marshal.ReadInt64(userData + 8);      // {int64 InitialTime, pointer Routine}
+                long routine = Marshal.ReadInt64(userData + 8);
                 string? mod = ModuleFor(routine);
                 if (mod != null)
                 {
@@ -310,12 +269,9 @@ public static class CpuObservationService
                 }
             }
         }
-        catch { /* a malformed event must never kill the pump */ }
+        catch {  }
     }
 
-    // ---------------------------------------------------------------- queries
-
-    /// <summary>Last CPU this thread was seen running on, and how long ago.</summary>
     public static bool TryGetThreadCpu(int tid, out int cpu, out long ageMs, out long events)
     {
         lock (Gate)
@@ -330,7 +286,6 @@ public static class CpuObservationService
         return false;
     }
 
-    /// <summary>Last CPU this device's function driver handled DPC/ISRs on.</summary>
     public static bool TryGetDeviceCpu(string deviceInstanceId, out int cpu, out long ageMs, out long events)
     {
         string? module = DriverModuleForDevice(deviceInstanceId);
@@ -349,7 +304,6 @@ public static class CpuObservationService
         return false;
     }
 
-    /// <summary>"5 · 0.2s ago" style text for thread rows; "-" when unknown.</summary>
     public static string DescribeThreadCpu(int tid)
     {
         if (!IsObserving) return "-";
@@ -358,7 +312,6 @@ public static class CpuObservationService
             : "-";
     }
 
-    /// <summary>"3 · live" style text for device rows; "-" when unknown.</summary>
     public static string DescribeDeviceCpu(string deviceInstanceId)
     {
         if (!IsObserving) return "-";
@@ -371,8 +324,6 @@ public static class CpuObservationService
         : ageMs < 60_000 ? $"{ageMs / 1000.0:0.#}s ago"
         : $"{ageMs / 60_000.0:0.#}m ago";
 
-    // ------------------------------------------------------- address → module
-
     private sealed record ModuleInfo(long Base, long Size, string Name);
     private static ModuleInfo[] _modules = Array.Empty<ModuleInfo>();
 
@@ -382,7 +333,7 @@ public static class CpuObservationService
         try
         {
             int needed = 0;
-            CpuObsNative.NtQuerySystemInformation(11, IntPtr.Zero, 0, out needed); // SystemModuleInformation
+            CpuObsNative.NtQuerySystemInformation(11, IntPtr.Zero, 0, out needed);
             if (needed <= 0) needed = 1 << 20;
             IntPtr buf = Marshal.AllocHGlobal(needed);
             try
@@ -390,8 +341,8 @@ public static class CpuObservationService
                 int status = CpuObsNative.NtQuerySystemInformation(11, buf, needed, out _);
                 if (status != 0) return;
                 int count = Marshal.ReadInt32(buf);
-                int offset = 8; // RTL_PROCESS_MODULES: ULONG NumberOfModules + pad
-                const int stride = 296; // RTL_PROCESS_MODULE_INFORMATION on x64
+                int offset = 8;
+                const int stride = 296;
                 for (int i = 0; i < count && i < 4096; i++)
                 {
                     long imageBase = Marshal.ReadInt64(buf + offset + 16);
@@ -419,7 +370,6 @@ public static class CpuObservationService
         return null;
     }
 
-    /// <summary>Device instance id → its function driver's module name (e.g. "nvlddmkm.sys").</summary>
     private static string? DriverModuleForDevice(string deviceInstanceId)
     {
         lock (Gate)
@@ -437,8 +387,6 @@ public static class CpuObservationService
         lock (Gate) _deviceDriver[deviceInstanceId] = module;
         return module;
     }
-
-    // ---------------------------------------------------------------- interop
 
     private delegate void EventRecordCallback(IntPtr eventRecord);
 

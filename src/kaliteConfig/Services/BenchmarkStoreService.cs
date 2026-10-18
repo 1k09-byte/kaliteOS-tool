@@ -19,11 +19,6 @@ using kaliteConfig.Models;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Persists benchmark runs under %LocalAppData%/kaliteConfig/benchmarks/:
-/// &lt;id&gt;.json (meta + system info + comment) + &lt;id&gt;.frames.gz
-/// (float32 frametimes + float64 timestamps). All IO off the UI thread.
-/// </summary>
 public sealed class BenchmarkStoreService
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
@@ -180,7 +175,6 @@ public sealed class BenchmarkStoreService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>Updates only the meta JSON (never touches frames).</summary>
     public async Task UpdateColorAsync(Guid id, string colorHex)
     {
         await Task.Run(() =>

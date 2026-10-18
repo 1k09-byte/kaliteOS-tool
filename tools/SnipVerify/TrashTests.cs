@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using kaliteConfig.Services;
 using Windows.Graphics.Imaging;
 
-// Bin round-trip and blank detection against the real service (cleaned up after).
 internal static class TrashTests
 {
     public static async Task RunAsync(Action<bool, string> check)
@@ -18,7 +17,6 @@ internal static class TrashTests
         string? imported = null;
         try
         {
-            // Uniform black PNG: the exact thing the blank finder hunts.
             var src = Path.Combine(Path.GetTempPath(), $"snipverify_blank_{Guid.NewGuid():N}.png");
             using (var bmp = new SoftwareBitmap(BitmapPixelFormat.Bgra8, 32, 32))
             using (var fs = File.Create(src))

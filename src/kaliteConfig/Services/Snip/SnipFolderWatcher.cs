@@ -14,15 +14,6 @@ using System.Threading;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Tells the page the moment the snips folder changes, so the poll can be re-armed instead of
-/// waiting out the lazy end of its interval.
-///
-/// This is a latency optimisation only. Polling alone still finds every change, so a watcher that
-/// refuses to start (no folder, policy, quota) degrades to a slower pick-up and nothing else.
-/// Events arrive on a pool thread and are debounced, because one save is several events
-/// (create, write, size, last-write) and the caller only needs "something moved".
-/// </summary>
 public sealed class SnipFolderWatcher : IDisposable
 {
     private readonly FileSystemWatcher? _watcher;
@@ -63,14 +54,10 @@ public sealed class SnipFolderWatcher : IDisposable
         }
     }
 
-    /// <summary>True when the folder is being watched; false means polling is carrying the page alone.</summary>
     public bool IsWatching => _watcher is not null;
 
     public static SnipFolderWatcher Start(string folder, Action onChanged, TimeSpan? debounce = null,
         Action<string>? log = null)
-        // A log sink is required: the watcher reports why it degraded to polling,
-        // and a caller that does not care can pass _ => { }. There is no debug
-        // fallback to fall back to, so silence is never a default.
         => new(folder, onChanged, debounce ?? TimeSpan.FromMilliseconds(300), log ?? (static _ => { }));
 
     private void Raise()
@@ -79,7 +66,6 @@ public sealed class SnipFolderWatcher : IDisposable
         lock (_gate)
         {
             if (_disposed) return;
-            // One pending notification is enough: the caller re-reads the folder, not the event.
             if (Interlocked.Exchange(ref _pending, 1) == 1) return;
             try { _debounce.Change(_debounceDelay, Timeout.InfiniteTimeSpan); }
             catch (ObjectDisposedException) { }

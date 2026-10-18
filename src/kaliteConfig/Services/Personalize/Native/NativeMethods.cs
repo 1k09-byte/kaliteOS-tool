@@ -3,12 +3,8 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services.Personalize.Native;
 
-// Every declaration here is taken from the Win32 docs page for the named API.
-// Nothing in this file elevates or touches HKLM. Hand-written because the
-// project has no CsWin32 package and the rules forbid adding one.
 internal static class NativeMethods
 {
-    // SystemParametersInfo actions (winuser.h, "SystemParametersInfo" docs).
     public const uint SPI_GETMOUSE = 0x0003;
     public const uint SPI_SETMOUSE = 0x0004;
     public const uint SPI_SETDESKWALLPAPER = 0x0014;
@@ -21,17 +17,14 @@ internal static class NativeMethods
     public const uint SPI_GETHIGHCONTRAST = 0x0042;
     public const uint HCF_HIGHCONTRASTON = 0x00000001;
 
-    // fWinIni flags.
     public const uint SPIF_UPDATEINIFILE = 0x0001;
     public const uint SPIF_SENDCHANGE = 0x0002;
 
-    // Window messages and SendMessageTimeout flags.
     public const uint WM_SETTINGCHANGE = 0x001A;
     public const uint WM_DWMCOLORIZATIONCOLORCHANGED = 0x0320;
     public const uint SMTO_ABORTIFHUNG = 0x0002;
     public static readonly IntPtr HWND_BROADCAST = new(0xffff);
 
-    // COLOR_BACKGROUND, used with SetSysColors for the desktop background.
     public const int COLOR_BACKGROUND = 1;
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "SystemParametersInfoW")]
@@ -80,13 +73,9 @@ internal static class NativeMethods
         public string szCSDVersion;
     }
 
-    // RtlGetVersion returns the real build number even when the app manifest or
-    // compatibility shim would make Environment.OSVersion report an older one.
     [DllImport("ntdll.dll")]
     internal static extern int RtlGetVersion(ref OSVERSIONINFOEX versionInfo);
 
-    // LoadImage with LR_LOADFROMFILE: used to prove a .cur/.ani file really loads
-    // before anything is applied (LoadImage docs, winuser.h).
     public const uint IMAGE_CURSOR = 2;
     public const uint LR_LOADFROMFILE = 0x00000010;
 
@@ -96,8 +85,6 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool DestroyCursor(IntPtr hCursor);
 
-    // Shell item helpers used to point IDesktopWallpaper::SetSlideshow at a folder
-    // (shlobj_core.h: SHParseDisplayName, SHCreateShellItemArrayFromIDLists).
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern int SHParseDisplayName(string name, IntPtr bindingContext, out IntPtr pidl, uint sfgaoIn, out uint psfgaoOut);
 

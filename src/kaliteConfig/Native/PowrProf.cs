@@ -33,7 +33,7 @@ namespace kaliteConfig.Native
         public static extern uint PowerEnumerate(
             IntPtr RootPowerKey,
             ref Guid SchemeGuid,
-            IntPtr SubGroupOfPowerSettingsGuid, // IntPtr.Zero for getting subgroups
+            IntPtr SubGroupOfPowerSettingsGuid,
             uint AccessFlags,
             uint Index,
             out Guid Buffer,
@@ -42,7 +42,7 @@ namespace kaliteConfig.Native
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         public static extern uint PowerEnumerate(
             IntPtr RootPowerKey,
-            IntPtr SchemeGuid, // IntPtr.Zero for getting schemes
+            IntPtr SchemeGuid,
             IntPtr SubGroupOfPowerSettingsGuid,
             uint AccessFlags,
             uint Index,
@@ -52,7 +52,7 @@ namespace kaliteConfig.Native
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         public static extern uint PowerReadFriendlyName(
             IntPtr RootPowerKey,
-            IntPtr SchemeGuid, // NULL = ask for subgroup/setting name
+            IntPtr SchemeGuid,
             IntPtr SubGroupOfPowerSettingsGuid,
             IntPtr PowerSettingGuid,
             IntPtr Buffer,
@@ -62,8 +62,8 @@ namespace kaliteConfig.Native
         public static extern uint PowerReadFriendlyNameScheme(
             IntPtr RootPowerKey,
             ref Guid SchemeGuid,
-            IntPtr SubGroupOfPowerSettingsGuid, // Can be Zero
-            IntPtr PowerSettingGuid, // Can be Zero
+            IntPtr SubGroupOfPowerSettingsGuid,
+            IntPtr PowerSettingGuid,
             IntPtr Buffer,
             ref uint BufferSize);
 
@@ -127,7 +127,7 @@ namespace kaliteConfig.Native
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true, EntryPoint = "PowerReadDescription")]
         public static extern uint PowerReadDescriptionSubgroup(
             IntPtr RootPowerKey,
-            IntPtr SchemeGuid, // NULL
+            IntPtr SchemeGuid,
             ref Guid SubGroupOfPowerSettingsGuid,
             IntPtr PowerSettingGuid,
             IntPtr Buffer,
@@ -202,10 +202,6 @@ namespace kaliteConfig.Native
             ref Guid PowerSettingGuid,
             uint DcValueIndex);
 
-        // NOTE: PowerReadPossibleValue / PowerReadPossibleFriendlyName take a SchemeGuid
-        // parameter (may be NULL) between RootPowerKey and the subgroup GUID - omitting it
-        // shifts every argument and made the call read garbage (phantom dropdown entries,
-        // empty lists). See https://learn.microsoft.com/windows/win32/api/powersetting/
         [DllImport("powrprof.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         public static extern uint PowerReadPossibleValue(
             IntPtr RootPowerKey,

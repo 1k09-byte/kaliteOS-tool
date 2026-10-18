@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using kaliteConfig.Services;
 using Windows.Graphics.Imaging;
 
-// Covers the sticker store round-trip (import -> list -> delete) plus naming rules.
 internal static class StickerTests
 {
     public static async Task RunAsync(Action<bool, string> check)
@@ -35,13 +34,11 @@ internal static class StickerTests
             var listed = SnipStickerService.GetAllStickers();
             check(listed.Any(s => s.FilePath == imported), "sticker listed in store");
 
-            // Same name twice must not overwrite.
             var again = await SnipStickerService.ImportStickersAsync(new[] { src });
             check(again.Count == 1 && again[0] != imported && File.Exists(imported),
                 "sticker re-import dedupes instead of overwriting");
             try { if (File.Exists(again[0])) File.Delete(again[0]); } catch { }
 
-            // Traversal guard: nothing outside the store may be deleted.
             check(!SnipStickerService.DeleteSticker(src), "sticker delete refuses outside paths");
             check(File.Exists(src), "sticker guard left the source alone");
 

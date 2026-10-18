@@ -8,8 +8,6 @@
     xmlns:pages="using:kaliteConfig.Pages"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
     <Page.Resources>
-        <!-- Consistent settings layout, cloned from WinUI-Gallery Pages/SettingsPage.xaml
-             (see docs/GALLERY-REFERENCE.md section 3). -->
         <x:Double x:Key="SettingsCardSpacing">4</x:Double>
         <Style
             x:Key="SettingsSectionHeaderTextBlockStyle"
@@ -42,7 +40,6 @@
                 HorizontalAlignment="Stretch"
                 Spacing="{StaticResource SettingsCardSpacing}">
 
-                <!-- Update banner (hidden unless a newer GitHub release exists). -->
                 <InfoBar Title="{x:Bind Vm.BannerTitle, Mode=OneWay}"
                          Message="{x:Bind Vm.Notes, Mode=OneWay}"
                          IsOpen="{x:Bind Vm.IsAvailable, Mode=OneWay}"
@@ -128,13 +125,6 @@
                     </ComboBox>
                 </toolkit:SettingsCard>
 
-                <!--
-                    Backdrop tint: a soft colour wash over the material. The
-                    strength is capped (BackdropTint.MaxAlpha, ~63%) precisely so
-                    the wash can never cover the material - the point of a tint is
-                    that the backdrop still shows through it. The rail and caption
-                    masks are opaque, so the tint never reaches the chrome either.
-                -->
                 <toolkit:SettingsCard
                     Description="Soft colour wash over the material. The material still shows through it - pick a colour, then set how strong it is."
                     Header="Backdrop tint">
@@ -142,9 +132,6 @@
                         <FontIcon Glyph="&#xE790;" />
                     </toolkit:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <!-- Swatch doubles as the colour button: it shows the picked hue
-                             (what the ColorPicker shows), and the strength slider controls how
-                             strongly that hue is washed over the material. -->
                         <Button x:Name="TintColorButton"
                                 ToolTipService.ToolTip="Pick a tint colour">
                             <Button.Flyout>
@@ -207,12 +194,6 @@
                     </ComboBox>
                 </toolkit:SettingsCard>
 
-                <!--
-                    Background image: a user-chosen picture painted between the animated
-                    meteor field and the backdrop tint, behind the page card. Opacity and
-                    stretch (fit) are user-controlled. Remove clears it back to the meteor
-                    field.
-                -->
                 <toolkit:SettingsCard
                     Description="A picture behind everything, with a controllable strength and fit. None shows the animated backdrop."
                     Header="Background image">

@@ -14,11 +14,6 @@ using System;
 
 namespace kaliteConfig.Converters
 {
-    /// <summary>
-    /// WinUI's Image/BitmapImage cannot decode SVG (helium/riot/discord/whatsapp
-    /// logos ship as .svg and rendered blank). Route .svg through SvgImageSource,
-    /// everything else through BitmapImage.
-    /// </summary>
     public sealed class AssetPathToImageSourceConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, string language)

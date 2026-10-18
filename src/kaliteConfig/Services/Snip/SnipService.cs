@@ -40,8 +40,6 @@ public sealed class SnipService : IDisposable
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-    /// <summary>Exe name of whatever the user was looking at when capture fired
-    /// (provenance for the Source column). Never throws; empty when unknown.</summary>
     public static string ForegroundAppName()
     {
         try
@@ -70,43 +68,32 @@ public sealed class SnipService : IDisposable
         public uint dwFlags;
     }
 
-    /// <summary>True when a capture hotkey is actually registered right now.</summary>
     public bool HotkeyRegistered { get; private set; }
 
-    /// <summary>Label of the preset that is really active (may differ from the preferred one).</summary>
     public string HotkeyLabel { get; private set; } = SnipHotkeyService.Presets[0].Label;
 
-    /// <summary>Why the preferred hotkey could not be registered (empty when it worked).</summary>
     public string HotkeyError { get; private set; } = "";
 
-    /// <summary>Set when a capture could not even be started (never fail silently).</summary>
     public string LastCaptureError { get; private set; } = "";
 
-    /// <summary>One line for the status bar: never claims "Active" when it is not.</summary>
     public string HotkeyStatusText => HotkeyRegistered
         ? $"Hotkey: {HotkeyLabel}"
         : "Hotkey: not registered - click to fix";
 
     public event Action? HotkeyStatusChanged;
 
-    /// <summary>Raised whenever this app writes captures anywhere (overlay save/copy,
-    /// repeat, fullscreen) so the gallery refreshes deterministically instead of
-    /// depending on the file watcher noticing.</summary>
     public static event Action? GalleryChanged;
     public static void NotifyGalleryChanged()
     {
         try { GalleryChanged?.Invoke(); } catch { }
     }
 
-    /// <summary>Last committed selection, screen pixels. Set by the overlay on every
-    /// release with area; Repeat Last re-captures exactly this rect.</summary>
     public static (int X, int Y, int W, int H)? LastRegion { get; set; }
 
     private static List<(int X, int Y, int W, int H)> GetAreas()
     {
         var areas = new List<(int X, int Y, int W, int H)>();
-        
-        // Use Win32 EnumDisplayMonitors for reliable multi-monitor detection
+
         try
         {
             EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data) =>
@@ -118,7 +105,6 @@ public sealed class SnipService : IDisposable
                     var rc = mi.rcMonitor;
                     int w = rc.Right - rc.Left;
                     int h = rc.Bottom - rc.Top;
-                    // Skip monitors with zero or negative dimensions (virtual/legacy monitors)
                     if (w > 100 && h > 100)
                         areas.Add((rc.Left, rc.Top, w, h));
                 }
@@ -133,8 +119,6 @@ public sealed class SnipService : IDisposable
         return areas;
     }
 
-    /// <summary>Re-captures the last committed region with no overlay: saves it to the
-    /// gallery AND puts it back on the clipboard (re-copy in one click).</summary>
     public async System.Threading.Tasks.Task<(bool Ok, string Message)> RepeatLastCaptureAsync()
     {
         var r = LastRegion;
@@ -157,7 +141,6 @@ public sealed class SnipService : IDisposable
         }
     }
 
-    /// <summary>Captures all monitors and stitches them together: gallery + clipboard.</summary>
     public async System.Threading.Tasks.Task<(bool Ok, string Message)> CaptureFullscreenAsync()
     {
         try
@@ -172,7 +155,6 @@ public sealed class SnipService : IDisposable
             if (areas.Count == 0)
                 return (false, "No monitors detected.");
 
-            // Calculate bounding box of all monitors
             int minX = areas.Min(a => a.X);
             int minY = areas.Min(a => a.Y);
             int maxX = areas.Max(a => a.X + a.W);
@@ -180,18 +162,15 @@ public sealed class SnipService : IDisposable
             int totalW = maxX - minX;
             int totalH = maxY - minY;
 
-            // Create destination buffer for stitched image (initialized to black background)
             byte[] stitchedPixels = new byte[totalW * totalH * 4];
-            // Fill with black background (0,0,0,255 in BGRA)
             for (int i = 0; i < stitchedPixels.Length; i += 4)
             {
-                stitchedPixels[i] = 0;     // B
-                stitchedPixels[i + 1] = 0; // G
-                stitchedPixels[i + 2] = 0; // R
-                stitchedPixels[i + 3] = 255; // A (fully opaque)
+                stitchedPixels[i] = 0;
+                stitchedPixels[i + 1] = 0;
+                stitchedPixels[i + 2] = 0;
+                stitchedPixels[i + 3] = 255;
             }
 
-            // Capture each monitor and place it in the correct position
             await System.Threading.Tasks.Task.Run(() =>
             {
                 foreach (var (x, y, w, h) in areas)
@@ -200,7 +179,6 @@ public sealed class SnipService : IDisposable
                     int offsetX = x - minX;
                     int offsetY = y - minY;
 
-                    // Copy monitor pixels into stitched buffer with bounds checking
                     for (int row = 0; row < h; row++)
                     {
                         int dstRow = row + offsetY;
@@ -209,7 +187,6 @@ public sealed class SnipService : IDisposable
                         int srcOffset = row * w * 4;
                         int dstOffset = (dstRow * totalW + offsetX) * 4;
 
-                        // Ensure we don't write past the end of the row
                         int bytesToCopy = Math.Min(w * 4, (totalW - offsetX) * 4);
                         if (dstOffset + bytesToCopy <= stitchedPixels.Length && dstOffset >= 0)
                         {
@@ -232,8 +209,6 @@ public sealed class SnipService : IDisposable
         }
     }
 
-    /// <summary>Puts raw BGRA pixels on the clipboard as PNG + DIB. Clipboard and Win2D
-    /// encoding need the UI thread, so this marshals there and reports success.</summary>
     private System.Threading.Tasks.Task<bool> CopyBgraAsync(byte[] bgra, int w, int h)
     {
         var tcs = new System.Threading.Tasks.TaskCompletionSource<bool>(
@@ -256,7 +231,7 @@ public sealed class SnipService : IDisposable
                     {
                         dp.SetData("DeviceIndependentBitmap", SnipRegionLogic.BuildDib32(bgra, w, h));
                     }
-                    catch { /* PNG alone pastes in most targets */ }
+                    catch {  }
                     Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
                     tcs.TrySetResult(true);
                 }
@@ -277,17 +252,13 @@ public sealed class SnipService : IDisposable
     {
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         _hotkey.Pressed += TriggerCapture;
-        // Auto-register
         var settings = SnipSettingsService.Load();
         var (ok, message) = RebindHotkey(settings.HotkeyIndex);
         if (!ok)
         {
-            // Surfaced in the UI (status bar + banner) instead of being swallowed here.
         }
     }
 
-    /// <summary>Tries a user-captured combination with NO fallback: used by the key-capture
-    /// box so a taken key warns instead of silently landing on a different shortcut.</summary>
     public (bool Ok, string Message) TryCustomHotkey(uint modifiers, uint vk)
     {
         var preset = new SnipHotkeyService.HotkeyPreset(
@@ -301,11 +272,6 @@ public sealed class SnipService : IDisposable
         return (true, $"{preset.Label} is active.");
     }
 
-    /// <summary>
-    /// Registers the preferred preset and, if Windows (or another app) already owns that key,
-    /// automatically falls back through the remaining presets so capture always has a working
-    /// shortcut. The preferred key usually fails because Windows Snipping Tool owns PrtScn.
-    /// </summary>
     public (bool Ok, string Message) RebindHotkey(int index)
     {
         SnipHotkeyService.HotkeyPreset preferred;
@@ -399,12 +365,6 @@ public sealed class SnipService : IDisposable
 
     public void TriggerCapture()
     {
-        // Any overlay from a previous capture has to be fully gone before the first
-        // BitBlt, or its window frame lands in the new frozen frame. CloseOverlays
-        // only asks the windows to close; it does not wait for them to actually be
-        // torn down, so the capture is deferred rather than slept on - the callers
-        // are on the UI thread, and a blocking wait here would freeze the window
-        // that is being screenshotted.
         CloseOverlays();
         System.Threading.Tasks.Task.Run(async () =>
         {
@@ -413,16 +373,9 @@ public sealed class SnipService : IDisposable
         });
     }
 
-    /// <summary>Monitor rects of the live capture session (sorted left-to-right),
-    /// for the overlay's Enter picker.</summary>
     public static List<(int X, int Y, int W, int H)> MonitorAreas { get; private set; } = new();
-    /// <summary>Index into <see cref="MonitorAreas"/> holding the cursor when capture started.</summary>
     public static int CursorMonitorIndex { get; private set; }
 
-    /// <summary>Shows the Enter picker on the cursor monitor's overlay and
-    /// focuses it: keyboard focus otherwise lands on whichever overlay won
-    /// the activation race (usually the secondary), stranding the picker on
-    /// the wrong screen.</summary>
     public void ShowPickerOnCursorMonitor()
     {
         var ov = _overlays;
@@ -440,8 +393,6 @@ public sealed class SnipService : IDisposable
         catch (Exception ex) { Log("cursor-picker ERR " + ex.Message); }
     }
 
-    /// <summary>Arms a fullscreen region on the cursor monitor's overlay
-    /// (same focus race as the picker).</summary>
     public void SelectFullscreenOnCursorMonitor()
     {
         var ov = _overlays;
@@ -466,15 +417,12 @@ public sealed class SnipService : IDisposable
         catch (Exception ex) { Log("monitor-fullscreen ERR " + ex.Message); }
     }
 
-    /// <summary>The capture itself, run off the UI thread once old overlays are gone.</summary>
     private void BeginCapture()
     {
 
-        // Who was the user looking at? Recorded now (before our overlay steals focus).
         string foregroundApp = ForegroundAppName();
         if (!string.IsNullOrEmpty(foregroundApp)) Log($"Foreground app at capture: {foregroundApp}");
 
-        // Get monitor areas using Win32 API
         var areas = GetAreas();
 
         Log($"Detected {areas.Count} monitors:");
@@ -483,7 +431,6 @@ public sealed class SnipService : IDisposable
             Log($"  Monitor {i}: pos=({areas[i].X},{areas[i].Y}) size={areas[i].W}x{areas[i].H}");
         }
 
-        // Detect which monitor the cursor is on
         int cursorMonitorIndex = 0;
         if (GetCursorPos(out POINT cursor))
         {
@@ -498,34 +445,16 @@ public sealed class SnipService : IDisposable
             }
             Log($"Cursor at ({cursor.X},{cursor.Y}) on monitor {cursorMonitorIndex}");
         }
-        // Published for the overlay Enter picker (rects + which holds the cursor).
         MonitorAreas = areas;
         CursorMonitorIndex = cursorMonitorIndex;
 
-        // Every monitor is captured before any overlay is created and shown.
-        //
-        // They used to be captured in parallel but only joined after the fact, with
-        // the overlays created inside the continuation - so a monitor still being
-        // BitBlt-ed could have another monitor's overlay already on screen. That is
-        // what put a window frame around the captured desktop. Capturing the full set
-        // first, and only then showing anything, makes each frozen frame contain only
-        // what was on the desktop at the moment of capture.
         var captureTasks = areas.Select(area =>
             System.Threading.Tasks.Task.Run(() => SnipCaptureHelper.CaptureScreenSlice(area.X, area.Y, area.W, area.H))
         ).ToList();
 
-        // Fire-and-forget, but deliberately NOT wrapped in an extra Task.Run: the captures
-        // are already on the thread pool and WhenAll's continuation resumes on one too, so
-        // the outer Task.Run only added a thread hop and an unobserved Task nobody could
-        // ever await or catch.
         _ = CreateOverlaysAsync(areas, captureTasks, foregroundApp, cursorMonitorIndex);
     }
 
-    /// <summary>
-    /// Waits for every monitor's frozen frame, then creates and activates the overlays on
-    /// the UI thread. Extracted so the work has a real Task and its failures surface in
-    /// crash.log instead of vanishing into a discarded Task.
-    /// </summary>
     private async System.Threading.Tasks.Task CreateOverlaysAsync(
         List<(int X, int Y, int W, int H)> areas,
         List<System.Threading.Tasks.Task<byte[]>> captureTasks,
@@ -545,7 +474,6 @@ public sealed class SnipService : IDisposable
                 return;
             }
 
-            // Create overlays on UI thread
             var queued = _dispatcherQueue.TryEnqueue(() =>
             {
                 _overlays = new List<kaliteConfig.Views.SnipOverlayWindow>();
@@ -571,8 +499,7 @@ public sealed class SnipService : IDisposable
                             }
                         };
                         _overlays.Add(overlay);
-                        
-                        // Activate all overlays, cursor monitor last so it gets focus
+
                         if (i == cursorMonitorIndex)
                         {
                             _overlay = overlay;
@@ -585,8 +512,6 @@ public sealed class SnipService : IDisposable
                     Log($"All {_overlays.Count} overlays created");
                 });
 
-                // A dropped enqueue means no overlay ever appears and the capture looks
-                // like it simply did not start, so say so instead of failing silently.
                 if (!queued)
                 {
                     LastCaptureError = "Cannot open the snip overlay: the UI thread did not accept the request.";
@@ -601,10 +526,8 @@ public sealed class SnipService : IDisposable
             }
     }
 
-    /// <summary>Raised (on the UI thread) when a capture could not start, with the real reason.</summary>
     public event Action<string>? CaptureFailed;
 
-    /// <summary>Opens an unsaved image directly in the snip overlay editor.</summary>
     public async System.Threading.Tasks.Task OpenInEditorAsync(Windows.Graphics.Imaging.SoftwareBitmap bitmap)
     {
         var overlay = new kaliteConfig.Views.SnipOverlayWindow();
@@ -633,7 +556,6 @@ public sealed class SnipService : IDisposable
         });
     }
 
-    /// <summary>Opens an existing image file in the snip overlay editor.</summary>
     public void OpenInEditor(string filePath)
     {
         try
@@ -663,10 +585,6 @@ public sealed class SnipService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Opens a snip in the full viewer window (zoom/pan, DPI-correct 100%, huge images on
-    /// demand). The viewer shares the details panel's Win2D preview, so both agree.
-    /// </summary>
     public void OpenInViewer(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath)) return;
@@ -683,7 +601,6 @@ public sealed class SnipService : IDisposable
         });
     }
 
-    /// <summary>Opens raw BGRA pixel data in the snip overlay editor.</summary>
     public void OpenBitmapInEditor(byte[] pixels, int w, int h)
     {
         _dispatcherQueue?.TryEnqueue(() =>
@@ -695,7 +612,6 @@ public sealed class SnipService : IDisposable
         });
     }
 
-    /// <summary>Pins an existing image file to the screen.</summary>
     public void PinImageFile(string filePath)
     {
         try

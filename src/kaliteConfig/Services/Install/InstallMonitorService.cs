@@ -55,8 +55,7 @@ public sealed class InstallMonitorService
         return Task.Run(() =>
         {
             var snapshot = new InstallMonitorSnapshot();
-            
-            // 1. Files
+
             int dirCount = MonitorDirectories.Length;
             for (int i = 0; i < dirCount; i++)
             {
@@ -68,13 +67,12 @@ public sealed class InstallMonitorService
                     {
                         var files = Directory.GetFiles(dir, "*", SearchOption.AllDirectories);
                         foreach (var f in files) snapshot.Files.Add(f);
-                    } catch { } // Ignore locked folders
+                    } catch { }
                 }
-                progress.Report((i + 1) * 50 / dirCount); // 50% for files
+                progress.Report((i + 1) * 50 / dirCount);
             }
 
-            // 2. Registry
-            int hiveCount = MonitorRegistryHives.Length * 2; // HKLM + HKCU
+            int hiveCount = MonitorRegistryHives.Length * 2;
             int currentHive = 0;
             
             foreach (var baseKey in new[] { Registry.LocalMachine, Registry.CurrentUser })
@@ -117,7 +115,7 @@ public sealed class InstallMonitorService
                         ScanRegistryTree(basePath, $@"{currentPath}\{subKeyName}", subKey, keys);
                     }
                 }
-                catch { } // Ignore protected keys
+                catch { }
             }
         }
         catch { }
@@ -128,8 +126,7 @@ public sealed class InstallMonitorService
         return Task.Run(() =>
         {
             var diff = new InstallMonitorDiff();
-            
-            // Calculate added files
+
             foreach (var file in after.Files)
             {
                 ct.ThrowIfCancellationRequested();
@@ -139,7 +136,6 @@ public sealed class InstallMonitorService
                 }
             }
 
-            // Calculate added registry keys
             foreach (var key in after.RegistryKeys)
             {
                 ct.ThrowIfCancellationRequested();

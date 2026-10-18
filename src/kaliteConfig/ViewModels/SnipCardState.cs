@@ -18,19 +18,6 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>
-/// ONE card state machine, shared by Recent Snips and the Gallery grid/list/details panel so
-/// those surfaces can never disagree about a snip:
-///
-///  - Loading: a skeleton at the exact final size (no layout shift).
-///  - Loaded:  pixels fade in (~150 ms) - the page runs the animation off <see cref="Loaded"/>.
-///  - Failed:  an icon + the short reason + Retry, with the full error in the tooltip.
-///  - Missing: "File missing" + "Remove from gallery" (the file was deleted outside the app).
-///  - Blank:   a "looks blank" badge (protected/DRM captures are legitimately flat: warn, never hide).
-///
-/// Sizes are requested in PHYSICAL pixels (DIP x XamlRoot.RasterizationScale) and the smallest
-/// covering tier is used, so a card re-requests when DPI or the card size changes.
-/// </summary>
 public sealed class SnipCardState : ObservableObject
 {
     public enum Phase { Loading, Loaded, Failed, Missing }
@@ -51,7 +38,6 @@ public sealed class SnipCardState : ObservableObject
 
     public string FilePath { get; }
 
-    /// <summary>Raised when a thumbnail becomes visible, so the page can fade it in.</summary>
     public event Action? Loaded;
 
     private Phase _state = Phase.Loading;
@@ -75,14 +61,12 @@ public sealed class SnipCardState : ObservableObject
     }
 
     private string _fullErrorText = "";
-    /// <summary>Full failure reason (card tooltip).</summary>
     public string FullErrorText
     {
         get => _fullErrorText;
         private set { if (SetProperty(ref _fullErrorText, value)) OnPropertyChanged(nameof(ShortErrorText)); }
     }
 
-    /// <summary>Short reason shown on the card face.</summary>
     public string ShortErrorText => State == Phase.Missing
         ? "File missing"
         : string.IsNullOrWhiteSpace(_fullErrorText) ? "Preview failed" : _fullErrorText;
@@ -95,28 +79,23 @@ public sealed class SnipCardState : ObservableObject
     }
 
     private string _resolutionText = "";
-    /// <summary>"1920 x 1080" from the index/meta once known.</summary>
     public string ResolutionText
     {
         get => _resolutionText;
         private set => SetProperty(ref _resolutionText, value);
     }
 
-    /// <summary>Tier actually loaded (256/512/1024).</summary>
     public int RequestedTier { get; private set; }
 
     private int _pixelWidth;
     private int _pixelHeight;
 
     private bool _fillMode;
-    /// <summary>Optional "Fill" thumbnail mode (cover instead of fit).</summary>
     public bool FillMode
     {
         get => _fillMode;
         set { if (SetProperty(ref _fillMode, value)) RaiseDerived(); }
     }
-
-    // ------------------------------------------------------------- card states
 
     public bool IsLoading => State == Phase.Loading;
     public bool IsFailed => State == Phase.Failed;
@@ -134,25 +113,16 @@ public sealed class SnipCardState : ObservableObject
     public Visibility BlankBadgeVisibility =>
         _looksBlank && Image is not null ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>An image smaller than the card is shown 1:1 (never upscaled with blur).</summary>
     public bool OneToOne => Image is not null && _lastCardPixels > 0
         && _pixelWidth <= _lastCardPixels && _pixelHeight <= _lastCardPixels;
 
-    /// <summary>Fit by default (never crop); "Fill" mode crops to cover.</summary>
     public Stretch ImageStretch => FillMode
         ? Stretch.UniformToFill
         : OneToOne ? Stretch.None : Stretch.Uniform;
 
-    /// <summary>Physical-pixel size expressed in DIPs for the 1:1 case (NaN = auto).</summary>
     public double ImageWidth => OneToOne ? _pixelWidth / (_lastScale <= 0 ? 1 : _lastScale) : double.NaN;
     public double ImageHeight => OneToOne ? _pixelHeight / (_lastScale <= 0 ? 1 : _lastScale) : double.NaN;
 
-    // ------------------------------------------------------------- loading
-
-    /// <summary>
-    /// Loads (or re-loads) the thumbnail for a card of <paramref name="cardDipSize"/> DIPs at the
-    /// current rasterization scale. Cheap when the already-loaded tier still covers the request.
-    /// </summary>
     public async Task EnsureAsync(double cardDipSize, double rasterizationScale, bool force = false)
     {
         var scale = rasterizationScale <= 0 ? 1.0 : rasterizationScale;
@@ -164,7 +134,6 @@ public sealed class SnipCardState : ObservableObject
 
         if (!force && Image is not null && tier <= RequestedTier)
         {
-            // Already covered: only the 1:1 / stretch decision can have changed.
             RaiseDerived();
             return;
         }
@@ -203,7 +172,6 @@ public sealed class SnipCardState : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            // Recycled / scrolled away: not an error.
         }
         catch (Exception ex)
         {
@@ -216,7 +184,6 @@ public sealed class SnipCardState : ObservableObject
         }
     }
 
-    /// <summary>Re-decode from the source, bypassing the cached tiers.</summary>
     public Task RetryAsync(double cardDipSize, double rasterizationScale)
     {
         Services.SnipThumbnailService.Invalidate(FilePath);
@@ -225,7 +192,6 @@ public sealed class SnipCardState : ObservableObject
         return EnsureAsync(cardDipSize, rasterizationScale, force: true);
     }
 
-    /// <summary>Called when a card is recycled or scrolled out of view: stops its decode.</summary>
     public void Cancel()
     {
         try { _cts?.Cancel(); } catch { }

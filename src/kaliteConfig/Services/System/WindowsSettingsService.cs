@@ -16,31 +16,21 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Applies the kernel timer/interrupt tweaks (backed by the supplied .reg logic)
-/// and detects their current state. Per-scheme values are resolved against the
-/// ACTIVE power scheme - never a hardcoded GUID.
-/// </summary>
 public sealed class WindowsSettingsService
 {
     public sealed record TweakDef(
         string Id,
         string Name,
         string Description,
-        string SubKey,      // "{scheme}" is replaced with the active scheme GUID when PerActiveScheme
+        string SubKey,
         string ValueName,
         uint OnValue,
         uint OffValue,
         bool PerActiveScheme,
         bool NeedsReboot,
-        // Power-setting mechanism (InterruptRouting only): when set, the
-        // tweak is a real power-scheme setting written via PowrProf
-        // AC+DC value indices - NOT a direct DWORD. OnValue/OffValue double
-        // as the on/off indices so detection and the UI keep working unchanged.
         Guid PowerSubgroup = default,
         Guid PowerSetting = default)
     {
-        /// <summary>True when this tweak is a power-scheme setting (PowrProf path).</summary>
         public bool IsPowerSetting => PowerSubgroup != Guid.Empty && PowerSetting != Guid.Empty;
     }
     public static readonly IReadOnlyList<TweakDef> All = new[]
@@ -51,12 +41,6 @@ public sealed class WindowsSettingsService
             "Forces timer serialization on (1) instead of letting the kernel decide. Read by the kernel at boot - takes effect after a restart. Can reduce timer coalescing jitter at the cost of throughput.",
             @"SYSTEM\CurrentControlSet\Control\Session Manager\Kernel",
             "SerializeTimerExpiration", 1, 0, false, true),
-        // MMCSS: the toggle represents the SERVICE, not the "disable" action.
-        // Service Start 2 = automatic (running, the Windows default, and what
-        // a stock machine reports), Start 4 = disabled. The card is headed
-        // "Multimedia Class Scheduler (MMCSS)", so ON has to mean "MMCSS is
-        // running" - the previous polarity (On=4) made a healthy machine read
-        // as "Currently: OFF" and made the label say the opposite of the state.
         new TweakDef(
             "MmcssStatus",
             "Multimedia Class Scheduler (MMCSS)",
@@ -72,10 +56,6 @@ public sealed class WindowsSettingsService
         return null;
     }
 
-    /// <summary>
-    /// True when THIS process token carries the Administrator role - the real
-    /// elevation check. Never throws (false on any failure).
-    /// </summary>
     public static bool IsElevated()
     {
         try
@@ -87,13 +67,6 @@ public sealed class WindowsSettingsService
         catch { return false; }
     }
 
-    /// <summary>
-    /// Builds the truthful access-denied error for a fully-described write
-    /// target. "Run as admin" is only claimed when the process genuinely is
-    /// NOT elevated; an elevated process that is still denied gets the real
-    /// target, the OS error, and the likely culprits (security software,
-    /// hardened key ACLs). Pure logic - unit-tested.
-    /// </summary>
     internal static string AccessDeniedMessage(string location, bool elevated, string osError)
     {
         if (!elevated)
@@ -105,7 +78,6 @@ public sealed class WindowsSettingsService
                $"Elevated=Yes for kaliteConfig, then retry with such protection paused. (OS error: {osError})";
     }
 
-    /// <summary>Wraps a registry access failure with the truthful message for this tweak.</summary>
     private static UnauthorizedAccessException Denied(TweakDef def, Exception inner)
     {
         string where;
@@ -136,7 +108,6 @@ public sealed class WindowsSettingsService
         return Guid.Empty;
     }
 
-    /// <summary>Current DWORD, or null when the value is absent (Windows default).</summary>
     public uint? ReadRaw(TweakDef def)
     {
         if (def.IsPowerSetting) return ReadPowerIndex(def, dc: false);
@@ -151,11 +122,6 @@ public sealed class WindowsSettingsService
         };
     }
 
-    /// <summary>
-    /// Reads one Interrupt-Steering-style power index for the active scheme.
-    /// Null when the scheme can't be determined or the API refuses - callers
-    /// treat null as unknown, never as zero.
-    /// </summary>
     private static uint? ReadPowerIndex(TweakDef def, bool dc)
     {
         try
@@ -172,9 +138,6 @@ public sealed class WindowsSettingsService
         catch { return null; }
     }
 
-    /// <summary>Full state of a tweak value: what the UI detection needs to
-    /// distinguish "value absent (Windows default)" from "explicitly 0/1"
-    /// and to know whether the app itself ever wrote it.</summary>
     public enum TweakState { WindowsDefault, On, Off, Custom }
 
     public readonly record struct TweakDetection(TweakState State, uint? RawValue, bool WrittenByApp)
@@ -182,11 +145,6 @@ public sealed class WindowsSettingsService
         public string Describe(string caption) => caption;
     }
 
-    /// <summary>Detects the tweak's full current state, including whether the
-    /// value exists at all (Windows default) and whether the app has a record
-    /// of having written it (an external .reg import shows as such).
-    /// Power tweaks classify on AC+DC indices: both locked = On, both
-    /// default = Off, anything else (e.g. AC-only via powercfg) = Custom.</summary>
     public TweakDetection Detect(TweakDef def)
     {
         if (def.IsPowerSetting)
@@ -214,13 +172,6 @@ public sealed class WindowsSettingsService
         return new TweakDetection(state, raw, writtenByApp);
     }
 
-    // ---- Registry value protection ----------------------------------------
-    // The kernel tweaks touch sensitive keys (Session Manager\Kernel, power
-    // scheme values). Before the FIRST write to a given key+value, the
-    // original state (value or "absent") is snapshotted under HKLM\SOFTWARE\
-    // kaliteConfig\Backup so it can be restored exactly - including restoring
-    // "not set" - via ResetToOriginal. Subsequent writes don't overwrite the
-    // backup, so the true original survives repeated toggling.
     public const string BackupKeyPath = @"SOFTWARE\kaliteConfig\Backup";
 
     private void EnsureBackup(TweakDef def)
@@ -231,7 +182,7 @@ public sealed class WindowsSettingsService
             string id = def.Id;
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var backup = baseKey.CreateSubKey($"{BackupKeyPath}\\{id}", true);
-            if (backup == null || backup.GetValue("KeyPath") is string) return; // already backed up
+            if (backup == null || backup.GetValue("KeyPath") is string) return;
 
             backup.SetValue("KeyPath", resolved);
             backup.SetValue("ValueName", def.ValueName);
@@ -247,12 +198,9 @@ public sealed class WindowsSettingsService
                 backup.SetValue("Existed", 0, RegistryValueKind.DWord);
             }
         }
-        catch { /* best-effort: protection never blocks the tweak itself */ }
+        catch {  }
     }
 
-    /// <summary>Restores the value snapshotted before the first write - including
-    /// deleting it again if it did not exist originally. Returns false when no
-    /// backup exists for this tweak.</summary>
     public bool ResetToOriginal(TweakDef def)
     {
         try
@@ -267,7 +215,6 @@ public sealed class WindowsSettingsService
             {
                 if (!existed)
                 {
-                    // Power settings always have an index, absent means "Default" (0)
                     Guid scheme = GetActiveScheme();
                     if (scheme == Guid.Empty) return false;
                     Guid sub = def.PowerSubgroup, set = def.PowerSetting;
@@ -300,7 +247,6 @@ public sealed class WindowsSettingsService
         catch { return false; }
     }
 
-    /// <summary>True when a pre-write snapshot exists for this tweak.</summary>
     public bool HasBackup(TweakDef def)
     {
         try
@@ -321,7 +267,7 @@ public sealed class WindowsSettingsService
         }
         try
         {
-            EnsureBackup(def); // snapshot the original state before the first write
+            EnsureBackup(def);
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(ResolveKey(def), true);
             if (key == null) throw new InvalidOperationException("Could not open the registry key.");
@@ -333,17 +279,12 @@ public sealed class WindowsSettingsService
         }
     }
 
-    /// <summary>
-    /// Writes an Interrupt-Steering-style power index for the active scheme,
-    /// plugged in AND on battery. Win32 error 5 (access denied) flows into
-    /// the truthful elevated/blocked message; any other code is reported raw.
-    /// </summary>
     private void WritePowerSetting(TweakDef def, bool enable)
     {
         uint index = enable ? def.OnValue : def.OffValue;
         try
         {
-            EnsurePowerBackup(def); // snapshot the original AC+DC indices before the first write
+            EnsurePowerBackup(def);
             Guid scheme = GetActiveScheme();
             if (scheme == Guid.Empty) throw new InvalidOperationException("Could not determine the active power scheme.");
             Guid sub = def.PowerSubgroup, set = def.PowerSetting;
@@ -362,28 +303,22 @@ public sealed class WindowsSettingsService
         ? new UnauthorizedAccessException($"Win32 error 5 writing {what}.")
         : new InvalidOperationException($"Could not write {what} (Win32 error {code}).");
 
-    /// <summary>
-    /// Snapshots the original AC+DC indices before the first power-setting
-    /// write (counterpart of EnsureBackup for DWORD tweaks).
-    /// </summary>
     private void EnsurePowerBackup(TweakDef def)
     {
         try
         {
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var backup = baseKey.CreateSubKey($"{BackupKeyPath}\\{def.Id}", true);
-            if (backup == null || backup.GetValue("KeyPath") is string) return; // already backed up
+            if (backup == null || backup.GetValue("KeyPath") is string) return;
             backup.SetValue("KeyPath", $"power:{def.PowerSubgroup:D}/{def.PowerSetting:D}");
             backup.SetValue("ValueName", "AC+DC index");
             backup.SetValue("OriginalAC", (int)(ReadPowerIndex(def, dc: false) ?? 0), RegistryValueKind.DWord);
             backup.SetValue("OriginalDC", (int)(ReadPowerIndex(def, dc: true) ?? 0), RegistryValueKind.DWord);
             backup.SetValue("Existed", 1, RegistryValueKind.DWord);
         }
-        catch { /* best-effort: protection never blocks the tweak itself */ }
+        catch {  }
     }
 
-    /// Power tweaks have no deletable value: restores the snapshotted indices,
-    /// or index 0 (Default) when nothing was ever snapshotted.</summary>
     public void Reset(TweakDef def)
     {
         if (def.IsPowerSetting)
@@ -403,9 +338,6 @@ public sealed class WindowsSettingsService
         }
     }
 
-    // ---- SvcHostSplitThresholdInKB (service host splitting RAM threshold) ----
-    // Above this RAM size Windows stops co-splitting services into shared
-    // svchost instances. Values from the common guide, in KB (hex):
     public const string SvcSplitKey = @"SYSTEM\CurrentControlSet\Control";
     public const string SvcSplitValue = "SvcHostSplitThresholdInKB";
 
@@ -422,7 +354,6 @@ public sealed class WindowsSettingsService
         (0x4000000u,  "64 GB"),
     };
 
-    /// <summary>Current threshold in KB, or null when absent (Windows default 380000 KB).</summary>
     public uint? ReadSvcSplit()
     {
         using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
@@ -440,7 +371,6 @@ public sealed class WindowsSettingsService
         var def = new TweakDef("SvcHostSplitThresholdInKB", "", "", SvcSplitKey, SvcSplitValue, 0, 0, false, false);
         try
         {
-            // Same protection as the kernel toggles: snapshot before first write.
             EnsureBackup(def);
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(SvcSplitKey, true);
@@ -453,7 +383,6 @@ public sealed class WindowsSettingsService
         }
     }
 
-    /// <summary>Deletes the value, restoring the Windows default (~380000 KB).</summary>
     public void ResetSvcSplit()
     {
         var def = new TweakDef("SvcHostSplitThresholdInKB", "", "", SvcSplitKey, SvcSplitValue, 0, 0, false, false);

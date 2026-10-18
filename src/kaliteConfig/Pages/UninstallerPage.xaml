@@ -41,14 +41,6 @@
         <vm:UninstallerViewModel x:Name="ViewModel" />
     </Page.DataContext>
 
-    <!-- Transparent, NOT ApplicationPageBackgroundThemeBrush.
-         This page is only ever hosted as a child panel of InstallerPage
-         (x:Name="UninstallPanel"), and InstallerPage is itself a page in the
-         navigation Frame, which already paints the window background. Painting
-         the page brush a second time here stacked its alpha over the first,
-         so the Uninstall tab rendered as a visibly lighter grey block than
-         the Apps tab next to it. Every other page using that brush is a
-         top-level Frame destination, where painting it once is correct. -->
     <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -57,7 +49,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header: hosted inside the Apps tab (no back button - outer Apps title owns navigation) -->
         <Grid Grid.Row="0" Margin="36,8,36,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -71,8 +62,6 @@
             <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadAppsCommand}" VerticalAlignment="Bottom" />
         </Grid>
 
-        <!-- Toolbar: search + sort + filter chips (applications only -
-             hidden on the Remover/Startup tabs) -->
         <Border Grid.Row="1" Margin="28,14,28,0" Style="{StaticResource RemoverCard}" Padding="12,10"
                 Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
         <Grid ColumnSpacing="16">
@@ -99,8 +88,6 @@
         </Grid>
         </Border>
 
-        <!-- Command bar: batch actions live in the details pane; this row keeps
-             view-level actions only. Applications only - hidden elsewhere. -->
         <Border Grid.Row="2" Margin="28,12,28,12" Style="{StaticResource RemoverCard}" Padding="12,8"
                 Visibility="{Binding IsUninstallerTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -111,16 +98,6 @@
         </StackPanel>
         </Border>
 
-        <!-- Main area: Uninstaller / Remover / Startup.
-
-             This used to be a WinUI <Pivot>. Pivot lays its header out from a
-             measure pass, and this page is constructed COLLAPSED (InstallerPage
-             keeps it hidden until the Uninstall tab is picked), so the header
-             got measured at zero width and the tabs never came back - the page
-             came up with no way to switch sections. A SelectorBar (already the
-             pattern used by the Apps and Priority Boosts pages) has no such
-             first-measure dependency, and the panels are swapped by visibility
-             so each one still gets a real measure when it is first shown. -->
         <Grid Grid.Row="3" Margin="28,0,28,24" RowSpacing="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -135,7 +112,6 @@
             </SelectorBar>
 
             <Grid Grid.Row="1">
-        <!-- Main split: list + details -->
         <Grid x:Name="UninstallerPanel" Margin="0,12,0,0" ColumnSpacing="16" Style="{StaticResource KaliteEntranceGrid}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -258,7 +234,6 @@
                 </Border>
             </Grid>
 
-            <!-- Details pane -->
             <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="20">
                 <Grid>
@@ -467,8 +442,6 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Source picker: one startup mechanism at a time instead of four
-                         long lists stacked on a single scrolling page. -->
                     <Border Grid.Column="0" CornerRadius="12" Padding="8,12"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">

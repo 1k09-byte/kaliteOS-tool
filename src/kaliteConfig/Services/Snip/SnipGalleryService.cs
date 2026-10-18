@@ -28,15 +28,8 @@ public static class SnipGalleryService
     private const string ThumbsDirName = "_thumbs";
     private const string TrashDirName = "_trash";
 
-    /// <summary>How long a file must sit untouched before the background poll considers it
-    /// finished (see <see cref="GetSnipSignatureAsync"/>).</summary>
     public static readonly TimeSpan QuietSettleWindow = TimeSpan.FromSeconds(1);
 
-    /// <summary>
-    /// Snips live in Pictures\kaliteConfig Snips (user-visible). AppData is kept
-    /// only for the thumbnail cache and trash, which live under the legacy folder.
-    /// Existing snips in the old AppData location are migrated once, automatically.
-    /// </summary>
     public static string GetSnipsDirectory()
     {
         var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
@@ -64,7 +57,7 @@ public static class SnipGalleryService
             foreach (var file in Directory.EnumerateFiles(legacy))
             {
                 var ext = Path.GetExtension(file).ToLowerInvariant();
-                if (!SnipGalleryQuery.SupportedExtensions.Contains(ext)) continue; // leave thumbs/trash/meta behind
+                if (!SnipGalleryQuery.SupportedExtensions.Contains(ext)) continue;
                 var dest = Path.Combine(newDir, Path.GetFileName(file));
                 var n = 1;
                 while (File.Exists(dest)) dest = Path.Combine(newDir, $"{Path.GetFileNameWithoutExtension(file)}_{n++}{ext}");
@@ -73,7 +66,7 @@ public static class SnipGalleryService
                 if (File.Exists(meta)) { try { File.Copy(meta, dest + ".meta.json", true); } catch { } }
             }
         }
-        catch { /* migration is best-effort; old files remain in AppData */ }
+        catch {  }
     }
 
     public static string GetThumbsDirectory()
@@ -117,14 +110,6 @@ public static class SnipGalleryService
         catch { }
     }
 
-    /// <summary>
-    /// Cheap fingerprint of the snips folder: every snip plus its length and write time, and the
-    /// same for metadata sidecars. No metadata parsing and no image work.
-    ///
-    /// A background poll compares this first, so an unchanged folder costs one directory
-    /// enumeration and nothing else -- which is what lets the poll run often enough to feel
-    /// instant without ever disturbing the page.
-    /// </summary>
     public static async Task<string> GetSnipSignatureAsync()
     {
         return await Task.Run(() =>
@@ -147,9 +132,6 @@ public static class SnipGalleryService
                     try
                     {
                         var info = new FileInfo(file);
-                        // A file written moments ago may still be mid-encode: leaving it out of the
-                        // fingerprint means we pick it up on the next poll instead of building a
-                        // card for a half-written image that would fail to decode and stay failed.
                         if (info.LastWriteTimeUtc > settled) continue;
                         sb.Append(name).Append('|').Append(info.Length).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append('\n');
                     }
@@ -269,8 +251,6 @@ public static class SnipGalleryService
         });
     }
 
-    /// <summary>Resizes an image (same format) into destDir, named stem_WxH.ext.
-    /// Zero for an axis means auto; returns null when nothing could be done.</summary>
     public static async Task<string?> ResizeImageAsync(string srcPath, string destDir, int reqW, int reqH, bool aspectLock)
     {
         return await Task.Run(async () =>
@@ -294,7 +274,6 @@ public static class SnipGalleryService
                     dest = Path.Combine(destDir,
                         $"{Path.GetFileNameWithoutExtension(srcPath)}_{w}x{h}_{n++}{ext}");
 
-                // Decoder stream was only used for headers so far; rewind for pixels.
                 stream.Seek(0);
                 var decoder2 = await BitmapDecoder.CreateAsync(stream);
                 var transform = new BitmapTransform
@@ -327,9 +306,6 @@ public static class SnipGalleryService
         });
     }
 
-    /// <summary>Outcome of a thumbnail load: the image, the ORIGINAL image size (for the card
-    /// caption), the decoded tier/pixel size (for 1:1 decisions), whether the frame looks blank,
-    /// and on failure the real reason - never a silent blank card.</summary>
     public sealed record SnipThumbnailLoad(
         BitmapImage? Image, int Width, int Height, string? Error, string? CachePath,
         int Tier = 0, int PixelWidth = 0, int PixelHeight = 0, bool LooksBlank = false, bool Missing = false)
@@ -337,18 +313,9 @@ public static class SnipGalleryService
         public bool Ok => Image != null;
     }
 
-    /// <summary>
-    /// THE thumbnail entry point for every preview surface. Routes through
-    /// <see cref="SnipThumbnailService"/> (tiers + disk/memory cache + cancellation) so the
-    /// gallery grid, recent snips, details panel and viewer always agree.
-    /// </summary>
     public static async Task<SnipThumbnailLoad> LoadThumbnailResultAsync(
         string filePath, int requiredPixels = SnipThumbnailService.DefaultTier, System.Threading.CancellationToken ct = default)
     {
-        // BitmapImage has UI-thread affinity, but Task awaits hop threads (WinUI 3 has no
-        // SynchronizationContext for them). Capture the UI queue up front and marshal the
-        // decode back explicitly: creating it on a pool thread throws RPC_E_WRONG_THREAD
-        // and yields gray tiles. Null when headless (tests run inline).
         var ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         try
         {
@@ -360,7 +327,6 @@ public static class SnipGalleryService
                     Tier: tier, Missing: thumb.State == SnipThumbnailState.MissingFile);
             }
 
-            // BitmapImage is a XAML object: this part must run on the UI thread (see above).
             var file = await StorageFile.GetFileFromPathAsync(thumb.CachePath!).AsTask(ct).ConfigureAwait(false);
             var bmp = ui is null
                 ? await DecodeBitmapAsync(file, ct).ConfigureAwait(false)
@@ -403,18 +369,6 @@ public static class SnipGalleryService
         return tcs.Task;
     }
 
-    /// <summary>
-    /// Decodes a cached tier file into a <see cref="BitmapImage"/> and does not return until the
-    /// pixels are actually resident.
-    ///
-    /// This is the fix for "the preview only shows up after I take a screenshot":
-    /// <c>SetSourceAsync</c> returns as soon as the stream has been read, while the decode itself
-    /// completes later on a worker thread. The stream was disposed at that point, so the card
-    /// received a pixel-less BitmapImage: the Image element had no natural size, collapsed to
-    /// 0x0, and stayed invisible until something outside the app forced a fresh layout pass
-    /// (taking a screenshot re-activating the window). Awaiting ImageOpened with the stream still
-    /// open means every caller gets a renderable image - or a real error, never a silent blank.
-    /// </summary>
     private static async Task<BitmapImage> DecodeBitmapAsync(StorageFile file, CancellationToken ct)
     {
         using var stream = await file.OpenReadAsync();
@@ -426,7 +380,6 @@ public static class SnipGalleryService
 
         await bmp.SetSourceAsync(stream);
 
-        // A warm OS image cache can decode synchronously: only wait when the pixels are not there yet.
         if (bmp.PixelWidth == 0 || bmp.PixelHeight == 0)
         {
             try
@@ -442,7 +395,6 @@ public static class SnipGalleryService
         return bmp;
     }
 
-    /// <summary>Original pixel size from the meta sidecar, falling back to a header-only decode.</summary>
     public static async Task<(int Width, int Height)> GetOriginalDimensionsAsync(string filePath)
     {
         try
@@ -455,7 +407,6 @@ public static class SnipGalleryService
         return await GetImageDimensionsAsync(filePath);
     }
 
-    /// <summary>Ensures a cached thumbnail exists and returns its path (no XAML objects created).</summary>
     public static async Task<(string? Path, int Width, int Height)> GetThumbnailPathAsync(string filePath, int decodeWidth = 320)
     {
         var (w, h) = await GetOriginalDimensionsAsync(filePath);
@@ -544,7 +495,6 @@ public static class SnipGalleryService
 
     public sealed record TrashEntry(string TrashPath, string OriginalPath, string Name, long Bytes, DateTime DeletedUtc);
 
-    /// <summary>Everything currently in the bin (file + sidecar meta if present).</summary>
     public static List<TrashEntry> GetTrashEntries()
     {
         var list = new List<TrashEntry>();
@@ -575,7 +525,6 @@ public static class SnipGalleryService
         return list;
     }
 
-    /// <summary>Restores trashed files (and their metas) to the gallery. Returns restored count.</summary>
     public static int RestoreFromTrash(IEnumerable<string> trashPaths)
     {
         int done = 0;
@@ -604,7 +553,6 @@ public static class SnipGalleryService
         return done;
     }
 
-    /// <summary>Permanently deletes trashed files (image + meta + cached thumbs). Returns count.</summary>
     public static int DeleteForever(IEnumerable<string> trashPaths)
     {
         int done = 0;
@@ -626,8 +574,6 @@ public static class SnipGalleryService
         return done;
     }
 
-    /// <summary>Finds gallery images that are a single flat color (DRM blanks, black
-    /// frames, empty captures) with their sizes, so the user can reclaim the space.</summary>
     public static async Task<List<(string FilePath, string Name, long Bytes)>> FindBlankSnipsAsync()
     {
         var found = new List<(string, string, long)>();
@@ -647,7 +593,6 @@ public static class SnipGalleryService
         return found;
     }
 
-    /// <summary>Removes orphaned .meta.json sidecars whose image no longer exists.</summary>
     public static void CleanupOrphanedMeta()
     {
         try
@@ -784,12 +729,8 @@ public static class SnipGalleryService
 
     public sealed record SnipSaveResult(string Path, bool IsUniform, int Width, int Height);
 
-    /// <summary>True when every pixel is identical (protected/DRM content captures black;
-    /// warn the user, don't block). Implemented in SnipGalleryQuery (pure, unit-tested).</summary>
     public static bool IsUniformImage(byte[] bgra) => SnipGalleryQuery.IsUniformImage(bgra);
 
-    /// <summary>Quick-saves a snip straight into the Pictures gallery folder with
-    /// correct metadata (type, dimensions). Returns whether the image is uniform.</summary>
     public static async Task<SnipSaveResult> SaveSnipAsync(byte[] bgra, int width, int height, string sourceApp = "")
     {
         var dir = GetSnipsDirectory();
@@ -800,14 +741,11 @@ public static class SnipGalleryService
 
         bool uniform = IsUniformImage(bgra);
 
-        // Write to a temp file, rename into place: a reader can never see a half-written snip.
         await SnipThumbnailService.WritePngAtomicAsync(dest, bgra, width, height);
         await SaveMetaAsync(dest, new SnipMeta { Type = "Region", CreatedUtc = DateTime.UtcNow, Width = width, Height = height, SourceApp = sourceApp ?? "" });
 
-        // Thumbnails come from the in-memory rendered pixels: no re-decode, and they exist
-        // before this snip can appear in the gallery/recent list.
         try { await SnipThumbnailService.GenerateFromPixelsAsync(dest, bgra, width, height); }
-        catch { /* the lazy path will backfill it */ }
+        catch {  }
 
         return new SnipSaveResult(dest, uniform, width, height);
     }
@@ -840,9 +778,8 @@ public static class SnipGalleryService
                 catch { }
                 await SaveMetaAsync(dest, meta);
 
-                // Import trigger: thumbnails right after the copy completes.
                 try { await SnipThumbnailService.EnsureThumbnailsAsync(dest); }
-                catch { /* lazy backfill covers it */ }
+                catch {  }
                 imported.Add(dest);
             }
             catch { }

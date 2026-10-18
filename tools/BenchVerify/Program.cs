@@ -6,11 +6,6 @@ using kaliteConfig.Services;
 
 namespace BenchVerify
 {
-    /// <summary>
-    /// Phase-1 stats verification. Hand-computed expectations, no fakes:
-    /// the REAL BenchmarkStatsService. Exit code 0 = all pass.
-    /// Usage: dotnet run --project tools/BenchVerify
-    /// </summary>
     internal static class Program
     {
         private static int _failures;
@@ -27,8 +22,6 @@ namespace BenchVerify
         {
             Console.WriteLine("=== BenchVerify Phase-1 (REAL BenchmarkStatsService) ===");
 
-            // Dataset A: 90 x 16.666ms (60fps) + 10 x 33.333ms (30fps), no trim.
-            // total = 1833.33ms, avg = 100/1.83333 = 54.545fps.
             var a = new List<float>();
             for (int i = 0; i < 90; i++) a.Add(16.666f);
             for (int i = 0; i < 10; i++) a.Add(33.333f);
@@ -46,7 +39,6 @@ namespace BenchVerify
             Check(sa.StutterCount == 0, "A no stutter (33ms < 2.5x median)", sa.StutterCount.ToString());
             Check(Near(sa.LowFpsTimeMs, 0.0), "A no low-FPS time", sa.LowFpsTimeMs.ToString("F1"));
 
-            // Dataset B: 60 x 16.666 + 1 x 60ms spike + 60 x 16.666 -> exactly 1 stutter.
             var b = new List<float>();
             for (int i = 0; i < 60; i++) b.Add(16.666f);
             b.Add(60.0f);
@@ -61,31 +53,26 @@ namespace BenchVerify
             else Check(false, "B stutter event list has 1 entry", sb.StutterEvents.Count.ToString());
             Check(Near(sb.LowFpsTimeMs, 60.0, 0.5), "B low-FPS time = 60ms", sb.LowFpsTimeMs.ToString("F1"));
 
-            // Edge: empty.
             var se = BenchmarkStatsService.Compute(new List<float>(), 0, 0);
             Check(se.FrameCount == 0 && se.StutterCount == 0, "empty input", $"frames={se.FrameCount}");
 
-            // Edge: single frame 16.666ms -> everything 60fps, no stutter.
             var s1 = BenchmarkStatsService.Compute(new List<float> { 16.666f }, 0, 0);
             Check(s1.FrameCount == 1, "1-frame count");
             Check(Near(s1.AverageFps, 60.0, 0.1), "1-frame average", s1.AverageFps.ToString("F3"));
             Check(Near(s1.P1Fps, 60.0, 0.1) && Near(s1.Low1CountFps, 60.0, 0.1), "1-frame P1 + low", $"P1={s1.P1Fps:F2}");
             Check(s1.StutterCount == 0, "1-frame no stutter");
 
-            // Edge: all equal 10 x 16.666 -> avg/P1/lows all 60, no stutter.
             var eq = Enumerable.Repeat(16.666f, 10).ToList();
             var sq = BenchmarkStatsService.Compute(eq, 0, 0);
             Check(Near(sq.AverageFps, 60.0, 0.1), "equal average", sq.AverageFps.ToString("F3"));
             Check(Near(sq.P1Fps, 60.0, 0.1) && Near(sq.Low1TimeFps, 60.0, 0.1), "equal P1 + time low");
             Check(sq.StutterCount == 0, "equal no stutter");
 
-            // Windowing: trim 5% head off dataset A drops 5 frames -> 95 frames.
             var sw = BenchmarkStatsService.Compute(a, trimStartFraction: 0.05, trimEndFraction: 0);
             Check(sw.FrameCount == 95, "5% trim", sw.FrameCount.ToString());
             Check(Near(sa.ArithmeticAvgFps, 57.0, 0.1), "A arithmetic avg (mean of FPS)", sa.ArithmeticAvgFps.ToString("F3"));
             Check(Near(sa.HarmonicAvgFps, sa.AverageFps, 0.001), "A harmonic avg == frames/time", sa.HarmonicAvgFps.ToString("F3"));
             Check(Near(sa.Low01CountFps, 30.0, 0.2), "A 0.1% low (count)", sa.Low01CountFps.ToString("F3"));
-            // Count-based lows survive isolated giant stalls that define time-weighted lows.
             var stallFrames = new List<float> { 900f };
             for (int i = 0; i < 999; i++) stallFrames.Add(16.666f);
             var stallStats = BenchmarkStatsService.Compute(stallFrames, 0, 0);
@@ -109,10 +96,6 @@ namespace BenchVerify
             return _failures == 0 ? 0 : 1;
         }
 
-        /// <summary>
-        /// CSV tests use the REAL header line captured from PresentMon 2.5.1
-        /// (default schema smoke run) - header lookup, never index.
-        /// </summary>
         private static void VerifyCsvParsing()
         {
             Console.WriteLine("--- CSV parsing (PresentMon 2.5.1 default schema) ---");
@@ -135,7 +118,6 @@ namespace BenchVerify
                 && Math.Abs(p.FrametimesMs[0] - 16.666) < 0.01
                 && Math.Abs(p.FrametimesMs[1] - 33.333) < 0.01, "CSV frametime values");
 
-            // Fallback schema (--v2_metrics): FrameTime column, no MsBetweenPresents.
             var v2 = new[]
             {
                 "Application,ProcessID,SwapChainAddress,PresentRuntime,SyncInterval,PresentFlags,AllowsTearing,PresentMode,CPUStartTime,FrameTime,CPUBusy,CPUWait,GPULatency,GPUTime,GPUBusy,GPUWait,DisplayLatency,DisplayedTime,AnimationError,AnimationTime,MsFlipDelay,AllInputToPhotonLatency,ClickToPhotonLatency",
@@ -144,7 +126,6 @@ namespace BenchVerify
             var p2 = BenchmarkPresentMonCsv.ParseLines(v2, 1234);
             Check(p2.RowsKept == 1 && Math.Abs(p2.FrametimesMs[0] - 16.7) < 0.01, "CSV v2 FrameTime fallback");
 
-            // End-to-end: parsed CSV frames feed the stats engine.
             var stats = BenchmarkStatsService.Compute(p.FrametimesMs.ToList(), 0, 0);
             Check(stats.FrameCount == 2, "CSV->stats frame count");
             Check(Math.Abs(stats.AverageFps - 40.0) < 0.5, "CSV->stats average ~40fps", stats.AverageFps.ToString("F2"));
@@ -186,8 +167,6 @@ namespace BenchVerify
         private static void VerifyWindowing()
         {
             Console.WriteLine("--- windowing (warmup/cooldown trim) ---");
-            // 10 s run at 60fps + one 900 ms stall at the head: untrimmed,
-            // the stall alone defines the time-weighted 1% low (~1.1 FPS).
             var frames = new List<float>();
             var stamps = new List<double>();
             frames.Add(900f); stamps.Add(0);

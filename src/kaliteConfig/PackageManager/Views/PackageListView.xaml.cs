@@ -133,8 +133,6 @@ namespace kaliteConfig.PackageManager.Views
 
         private void PushToRow(PackageRow row, PackageInfo package)
         {
-            // Idempotent (un)subscribe: ElementPrepared also fires on recycle,
-            // and these are stable instance-method references.
             row.ActionRequested -= OnRowForwarded;
             row.InfoRequested -= OnRowInfo;
             row.SelectionToggled -= OnRowSelection;
@@ -160,8 +158,6 @@ namespace kaliteConfig.PackageManager.Views
         {
             ApplyLayout();
             if (Repeater is null || Repeater.ItemsSourceView is null) return;
-            // Push control state into every realized row (recycled rows keep
-            // showing the ViewMode they were created with otherwise).
             for (int i = 0; i < Repeater.ItemsSourceView.Count; i++)
             {
                 if (Repeater.TryGetElement(i) is PackageRow row &&

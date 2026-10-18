@@ -16,18 +16,12 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Writes driver settings with a safety net. Reading needs no elevation;
-/// every write requires it and says so truthfully when it is missing.
-/// Flow: snapshot -&gt; validate -&gt; diff preview -&gt; apply (registry + adapter
-/// restart) -&gt; read back -&gt; 20 s keep-countdown with auto-revert from the
-/// snapshot (registry writes only, so the revert works with the network down).</summary>
 public static class NetEditService
 {
     private const string ClassBase = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}";
 
     public static bool IsElevated()
     {
-        // Same truthfulness rule as WindowsSettingsService: real token check, never throws.
         try
         {
             using var id = System.Security.Principal.WindowsIdentity.GetCurrent();
@@ -60,7 +54,6 @@ public static class NetEditService
 
     public sealed record ApplyResult(bool Ok, string Message, List<(string Keyword, bool Applied, string Reason)> PerSetting);
 
-    /// <summary>Writes validated values, restarts the adapter once, reads everything back.</summary>
     public static async Task<ApplyResult> ApplyAsync(
         string adapterGuid, string adapterName, string regKey,
         List<NetAdvancedProp> props, Dictionary<string, string> wanted)

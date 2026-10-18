@@ -48,7 +48,6 @@
         <InfoBar Message="{Binding WriteNote}" Severity="Informational" IsOpen="True" IsClosable="False"
                  Visibility="{Binding WriteNote, Converter={StaticResource NullToVisibilityConverter}}" />
 
-        <!-- ADLX status line -->
         <Border Style="{StaticResource AmdCard}" Padding="16,12">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -69,7 +68,6 @@
             </Grid>
         </Border>
 
-        <!-- Detected adapters -->
         <ListView ItemsSource="{Binding Cards}"
                   Background="{ThemeResource LayerFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
@@ -92,7 +90,6 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <!-- ADLX present but nothing to show: explain instead of an empty room -->
         <Border Style="{StaticResource AmdCard}" Padding="24"
                 Visibility="{Binding HasCards, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
             <StackPanel Spacing="6">

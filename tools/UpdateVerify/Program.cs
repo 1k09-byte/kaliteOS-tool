@@ -5,10 +5,6 @@ using kaliteConfig.Services;
 
 namespace UpdateVerify
 {
-    /// <summary>
-    /// Offline checks for the auto-update loop guards: version comparison and
-    /// version-matched asset selection. No network, no GPU - runs anywhere.
-    /// </summary>
     internal static class Program
     {
         private static int _failures;
@@ -23,7 +19,6 @@ namespace UpdateVerify
         {
             Console.WriteLine("=== Updater logic verification (offline) ===");
 
-            // ---- IsNewer ----
             Check(UpdateCheckService.IsNewer("v0.3.0.2", "0.3.0.1"), "newer patch offered");
             Check(!UpdateCheckService.IsNewer("v0.3.0.1", "0.3.0.1"), "identical version never offered (no loop)");
             Check(!UpdateCheckService.IsNewer("v0.3.0.1", "0.3.0.2"), "older release never offered (no downgrade)");
@@ -33,7 +28,6 @@ namespace UpdateVerify
             Check(!UpdateCheckService.IsNewer("v0.3.0.2", null), "null current fails safe");
             Check(!UpdateCheckService.IsNewer("latest", "0.3.0.1"), "non-numeric tag fails safe");
 
-            // ---- PickSetupAsset ----
             static JsonDocument Assets(params (string Name, string Url, long Size)[] items)
             {
                 var json = "{\"assets\":[" + string.Join(",", items.Select(i =>
@@ -48,14 +42,12 @@ namespace UpdateVerify
                     "exact-version asset picked");
             }
 
-            // Stale asset under a new tag must NOT be offered (the loop bug).
             using (var doc = Assets(("kaliteConfig-Setup-0.3.0.1.exe", "https://dl/old.exe", 80_000_000)))
             {
                 var picked = UpdateCheckService.PickSetupAsset(doc.RootElement.GetProperty("assets"), "v0.3.0.2");
                 Check(picked is null, "stale asset under a new tag refused (no offer, no loop)");
             }
 
-            // Multi-asset release: newest-version asset wins, not list order.
             using (var doc = Assets(
                 ("kaliteConfig-Setup-0.3.0.1.exe", "https://dl/old.exe", 1),
                 ("kaliteConfig-Setup-0.3.0.2.exe", "https://dl/new.exe", 2)))
@@ -65,7 +57,6 @@ namespace UpdateVerify
                     "multi-asset release resolves by version, not list order");
             }
 
-            // Legacy consumer asset still migrates users forward when it matches.
             using (var doc = Assets(("kaliteConfig-Consumer-Setup-0.3.0.2.exe", "https://dl/cons.exe", 3)))
             {
                 var picked = UpdateCheckService.PickSetupAsset(doc.RootElement.GetProperty("assets"), "v0.3.0.2");
@@ -73,7 +64,6 @@ namespace UpdateVerify
                     "legacy consumer asset accepted when version-matched");
             }
 
-            // Full flavor preferred over legacy when both match.
             using (var doc = Assets(
                 ("kaliteConfig-Consumer-Setup-0.3.0.2.exe", "https://dl/cons.exe", 3),
                 ("kaliteConfig-Setup-0.3.0.2.exe", "https://dl/full.exe", 4)))
@@ -83,7 +73,6 @@ namespace UpdateVerify
                     "full flavor preferred over legacy consumer asset");
             }
 
-            // Non-exe and unrelated files ignored.
             using (var doc = Assets(
                 ("kaliteConfig-Setup-0.3.0.2.zip", "https://dl/x.zip", 5),
                 ("checksums.txt", "https://dl/sums.txt", 6)))
@@ -92,7 +81,6 @@ namespace UpdateVerify
                 Check(picked is null, "non-exe files never selected");
             }
 
-            // Empty tag never matches.
             using (var doc = Assets(("kaliteConfig-Setup-0.3.0.2.exe", "https://dl/new.exe", 2)))
             {
                 var picked = UpdateCheckService.PickSetupAsset(doc.RootElement.GetProperty("assets"), "");
@@ -102,11 +90,6 @@ namespace UpdateVerify
             Check(UpdateCheckService.BuildSilentInstallerArguments(@"C:\Program Files\kaliteConfig")
                     .Contains("/DIR=\"C:\\Program Files\\kaliteConfig\"", StringComparison.Ordinal),
                 "silent args pin registered install directory");
-            // /NOCLOSEAPPLICATIONS is the real switch. The old
-            // /CLOSEAPPLICATIONS=0 was not: unknown parameters are ignored, so
-            // Setup kept its RestartManager behaviour, could not close the
-            // tray app, and (Abort by default under /SUPPRESSMSGBOXES) silently
-            // rolled the whole upgrade back.
             var noClose = UpdateCheckService.BuildSilentInstallerArguments(null, null);
             Check(noClose.Contains("/NOCLOSEAPPLICATIONS", StringComparison.Ordinal),
                 "silent args use the real /NOCLOSEAPPLICATIONS switch");
@@ -121,9 +104,6 @@ namespace UpdateVerify
                     .Contains("/LOG", StringComparison.Ordinal),
                 "no /LOG flag when no log path is supplied");
 
-            // ---- pending-attempt classification ----
-            // A setup exe was handed to Windows; whether the upgrade landed is
-            // decided ONLY by the versions on disk.
             var pendingFailed = new UpdateCheckService.PendingUpdate(
                 "0.3.0.10", @"C:\t\kaliteConfig-Setup-0.3.0.10.exe", @"C:\t\setup.log", false);
             Check(UpdateCheckService.ClassifyPendingAttempt(pendingFailed, "0.3.0.9", "0.3.0.9")
@@ -145,7 +125,6 @@ namespace UpdateVerify
                     == UpdateCheckService.UpdateAttemptState.Failed,
                 "unreadable versions fail to Failed, never to silence");
 
-            // ---- installer log summariser (real log text from a failed run) ----
             string[] abortLog =
             {
                 "2026-09-16 18:38:44.806   Log opened. (Time zone: UTC-07:00)",

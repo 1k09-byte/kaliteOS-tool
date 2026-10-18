@@ -52,8 +52,7 @@
             <Border.Shadow>
                 <ThemeShadow x:Name="SharedShadow" />
             </Border.Shadow>
-            
-            <!-- We apply the shadow translation in code behind based on state. -->
+
             <Grid x:Name="TrayContent">
                 <Image x:Name="PreviewImage" Stretch="UniformToFill" Width="220" Height="140" />
 

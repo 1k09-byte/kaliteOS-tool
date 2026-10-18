@@ -22,25 +22,11 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Consumer auto-update: checks GitHub Releases on the project repo and
-/// downloads the newest consumer setup exe.
-///
-/// - Repo constants live here; change them once when the repo moves.
-/// - Uses /releases/latest, which GitHub only returns for full (non-prerelease,
-///   non-draft) releases - so tagging an alpha never ships to consumers.
-/// - Asset lookup by name prefix "kaliteConfig-Consumer-Setup-" (what
-///   Installer/Build-Consumer.ps1 produces via kaliteConfig-Consumer.iss).
-/// - Every network call is best-effort: a timeout/404/rate-limit never
-///   blocks startup or surfaces an error; the app just runs as-is.
-/// </summary>
 public sealed class UpdateCheckService
 {
     public const string Owner = "1k09-byte";
     public const string RepoName = "kaliteOS-tool";
     public const string ReleasesApiUrl = $"https://api.github.com/repos/{Owner}/{RepoName}/releases/latest";
-    // Releases carry the full installer. Accept both
-    // names so older releases remain updatable-to.
     private const string AssetNamePrefix = "kaliteConfig-Setup-";
     private const string LegacyAssetNamePrefix = "kaliteConfig-Consumer-Setup-";
     private const string InnoUninstallRegKey =
@@ -52,19 +38,15 @@ public sealed class UpdateCheckService
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-        // GitHub API rejects requests without a User-Agent.
         client.DefaultRequestHeaders.UserAgent.ParseAdd("kaliteConfig-Consumer-Updater/1.0");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }
 
-    /// <summary>Latest full release info relevant to the consumer app; null when none/newer/failed.</summary>
     public sealed record LatestRelease(string Version, string Notes, string DownloadUrl, long SizeBytes);
 
-    /// <summary>One downloadable setup asset inside a release.</summary>
     internal sealed record SetupAsset(string Name, string DownloadUrl, long SizeBytes);
 
-    /// <summary>Best-effort file log for update diagnostics (the UI stays silent by design).</summary>
     internal static void LogDiag(string message)
     {
         try
@@ -83,23 +65,12 @@ public sealed class UpdateCheckService
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "kaliteConfig", "update-pending.json");
 
-    /// <summary>
-    /// Records the version an update was just launched for. If the app later
-    /// still offers that same version, the install didn't take (different
-    /// install folder, dev copy, side-by-side flavor) - and the UI can say so
-    /// instead of looping silently.
-    /// </summary>
     internal static void ClearPendingUpdate()
     {
         try { if (File.Exists(PendingMarkerPath)) File.Delete(PendingMarkerPath); }
         catch { }
     }
 
-    /// <summary>
-    /// Directory where this product is registered (Inno uninstall key or
-    /// KaliteOS InstallPath). Used to target silent upgrades at the real
-    /// install folder instead of accidentally side-by-side with a dev build.
-    /// </summary>
     internal static string? GetRegisteredInstallDirectory()
     {
         try
@@ -158,11 +129,6 @@ public sealed class UpdateCheckService
         catch { return null; }
     }
 
-    /// <summary>
-    /// True when a registered install on disk already has the pending release
-    /// but this process is still an older build from another path (the loop in
-    /// the update dialog screenshot).
-    /// </summary>
     internal static bool ShouldHandOffToInstalledCopy(
         string? pendingVersion,
         string? runningVersion,
@@ -185,19 +151,13 @@ public sealed class UpdateCheckService
         if (!IsNewer(pendingVersion, runningVersion))
             return false;
 
-        // Install finished on disk (matches pending) while this session is stale.
         if (string.Equals(pendingVersion, installedExeVersion, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // Pending marker matches offer; installed copy is still ahead of us.
         return !IsNewer(pendingVersion, installedExeVersion)
                && IsNewer(installedExeVersion, runningVersion);
     }
 
-    /// <summary>
-    /// Starts the registered install and exits this process. Returns false when
-    /// no hand-off was attempted.
-    /// </summary>
     internal static bool TryLaunchInstalledCopyAndExit()
     {
         var installedExe = GetInstalledExePath();
@@ -236,10 +196,6 @@ public sealed class UpdateCheckService
         }
     }
 
-    /// <summary>
-    /// After a silent upgrade, the user may still open a dev copy or an old
-    /// shortcut. Switch once when the registered install already has pending.
-    /// </summary>
     internal static bool TryLaunchInstalledCopyAndExitIfStaleSession()
     {
         var pending = ReadPendingUpdateVersion();
@@ -257,20 +213,6 @@ public sealed class UpdateCheckService
         return TryLaunchInstalledCopyAndExit();
     }
 
-    /// <summary>
-    /// Inno Setup silent flags for the in-app updater hand-off.
-    ///
-    /// - /NOCLOSEAPPLICATIONS: the app minimizes to the tray and swallows
-    ///   WM_CLOSE, so Restart Manager can never close it; Setup then reported
-    ///   "Some applications could not be shut down" and - because
-    ///   /SUPPRESSMSGBOXES defaults to Abort - rolled the ENTIRE upgrade back
-    ///   without a word. The app exits itself and Setup's [Code] kills
-    ///   stragglers instead. (The old /CLOSEAPPLICATIONS=0 was not a real
-    ///   switch: unknown parameters are ignored, so it disabled nothing.)
-    /// - /LOG="…": a silent failure leaves no other trace on the machine.
-    ///   That log is what lets the app explain the failure instead of just
-    ///   re-offering the update forever.
-    /// </summary>
     internal static string BuildSilentInstallerArguments(string? installDirectory, string? logPath = null)
     {
         var args = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCLOSEAPPLICATIONS";
@@ -296,48 +238,28 @@ public sealed class UpdateCheckService
         catch { }
     }
 
-    /// <summary>Version recorded by <see cref="WritePendingUpdate"/>, or null when none.</summary>
     internal static string? ReadPendingUpdateVersion() => ReadPendingUpdate()?.Version;
 
-    /// <summary>
-    /// What the last update attempt left behind: which version we handed to
-    /// Setup, where the setup exe and its log are, and whether the user has
-    /// already been told that this attempt did not take.
-    /// </summary>
     internal sealed record PendingUpdate(
         string Version,
         string? InstallerPath,
         string? LogPath,
         bool Reported);
 
-    /// <summary>Inno Setup log path for a version - the same path we pass as /LOG.</summary>
     internal static string SetupLogPath(string version) => Path.Combine(
         Path.GetTempPath(), $"kaliteConfig-setup-{version.Trim()}.log");
 
-    /// <summary>Where the downloaded setup exe for a version lives.</summary>
     internal static string SetupDownloadPath(string version) => Path.Combine(
         Path.GetTempPath(), $"{AssetNamePrefix}{version.Trim()}.exe");
 
-    /// <summary>Result of the last update attempt, judged from the versions actually on disk.</summary>
     internal enum UpdateAttemptState
     {
-        /// <summary>No attempt on record (or it was reconciled and cleared).</summary>
         None,
-        /// <summary>This session runs the attempted version or newer - the install took.</summary>
         Applied,
-        /// <summary>The registered install has the attempted version; this session is a stale copy.</summary>
         AppliedElsewhere,
-        /// <summary>Setup ran (or never started) and the version did not change - say why.</summary>
         Failed,
     }
 
-    /// <summary>
-    /// Judges a pending attempt from the versions on disk. Pure - every
-    /// input is supplied by the caller, so this is checked offline in
-    /// tools/UpdateVerify. Never trust the fact that we once started a setup
-    /// exe: the only proof an upgrade landed is the version of the file that
-    /// is installed now.
-    /// </summary>
     internal static UpdateAttemptState ClassifyPendingAttempt(
         PendingUpdate? pending,
         string? runningVersion,
@@ -346,11 +268,9 @@ public sealed class UpdateCheckService
         if (pending is null || string.IsNullOrWhiteSpace(pending.Version))
             return UpdateAttemptState.None;
 
-        // Install took: we are the version we asked for (or newer).
         if (!string.IsNullOrWhiteSpace(runningVersion) && !IsNewer(pending.Version, runningVersion))
             return UpdateAttemptState.Applied;
 
-        // Install took on disk, but this process is still an older copy.
         if (!string.IsNullOrWhiteSpace(installedExeVersion)
             && !IsNewer(pending.Version, installedExeVersion))
             return UpdateAttemptState.AppliedElsewhere;
@@ -358,10 +278,6 @@ public sealed class UpdateCheckService
         return UpdateAttemptState.Failed;
     }
 
-    /// <summary>
-    /// Records an attempt. Called BEFORE the setup exe starts, because the
-    /// setup kills this process: nothing after that point can be written.
-    /// </summary>
     internal static void WritePendingUpdate(
         string version,
         string? installerPath = null,
@@ -385,7 +301,6 @@ public sealed class UpdateCheckService
         catch { }
     }
 
-    /// <summary>Full pending record, or null when no attempt is on record / unreadable.</summary>
     internal static PendingUpdate? ReadPendingUpdate()
     {
         try
@@ -410,11 +325,6 @@ public sealed class UpdateCheckService
             ? value.GetString()
             : null;
 
-    /// <summary>
-    /// Marks the attempt as already explained, so one failed upgrade is
-    /// reported exactly once per version instead of re-prompting on every
-    /// launch (the "it keeps offering the same update" loop).
-    /// </summary>
     internal static void MarkPendingUpdateReported()
     {
         var pending = ReadPendingUpdate();
@@ -422,10 +332,6 @@ public sealed class UpdateCheckService
         WritePendingUpdate(pending.Version, pending.InstallerPath, pending.LogPath, reported: true);
     }
 
-    /// <summary>
-    /// Reads an Inno Setup log and turns it into one line a user can act on.
-    /// Never throws - diagnostics must not break the updater.
-    /// </summary>
     internal static string? ReadInstallerLogSummary(string? logPath)
     {
         if (string.IsNullOrWhiteSpace(logPath) || !File.Exists(logPath)) return null;
@@ -440,12 +346,6 @@ public sealed class UpdateCheckService
         catch { return null; }
     }
 
-    /// <summary>
-    /// The reason a silent install aborted. Under /SUPPRESSMSGBOXES Setup
-    /// defaults to Abort for the dialog it cannot show, so the log is the ONLY
-    /// place the failure survives - without it the app can only say "the
-    /// install didn't take". Pure: the caller reads the file.
-    /// </summary>
     internal static string? SummarizeInstallerLog(System.Collections.Generic.IReadOnlyList<string>? lines)
     {
         if (lines is null || lines.Count == 0) return null;
@@ -482,7 +382,6 @@ public sealed class UpdateCheckService
         return null;
     }
 
-    /// <summary>Setup's own words for the failures we can name precisely.</summary>
     private static readonly (string Marker, string Summary)[] LogFailureMarkers =
     {
         ("Some applications could not be shut down",
@@ -497,7 +396,6 @@ public sealed class UpdateCheckService
             "An installed file was locked by another process while Setup replaced it."),
     };
 
-    /// <summary>Strips Inno's "2026-09-16 18:39:15.205   " prefix (continuation lines carry none).</summary>
     private static string StripLogPrefix(string line)
     {
         var text = line.Trim();
@@ -510,7 +408,6 @@ public sealed class UpdateCheckService
         return text;
     }
 
-    /// <summary>Running app version ("0.1.0" style), or null when unreadable.</summary>
     public static string? CurrentVersion
     {
         get
@@ -518,16 +415,12 @@ public sealed class UpdateCheckService
             try
             {
                 var v = Assembly.GetEntryAssembly()?.GetName().Version;
-                // All four parts: the release tags carry a revision
-                // (v0.3.0.1), and truncating it made 0.3.0.1 compare as
-                // 0.3.0 - the updater then offered the identical version.
                 return v is null ? null : $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
             }
             catch { return null; }
         }
     }
 
-    /// <summary>Compares dotted numeric versions; true when remote > current. Non-numeric parts fail safe to false.</summary>
     public static bool IsNewer(string? remoteTag, string? currentVersion)
     {
         if (string.IsNullOrWhiteSpace(remoteTag) || string.IsNullOrWhiteSpace(currentVersion))
@@ -549,16 +442,6 @@ public sealed class UpdateCheckService
         return false;
     }
 
-    /// <summary>
-    /// Queries the latest release. Returns null when: network failed, no full
-    /// release exists yet, the release is not newer than the running build, or
-    /// the release has no setup asset built for ITS OWN version.
-    ///
-    /// That last rule is the update-loop guard: installing any prefix-matching
-    /// but stale asset (e.g. an older setup re-uploaded under a new tag)
-    /// "succeeds" without changing the installed version, so the popup
-    /// reappears forever. A version mismatch now means no offer, plus a log line.
-    /// </summary>
     public async Task<LatestRelease?> CheckAsync(CancellationToken ct = default)
     {
         try
@@ -567,7 +450,7 @@ public sealed class UpdateCheckService
             if (!response.IsSuccessStatusCode)
             {
                 LogDiag($"check: HTTP {(int)response.StatusCode} - no offer");
-                return null; // 404 = no releases yet; 403 = rate limit
+                return null;
             }
 
             using var stream = await response.Content.ReadAsStreamAsync(ct);
@@ -604,14 +487,6 @@ public sealed class UpdateCheckService
         }
     }
 
-    /// <summary>
-    /// Picks the release's setup asset for <paramref name="tag"/>: candidates
-    /// carry either setup prefix and end in .exe, but only one whose filename
-    /// contains the release's own version is eligible. The full-flavor prefix
-    /// wins over the legacy consumer prefix when both match (single-flavor
-    /// going forward; old consumer installs migrate to it).
-    /// Pure logic - unit-tested in tools/UpdateVerify without network.
-    /// </summary>
     internal static SetupAsset? PickSetupAsset(JsonElement assetsArray, string tag)
     {
         string version = tag.TrimStart('v', 'V').Trim();
@@ -627,7 +502,7 @@ public sealed class UpdateCheckService
                 || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 continue;
             if (!name.Contains(version, StringComparison.OrdinalIgnoreCase))
-                continue; // not built for this release - never install it as "the update"
+                continue;
 
             string? url = asset.TryGetProperty("browser_download_url", out var u) && u.ValueKind == JsonValueKind.String
                 ? u.GetString() : null;
@@ -641,14 +516,11 @@ public sealed class UpdateCheckService
             ?? matching[0];
     }
 
-    /// <summary>Downloads the release asset to %TEMP%. Returns the local path.</summary>
     public async Task<string> DownloadAsync(LatestRelease release, IProgress<double>? progress, CancellationToken ct = default)
     {
         string tempPath = SetupDownloadPath(release.Version);
         try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
 
-        // Long timeout for the download itself; the 10s client timeout applies
-        // to the check call, so use a fresh client here.
         using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("kaliteConfig-Consumer-Updater/1.0");
 

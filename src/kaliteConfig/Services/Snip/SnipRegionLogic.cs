@@ -12,9 +12,6 @@ using System;
 
 namespace kaliteConfig.Services;
 
-// UI-free capture logic for the snip overlay. Every rule here is unit-tested
-// in tools/SnipVerify; the overlay window only forwards events to it.
-// Units: bitmap/physical pixels unless a name says Dips.
 public enum SnipCaptureState { Idle, Selecting, Selected, Closed }
 
 public readonly struct SnipRect
@@ -35,7 +32,6 @@ public enum SnipHit
 
 public static class SnipRegionLogic
 {
-    /// <summary>Press-to-release distance under which a press counts as a click (spec: ~3 px).</summary>
     public const double ClickThresholdPx = 3.0;
 
     public static SnipRect Normalize(double ax, double ay, double bx, double by) =>
@@ -53,8 +49,6 @@ public static class SnipRegionLogic
     public static bool IsClick(double pressX, double pressY, double releaseX, double releaseY) =>
         Math.Abs(releaseX - pressX) < ClickThresholdPx && Math.Abs(releaseY - pressY) < ClickThresholdPx;
 
-    /// <summary>Pure selection hit test on a normalized rect (x,y top-left).
-    /// Pressing empty space outside always starts a new selection.</summary>
     public static SnipHit HitTestSelection(double x, double y, double w, double h,
         double px, double py, double grab)
     {
@@ -75,11 +69,8 @@ public static class SnipRegionLogic
     public static double DipsToPhysical(double dips, double scale) => dips * scale;
     public static double PhysicalToDips(double px, double scale) => scale > 0 ? px / scale : px;
 
-    /// <summary>Region selection ignores Shift, Alt and Ctrl entirely (spec).</summary>
     public static bool RegionIgnoresModifiers() => true;
 
-    /// <summary>Constraint modifiers apply ONLY to shape annotation tools, read live at
-    /// each pointer event, and never while the modifier is still held over from the hotkey.</summary>
     public static bool ShouldSquareShape(bool toolIsShape, bool shiftLiveDown, bool shiftWasPreheld) =>
         toolIsShape && shiftLiveDown && !shiftWasPreheld;
 
@@ -90,8 +81,6 @@ public static class SnipRegionLogic
         return Normalize(startX, startY, startX + Math.Sign(dx) * side, startY + Math.Sign(dy) * side);
     }
 
-    /// <summary>Tracks modifiers physically held from the hotkey: they are ignored
-    /// until each one has been observed released at least once.</summary>
     public sealed class ModifierHoldTracker
     {
         private bool _shiftPreheld, _ctrlPreheld, _altPreheld;
@@ -116,8 +105,6 @@ public static class SnipRegionLogic
         return $"Snip_{local:yyyyMMdd_HHmmss_fff}{extension}";
     }
 
-    /// <summary>Builds CF_DIB bytes (BITMAPINFOHEADER + bottom-up BGR rows) for clipboard paste
-    /// into Paint/Word/Discord alongside the PNG.</summary>
     public static byte[] BuildDib32(byte[] bgraTopDown, int width, int height)
     {
         if (bgraTopDown == null) throw new ArgumentNullException(nameof(bgraTopDown));

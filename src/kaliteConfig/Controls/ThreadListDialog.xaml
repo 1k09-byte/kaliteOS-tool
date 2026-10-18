@@ -19,7 +19,6 @@
             <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Thread list -->
         <Grid Grid.Column="0" RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -28,9 +27,6 @@
             </Grid.RowDefinitions>
             <TextBlock x:Name="HeaderText" Grid.Row="0" Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-            <!-- Loading state: a spinner over the (still empty) list, so a click
-                 on a process reads as work in progress rather than a hang. It
-                 sits on row 1, on top of the ListView, so the layout never jumps. -->
             <Grid Grid.Row="1">
                 <ListView x:Name="ThreadList" MaxHeight="2000" SelectionMode="Single"
                       SelectionChanged="ThreadList_SelectionChanged">
@@ -58,13 +54,11 @@
                                 <TextBlock Text="{x:Bind Description}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{x:Bind CurrentText, Mode=OneWay}" FontSize="12"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <!-- Which CPUs this thread may use, and which it prefers. -->
                                 <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTipService.ToolTip="CPUs this thread is allowed to run on">
                                     <Run Text="CPU " /><Run Text="{x:Bind CpuText, Mode=OneWay}" /><Run Text="  ·  ideal " /><Run Text="{x:Bind IdealCpuText, Mode=OneWay}" />
                                 </TextBlock>
-                                <!-- Which CPU the thread is on at that moment (live, kernel context-switch observation). -->
                                 <TextBlock FontSize="11"
                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                            TextTrimming="CharacterEllipsis"
@@ -94,7 +88,6 @@
             <Button Grid.Row="2" x:Name="RefreshButton" Content="Refresh list" Click="RefreshButton_Click" HorizontalAlignment="Left" />
         </Grid>
 
-        <!-- Per-thread editor -->
         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" MaxHeight="2000">
             <StackPanel Spacing="10">
                 <TextBlock Text="Select a thread to inspect and tune it." FontSize="12"

@@ -31,10 +31,6 @@ namespace kaliteConfig.Pages
 
         private async void AffinityPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Rescan on EVERY visit, not just the first one. The page is cached
-            // (NavigationCacheMode=Enabled), so a GPU that was restarted, or a
-            // driver just installed, used to leave the table showing adapters
-            // that no longer exist in that shape.
             if (!ViewModel.IsRefreshing)
             {
                 await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
@@ -51,8 +47,6 @@ namespace kaliteConfig.Pages
             }
             catch (Exception ex)
             {
-                // A stale row (device restarted / re-enumerated) must not open an
-                // empty dialog: report it, rescan, and let the user pick again.
                 await ShowMessageAsync("Device not available", ex.Message);
                 return;
             }
@@ -81,8 +75,6 @@ namespace kaliteConfig.Pages
                 return;
             }
 
-            // Never write interrupt settings into a device that is no longer
-            // there (the classic post-GPU-restart case).
             if (!ViewModel.IsDevicePresent(ViewModel.SelectedDevice))
             {
                 string goneName = ViewModel.SelectedDevice.Name;
@@ -97,28 +89,20 @@ namespace kaliteConfig.Pages
             ViewModel.ApplyDeviceChanges(ViewModel.SelectedDevice);
             DeviceDetailsDialog.Hide();
 
-            // If the application engine actually pushed a modification to the registry
             if (ViewModel.TrackedChanges.Count > previousChanges)
             {
-                // These settings are read when the device STARTS, so the write on
-                // its own is inert - the row would change and the interrupts would
-                // not. Restart here so "applied" and "in effect" are the same
-                // moment, rather than asking and usually being answered "Later".
                 await ViewModel.RestartDeviceAfterApplyAsync(ViewModel.SelectedDevice);
             }
         }
 
         private void DialogCancel_Click(object sender, RoutedEventArgs e)
         {
-            // The dialog edits the row item in place - throw those staged
-            // edits away so Cancel truly cancels.
             ViewModel.DiscardDialogChanges();
             DeviceDetailsDialog.Hide();
         }
 
         private async void ViewChanges_Click(object sender, RoutedEventArgs e)
         {
-            // Build human-readable change list for the dialog
             string content;
             if (ViewModel.TrackedChanges.Count == 0)
             {
@@ -172,7 +156,6 @@ namespace kaliteConfig.Pages
             };
         }
 
-        // Static converter methods for x:Bind
         public static Visibility BoolToVis(bool isVisible)
         {
             return isVisible ? Visibility.Visible : Visibility.Collapsed;

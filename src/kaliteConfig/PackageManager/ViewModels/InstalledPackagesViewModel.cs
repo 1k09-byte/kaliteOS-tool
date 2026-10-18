@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.ViewModels;
 
-/// <summary>Installed packages across enabled sources. Uninstall confirms in the view first.</summary>
 public sealed partial class InstalledPackagesViewModel : PackageListViewModelBase
 {
     protected override bool SourceEligible(IPackageSource source) => source.CanListInstalled;
@@ -90,7 +89,6 @@ public sealed partial class InstalledPackagesViewModel : PackageListViewModelBas
         await LoadAsync(CancellationToken.None);
     }
 
-    /// <summary>Queues uninstalls for the selection (bulk continues past failures).</summary>
     public async Task<IReadOnlyList<(PackageInfo Item, PackageOperationResult Result)>> UninstallSelectionAsync(
         IReadOnlyList<PackageInfo> selection, CancellationToken ct)
     {

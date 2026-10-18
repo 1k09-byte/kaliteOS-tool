@@ -23,11 +23,6 @@
 
     <StackPanel Spacing="8">
 
-        <!-- ============ Simulation banner ============
-             Loud on purpose. In simulation mode every number on this page is
-             fabricated, so it has to be impossible to mistake a screenshot of
-             it for a measurement - and impossible to forget that no driver was
-             written. Remove the env var and the banner goes with it. -->
         <Border Style="{StaticResource OcCardStyle}"
                 BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
                 BorderThickness="2"
@@ -46,7 +41,6 @@
             </StackPanel>
         </Border>
 
-        <!-- ============ Safety countdown banner (safety-critical: impossible to miss) ============ -->
         <Border Style="{StaticResource OcCardStyle}"
                 BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
                 BorderThickness="2"
@@ -65,14 +59,12 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <!-- BUTTON-REVIEW: Keep is stock, not accent. The risk gate below can be visible at the same time (the VM does not gate apply on RiskAccepted), and a view may have only one accent button. -->
                     <Button Content="Keep" Command="{x:Bind Vm.ConfirmChangesCommand}" />
                     <Button Content="Revert now" Command="{x:Bind Vm.RevertNowCommand}" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ============ Unsupported card ============ -->
         <Border Style="{StaticResource OcCardStyle}" Padding="20"
                 Visibility="{x:Bind local:OverclockSection.NotSupportedVis(Vm.IsSupported), Mode=OneWay}">
             <StackPanel Spacing="4">
@@ -82,15 +74,11 @@
             </StackPanel>
         </Border>
 
-        <!-- The overclock card sits under a full-cover risk gate until the user
-             explicitly accepts the risk. Both live in one Grid cell so the gate
-             overlays the card completely when visible. -->
         <Grid Visibility="{x:Bind local:OverclockSection.SupportedVis(Vm.IsSupported), Mode=OneWay}">
 
             <Border Style="{StaticResource OcCardStyle}">
             <StackPanel Spacing="20">
 
-                <!-- Header -->
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -111,11 +99,6 @@
                     </Button>
                 </Grid>
 
-                <!-- Telemetry tiles: responsive grid (same UniformGridLayout pattern
-                     as InstallerPage/AffinityPage) - 6 per row on wide layouts,
-                     fewer on narrow ones. Rows rebuilt every tick; conditional
-                     tiles (hotspot, memory temp, PCIe TX/RX) only exist when
-                     the GPU actually reports them. -->
                 <ItemsRepeater ItemsSource="{x:Bind Vm.TelemetryTiles, Mode=OneWay}"
                                Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.TelemetryAvailable), Mode=OneWay}">
                     <ItemsRepeater.Layout>
@@ -131,13 +114,11 @@
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
 
-                <!-- Telemetry unavailable: distinct state, never stale values -->
                 <TextBlock Text="{x:Bind Vm.TelemetryErrorText, Mode=OneWay}"
                            Foreground="{ThemeResource SystemFillColorCautionBrush}" FontSize="12"
                            TextWrapping="Wrap"
                            Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.TelemetryErrorText), Mode=OneWay}" />
 
-                <!-- Live monitor: 1-second history graphs (last ~3 minutes), hotspot included -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Monitor" FontWeight="SemiBold" />
@@ -195,9 +176,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Two-column body: numeric controls left, graphical editors right.
-                     Wide (≥1000px): side by side. Narrow: the right column stacks
-                     below the left (same AdaptiveTrigger pattern as BiosManagerPage). -->
                 <Grid x:Name="BodyGrid" ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition x:Name="BodyCol0" Width="*" />
@@ -227,7 +205,6 @@
                         </VisualStateGroup>
                     </VisualStateManager.VisualStateGroups>
                     <StackPanel x:Name="LeftControls" Grid.Row="0" Grid.Column="0" Spacing="16">
-                <!-- Clock/limit sliders (rendered only when the driver exposes the control) -->
                 <StackPanel Spacing="16">
 
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasCoreOffset), Mode=OneWay}">
@@ -290,7 +267,6 @@
                                 StepFrequency="1" SnapsTo="StepValues" />
                     </StackPanel>
 
-                    <!-- Only rendered when TempLimitRangeC is non-null for this GPU -->
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasTempLimit), Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -311,7 +287,6 @@
                                 StepFrequency="1" SnapsTo="StepValues" />
                     </StackPanel>
                 </StackPanel>
-                    <!-- Voltage boost (V/F simple mode, left column) -->
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasVfCurve), Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -342,7 +317,6 @@
                     </StackPanel>
                 </StackPanel>
                     <StackPanel x:Name="RightControls" Grid.Row="0" Grid.Column="1" Spacing="12">
-                <!-- Fan control -->
                 <StackPanel Spacing="10" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.FanControlAvailable), Mode=OneWay}">
                     <TextBlock Text="Fan" FontWeight="SemiBold" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -426,7 +400,6 @@
                     <TextBlock FontSize="12" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"
                                Text="{x:Bind Vm.VfCurveError, Mode=OneWay}"
                                Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.VfCurveError), Mode=OneWay}" />
-                    <!-- Advanced V/F curve editor (right column; panel copy unchanged) -->
                     <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasVfCurve), Mode=OneWay}">
                         <Expander.Header>
@@ -480,13 +453,11 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Status line -->
                 <TextBlock Text="{x:Bind Vm.StatusText, Mode=OneWay}" FontSize="12"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap"
                            Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.StatusText), Mode=OneWay}" />
 
-                <!-- Profiles -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Profiles" FontWeight="SemiBold" />
@@ -553,7 +524,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Per-game auto-switch (v2 Part B) -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Per-game auto-switch" FontWeight="SemiBold" />
@@ -613,7 +583,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Change log viewer -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Recent changes" FontWeight="SemiBold" />
@@ -674,7 +643,6 @@
             </StackPanel>
             </Border>
 
-            <!-- ============ Extreme-caution risk gate: covers the card until accepted ============ -->
             <Border Style="{StaticResource OcCardStyle}"
                     Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                     BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"

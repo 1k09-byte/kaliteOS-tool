@@ -19,11 +19,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.ViewModels;
 
-/// <summary>
-/// Drives the update banner: startup check against GitHub Releases,
-/// "Update now" flow (download with progress → launch the NSIS setup /S →
-/// exit so the installer can overwrite the files).
-/// </summary>
 public sealed partial class UpdateViewModel : ObservableObject
 {
     private readonly UpdateCheckService _service = new();
@@ -51,28 +46,19 @@ public sealed partial class UpdateViewModel : ObservableObject
         ? Microsoft.UI.Xaml.Visibility.Visible
         : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    /// <summary>XAML binding source for the InfoBar title.</summary>
     public string BannerTitle => IsAvailable ? $"kaliteConfig {LatestVersion} available" : string.Empty;
 
     public bool CanUpdateNow => IsAvailable && !IsBusy;
 
-    /// <summary>Update already landed on disk; open the registered install instead of re-downloading.</summary>
     [ObservableProperty]
     public partial bool PreferHandOffToInstalledCopy { get; set; }
 
-    /// <summary>The last attempt ran and left the installed version unchanged.</summary>
     [ObservableProperty]
     public partial bool LastAttemptFailed { get; set; }
 
-    /// <summary>
-    /// Startup dialog already explained this failure once. The Settings banner
-    /// keeps offering the update, but the app stops opening a modal about the
-    /// same version on every launch.
-    /// </summary>
     [ObservableProperty]
     public partial bool SuppressStartupOffer { get; set; }
 
-    /// <summary>Setup exe from the failed attempt, kept so it can be re-run visibly.</summary>
     public string? PendingInstallerPath { get; private set; }
 
     partial void OnPreferHandOffToInstalledCopyChanged(bool value)
@@ -87,11 +73,6 @@ public sealed partial class UpdateViewModel : ObservableObject
         OnPropertyChanged(nameof(PrimaryUpdateActionText));
     }
 
-    /// <summary>
-    /// The failed attempt's setup exe is still on disk, so the primary action
-    /// can re-run it WITH its window - a silent install that fails shows
-    /// nothing at all, and the visible run is what makes the error readable.
-    /// </summary>
     public bool CanOpenInstaller =>
         LastAttemptFailed
         && !string.IsNullOrWhiteSpace(PendingInstallerPath)
@@ -115,16 +96,12 @@ public sealed partial class UpdateViewModel : ObservableObject
     }
     partial void OnDownloadPercentChanged(double? value) => OnPropertyChanged(nameof(ProgressVisibility));
 
-    /// <summary>Non-blocking startup check; never throws.</summary>
     [RelayCommand]
     public async Task CheckForUpdateAsync()
     {
         if (IsBusy) return;
         try
         {
-            // What became of the last attempt? Judge it from the versions that
-            // are actually on disk (this process + the registered install),
-            // never from the fact that we once handed a setup exe to Windows.
             var pending = UpdateCheckService.ReadPendingUpdate();
             var running = UpdateCheckService.CurrentVersion;
             var runningPath = Environment.ProcessPath;
@@ -153,9 +130,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             var sameAttempt = pending is not null
                 && string.Equals(pending.Version, release.Version, StringComparison.OrdinalIgnoreCase);
 
-            // Loop guard: this exact version was attempted and the version on
-            // disk did not move. Say what Setup said instead of re-offering the
-            // same update silently on every launch.
             var failed = attempt == UpdateCheckService.UpdateAttemptState.Failed && sameAttempt;
             PendingInstallerPath = failed ? pending!.InstallerPath : null;
             LastAttemptFailed = failed;
@@ -191,7 +165,7 @@ public sealed partial class UpdateViewModel : ObservableObject
             OnPropertyChanged(nameof(PrimaryUpdateActionText));
             OnPropertyChanged(nameof(BannerTitle));
         }
-        catch { /* never surface check failures */ }
+        catch {  }
     }
 
     [RelayCommand]
@@ -202,7 +176,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             StatusText = "Could not open the installed copy. Use the Start Menu kaliteConfig shortcut.";
     }
 
-    /// <summary>Download the setup exe and hand off to the silent installer.</summary>
     [RelayCommand]
     public async Task UpdateNowAsync()
     {
@@ -212,8 +185,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             HandOffToInstalledCopy();
             return;
         }
-        // Primary action routing: a failed attempt re-runs the setup it already
-        // has, visibly, instead of downloading the same bytes again.
         if (CanOpenInstaller)
         {
             OpenInstallerVisibly(PendingInstallerPath!);
@@ -231,10 +202,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             var info = new FileInfo(installerPath);
             UpdateCheckService.LogDiag($"update: downloaded {info.Name} ({info.Length} bytes) for version {_pending.Version}");
 
-            // Downloading is always allowed - the bytes are already here by this
-            // point on purpose, so a blocked update still leaves the user with the
-            // file rather than nothing. Only LAUNCHING Setup is gated. Same policy
-            // as the installer's own InitializeSetup gate.
             if (!kaliteConfig.Services.SystemVerificationService.IsVerified())
             {
                 UpdateCheckService.LogDiag("update: not launching installer, OS gate");
@@ -243,12 +210,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             }
 
             StatusText = "Launching installer…";
-            // Silent Inno upgrade: no Restart Manager (the tray swallows
-            // WM_CLOSE), target the registered install dir (/DIR), always leave
-            // a Setup log, exit hard so files are not locked. Setup also
-            // taskkill's in PrepareToInstall. The attempt is recorded BEFORE
-            // Setup starts, because Setup kills this process - nothing after
-            // this point can be written.
             var logPath = UpdateCheckService.SetupLogPath(_pending.Version);
             UpdateCheckService.WritePendingUpdate(_pending.Version, installerPath, logPath);
             var installDir = UpdateCheckService.GetRegisteredInstallDirectory();
@@ -291,12 +252,6 @@ public sealed partial class UpdateViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Re-runs the failed attempt's setup WITH its window. A silent install
-    /// that fails shows nothing (/SUPPRESSMSGBOXES defaults to Abort), so the
-    /// fallback path is what makes the reason readable and lets the user finish
-    /// by hand.
-    /// </summary>
     private void OpenInstallerVisibly(string installerPath)
     {
         try
@@ -314,7 +269,6 @@ public sealed partial class UpdateViewModel : ObservableObject
             }
             catch { }
 
-            // The interactive run does its own close/kill of this app.
             Process.Start(psi);
             Environment.Exit(0);
         }

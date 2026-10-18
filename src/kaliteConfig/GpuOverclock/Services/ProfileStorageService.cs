@@ -18,11 +18,6 @@ using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// JSON-backed CRUD for named profiles in %LOCALAPPDATA%\kaliteConfig.
-    /// Versioned schema (SchemaVersion) so future fields don't break old saves:
-    /// unknown properties are ignored on load, missing ones keep defaults.
-    /// </summary>
     public sealed class ProfileStorageService
     {
         private static readonly JsonSerializerOptions JsonOpts = new()
@@ -58,8 +53,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         {
                             if (p.SchemaVersion > OverclockProfile.CurrentSchemaVersion)
                             {
-                                // Written by a newer app version - load but don't
-                                // re-save, so we never destroy newer data.
                                 p.Name = $"[newer version] {p.Name}";
                             }
                             list.Add(p);
@@ -67,14 +60,12 @@ namespace kaliteConfig.GpuOverclock.Services
                     }
                     catch
                     {
-                        // A corrupt profile file must not break the module.
                         try { File.Move(file, file + ".corrupt", overwrite: true); } catch { }
                     }
                 }
             }
             list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
 
-            // Stamp the startup-default designation onto the UI projections.
             var defaultName = GetDefaultProfileName();
             if (defaultName is not null)
             {
@@ -99,20 +90,14 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 var path = PathFor(profile);
                 if (File.Exists(path)) File.Delete(path);
-                // A deleted profile can no longer be the startup default.
                 if (GetDefaultProfileName() == profile.Name) ClearDefaultProfile();
             }
         }
 
-        // -------- startup default designation (phase 5) --------
-
-        // .marker (not .json): LoadAll enumerates *.json and must never see
-        // the designation file as a phantom profile.
         private string DefaultProfilePath => Path.Combine(_dir, "startup-default.marker");
 
         private sealed record DefaultProfileFile(string Name);
 
-        /// <summary>Name of the profile designated for startup reapply, or null.</summary>
         public string? GetDefaultProfileName()
         {
             try
@@ -139,14 +124,8 @@ namespace kaliteConfig.GpuOverclock.Services
             catch { }
         }
 
-        // -------- per-game bindings (v2 Part B) --------
-
-        // .bindings (NOT .json): LoadAll enumerates *.json and would try to
-        // parse a bindings document as a profile - then quarantine it as
-        // .corrupt. Same reason the default marker is .marker, not .json.
         private string BindingsPath => Path.Combine(_dir, "game-bindings.bindings");
 
-        /// <summary>All saved game/profile bindings, oldest first.</summary>
         public IReadOnlyList<GameProfileBinding> LoadBindings()
         {
             lock (_gate)
@@ -168,7 +147,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>Insert or replace by Id.</summary>
         public void SaveBinding(GameProfileBinding binding)
         {
             lock (_gate)
@@ -191,7 +169,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>Resolves a binding's profile by Id (null when deleted since binding).</summary>
         public OverclockProfile? FindProfile(Guid id)
         {
             lock (_gate)

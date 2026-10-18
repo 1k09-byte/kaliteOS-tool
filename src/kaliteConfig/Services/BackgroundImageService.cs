@@ -9,18 +9,6 @@ using System.Text.Json.Serialization;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// A user-chosen image painted behind the page content but above the animated
-/// meteor field, with a controllable opacity and fit (Stretch).
-///
-/// Store format: JSON, one file per user, at
-///   LocalApplicationData/kaliteConfig/background-image.json
-///   { "Path": "C:\\Users\\…\\pic.png", "Opacity": 80, "Stretch": "Uniform" }
-///
-/// Everything is best-effort: a missing, malformed, or unreachable file falls
-/// back to "no background image" silently. The image is decoded on the UI
-/// thread (BitmapImage has UI-thread affinity) but the file I/O is async.
-/// </summary>
 internal static class BackgroundImageService
 {
     private static readonly string StorePath = Path.Combine(
@@ -39,10 +27,6 @@ internal static class BackgroundImageService
         Auto
     }
 
-    /// <summary>
-    /// The saved background-image preference, or <see cref="None"/> when there
-    /// is none or it could not be read.
-    /// </summary>
     public static (string Path, byte Opacity, string Stretch) Load()
     {
         try
@@ -81,11 +65,6 @@ internal static class BackgroundImageService
         }
     }
 
-    /// <summary>
-    /// Persists a background-image preference. Path may be empty to clear.
-    /// Opacity is clamped to 0-100; an unrecognized Stretch falls back to
-    /// Uniform.
-    /// </summary>
     public static void Save(string path, int opacity, string stretch)
     {
         try
@@ -108,10 +87,9 @@ internal static class BackgroundImageService
             Directory.CreateDirectory(dir);
             File.WriteAllText(StorePath, json);
         }
-        catch { /* the image still applies for this session */ }
+        catch {  }
     }
 
-    /// <summary>Removes the stored preference (no background image).</summary>
     public static void Clear()
     {
         try

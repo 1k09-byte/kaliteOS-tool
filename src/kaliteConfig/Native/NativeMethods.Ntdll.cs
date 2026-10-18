@@ -33,9 +33,6 @@ internal static partial class NativeMethods
             ref uint processInformation,
             uint processInformationLength);
 
-        // NTSTATUS return (0 = success). Only used for the documented
-        // ProcessIoPriority query (class 33, ULONG out); every other use is
-        // out of scope. Callers must treat nonzero as "unreadable", never fatal.
         [LibraryImport("ntdll.dll")]
         internal static partial int NtQueryInformationProcess(
             SafeProcessHandle processHandle,
@@ -44,8 +41,6 @@ internal static partial class NativeMethods
             uint processInformationLength,
             out uint returnLength);
 
-        // NTSTATUS return (0 = success). Undocumented/version-fragile: every caller
-        // must validate sizes and degrade gracefully - see NativeSnapshotService.
         [LibraryImport("ntdll.dll")]
         internal static partial int NtQuerySystemInformation(
             int systemInformationClass,

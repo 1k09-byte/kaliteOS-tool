@@ -23,17 +23,6 @@ using System.Xml.Linq;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Startup manager data layer: HKCU/HKLM Run values, user-mode services, and
-/// non-Microsoft scheduled tasks. Reads are best-effort (a failing source
-/// yields an empty section, never an exception); every mutating call returns
-/// null on success or a human-readable error. The app manifest already
-/// requires admin, which all mutations need.
-///
-/// Disabling a Run value moves it to a backup store (restorable); deleting
-/// removes value and backup permanently. Services toggle between Automatic
-/// and Disabled; tasks toggle Enabled.
-/// </summary>
 public sealed class StartupManagerService
 {
     public const string RunSubKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
@@ -42,8 +31,6 @@ public sealed class StartupManagerService
     private readonly RegistryHive _backupHive;
     private readonly string _backupRoot;
 
-    /// <param name="backupHive">HKLM in production; inject HKCU in tests so the
-    /// harness never touches machine state.</param>
     public StartupManagerService(RegistryHive backupHive = RegistryHive.LocalMachine, string? backupRoot = null)
     {
         _backupHive = backupHive;
@@ -70,8 +57,6 @@ public sealed class StartupManagerService
         return new StartupScan(await user, await machine, await services, tasks);
     }
 
-    // ---------------- Run values ----------------
-
     private List<StartupEntry> ScanRunValues(RegistryHive hive, StartupEntryKind kind)
     {
         var present = new Dictionary<string, (string Raw, string Kind)>(StringComparer.OrdinalIgnoreCase);
@@ -91,7 +76,7 @@ public sealed class StartupManagerService
                         if (key.GetValue(name) is string s)
                             present[name] = (s, valueKind == RegistryValueKind.ExpandString ? "EXPAND_SZ" : "SZ");
                     }
-                    catch { /* one bad value never breaks the section */ }
+                    catch {  }
                 }
             }
         }
@@ -107,10 +92,6 @@ public sealed class StartupManagerService
         catch { return raw ?? ""; }
     }
 
-    /// <summary>
-    /// Merges live Run values (checked) with backed-up ones missing from the
-    /// registry (unchecked). Pure logic - unit-tested.
-    /// </summary>
     internal static List<StartupEntry> MergeRunEntries(
         StartupEntryKind kind,
         IReadOnlyDictionary<string, (string Raw, string Kind)> present,
@@ -178,9 +159,6 @@ public sealed class StartupManagerService
     private static RegistryValueKind ParseKind(string kind) =>
         kind == "EXPAND_SZ" ? RegistryValueKind.ExpandString : RegistryValueKind.String;
 
-    // ---------------- enable / disable / delete ----------------
-
-    /// <summary>Flips one entry. Returns null on success, else an error message. Never throws.</summary>
     public async Task<string?> SetEnabledAsync(StartupEntry entry, bool enabled)
     {
         try
@@ -235,7 +213,6 @@ public sealed class StartupManagerService
         catch (Exception ex) { return ex.Message; }
     }
 
-    /// <summary>Permanently removes one entry (Run deletes drop their backup too). Never throws.</summary>
     public async Task<string?> DeleteAsync(StartupEntry entry)
     {
         try
@@ -267,8 +244,6 @@ public sealed class StartupManagerService
         catch (Exception ex) { return ex.Message; }
     }
 
-    // ---------------- services (WMI) ----------------
-
     private static List<StartupEntry> ScanServices()
     {
         var list = new List<StartupEntry>();
@@ -284,7 +259,7 @@ public sealed class StartupManagerService
                     if (!type.Equals("Own Process", StringComparison.OrdinalIgnoreCase)
                         && !type.Equals("Share Process", StringComparison.OrdinalIgnoreCase)
                         && !type.Equals("Interactive Process", StringComparison.OrdinalIgnoreCase))
-                        continue; // kernel/file-system drivers are not startup apps
+                        continue;
                     string name = (mo["Name"] as string) ?? "";
                     if (name.Length == 0) continue;
                     string display = (mo["DisplayName"] as string) ?? "";
@@ -302,14 +277,13 @@ public sealed class StartupManagerService
                         Company = CompanyOf(path),
                     });
                 }
-                catch { /* one bad service never breaks the section */ }
+                catch {  }
             }
         }
         catch { }
         return list.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    /// <summary>Checked means auto-starting. Manual and Disabled both show unchecked.</summary>
     internal static bool ServiceChecked(string? startMode) =>
         "Auto".Equals(startMode?.Trim(), StringComparison.OrdinalIgnoreCase);
 
@@ -373,8 +347,6 @@ public sealed class StartupManagerService
         catch (Exception ex) { return ex.Message; }
     }
 
-    // ---------------- scheduled tasks (schtasks.exe) ----------------
-
     private async Task<List<StartupEntry>> ScanTasksAsync(CancellationToken ct)
     {
         var list = new List<StartupEntry>();
@@ -401,7 +373,7 @@ public sealed class StartupManagerService
                     IsEnabled = TaskEnabled(row.State),
                 });
             }
-            catch { /* one bad task drops just that row */ }
+            catch {  }
             finally { gate.Release(); }
         })).ConfigureAwait(false);
         return bag.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -450,10 +422,6 @@ public sealed class StartupManagerService
             },
         };
         if (!proc.Start()) throw new InvalidOperationException("Could not start schtasks.exe.");
-        // Drain BOTH pipes from the start (same wedge class as pnputil: a child
-        // blocked on a full output buffer never exits). Awaiting all the way
-        // also keeps throws on a visible async chain instead of surfacing as
-        // debugger "user-unhandled" noise from inside a Task.Run delegate.
         Task<string> stdoutTask = proc.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = proc.StandardError.ReadToEndAsync();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -480,12 +448,6 @@ public sealed class StartupManagerService
         return stdout;
     }
 
-    /// <summary>
-    /// Parses verbose schtasks CSV into (TaskName, Scheduled Task State,
-    /// Task To Run). Skips the \Microsoft\ subtree (Windows' own tasks are
-    /// not startup clutter). Header-matched with positional fallback so
-    /// localized Windows builds still parse. Pure logic - unit-tested.
-    /// </summary>
     internal static List<(string Name, string State, string Command)> ParseTaskListCsv(string csv)
     {
         var rows = new List<(string Name, string State, string Command)>();
@@ -510,8 +472,6 @@ public sealed class StartupManagerService
                 continue;
             }
             if (nameIdx >= fields.Count) continue;
-            // A row shorter than the columns we need is corrupt output, not
-            // a task with unknown state - skipping beats mislabeling it.
             int need = Math.Max(nameIdx, Math.Max(stateIdx, cmdIdx));
             if (fields.Count <= need) continue;
             string name = fields[nameIdx].Trim();
@@ -535,7 +495,6 @@ public sealed class StartupManagerService
         return -1;
     }
 
-    /// <summary>Minimal quoted-CSV splitter (handles "" escapes). Pure - unit-tested.</summary>
     internal static List<string> SplitCsv(string line)
     {
         var fields = new List<string>();
@@ -556,10 +515,6 @@ public sealed class StartupManagerService
         return fields;
     }
 
-    /// <summary>
-    /// Trigger kind from a task's XML (namespace-aware): Logon, Boot, Time,
-    /// Scheduled, Event, Session, Multiple, or - when triggerless. Pure - unit-tested.
-    /// </summary>
     internal static string ParseTaskTriggers(string xml)
     {
         try
@@ -588,7 +543,6 @@ public sealed class StartupManagerService
         catch { return "-"; }
     }
 
-    /// <summary>First Exec action's command line ("cmd args", plus a count suffix). Pure - unit-tested.</summary>
     internal static string ParseTaskExec(string xml)
     {
         try
@@ -606,7 +560,6 @@ public sealed class StartupManagerService
         catch { return "-"; }
     }
 
-    /// <summary>Checked unless explicitly Disabled (Ready/Running/Queued count as on).</summary>
     internal static bool TaskEnabled(string? state) =>
         !string.IsNullOrWhiteSpace(state) && !state.Trim().Equals("Disabled", StringComparison.OrdinalIgnoreCase);
 }

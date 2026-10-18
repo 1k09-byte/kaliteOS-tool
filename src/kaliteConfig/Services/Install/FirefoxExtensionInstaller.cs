@@ -19,11 +19,6 @@ namespace kaliteConfig.Services
 {
     public class FirefoxExtensionInstaller
     {
-        /// <summary>
-        /// Reference-style (AutoOS) Firefox/Zen extension deploy: merges AMO install
-        /// URLs into distribution\policies.json → policies.Extensions.Install[].
-        /// Existing policies in the file are preserved; duplicate URLs are skipped.
-        /// </summary>
         public void AddInstallUrls(string distributionPath, IEnumerable<string> urls)
         {
             try
@@ -72,7 +67,6 @@ namespace kaliteConfig.Services
                 var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var node in install)
                 {
-                    // Non-string entries (left by other tools) must not abort the merge.
                     string? s = node is JsonValue v ? v.GetValue<string>() : null;
                     if (!string.IsNullOrWhiteSpace(s))
                         existing.Add(s.Trim());
@@ -140,7 +134,6 @@ namespace kaliteConfig.Services
             } 
             catch (Exception)
             {
-                // Silently swallow write failures to avoid breaking normal pipeline
             }
         }
     }

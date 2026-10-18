@@ -6,12 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace kaliteConfig.Services.DependencyInjection;
 
-/// <summary>Single composition root. App builds this once; pages/VMs resolve from it.</summary>
 public static class ServiceCollectionExtensions
 {
     public static IServiceProvider AddKaliteServices(this IServiceCollection s)
     {
-        // Core singletons (were `new` in App ctor — same lifetime, now resolvable/testable).
         s.AddSingleton<ProcessTuningService>();
         s.AddSingleton<ThreadTuningService>();
         s.AddSingleton<CpuSetService>();
@@ -26,13 +24,11 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<SnipService>();
         s.AddSingleton<ReservedCpuSetsService>();
         s.AddSingleton<StartupService>();
-        // One InstallerService instance, exposed through its interface too.
         s.AddSingleton<InstallerService>();
         s.AddSingleton<IInstallerService>(sp => sp.GetRequiredService<InstallerService>());
         s.AddSingleton<WindhawkInstallerService>();
         s.AddSingleton<INavigationService, NavigationService>();
 
-        // Personalize: one snapshot store and applier shared by all appearance services.
         s.AddSingleton<SnapshotStore>();
         s.AddSingleton<SettingApplier>();
         s.AddSingleton<WindowsCapabilityService>();
@@ -45,7 +41,6 @@ public static class ServiceCollectionExtensions
             System.IO.Path.Combine(
                 System.IO.Path.GetDirectoryName(SnapshotStore.DefaultPath())!, "cursors")));
 
-        // ViewModels: transient — fresh state per navigation.
         s.AddTransient<AffinityViewModel>();
         s.AddTransient<NetworkViewModel>();
         s.AddTransient<InstallerViewModel>();

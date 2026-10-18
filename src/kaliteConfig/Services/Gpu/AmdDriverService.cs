@@ -21,22 +21,12 @@ namespace kaliteConfig.Services
 {
     public class AmdDriverService
     {
-        /// <summary>
-        /// Human-readable reason the last <see cref="ExtractInstallerAsync"/> call
-        /// returned false. The GPU drivers page shows this instead of a bare
-        /// "AMD Extraction failed." so the user knows what to actually do.
-        /// </summary>
         public string? LastExtractError { get; private set; }
 
         private static string LogPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "kaliteConfig", "Logs", "amd-driver.log");
 
-        /// <summary>
-        /// Mirrors a progress line to the on-screen status text *and* to a log
-        /// file. Extraction used to report straight into Debug output, which made
-        /// every failure undiagnosable from the outside.
-        /// </summary>
         private static void Log(Action<string> logCallback, string message)
         {
             try
@@ -45,13 +35,10 @@ namespace kaliteConfig.Services
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss} {message}{Environment.NewLine}");
             }
-            catch { /* logging must never break an install */ }
+            catch {  }
             logCallback(message);
         }
 
-        /// <summary>
-        /// Every place a full 7-Zip might live, best candidate first.
-        /// </summary>
         private static IEnumerable<string> SevenZipCandidates()
         {
             string toolsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "Tools");
@@ -67,21 +54,9 @@ namespace kaliteConfig.Services
                     yield return Path.Combine(root, "7-Zip", "7z.exe");
             }
 
-            // Last resort: whatever 7z.exe is on PATH.
             yield return "7z.exe";
         }
 
-        /// <summary>
-        /// AMD ships its drivers as a self-extracting .exe (a PE stub with a 7z
-        /// payload glued onto it). Only the *full* 7-Zip build has the PE archive
-        /// handler; the reduced builds - 7zr.exe from the LZMA SDK and 7za.exe
-        /// from the "extra" package - list only 7z/zip/tar/xz/cab and bail out
-        /// with nothing but "ERROR: file". That mismatch is what made every AMD
-        /// package report "AMD Extraction failed." regardless of the download.
-        ///
-        /// Ask the binary itself rather than trusting its name: someone (us, once)
-        /// may have saved a reduced build under the full build's file name.
-        /// </summary>
         private static bool CanOpenPeArchives(string exePath)
         {
             try
@@ -117,9 +92,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Finds a 7-Zip that can actually open a PE self-extractor, or null.
-        /// </summary>
         private static string? ResolveFullSevenZip(Action<string> logCallback, CancellationToken ct)
         {
             foreach (string candidate in SevenZipCandidates())
@@ -150,13 +122,8 @@ namespace kaliteConfig.Services
                     return false;
                 }
 
-                // A previous attempt may have died half way through; start clean so
-                // the manifest check below cannot be fooled by stale leftovers.
                 ResetDirectory(extractDir);
 
-                // 7z.exe x "<installer.exe>" -o"<extractDir>" -y -aoa
-                //   -y   answer yes to every prompt (we are non-interactive)
-                //   -aoa overwrite all existing files without asking again
                 string args = $"x \"{installerExePath}\" -o\"{extractDir}\" -y -aoa";
                 Log(logCallback, $"Extracting AMD package: \"{zExe}\" {args}");
 
@@ -179,8 +146,6 @@ namespace kaliteConfig.Services
                     return false;
                 }
 
-                // Drain both pipes before awaiting, or a chatty 7-Zip can fill the
-                // stderr buffer and deadlock against our own wait.
                 var stdoutTask = process.StandardOutput.ReadToEndAsync();
                 var stderrTask = process.StandardError.ReadToEndAsync();
                 await process.WaitForExitAsync(ct);
@@ -195,7 +160,6 @@ namespace kaliteConfig.Services
                 if (!string.IsNullOrWhiteSpace(stderr))
                     Log(logCallback, "  7z! " + stderr.Trim().Replace("\n", " | "));
 
-                // The exit code is not the real success test - the manifest is.
                 string manifestPath = Path.Combine(extractDir, AmdExtractGate.ManifestRelativePath);
                 bool manifestPresent = File.Exists(manifestPath);
 
@@ -230,10 +194,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Empties a directory we own (the app's own temp extraction folder).
-        /// Best effort - a file held open by something else is simply left alone.
-        /// </summary>
         private static void ResetDirectory(string dir)
         {
             try
@@ -258,19 +218,8 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>Prefix of the per-attempt installer files in the temp folder.</summary>
         private const string InstallerFilePrefix = "amd_software_installer_";
 
-        /// <summary>
-        /// Hands the downloaded package to the user by starting it.
-        ///
-        /// An AMD Adrenalin package is a self-extracting installer: running it
-        /// unpacks the payload and drives the install itself. The app used to
-        /// unpack the same 2.7 GB by hand, parse cccmanifest_64.json, build a
-        /// component list and drive Setup.exe - which cost 2.7 GB of %TEMP%,
-        /// needed a 7-Zip that could read PE, and still ended up in AMD's
-        /// installer anyway.
-        /// </summary>
         public bool LaunchInstaller(string installerPath, Action<string> logCallback)
         {
             if (!File.Exists(installerPath))
@@ -296,15 +245,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Removes the downloaded package and the unpacked tree.
-        ///
-        /// This is not housekeeping, it is correctness: an Adrenalin package is
-        /// ~930 MB on the wire and ~2.7 GB unpacked, and leaving both behind in
-        /// %TEMP% after every attempt is how the temp volume fills up and the
-        /// *next* attempt fails for lack of space. Best effort - a file held open
-        /// by an antivirus scan is left for the next sweep.
-        /// </summary>
         public void CleanupTempArtifacts(string installerPath, string extractDir, Action<string> logCallback)
         {
             long freed = 0;
@@ -314,10 +254,6 @@ namespace kaliteConfig.Services
                 Log(logCallback, $"Cleaned up {freed / (1024.0 * 1024 * 1024):0.##} GB of temporary driver files.");
         }
 
-        /// <summary>
-        /// Clears leftovers from earlier attempts before starting a new one, so a
-        /// previous failure cannot eat the space the new attempt needs.
-        /// </summary>
         public void SweepStaleTempArtifacts(Action<string> logCallback)
         {
             string temp = Path.GetTempPath();

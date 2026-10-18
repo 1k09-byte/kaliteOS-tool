@@ -9,15 +9,12 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services.Personalize;
 
-// Snapshot of the value that was in place before the app first changed it.
-// Stored as JSON in the app's own local data folder. Never HKLM, never shared.
 public sealed class SnapshotEntry
 {
     public string Id { get; set; } = "";
     public string SubKey { get; set; } = "";
     public string Name { get; set; } = "";
     public bool Existed { get; set; }
-    // "DWord" or "String" (the registry kind of the original value).
     public string Kind { get; set; } = "String";
     public string? Value { get; set; }
 }
@@ -50,9 +47,6 @@ public sealed class SnapshotStore
         lock (_gate) return _entries.Values.ToList();
     }
 
-    // Records the value currently in place, the first time the app touches it.
-    // Does nothing if the value is already captured, so the snapshot always holds
-    // the value from before any app change.
     public void CaptureIfNeeded(string id, string subKey, string name)
     {
         lock (_gate)
@@ -63,8 +57,6 @@ public sealed class SnapshotStore
         }
     }
 
-    // Reads the value in place as a snapshot entry. Only DWORD and REG_SZ are
-    // supported. Anything else (for example a binary curve) is refused, not guessed.
     public static SnapshotEntry ReadCurrent(string id, string subKey, string name)
     {
         var entry = HkcuRegistry.ReadEntry(subKey, name);
@@ -117,8 +109,6 @@ public sealed class SnapshotStore
         }
         catch (JsonException)
         {
-            // A corrupt snapshot must not be silently overwritten: keep it aside.
-            // PERSONALIZE-REVIEW: corrupt snapshot is moved aside and an empty store is used.
             try { File.Move(_path, _path + ".corrupt-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss"), true); } catch { }
             return new Dictionary<string, SnapshotEntry>();
         }

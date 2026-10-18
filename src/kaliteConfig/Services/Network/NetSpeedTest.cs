@@ -18,9 +18,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Download/upload throughput against Cloudflare's speed-test endpoints
-/// (verified reachable from this machine). All async with cancellation; no child
-/// processes. Progress reports (downMbps, upMbps, fraction 0..1).</summary>
 public static class NetSpeedTest
 {
     public sealed record SpeedResult(double DownMbps, double UpMbps);

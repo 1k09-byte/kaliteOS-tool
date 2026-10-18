@@ -22,11 +22,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.ViewModels
 {
-    /// <summary>
-    /// Full tuning-pass ViewModel: groups devices by category, provides
-    /// Undo / Redo / Restore / View Changes commands, and
-    /// tracks every registry write in an undo stack.
-    /// </summary>
     public partial class AffinityViewModel : ObservableObject
     {
         private readonly AffinityService _affinityService = new();
@@ -42,7 +37,6 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool IsRefreshing { get; set; }
 
-        // Group expanders for the table layout.
         [ObservableProperty]
         public partial bool IsGraphicsExpanded { get; set; } = true;
 
@@ -54,8 +48,6 @@ namespace kaliteConfig.ViewModels
 
         [ObservableProperty]
         public partial bool IsAudioExpanded { get; set; } = true;
-
-        // -- Change tracking -------------------------------------------------
 
         private readonly List<AffinityChange> _undoStack = new();
         private readonly List<AffinityChange> _redoStack = new();
@@ -70,11 +62,9 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool CanRedo { get; set; }
 
-        /// <summary>Cached "any device off the defaults" flag; the getter reads the registry.</summary>
         [ObservableProperty]
         public partial bool HasNonDefaultDevices { get; set; }
 
-        /// <summary>Computed properties announce nothing when their inputs move.</summary>
         partial void OnHasNonDefaultDevicesChanged(bool value)
             => OnPropertyChanged(nameof(CanRestoreDefaults));
 
@@ -87,8 +77,7 @@ namespace kaliteConfig.ViewModels
             CanRedo = _redoStack.Count > 0;
             OnPropertyChanged(nameof(CanRestoreDefaults));
             RefreshRestoreAvailability();
-            
-            // TrackedChanges for the "View Changes" dialog
+
             TrackedChanges.Clear();
             foreach (var c in _undoStack)
                 TrackedChanges.Add(c);
@@ -97,22 +86,12 @@ namespace kaliteConfig.ViewModels
         private void PushChange(AffinityChange change)
         {
             _undoStack.Add(change);
-            _redoStack.Clear();   // new action invalidates any stale redo
+            _redoStack.Clear();
             RefreshChangeState();
         }
 
-        // -- Dialog state ----------------------------------------------------
-
-        /// <summary>
-        /// Fills a device's dialog state from live read-only interrupt data and
-        /// builds the processor-mask grid (SMT pairs), pre-checking the threads
-        /// in the current assignment mask.
-        /// </summary>
         public Task LoadDeviceDetailsAsync(AffinityDeviceItem item)
         {
-            // A GPU restart / driver install re-enumerates the adapter, so the row
-            // can outlive the device it points at. Failing loudly beats showing a
-            // dialog full of empty values that writes interrupt settings nowhere.
             if (!_affinityService.DeviceExists(item.DeviceInstanceId))
             {
                 StatusText = $"{item.Name} is no longer present - the device was restarted or re-enumerated. Rescanning???";
@@ -125,8 +104,6 @@ namespace kaliteConfig.ViewModels
             SelectedDevice = item;
             var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.MsiEnabled = info.MsiSupported ?? false;
-            // MSI Limit shows only the explicit value (Auto when absent) - the
-            // hardware max lives in MaxMsiLimit and is only the edit cap.
             item.MsiLimit = info.MsiLimit ?? 0;
             item.MsiLimitText = info.MsiLimit?.ToString() ?? "Auto";
             item.MaxMsiLimit = info.MaxMsiLimit ?? 0;
@@ -141,9 +118,6 @@ namespace kaliteConfig.ViewModels
             int logical = topology.TotalLogicalCores;
             item.CoreGroups.Clear();
 
-            // No explicit override in the registry means the device runs on
-            // every logical processor - pre-check everything so the dialog
-            // shows the EFFECTIVE affinity instead of "0 of N selected".
             ulong fullMask = logical >= 64 ? ulong.MaxValue : ((1UL << logical) - 1);
             ulong effectiveMask = info.AffinityMask ?? fullMask;
 
@@ -151,9 +125,6 @@ namespace kaliteConfig.ViewModels
 
             void MapCores(IEnumerable<ulong> masks)
             {
-                // Note: masks includes core 0 if we're rendering the UI (Wait, TopologyService Detection removes reserved core 0!
-                // To avoid breaking the UI indices if we omitted Core 0, I should just render all cores. Wait! TopologyService.Detect removes Core 0 from PerformanceCoreMasks!
-                // So Core 0's threads won't be rendered. Let's fix that by re-adding Core 0 or handling it gracefully:
                 foreach (ulong mask in masks)
                 {
                     var group = new ProcessorCoreGroup { CoreIndex = coreIndex, Title = $"Core {coreIndex}" };
@@ -177,13 +148,10 @@ namespace kaliteConfig.ViewModels
                 }
             }
 
-            // We must resurrect Core 0 for UI visual purposes if it was removed
-            // Core 0 thread mask is usually (1 << 0) and possibly (1 << 1) if SMT. Let's just create a synthetic mask for missing core 0
             ulong extractedSoFar = 0;
             foreach (ulong m in topology.PerformanceCoreMasks) extractedSoFar |= m;
             foreach (ulong m in topology.EfficiencyCoreMasks) extractedSoFar |= m;
 
-            // Find missing threads (Core 0 OS reserved threads)
             ulong totalSystemMask = (1UL << logical) - 1;
             ulong missingMask = totalSystemMask & ~extractedSoFar;
 
@@ -220,9 +188,6 @@ namespace kaliteConfig.ViewModels
             return Task.CompletedTask;
         }
 
-        // The dialog binds two-way straight into the row item, so Cancel must
-        // restore the values captured when the dialog opened - otherwise the
-        // table keeps showing edits that were never written.
         private AffinityDeviceItem? _dialogItem;
         private bool _dialogMsi;
         private double _dialogLimit;
@@ -302,7 +267,6 @@ namespace kaliteConfig.ViewModels
         public System.Collections.Generic.List<string> PriorityOptions { get; } =
             new() { "Undefined", "Low", "Normal", "High" };
 
-        // Dropdown shows the raw policy names, exactly like the reference tool.
         public System.Collections.Generic.List<PolicyOption> PolicyOptions { get; } =
             new()
             {
@@ -314,8 +278,6 @@ namespace kaliteConfig.ViewModels
                 new PolicyOption("IrqPolicySpreadMessagesAcrossAllProcessors", "IrqPolicySpreadMessagesAcrossAllProcessors")
             };
 
-        // -- Device enumeration ----------------------------------------------
-
         [RelayCommand]
         private async Task RefreshDevicesAsync()
         {
@@ -326,11 +288,6 @@ namespace kaliteConfig.ViewModels
             {
                 var devices = await _affinityService.EnumerateDevicesAsync();
 
-                // Keep the selected device across a rescan when it is still
-                // present - a GPU restart must not silently drop the dialog's
-                // device (or leave it pointing at a list the user can no longer
-                // see). The row objects are new after every scan, so match by
-                // instance id.
                 string? selectedId = SelectedDevice?.DeviceInstanceId;
                 bool wasPresent = selectedId is not null
                     && devices.Any(d => string.Equals(d.DeviceInstanceId, selectedId, StringComparison.OrdinalIgnoreCase));
@@ -388,21 +345,13 @@ namespace kaliteConfig.ViewModels
             }
         }
 
-        /// <summary>True while the device behind a row is still enumerated.</summary>
         public bool IsDevicePresent(AffinityDeviceItem? item)
             => item is not null && _affinityService.DeviceExists(item.DeviceInstanceId);
 
-        // -- Per-device Apply (dialog) ---------------------------------------
-
-        /// <summary>
-        /// Writes the dialog's staged values (MSI, policy, priority, mask) to the
-        /// registry and pushes each change onto the undo stack.
-        /// </summary>
         public void ApplyDeviceChanges(AffinityDeviceItem item)
         {
             var info = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
 
-            // MSI Mode
             bool oldMsi = info.MsiSupported ?? false;
             if (item.MsiEnabled != oldMsi)
             {
@@ -410,7 +359,6 @@ namespace kaliteConfig.ViewModels
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "MsiEnabled", oldMsi, item.MsiEnabled, DateTime.Now));
             }
 
-            // MSI Limit - 0 (Auto) deletes the value, like the reference tool.
             int oldLimit = (int)(info.MsiLimit ?? 0);
             int newLimit = (int)item.MsiLimit;
             if (newLimit != oldLimit)
@@ -422,9 +370,6 @@ namespace kaliteConfig.ViewModels
                     PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "MessageNumberLimit", oldLimit, newLimit, DateTime.Now));
             }
 
-            // Max MSI Limit is read-only per user instruction and cannot be overridden
-
-            // Device Policy
             int newPolicy = PolicyNameToInt(item.SelectedPolicy);
             int? oldPolicy = info.DevicePolicy;
             bool policyTouched = false;
@@ -437,12 +382,9 @@ namespace kaliteConfig.ViewModels
                 }
             }
 
-            // A non-Specified policy must not keep a stale override behind -
-            // the reference tool deletes it in that case.
             if (policyTouched && newPolicy != 4)
                 _affinityService.ClearAffinityPolicy(item.DeviceInstanceId, "AssignmentSetOverride");
 
-            // Device Priority - Undefined (0) deletes the value, like the reference.
             int newPriority = PriorityNameToInt(item.SelectedPriority);
             int oldPriority = info.DevicePriority ?? 0;
             if (newPriority != oldPriority)
@@ -455,11 +397,8 @@ namespace kaliteConfig.ViewModels
                         oldPriority == 0 ? null : (object)oldPriority, newPriority == 0 ? null : (object)newPriority, DateTime.Now));
             }
 
-            // Affinity Mask
             ulong newMask = BuildMaskFromGroups(item);
             ulong oldMask = info.AffinityMask ?? 0;
-            // No explicit override + everything still checked = "system
-            // default", not a change - don't write a redundant full mask.
             bool isDefaultUnchanged = info.AffinityMask is null && newMask == RenderedMask(item);
             bool maskTouched = false;
             if (!isDefaultUnchanged && newMask != oldMask)
@@ -471,22 +410,17 @@ namespace kaliteConfig.ViewModels
                 }
             }
 
-            // NIC RSS follows the effective mask, like the reference tool.
             if ((maskTouched || policyTouched) && item.Category == "Network")
                 _affinityService.SetRSS(item.DeviceInstanceId, newPolicy == 4 ? newMask : 0);
 
-            // Update the table columns live
             var refreshed = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.DevicePolicyShort = AffinityService.DevicePolicyShort(refreshed.DevicePolicy);
             item.DevicePriorityShort = refreshed.DevicePriority is null ? "-" : AffinityService.DevicePriorityName(refreshed.DevicePriority);
             item.AffinityText = AffinityService.AffinityMaskText(refreshed.AffinityMask);
             item.IrqText = refreshed.MsiSupported == true ? "MSI" : refreshed.MsiSupported == false ? "Line" : "-";
 
-            // Resync the dialog checkboxes from readback so a partial/failed
-            // write can never leave them lying about the applied affinity.
             ResyncGroupsFromMask(item, refreshed.AffinityMask);
 
-            // The write may have returned this device to the defaults.
             RefreshRestoreAvailability();
         }
 
@@ -500,7 +434,6 @@ namespace kaliteConfig.ViewModels
             return mask;
         }
 
-        /// <summary>Bitmask of every thread currently rendered in the dialog grid.</summary>
         private static ulong RenderedMask(AffinityDeviceItem item)
         {
             ulong mask = 0;
@@ -510,10 +443,6 @@ namespace kaliteConfig.ViewModels
             return mask;
         }
 
-        /// <summary>
-        /// Re-checks the dialog grid from a freshly read mask (null = system
-        /// default = everything on) and updates the selected-count text.
-        /// </summary>
         private static void ResyncGroupsFromMask(AffinityDeviceItem item, ulong? mask)
         {
             if (item.CoreGroups.Count == 0) return;
@@ -526,14 +455,6 @@ namespace kaliteConfig.ViewModels
                 item.SelectedThreadCountText += " (system default)";
         }
 
-        // -- Restart handling ------------------------------------------------
-
-        /// <summary>
-        /// Restarts devices after a write, then rescans. These settings are only
-        /// read when a device starts, so a write alone is inert - every path
-        /// restarts what it changed so "applied" and "in effect" are the same
-        /// moment.
-        /// </summary>
         private async Task RestartAfterWriteAsync(IEnumerable<string> deviceIds, string whatWasDone)
         {
             var ids = deviceIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -555,18 +476,12 @@ namespace kaliteConfig.ViewModels
                 : $"{whatWasDone} - {ids.Count} devices restarted.";
         }
 
-        /// <summary>Restarts one device after its dialog's Apply, then rescans.</summary>
         public async Task RestartDeviceAfterApplyAsync(AffinityDeviceItem item)
         {
             string name = item?.Name ?? "device";
             await RestartAfterWriteAsync(new[] { item!.DeviceInstanceId }, $"Applied to {name}");
         }
 
-        /// <summary>
-        /// Restarts with native GPU access held off: a telemetry or fan tick
-        /// landing mid-restart can fault inside nvapi64/nvml where no managed
-        /// catch can contain it.
-        /// </summary>
         private static async Task RestartDevicesQuiescedAsync(
             IEnumerable<string> deviceIds, string reason)
         {
@@ -576,8 +491,6 @@ namespace kaliteConfig.ViewModels
                 {
                     await AffinityService.RestartDeviceAsync(id);
                 }
-                // Let PnP re-enumeration settle before any native call goes
-                // near the new device handles again.
                 await Task.Delay(TimeSpan.FromSeconds(4));
                 GpuOverclockModule.Instance.Controller.InvalidateGpu();
                 NvmlBridge.Reset();
@@ -640,7 +553,6 @@ namespace kaliteConfig.ViewModels
 
             StatusText = "Restoring defaults on every device...";
 
-            // Revert in reverse order so a later write to the same property unwinds first.
             var modifiedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = _undoStack.Count - 1; i >= 0; i--)
             {
@@ -652,9 +564,6 @@ namespace kaliteConfig.ViewModels
             _redoStack.Clear();
             RefreshChangeState();
 
-            // Force every listed device back to the defaults, not just the ones this
-            // session touched - a machine left half-tuned by a previous run has
-            // to be cleanable from here too.
             int reset = 0, failed = 0;
             foreach (var item in all)
             {
@@ -663,7 +572,6 @@ namespace kaliteConfig.ViewModels
                 modifiedIds.Add(item.DeviceInstanceId);
             }
 
-            // Every listed device was rewritten, so all of them are in scope.
             var toRestart = modifiedIds.ToList();
 
             string done = failed > 0
@@ -687,17 +595,9 @@ namespace kaliteConfig.ViewModels
             };
         }
 
-        /// <summary>Every listed device, across all categories.</summary>
         private IEnumerable<AffinityDeviceItem> AllDevices()
             => GraphicsDevices.Concat(NetworkDevices).Concat(UsbDevices).Concat(AudioDevices);
 
-        /// <summary>
-        /// Puts one device back to IrqPolicyMachineDefault with priority
-        /// undefined and no affinity override. "Undefined" is implemented by
-        /// deleting the value - writing an explicit 0 would pin it in place.
-        /// MSI mode itself is left alone: the driver advertises that capability,
-        /// so forcing it either way risks a broken device for no gain.
-        /// </summary>
         private bool RestoreDeviceDefaults(string deviceInstanceId)
         {
             try
@@ -713,14 +613,8 @@ namespace kaliteConfig.ViewModels
             }
         }
 
-        /// <summary>
-        /// True when some device is off the defaults this button restores to.
-        /// Driven by device state rather than the undo stack, which is empty on a
-        /// machine tuned by an earlier run - exactly when Restore is needed.
-        /// </summary>
         public bool CanRestoreDefaults => HasNonDefaultDevices || _undoStack.Count > 0;
 
-        /// <summary>Recaches the flag; opens every device's key, so never per-frame.</summary>
         private void RefreshRestoreAvailability()
         {
             try
@@ -736,16 +630,10 @@ namespace kaliteConfig.ViewModels
             }
             catch
             {
-                // A failed probe must not light the button up on a guess - leave
-                // the previous value alone.
             }
         }
 
-        // -- View Changes ----------------------------------------------------
-
         public ObservableCollection<AffinityChange> TrackedChanges { get; } = new();
-
-        // -- Helpers ---------------------------------------------------------
 
         private void RevertChange(AffinityChange change)
         {
@@ -826,13 +714,12 @@ namespace kaliteConfig.ViewModels
             _ => 0
         };
 
-        // Reference numbering: 0 = Undefined, 1 = Low, 2 = Normal, 3 = High.
         private static int PriorityNameToInt(string name) => name switch
         {
             "Low" => 1,
             "Normal" => 2,
             "High" => 3,
-            _ => 0 // "Undefined" deletes the value (OS default)
+            _ => 0
         };
     }
 }

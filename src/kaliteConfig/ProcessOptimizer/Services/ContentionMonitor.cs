@@ -24,27 +24,10 @@ public interface IContentionMonitor
     void StopMonitoring();
 }
 
-/// <summary>
-/// Reports which processes are really competing for the CPU during a session.
-///
-/// One <c>NtQuerySystemInformation</c> call per tick, diffed against the previous
-/// tick: no process handles at all (see <see cref="SystemProcessCpuReader"/>).
-/// The previous shape opened a handle to EVERY running process once a second -
-/// plus <c>Process.GetProcesses()</c>, which allocates a Process object per PID -
-/// for the whole session, which is the opposite of what a game-mode helper should
-/// cost.
-///
-/// It is called ContentionMonitor now. The old name was PdhContentionMonitor and
-/// it never touched PDH.
-/// </summary>
 public sealed class ContentionMonitor : IContentionMonitor, IDisposable
 {
     private const int TickMilliseconds = 1000;
 
-    /// <summary>
-    /// A sample window shorter than this is not trusted: the percentage is a
-    /// delta over elapsed wall time, so a near-zero window inflates it wildly.
-    /// </summary>
     private const double MinimumSampleWindowMs = 250;
 
     private readonly object _lock = new();
@@ -105,7 +88,6 @@ public sealed class ContentionMonitor : IContentionMonitor, IDisposable
             }
             catch
             {
-                // One bad sample must never kill the monitor for the session.
             }
         }
     }
@@ -119,14 +101,9 @@ public sealed class ContentionMonitor : IContentionMonitor, IDisposable
 
         if (!SystemProcessCpuReader.TryRead(out Dictionary<int, long> current)) return;
 
-        // The decision lives in ContentionPolicy.ComputeTick so it can be tested
-        // without a machine to measure. This method only supplies the snapshots.
         ContentionSample sample = ContentionPolicy.ComputeTick(
             _previousTicks, current, elapsedMs, Math.Max(1, Environment.ProcessorCount));
 
-        // Rebuild from the current snapshot instead of pruning: the tracker then
-        // cannot grow across a session and dead PIDs fall out for free (the old
-        // shape needed a separate cleanup pass for exactly that).
         _previousTicks.Clear();
         foreach (var kvp in current)
         {
@@ -135,10 +112,6 @@ public sealed class ContentionMonitor : IContentionMonitor, IDisposable
 
         if (token.IsCancellationRequested) return;
 
-        // Raised even when NOTHING is contended. The orchestrator's release pass
-        // lives in this handler, so suppressing the empty case meant a demoted
-        // process could only be restored once some other process got busy - if the
-        // session went quiet, it stayed demoted for the rest of the session.
         ContentionDetected?.Invoke(this, sample);
     }
 

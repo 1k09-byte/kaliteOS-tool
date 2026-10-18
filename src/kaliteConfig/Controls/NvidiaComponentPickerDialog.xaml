@@ -11,23 +11,10 @@
     CloseButtonText="Cancel"
     DefaultButton="Primary">
     <ContentDialog.Resources>
-        <!-- min == max: the dialog is exactly this wide at open and cannot
-             re-measure itself when the install state changes. -->
         <x:Double x:Key="ContentDialogMinWidth">600</x:Double>
         <x:Double x:Key="ContentDialogMaxWidth">600</x:Double>
     </ContentDialog.Resources>
 
-    <!-- The whole dialog scrolls: with the component list, verification details
-         and the install log all expanded, the fixed-height ContentDialog used
-         to push the log below the visible area with no way to reach it.
-
-         Height (not MaxHeight) is the point: during an install this content
-         grows - the log expander opens, the progress bar and status line
-         appear - and every one of those growth steps re-laid the dialog out
-         around the position it was given when ShowAsync ran, so the dialog
-         crawled off the middle of the screen for the whole install. A
-         fixed-height host means the content can grow inside it, but the
-         dialog cannot. -->
     <ScrollViewer x:Name="RootScroll" Height="540" Padding="0,0,16,0" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
     <StackPanel Spacing="10">
         <TextBlock Text="NVIDIA packages the display driver with optional extras. Everything unchecked is excluded from the silent install. The base display driver cannot be removed."

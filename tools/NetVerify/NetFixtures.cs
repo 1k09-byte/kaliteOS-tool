@@ -4,8 +4,6 @@ using kaliteConfig.Services;
 
 namespace NetVerify;
 
-/// <summary>Recorded + synthetic fixtures. Realtek props were read live from this machine
-/// (Realtek PCIe 2.5GbE, key 0010) on 2026-09-21; the Intel set is synthetic and labeled so.</summary>
 internal static class NetFixtures
 {
     public static List<(string Keyword, string Display, string Type, string Current, string Default,
@@ -41,7 +39,6 @@ internal static class NetFixtures
         ("*WakeOnMagicPacket", "Wake on Magic Packet", "enum", "1", "0", new() { ("0", "Disabled"), ("1", "Enabled") }, null, null, null),
     };
 
-    /// <summary>Synthetic minimal Intel-style set (no Intel NIC on this machine).</summary>
     public static List<(string Keyword, string Display, string Type, string Current, string Default,
         List<(string V, string D)> Options, long? Min, long? Max, long? Step)> IntelSynthetic() => new()
     {

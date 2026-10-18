@@ -17,17 +17,6 @@ using kaliteConfig.Models;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Imports external captures into BenchmarkRuns. Pure parsing (unit-tested);
-/// file picking lives in the ViewModel.
-/// Sources (all verified, none guessed):
-/// - PresentMon console CSV (default or --v2_metrics schema) via
-///   <see cref="BenchmarkPresentMonCsv"/>, grouped by ProcessID.
-/// - CapFrameX record JSON: {"Info": {GameName, ProcessName, CreationDate,
-///   Comment}, "Runs": [{"CaptureData": {"TimeInSeconds": [...],
-///   "MsBetweenPresents": [...]}}]} (verified against
-///   CapFrameX.Data.Session/Classes Session.cs/SessionRun.cs/SessionCaptureData.cs).
-/// </summary>
 public static class BenchmarkImportService
 {
     public sealed class ImportedRun
@@ -40,7 +29,6 @@ public static class BenchmarkImportService
         public double[] TimestampsMs { get; set; } = Array.Empty<double>();
     }
 
-    /// <summary>PresentMon CSV grouped by process (largest group first).</summary>
     public static List<ImportedRun> ImportPresentMonCsv(IEnumerable<string> lines, string fileName)
     {
         var list = lines.ToList();
@@ -102,7 +90,6 @@ public static class BenchmarkImportService
         return runs;
     }
 
-    /// <summary>CapFrameX record JSON: one ImportedRun per Runs[] entry.</summary>
     public static List<ImportedRun> ImportCapFrameXJson(string json, string fileName)
     {
         using var doc = JsonDocument.Parse(json);
@@ -142,7 +129,7 @@ public static class BenchmarkImportService
                 || !cap.TryGetProperty("MsBetweenPresents", out var msEl)
                 || msEl.ValueKind != JsonValueKind.Array)
             {
-                continue; // sensor-only run: skip, keep others
+                continue;
             }
             var frames = new List<float>();
             foreach (var v in msEl.EnumerateArray())

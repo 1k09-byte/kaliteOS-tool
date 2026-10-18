@@ -12,14 +12,8 @@ using System;
 
 namespace kaliteConfig.GpuOverclock.Models
 {
-    /// <summary>
-    /// "Nice" axis ticks (1/2/2.5/5 × 10^n) for the V/F curve graph. Pure
-    /// math, no UI - unit-tested in the OcVerify harness, used by the
-    /// OverclockSection canvas.
-    /// </summary>
     public static class GraphTicks
     {
-        /// <summary>Tick step and first tick ≥ min for at most maxTicks ticks.</summary>
         public static (double Step, double First) NiceTicks(double min, double max, int maxTicks)
         {
             double span = Math.Max(1e-9, max - min);
@@ -30,7 +24,6 @@ namespace kaliteConfig.GpuOverclock.Models
             return (step, Math.Ceiling(min / step) * step);
         }
 
-        /// <summary>Compact tick label: integers plain, fractional with one decimal.</summary>
         public static string Label(double v) => v % 1 == 0 ? ((int)v).ToString() : v.ToString("0.#");
     }
 }

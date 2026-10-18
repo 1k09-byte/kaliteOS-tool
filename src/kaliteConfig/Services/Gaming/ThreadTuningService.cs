@@ -18,15 +18,6 @@ using kaliteConfig.Native;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Thread-level tuning backed ONLY by documented Win32 APIs:
-/// processthreadsapi (OpenThread, Get/SetThreadPriority, Get/SetThreadPriorityBoost,
-/// Get/SetThreadGroupAffinity, SetThreadIdealProcessorEx, SuspendThread, ResumeThread,
-/// TerminateThread) and SetThreadInformation with ThreadPowerThrottling /
-/// ThreadMemoryPriority (MEMORY_PRIORITY_INFORMATION, levels 1-5).
-/// Deliberately no NT_STATUS info-class tricks: thread I/O priority has no
-/// documented Win32 setter, so it is not offered.
-/// </summary>
 [System.Diagnostics.DebuggerNonUserCode]
 public sealed class ThreadTuningService
 {
@@ -74,11 +65,6 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Per-thread Efficiency Mode (EcoQoS) via SetThreadInformation. Uses the
-    /// THREAD_POWER_THROTTLING_EXECUTION_SPEED mask (0x1) - note this differs
-    /// from the process-level mask (0x4) on purpose.
-    /// </summary>
     public async Task SetEfficiencyAsync(uint tid, bool enabled)
     {
         await CpuSetService.RunNativeAsync(() =>
@@ -105,9 +91,6 @@ public sealed class ThreadTuningService
     {
         return await CpuSetService.RunNativeAsync(() =>
         {
-            // NOTE: despite the docs, GetThreadInformation demands full
-            // THREAD_QUERY_INFORMATION on this build - LIMITED fails with
-            // access denied even on our own threads (verified live).
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
             CpuSetService.ThrowIfInvalid(thread, tid);
@@ -175,9 +158,6 @@ public sealed class ThreadTuningService
                 throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Reading thread affinity failed."));
             }
 
-            // A GROUP_AFFINITY mask is local to its processor group. Never
-            // treat CPU 0 in group 1 as CPU 64 in group 0. Preserve the live
-            // group unless the caller explicitly selected another group.
             current.Group = group ?? current.Group;
             ushort active = NativeMethods.Affinity.GetActiveProcessorCount(current.Group);
             ulong validBits = active >= 64 ? ulong.MaxValue : ((1UL << active) - 1UL);
@@ -192,7 +172,6 @@ public sealed class ThreadTuningService
                 throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Setting thread affinity failed."));
             }
 
-            // Verify the kernel accepted the change before reporting success.
             if (!NativeMethods.Affinity.GetThreadGroupAffinity(thread, out var applied)
                 || applied.Group != current.Group
                 || applied.Mask != mask)
@@ -202,7 +181,6 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>Reads the live ideal processor (documented GetThreadIdealProcessorEx).</summary>
     public async Task<(ushort Group, byte Number)> GetIdealProcessorAsync(uint tid)
     {
         return await CpuSetService.RunNativeAsync(() =>
@@ -210,9 +188,6 @@ public sealed class ThreadTuningService
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.QueryInformation, false, tid);
             CpuSetService.ThrowIfInvalid(thread, tid);
-            // BOOL return, processor number in the out parameter. The old
-            // "== (DWORD)-1" check could never be true, so a failed read used to
-            // report a bogus ideal processor instead of failing.
             if (!NativeMethods.Affinity.GetThreadIdealProcessorEx(thread, out var current))
             {
                 throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Reading thread ideal processor failed."));
@@ -221,16 +196,6 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Sets the thread's ideal processor and verifies it by reading the value
-    /// back, exactly like <see cref="SetAffinityAsync"/>.
-    ///
-    /// The result MUST be checked: Windows refuses a processor the thread's
-    /// affinity mask excludes (ERROR_GEN_FAILURE 31) or one that does not exist
-    /// (ERROR_INVALID_PARAMETER 87). This used to ignore the BOOL entirely, so
-    /// the dialog said "Ideal processor set to CPU 10" while nothing changed -
-    /// the reported "not applying properly" bug.
-    /// </summary>
     public async Task SetIdealProcessorAsync(uint tid, ushort group, byte index)
     {
         await CpuSetService.RunNativeAsync(() =>
@@ -262,16 +227,6 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Turns a rejected ideal-processor write into something the user can act
-    /// on. Error 31 has two very different causes and they need different
-    /// advice:
-    ///   - the CPU is outside the thread's affinity mask (the affinity grid or a
-    ///     saved rule pinned the thread to a few cores);
-    ///   - the CPU is inside the mask but belongs to the CPU-set partition's
-    ///     reservation, which only threads inside that partition may use - on a
-    ///     16-thread box with 0xFC00 reserved, every CPU from 10 up is refused.
-    /// </summary>
     private static string DescribeIdealProcessorFailure(
         uint tid, ushort group, byte index, int error, SafeThreadHandle thread)
     {
@@ -313,12 +268,6 @@ public sealed class ThreadTuningService
         catch { return null; }
     }
 
-    /// <summary>
-    /// "0/1/2/3" or "0-9 (0x03FF)" for the CPUs a thread can really take: its
-    /// affinity mask minus the CPU-set partition's reservation. Reserved CPUs
-    /// are only usable by threads inside that partition, which is exactly why
-    /// Windows refuses them for everything else.
-    /// </summary>
     private static string DescribeUsableCpus(ulong affinity, ulong? reserved)
     {
         if (affinity == 0) return string.Empty;
@@ -374,8 +323,6 @@ public sealed class ThreadTuningService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>Thread memory priority 1 (very low) … 5 (normal), per
-    /// MEMORY_PRIORITY_INFORMATION (documented Win32 API).</summary>
     public async Task<uint> GetMemoryPriorityAsync(uint tid)
     {
         return await CpuSetService.RunNativeAsync(() =>

@@ -19,14 +19,6 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string Name { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Stable identity of the product this entry installs ("Steam", "Brave",
-        /// "Riot", ...). Drives the uninstall path, which must NOT be derived
-        /// from <see cref="Name"/>: substring matching on the display name
-        /// mis-routed real products ("Steam" contains "ea"), and any rename
-        /// would silently change what gets uninstalled. Empty falls back to a
-        /// name heuristic for legacy entries.
-        /// </summary>
         public string ProductId { get; set; } = string.Empty;
 
         [ObservableProperty]
@@ -35,10 +27,6 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string DownloadUrl { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Winget package id (e.g. "Git.Git"). When set, install runs
-        /// `winget install --exact --silent` instead of the URL download flow.
-        /// </summary>
         [ObservableProperty]
         public partial string WingetId { get; set; } = string.Empty;
 
@@ -51,10 +39,6 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string InstalledCheckPath { get; set; } = string.Empty;
 
-        /// <summary>
-        /// For portable tools (zip downloads with no installer): directory the payload is
-        /// extracted into under %PROGRAMDATA%. Empty for regular installers.
-        /// </summary>
         [ObservableProperty]
         public partial string ToolInstallDir { get; set; } = string.Empty;
 
@@ -74,7 +58,6 @@ namespace kaliteConfig.Models
         [NotifyPropertyChangedFor(nameof(StatusText))]
         public partial BrowserInstallStatus Status { get; set; } = BrowserInstallStatus.NotInstalled;
 
-        /// <summary>True once an installed entry is proven older than LatestVersion.</summary>
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         public partial bool UpdateAvailable { get; set; } = false;
@@ -82,7 +65,6 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string InstalledVersion { get; set; } = string.Empty;
 
-        /// <summary>Newest version the catalog knows of; empty means "cannot tell", so no update is ever claimed.</summary>
         [ObservableProperty]
         public partial string LatestVersion { get; set; } = string.Empty;
 
@@ -108,19 +90,10 @@ namespace kaliteConfig.Models
         public ObservableCollection<ExtensionItem> Extensions { get; set; } = new();
     }
 
-    /// <summary>
-    /// How the Apps page lays out its installable entries.
-    ///
-    /// Card is the original big-icon grid. Compact is a small-icon list - many
-    /// more apps visible at once, which is what you want when hunting for one
-    /// specific app.
-    /// </summary>
     public enum AppViewMode
     {
-        /// <summary>Big icon tiles in a uniform grid (the default).</summary>
         Card,
 
-        /// <summary>Single-line rows: 24px icon, name, status on the right.</summary>
         Compact,
     }
 

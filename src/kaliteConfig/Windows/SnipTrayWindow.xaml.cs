@@ -65,7 +65,6 @@ public sealed partial class SnipTrayWindow : Window
             presenter.IsMinimizable = false;
         }
 
-        // Apply raw Win32 for NoActivate & ToolWindow so it doesn't steal focus or show in taskbar
         int exstyle = GetWindowLong(hWnd, GWL_EXSTYLE);
         SetWindowLong(hWnd, GWL_EXSTYLE, exstyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
         
@@ -150,7 +149,6 @@ public sealed partial class SnipTrayWindow : Window
         
         try
         {
-            // Fallback for Discord/Paint
             var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
             var encoderTask = BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream).AsTask();
             encoderTask.Wait();
@@ -184,11 +182,10 @@ public sealed partial class SnipTrayWindow : Window
         
         if (state == SnipTrayLogic.GestureState.Dragging)
         {
-            // Initiate OLE Drag
             try
             {
                 var uiElement = (UIElement)sender;
-                uiElement.ReleasePointerCapture(e.Pointer); // Must release capture before standard WinUI OLE Drag
+                uiElement.ReleasePointerCapture(e.Pointer);
 
                 var result = await uiElement.StartDragAsync(e.GetCurrentPoint(uiElement));
                 
@@ -224,11 +221,10 @@ public sealed partial class SnipTrayWindow : Window
 
         if (finalState == SnipTrayLogic.GestureState.Swiping)
         {
-            this.Close(); // Swipe to dismiss
+            this.Close();
         }
         else if (finalState == SnipTrayLogic.GestureState.None)
         {
-            // Tap! Open Editor
             var app = (App)Application.Current;
             if (_file != null)
             {
@@ -242,7 +238,7 @@ public sealed partial class SnipTrayWindow : Window
         }
         else
         {
-            _timer.Start(); // Resume timer
+            _timer.Start();
         }
     }
 

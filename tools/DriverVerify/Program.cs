@@ -4,11 +4,6 @@ using kaliteConfig.Services;
 
 namespace DriverVerify
 {
-    /// <summary>
-    /// Offline checks for the driver-store list: pnputil output parsing
-    /// (both Driver Version shapes, missing separators, junk lines) and the
-    /// delete guards. Live pnputil is never invoked destructively here.
-    /// </summary>
     internal static class Program
     {
         private static int _failures;
@@ -53,22 +48,18 @@ Signer Name :        Microsoft Windows Hardware Compatibility Publisher
             Check(items[1].SignerName.Contains("Microsoft Windows Hardware Compatibility"),
                 "signer captured");
 
-            // Missing blank separator between blocks.
             var glued = sample.Replace("Signer Name :        Microsoft Windows Hardware Compatibility Publisher\n\nPublished Name", "Signer Name :        X\nPublished Name");
             var gluedItems = DriverStoreService.ParseEnumOutput(glued);
             Check(gluedItems.Count == 2, $"blocks split without blank line (got {gluedItems.Count})");
 
-            // Incomplete block (no published name) is dropped, junk ignored.
             var messy = "Microsoft PnP Utility\nProcessing...\n\nOriginal Name : orphan.inf\nProvider Name : Ghost\n\n" + sample;
             var messyItems = DriverStoreService.ParseEnumOutput(messy);
             Check(messyItems.Count == 2, $"orphan block dropped, headers ignored (got {messyItems.Count})");
 
-            // Empty/null input.
             Check(DriverStoreService.ParseEnumOutput("").Count == 0, "empty output parses to nothing");
             Check(DriverStoreService.ParseEnumOutput("garbage without colons\nmore garbage").Count == 0,
                 "junk without keys parses to nothing");
 
-            // Friendly names for regular users (no icon soup, no INF soup).
             var nv = new DriverPackageItem { Provider = "NVIDIA", ClassName = "Display adapters", OriginalName = "nv_dispi.inf", PublishedName = "oem30.inf" };
             Check(nv.FriendlyKind == "NVIDIA display driver", $"friendly kind (got '{nv.FriendlyKind}')");
             Check(nv.Subtitle == "NVIDIA · nv_dispi.inf · oem30.inf", $"subtitle (got '{nv.Subtitle}')");
@@ -84,13 +75,11 @@ Signer Name :        Microsoft Windows Hardware Compatibility Publisher
             var anon = new DriverPackageItem { Provider = "", ClassName = "System", OriginalName = "s.inf", PublishedName = "oem1.inf" };
             Check(anon.FriendlyKind == "System driver", $"empty provider capitalized (got '{anon.FriendlyKind}')");
 
-            // Version splitter edges.
             DriverStoreService.SplitDriverVersion(null, out string d0, out string v0);
             Check(d0 == "" && v0 == "", "null version splits empty");
             DriverStoreService.SplitDriverVersion("32.0.15.6616", out string d1, out string v1);
             Check(d1 == "" && v1 == "32.0.15.6616", "bare version stays whole");
 
-            // Delete guards refuse without ever spawning pnputil.
             var svc = new DriverStoreService();
             string? r1 = svc.DeletePackageAsync(new DriverPackageItem { PublishedName = "" }).GetAwaiter().GetResult();
             Check(r1 is not null && r1.Contains("Refusing"), "empty published name refused");

@@ -17,7 +17,6 @@ using Windows.Media.Playback;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Which cue fires on a state-machine transition.</summary>
 public enum CueKind
 {
     Tick,
@@ -28,7 +27,6 @@ public enum CueKind
     Failed,
 }
 
-/// <summary>Beeps = synth WAVs; Voice = spoken started/stopped + beeps for the rest; Off = silent.</summary>
 public enum CueMode
 {
     Beeps,
@@ -36,11 +34,6 @@ public enum CueMode
     Off,
 }
 
-/// <summary>
-/// Preloaded MediaPlayer cues from pre-rendered WAVs in Assets/Sounds
-/// (no live TTS). Voice files are optional: when absent, Voice mode falls
-/// back to the beep equivalents. Settings persist as JSON in LocalAppData.
-/// </summary>
 public sealed class CueService
 {
     private static readonly Lazy<CueService> _lazy = new(() => new CueService());
@@ -127,7 +120,6 @@ public sealed class CueService
     public static string SoundDir =>
         Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds");
 
-    /// <summary>True when user-supplied voice_started/stopped files are present (WAV or MP3).</summary>
     public static bool VoiceAvailable =>
         VoiceFilePresent("voice_started") && VoiceFilePresent("voice_stopped");
 
@@ -141,7 +133,6 @@ public sealed class CueService
         lock (_gate) mode = _mode;
         if (mode == CueMode.Voice && kind is CueKind.Started or CueKind.Stopped or CueKind.Failed or CueKind.Saved)
         {
-            // WAV preferred, MP3 drop-ins accepted (MediaPlayer decodes both).
             string stem = kind switch
             {
                 CueKind.Started => "voice_started",
@@ -157,12 +148,6 @@ public sealed class CueService
         return Path.Combine(SoundDir, BeepFiles[kind]);
     }
 
-    /// <summary>
-    /// Best-effort: never throws, never blocks the caller. A Position reset
-    /// on an unopened player throws, so it lives in its own try/catch and can
-    /// never swallow the Play() call (that was silencing first plays).
-    /// A failed source falls back to the beep equivalent once.
-    /// </summary>
     public void Play(CueKind kind)
     {
         CueMode mode;

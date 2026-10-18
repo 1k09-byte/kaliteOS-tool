@@ -18,7 +18,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>JSON bundle CRUD under %LOCALAPPDATA%\kaliteConfig\bundles.</summary>
 public sealed class PackageBundleService
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
@@ -43,7 +42,7 @@ public sealed class PackageBundleService
                 if (bundle != null && !string.IsNullOrWhiteSpace(bundle.Name))
                     list.Add(bundle);
             }
-            catch { /* a corrupt bundle file must not break the page */ }
+            catch {  }
         }
         return list.OrderBy(b => b.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
@@ -69,8 +68,6 @@ public sealed class PackageBundleService
         catch { }
     }
 
-    /// <summary>Writes the built-in Essentials bundle once. A marker file records
-    /// that seeding happened, so deleting Essentials is permanent.</summary>
     public bool SeedEssentials()
     {
         try
@@ -105,10 +102,6 @@ public sealed class PackageBundleService
         catch { return null; }
     }
 
-    /// <summary>
-    /// Bundle items not currently installed (matched by id+source, case-insensitive).
-    /// Pure logic - unit-tested.
-    /// </summary>
     public static IReadOnlyList<BundleItem> DiffMissing(
         PackageBundle bundle, IEnumerable<PackageInfo> installed)
     {
@@ -122,7 +115,6 @@ public sealed class PackageBundleService
     }
 }
 
-/// <summary>CSV export for package lists (updates view). Pure string building.</summary>
 public static class PackageCsvExporter
 {
     public static string Build(IEnumerable<PackageInfo> packages)

@@ -14,9 +14,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services;
 
-// DWM window rectangles for click-to-select-window. Used ONLY when a press is
-// released without a drag (under the click threshold): there is deliberately
-// no hover highlight and no pre-made box.
 public static class SnipWindowSnap
 {
     public readonly struct ScreenRect
@@ -42,8 +39,6 @@ public static class SnipWindowSnap
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
 
-    /// <summary>Topmost-first window rects in screen pixels, excluding ourselves,
-    /// invisible/minimized/tool windows and empty rects.</summary>
     public static List<ScreenRect> GetWindowRects(IntPtr excludeHwnd)
     {
         var list = new List<ScreenRect>();

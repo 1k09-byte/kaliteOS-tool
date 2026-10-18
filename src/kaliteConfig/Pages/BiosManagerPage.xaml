@@ -9,7 +9,6 @@
     Background="Transparent">
 
     <Page.Resources>
-        <!-- Row for the pre-export review dialog: Name → Old → New -->
         <DataTemplate x:Key="ChangeSummaryTemplate" x:DataType="vm:ChangeSummary">
             <Grid Padding="4,6" ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
@@ -37,7 +36,6 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Page header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="12,4,12,4" VerticalAlignment="Center">
             <FontIcon Glyph="&#xE950;" FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center" />
             <TextBlock Text="BIOS Manager" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" />
@@ -47,7 +45,6 @@
             </Border>
         </StackPanel>
 
-        <!-- Sticky action bar: load/export/revert always visible -->
         <CommandBar Grid.Row="1" DefaultLabelPosition="Right" Background="Transparent" Margin="0,0,0,4">
             <CommandBar.PrimaryCommands>
                 <AppBarButton Icon="Save" Label="Apply to BIOS" Click="ApplyToBios_Click" IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
@@ -82,7 +79,6 @@
                 IsClosable="True" />
         </StackPanel>
 
-        <!-- Search pinned above the list, always visible without scrolling -->
         <AutoSuggestBox
             Grid.Row="3"
             x:Name="SearchBox"
@@ -92,7 +88,6 @@
             IsEnabled="{x:Bind ViewModel.HasDocument, Mode=OneWay}"
             Margin="12,0,12,8" />
 
-        <!-- Three panes: menu tree | settings list | detail/editor -->
         <Grid Grid.Row="4" x:Name="PaneRoot">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
@@ -100,9 +95,6 @@
                 <ColumnDefinition x:Name="DetailColumn" Width="340" />
             </Grid.ColumnDefinitions>
 
-            <!-- Category nav: WinUI Settings-style list (rounded selection,
-                 name + count), fed by keyword buckets (CPU, PCIe, Security…).
-                 Replaces the old ListBox+TreeView hybrid. -->
             <Border
                 Grid.Column="0"
                 BorderThickness="0,0,1,0"
@@ -170,7 +162,6 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <!-- Left accent stripe on modified rows only -->
                             <Border
                                 Grid.Column="0"
                                 Width="3"
@@ -182,7 +173,6 @@
                                 <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{x:Bind TokenLineText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             </StackPanel>
-                            <!-- Current value; click opens a quick editor when the detail pane is collapsed -->
                             <Button
                                 Grid.Column="2"
                                 VerticalAlignment="Center"
@@ -202,7 +192,6 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- Detail / edit pane -->
             <Border
                 Grid.Column="2"
                 x:Name="DetailPane"
@@ -220,9 +209,6 @@
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 TextWrapping="Wrap" />
 
-                            <!-- Raw register data (token/offset/width) is BIOS-junk for most people, so it
-                                 is collapsed by default. Still reachable - it is the only way
-                                 to hand-verify an offset before exporting. -->
                             <Expander x:Name="MetaExpander" Margin="0,6,0,0">
                                 <Expander.Header>
                                     <TextBlock Text="Technical details" Style="{StaticResource CaptionTextBlockStyle}"
@@ -250,11 +236,7 @@
                                 </Grid>
                             </Expander>
 
-                            <!-- The editor gets the most visual weight -->
                             <TextBlock Text="Value" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0" />
-                            <!-- Selection is written back from code-behind: a TwoWay
-                                 SelectedValue binding can fire before ItemsSource is
-                                 ready and write an empty value over the real one. -->
                             <ComboBox
                                 x:Name="ValueCombo"
                                 ItemsSource="{x:Bind ViewModel.SelectedRow.Options, Mode=OneWay}"
@@ -289,7 +271,6 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- 0-results empty state (search with no matches) -->
             <Border
                 Grid.Column="1"
                 Background="Transparent"
@@ -301,7 +282,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Loading overlay -->
             <Grid
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
@@ -313,7 +293,6 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Empty state overlay -->
             <Grid
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
@@ -334,11 +313,6 @@
 
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroup x:Name="Adaptive">
-                    <!-- Below 1000px the detail pane collapses; the value pill's
-                         tap action opens a quick-edit dialog instead. A state
-                         with no trigger is NEVER applied by WinUI, so Narrow
-                         gets an always-true MinWindowWidth=0 trigger and sits
-                         AFTER Wide (later active states win). -->
                     <VisualState x:Name="Wide">
                         <VisualState.StateTriggers>
                             <AdaptiveTrigger MinWindowWidth="1000" />
@@ -357,7 +331,6 @@
             </VisualStateManager.VisualStateGroups>
         </Grid>
 
-        <!-- Status footer -->
         <Border
             Grid.Row="5"
             BorderThickness="0,1,0,0"

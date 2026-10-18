@@ -26,8 +26,7 @@ namespace kaliteConfig.Pages
         {
             this.InitializeComponent();
             this.Loaded += (_, _) => { LoadKernelToggles(); LoadSvcSplit(); };
-            
-            // Host the Reserved CPU Sets panel here.
+
             this.ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
         }
 
@@ -69,11 +68,11 @@ namespace kaliteConfig.Pages
             try
             {
                 _kernel.Write(def, toggle.IsOn);
-                LoadKernelToggles(); // re-read to confirm the write landed
+                LoadKernelToggles();
             }
             catch (Exception ex)
             {
-                LoadKernelToggles(); // snap back
+                LoadKernelToggles();
                 var card = id switch
                 {
                     "TimerExpiration" => TimerExpCard,
@@ -84,14 +83,11 @@ namespace kaliteConfig.Pages
             }
         }
 
-        /// <summary>Right-click context menu on a kernel toggle: restore the
-        /// value that was present before the app first wrote it (exactly -
-        /// including removing it again if Windows didn't have it set).</summary>
         private void KernelToggle_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
         {
             if (sender is not FrameworkElement fe || fe.Tag is not string id) return;
             var def = Services.WindowsSettingsService.Find(id);
-            if (def == null || !_kernel.HasBackup(def)) return; // never written by the app
+            if (def == null || !_kernel.HasBackup(def)) return;
 
             var menu = new MenuFlyout();
             var restore = new MenuFlyoutItem { Text = "Restore original value" };
@@ -127,7 +123,6 @@ namespace kaliteConfig.Pages
                 }
                 if (current == null)
                 {
-                    // Absent value = Windows default; select the (default) row.
                     selected = 0;
                     SvcSplitCard.Description = "Not set - Windows default (380000 KB). Takes effect after a restart.";
                 }
@@ -150,26 +145,23 @@ namespace kaliteConfig.Pages
         private void SvcSplitBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_loadingSvcSplit || SvcSplitBox.SelectedIndex < 0) return;
-            if (SvcSplitBox.SelectedIndex >= Services.WindowsSettingsService.SvcSplitPresets.Length) return; // custom row
+            if (SvcSplitBox.SelectedIndex >= Services.WindowsSettingsService.SvcSplitPresets.Length) return;
             var (value, _) = Services.WindowsSettingsService.SvcSplitPresets[SvcSplitBox.SelectedIndex];
             try
             {
                 if (value == 380000u)
                 {
-                    // The (default) row deletes the value rather than writing
-                    // 380000, so Windows falls back to its built-in behavior
-                    // even if the default constant ever changes.
                     _kernel.ResetSvcSplit();
                 }
                 else
                 {
                     _kernel.WriteSvcSplit(value);
                 }
-                LoadSvcSplit(); // confirm the write landed
+                LoadSvcSplit();
             }
             catch (Exception ex)
             {
-                LoadSvcSplit(); // snap back
+                LoadSvcSplit();
                 SvcSplitCard.Description += $" Write denied: {ex.Message}";
             }
         }

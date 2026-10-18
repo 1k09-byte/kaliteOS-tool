@@ -31,8 +31,6 @@
 
                 <oc:OverclockSection x:Name="OverclockPanel" />
 
-                <!-- AMD adapters and what their driver says they support. Collapses
-                     itself when there is no AMD driver on the machine. -->
                 <oc:AmdGpuSection x:Name="AmdPanel" Margin="0,12,0,0" />
             </StackPanel>
         </ScrollViewer>

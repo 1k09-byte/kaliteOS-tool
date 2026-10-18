@@ -30,7 +30,6 @@
             <Setter Property="Padding" Value="20"/>
         </Style>
 
-        <!-- Layout-only ItemContainerStyle: stock selection, pointer-over and focus visuals are kept -->
         <Style x:Key="SnipCardContainerStyle" TargetType="GridViewItem">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0"/>
@@ -45,7 +44,6 @@
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
         </Style>
 
-        <!-- Slide-in toast (3 s): bottom-right card for capture/save/import/copy notes -->
         <Storyboard x:Name="ToastIn">
             <DoubleAnimation Storyboard.TargetName="ToastShift" Storyboard.TargetProperty="Y"
                              From="24" To="0" Duration="0:0:0.25">
@@ -109,7 +107,6 @@
             <Grid Padding="4">
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <Grid>
-                        <!-- Capture Home -->
                         <Grid x:Name="ViewCapture" Visibility="Visible" Style="{StaticResource KaliteEntranceGrid}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -162,7 +159,6 @@
                                                       <RowDefinition Height="Auto"/>
                                                   </Grid.RowDefinitions>
                                                   <Grid Grid.Row="0">
-                                                      <!-- Skeleton: exact final size, so nothing shifts when pixels arrive -->
                                                       <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" Visibility="{x:Bind Card.SkeletonVisibility, Mode=OneWay}">
                                                           <Border x:Name="RecentSkeletonHighlight" Opacity="0.35">
                                                               <Border.Background>
@@ -178,7 +174,6 @@
                                                              Width="{x:Bind Card.ImageWidth, Mode=OneWay}" Height="{x:Bind Card.ImageHeight, Mode=OneWay}"
                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
                                                              Visibility="{x:Bind Card.ImageVisibility, Mode=OneWay}"/>
-                                                      <!-- Failure / missing file: icon, short reason, action -->
                                                       <StackPanel Spacing="6" Padding="10" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                   Visibility="{x:Bind Card.ErrorVisibility, Mode=OneWay}">
                                                           <FontIcon Glyph="&#xE783;" FontSize="20" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -188,7 +183,6 @@
                                                           <Button Content="Retry" Click="CardRetry_Click" Visibility="{x:Bind Card.RetryVisibility, Mode=OneWay}"/>
                                                           <Button Content="Remove from gallery" Click="CardRemoveMissing_Click" Visibility="{x:Bind Card.RemoveMissingVisibility, Mode=OneWay}"/>
                                                       </StackPanel>
-                                                      <!-- Protected/DRM captures are legitimately flat: warn, never hide -->
                                                       <Border Visibility="{x:Bind Card.BlankBadgeVisibility, Mode=OneWay}" Background="#CC3A3A00" CornerRadius="10"
                                                               Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6"
                                                               ToolTipService.ToolTip="Every pixel is identical. Protected or DRM content can legitimately capture as a flat frame.">
@@ -217,7 +211,6 @@
                                 </ListView.ItemTemplate>
                             </ListView>
 
-                            <!-- Quick tools + drop zone + stats -->
                             <TextBlock Grid.Row="6" Text="Quick tools" Style="{StaticResource KaliteSectionTitle}" Margin="0,16,0,12"/>
                             <StackPanel Grid.Row="7" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
                                 <Button Content="Open image" Click="QuickOpenImage_Click"/>
@@ -231,8 +224,7 @@
                             </Border>
                             <TextBlock Grid.Row="9" Text="{x:Bind ViewModel.StorageText, Mode=OneWay}" Margin="0,12,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}"/>
                         </Grid>
-                        
-                        <!-- Gallery View -->
+
                         <Grid x:Name="ViewGallery" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <Grid.RowDefinitions>
                                  <RowDefinition Height="Auto"/>
@@ -384,9 +376,7 @@
                                                              <RowDefinition Height="*"/>
                                                              <RowDefinition Height="36"/>
                                                          </Grid.RowDefinitions>
-                                                         <!-- SINGLE ITEM VIEW -->
                                                          <Grid Grid.Row="0">
-                                                             <!-- Skeleton at the exact final size: no layout shift on load -->
                                                              <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" Visibility="{x:Bind Card.SkeletonVisibility, Mode=OneWay}">
                                                                  <Border x:Name="GallerySkeletonHighlight" Opacity="0.35">
                                                                      <Border.Background>
@@ -402,7 +392,6 @@
                                                                     Width="{x:Bind Card.ImageWidth, Mode=OneWay}" Height="{x:Bind Card.ImageHeight, Mode=OneWay}"
                                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                     Visibility="{x:Bind Card.ImageVisibility, Mode=OneWay}"/>
-                                                             <!-- Failed / missing file state -->
                                                              <StackPanel Spacing="6" Padding="10" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                          Visibility="{x:Bind Card.ErrorVisibility, Mode=OneWay}">
                                                                  <FontIcon Glyph="&#xE783;" FontSize="20" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -412,27 +401,16 @@
                                                                  <Button Content="Retry" Click="CardRetry_Click" Visibility="{x:Bind Card.RetryVisibility, Mode=OneWay}"/>
                                                                  <Button Content="Remove from gallery" Click="CardRemoveMissing_Click" Visibility="{x:Bind Card.RemoveMissingVisibility, Mode=OneWay}"/>
                                                              </StackPanel>
-                                                             <!-- Blank-frame warning badge -->
                                                              <Border Visibility="{x:Bind Card.BlankBadgeVisibility, Mode=OneWay}" Background="#CC3A3A00" CornerRadius="10"
                                                                      Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4"
                                                                      ToolTipService.ToolTip="Every pixel is identical. Protected or DRM content can legitimately capture as a flat frame.">
                                                                  <FontIcon Glyph="&#xE7BA;" FontSize="11" Foreground="#FFFFD24D"/>
                                                              </Border>
-                                                             <!-- Favourite toggle, ON the thumbnail (top-left).
-                                                                  It used to live in the footer overlay below the
-                                                                  image, which put it against the file name and made
-                                                                  it read as part of the caption instead of a per-snip
-                                                                  action. Last child of the thumbnail grid so it paints
-                                                                  above the image and the blank-frame badge, and
-                                                                  top-left so it never collides with that badge on the
-                                                                  right. -->
                                                              <Button Margin="4" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{x:Bind ToggleFavoriteCommand}" Visibility="{x:Bind StarVisibility, Mode=OneWay}">
                                                                  <FontIcon Glyph="{x:Bind FavoriteGlyph}" FontSize="14" Foreground="{x:Bind StarBrush, Mode=OneWay}"/>
                                                              </Button>
                                                          </Grid>
 
-
-                                                         <!-- Common Footer Overlay (gradients, name, selection badge) -->
                                                          <Grid Grid.Row="1">
                                                              <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
                                                              <Border>
@@ -529,9 +507,6 @@
                                              <TextBlock Text="Select a snip to see its details." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                                                         Visibility="{x:Bind ViewModel.DetailsEmptyVisibility, Mode=OneWay}"/>
                                              <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.DetailsContentVisibility, Mode=OneWay}">
-                                                 <!-- The large preview: same Win2D pipeline as the full viewer, so the
-                                                      panel and the viewer can never disagree about a snip. Double-tap to
-                                                      detach it into the viewer window. -->
                                                  <Border Height="220" CornerRadius="8" BorderThickness="1"
                                                          BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                                          Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
@@ -574,13 +549,6 @@
                                                      <TextBlock Grid.Row="5" Text="Tags" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                      <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.SelectedGalleryItem.TagsText, Mode=OneWay}" TextWrapping="Wrap"/>
                                                  </Grid>
-                                                <!-- Icon + label: the glyph lives in a FontIcon, never in Button.Content
-                                                     with the icon font applied to the whole string (that turned the
-                                                     labels into tofu boxes). -->
-                                                <!-- The action row must never clip its last button: in a narrow
-                                                     details pane the horizontal StackPanel overflowed the pane edge
-                                                     and the box was cut off with no way to reach it. Same treatment
-                                                     as the installer dialog's log: keep the layout, make it scroll. -->
                                                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                                               VerticalScrollBarVisibility="Disabled">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -632,8 +600,7 @@
                                  </Border>
                              </Grid>
                         </Grid>
-                        
-                        <!-- Stickers View -->
+
                         <Grid x:Name="ViewStickers" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <StackPanel Spacing="16">
                                  <TextBlock Text="Stickers" Style="{StaticResource KalitePageTitle}" />
@@ -670,7 +637,6 @@
                              </StackPanel>
                         </Grid>
 
-                        <!-- Bin View -->
                         <Grid x:Name="ViewBin" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <StackPanel Spacing="16">
                                  <TextBlock Text="Bin" Style="{StaticResource KalitePageTitle}" />
@@ -709,7 +675,6 @@
                              </StackPanel>
                         </Grid>
 
-                        <!-- Tools View -->
                         <Grid x:Name="ViewTools" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                              <StackPanel Spacing="16">
                                  <TextBlock Text="Tools" Style="{StaticResource KalitePageTitle}" />
@@ -718,7 +683,6 @@
                              </StackPanel>
                         </Grid>
 
-                        <!-- Settings View -->
                         <Grid x:Name="ViewSettings" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
                             <StackPanel Spacing="16" MaxWidth="800" HorizontalAlignment="Left">
                                 <TextBlock Text="Snip Configuration" Style="{StaticResource KalitePageTitle}" />
@@ -830,12 +794,10 @@
             </Border>
         </NavigationView>
 
-        <!-- Bottom Status Bar -->
         <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Margin="20,0,20,8" Padding="12,6">
              <StackPanel Orientation="Horizontal" Spacing="16">
                  <TextBlock Text="{x:Bind ViewModel.StatusBarRegistrationText, Mode=OneWay}" Foreground="{x:Bind ViewModel.StatusBarHotkeyBrush, Mode=OneWay}" VerticalAlignment="Center"
                             ToolTipService.ToolTip="{x:Bind ViewModel.StatusBarHotkeyTooltip, Mode=OneWay}"/>
-                 <!-- BUTTON-REVIEW: was a TextBlock with Tapped (navigates to Settings). Now a stock HyperlinkButton; Padding reset so it sits on the status line. -->
                  <HyperlinkButton Content="{x:Bind ViewModel.StatusBarHijackText, Mode=OneWay}" Foreground="{x:Bind ViewModel.StatusBarPrtScnBrush, Mode=OneWay}" VerticalAlignment="Center" Padding="0"
                                  ToolTipService.ToolTip="{x:Bind ViewModel.StatusBarPrtScnTooltip, Mode=OneWay}" Click="StatusBarPrtScn_Click"/>
                  <Border Background="#33C4A483" CornerRadius="4" Padding="8,2" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.ElevationBadgeVisibility, Mode=OneWay}"
@@ -846,8 +808,6 @@
              </StackPanel>
         </Border>
 
-        <!-- Slide-in toast card: bottom-right, 3 s, optional (see Settings) -->
-        <!-- BUTTON-REVIEW: was a Border with Tapped (tap to dismiss). Now a stock Button so keyboard, focus and pointer handling are standard. -->
         <Button x:Name="ToastCard" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom" HorizontalContentAlignment="Stretch"
                 Margin="0,0,24,84" MaxWidth="360" Visibility="Collapsed" Canvas.ZIndex="10"
                 Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"

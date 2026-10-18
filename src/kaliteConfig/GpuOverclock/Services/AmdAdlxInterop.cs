@@ -14,7 +14,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>What ADLX reports about one AMD GPU's tuning abilities.</summary>
     public sealed record AmdGpuTuningSupport(
         string Name,
         string PnpString,
@@ -25,40 +24,14 @@ namespace kaliteConfig.GpuOverclock.Services
         bool ManualFan,
         bool ManualPower)
     {
-        /// <summary>True when the card exposes at least one control we can drive.</summary>
         public bool AnyControlSupported => ManualGfx || ManualVram || ManualFan || ManualPower;
     }
 
-    /// <summary>
-    /// Managed binding to ADLX, AMD's device library.
-    ///
-    /// The important part is what this does NOT need. ADLX is not a library you
-    /// build or ship: the AMD display driver installs it into System32 as
-    /// amdadlx64.dll, exporting seven plain C entry points. Every other ADLX call
-    /// goes through an interface that is just
-    ///
-    ///     struct IADLXSystem { const IADLXSystemVtbl* pVtbl; };
-    ///
-    /// with methods at fixed offsets in that vtable. So this is ordinary managed
-    /// P/Invoke - no native shim to compile, no C++ toolchain in the build, and
-    /// nothing of AMD's redistributed in our installer. On a machine with no AMD
-    /// driver the DLL simply is not there and every entry point here degrades to
-    /// "not available".
-    ///
-    /// Vtable indices below are copied from the AMD headers in
-    /// https://github.com/GPUOpen-LibrariesAndSDKs/ADLX (SDK/Include) and were
-    /// verified live against a real driver: an index off by one silently returns
-    /// a plausible-looking wrong value rather than crashing, so they are pinned
-    /// here in one place and nowhere else.
-    /// </summary>
     internal static partial class AmdAdlxInterop
     {
         private const string Dll = "amdadlx64.dll";
 
-        /// <summary>ADLX_MAKE_FULL_VER(2, 0, 0, 125) - matches the headers' v2.0.</summary>
         private const ulong RequestedVersion = (2UL << 48) | (0UL << 32) | (0UL << 16) | 125UL;
-
-        // ---- entry points -----------------------------------------------------
 
         [DllImport(Dll, EntryPoint = "ADLXInitialize", CallingConvention = CallingConvention.Cdecl)]
         private static extern int AdlxInitialize(ulong version, out IntPtr ppSystem);
@@ -66,38 +39,25 @@ namespace kaliteConfig.GpuOverclock.Services
         [DllImport(Dll, EntryPoint = "ADLXTerminate", CallingConvention = CallingConvention.Cdecl)]
         private static extern int AdlxTerminate();
 
-        // Signature per ADLX.h: ADLX_RESULT ADLX_CDECL ADLXQueryVersion(const char** version).
-        // It takes an OUT POINTER and returns a result code. Declaring it as
-        // "returns IntPtr, takes nothing" passes no argument, so the callee
-        // writes 8 bytes of a const char* through whatever happened to be in the
-        // first argument register - silent memory corruption that took the app
-        // down with an uncatchable ExecutionEngineException. Never infer an
-        // export's shape: read the _Fn typedef in ADLX.h.
         [DllImport(Dll, EntryPoint = "ADLXQueryVersion", CallingConvention = CallingConvention.Cdecl)]
         private static extern int AdlxQueryVersion(out IntPtr version);
 
-        // ---- IADLXSystem vtable ------------------------------------------------
         private const int SystemGetGpus = 1;
         private const int SystemGetGpuTuningServices = 8;
 
-        // ---- IADLXGPUList vtable -----------------------------------------------
         private const int ListSize = 3;
         private const int ListAtGpu = 11;
 
-        // ---- IADLXGPU vtable ---------------------------------------------------
         private const int GpuType = 5;
         private const int GpuIsExternal = 6;
         private const int GpuName = 7;
         private const int GpuPnpString = 9;
         private const int GpuTotalVram = 11;
 
-        // ---- IADLXGPUTuningServices vtable -------------------------------------
         private const int TuningIsSupportedManualGfx = 8;
         private const int TuningIsSupportedManualVram = 9;
         private const int TuningIsSupportedManualFan = 10;
         private const int TuningIsSupportedManualPower = 11;
-
-        // ---- delegates ---------------------------------------------------------
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate int GetGpusFn(IntPtr self, out IntPtr ppGpuList);
@@ -126,25 +86,20 @@ namespace kaliteConfig.GpuOverclock.Services
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate int IsSupportedFn(IntPtr self, IntPtr gpu, out byte supported);
 
-        /// <summary>Acquire/Release sit at slots 0 and 1 of every ADLX vtable.</summary>
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate long AcquireFn(IntPtr self);
 
         private const int IfaceAcquire = 0;
 
-        // ---- state -------------------------------------------------------------
-
         private static readonly object Gate = new();
         private static bool _initialized;
         private static IntPtr _system;
 
-        /// <summary>True when the AMD driver on this machine provides ADLX.</summary>
         public static bool IsAvailable
         {
             get { lock (Gate) { EnsureInitialized(); return _initialized; } }
         }
 
-        /// <summary>The version string the driver reports, or null when unavailable.</summary>
         public static string? DriverVersion
         {
             get
@@ -169,7 +124,7 @@ namespace kaliteConfig.GpuOverclock.Services
         private static bool EnsureInitialized()
         {
             if (_initialized) return true;
-            if (_system != IntPtr.Zero) return false; // attempted and failed; do not retry every call
+            if (_system != IntPtr.Zero) return false;
 
             try
             {
@@ -181,25 +136,17 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             catch (DllNotFoundException)
             {
-                // No AMD driver installed. Entirely normal - not an error.
             }
             catch (EntryPointNotFoundException)
             {
-                // An older driver shipped a different build. Also not fatal.
             }
             catch (BadImageFormatException)
             {
-                // 32-bit process against the 64-bit-only amdadlx64.dll. Normal
-                // when the app is built for x86 - not an error to surface.
             }
 
             return _initialized;
         }
 
-        /// <summary>
-        /// Enumerates AMD GPUs and asks the driver which tuning controls each one
-        /// supports. Returns an empty list when ADLX is unavailable.
-        /// </summary>
         public static List<AmdGpuTuningSupport> EnumerateGpusWithSupport()
         {
             var results = new List<AmdGpuTuningSupport>();
@@ -211,12 +158,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return results;
         }
 
-        /// <summary>
-        /// Opens a tuning session on every AMD adapter, including the ones whose
-        /// domains the driver refuses - the controller picks from these, and it
-        /// needs to see the whole list to choose the right card. Each session
-        /// holds a reference the CALLER must dispose.
-        /// </summary>
         public static List<AmdGpuTuningSession> EnumerateTuningSessions()
         {
             var sessions = new List<AmdGpuTuningSession>();
@@ -241,23 +182,16 @@ namespace kaliteConfig.GpuOverclock.Services
                         {
                             AmdGpuTuningSupport support = ReadSupport(gpu, tuning);
 
-                            // Take our own reference so the handle stays valid
-                            // after this call returns. ADLX interfaces are
-                            // reference counted; not doing this and then using
-                            // the pointer is a use-after-free.
                             Fn<AcquireFn>(gpu, IfaceAcquire)(gpu);
                             sessions.Add(new AmdGpuTuningSession(gpu, tuning, support));
                         }
                         catch (Exception)
                         {
-                            // One unreadable adapter must not hide the others.
                         }
                     }
                 }
                 catch (Exception)
                 {
-                    // A malformed vtable read must not take the app down; an
-                    // incomplete list simply means the AMD section shows nothing.
                 }
             }
             return sessions;
@@ -269,14 +203,6 @@ namespace kaliteConfig.GpuOverclock.Services
             string pnp = ReadString(gpu, GpuPnpString);
             Fn<GpuTypeFn>(gpu, GpuType)(gpu, out _);
             Fn<GpuIsExternalFn>(gpu, GpuIsExternal)(gpu, out byte external);
-            // The TotalVRAM call's return code used to be ignored: on APUs and
-            // on cards whose VBIOS hides the counter it fails (or answers 0),
-            // and the overclock page showed "shared memory" for a discrete
-            // card. Worse, a throwing counter skipped the whole adapter below.
-            // Honor the code, contain the throw, and fall back to the
-            // display-class registry's qwMemorySize - the same QWORD source the
-            // drivers page reads - matched by PNP id. Overclock-side only; the
-            // drivers page is deliberately untouched.
             uint vramMb = 0;
             try
             {
@@ -307,13 +233,6 @@ namespace kaliteConfig.GpuOverclock.Services
         private const string DisplayClassKey =
             @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
 
-        /// <summary>
-        /// Registry fallback for total VRAM (MB) when ADLX answers 0 or fails.
-        /// Reads the adapter's HardwareInformation.qwMemorySize QWORD (bytes),
-        /// which stays correct past 4 GB where WMI AdapterRAM wraps. Matched by
-        /// PNP id prefix, same trick as the drivers page (whose code path this
-        /// does not touch).
-        /// </summary>
         private static uint ReadRegistryVramMb(string pnpId)
         {
             try
@@ -348,11 +267,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return 0;
         }
 
-        /// <summary>
-        /// PNP-id prefix comparison (both directions) with a ven_/dev_ core
-        /// fallback, so casing and separator differences between boards and
-        /// Windows sessions do not break the match.
-        /// </summary>
         private static bool MatchesPnpId(string matching, string pnpId)
         {
             if (string.IsNullOrEmpty(matching) || string.IsNullOrEmpty(pnpId)) return false;
@@ -381,7 +295,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>Releases ADLX. Safe to call when it was never initialized.</summary>
         public static void Shutdown()
         {
             lock (Gate)
@@ -393,7 +306,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>Reads a method pointer out of an ADLX interface's vtable.</summary>
         internal static T Fn<T>(IntPtr iface, int index) where T : Delegate
         {
             if (iface == IntPtr.Zero)
@@ -407,13 +319,6 @@ namespace kaliteConfig.GpuOverclock.Services
             if (slot == IntPtr.Zero)
                 throw new EntryPointNotFoundException($"ADLX vtable slot {index} is null.");
 
-            // A slot that is non-null but does not point into amdadlx64.dll is not
-            // a function at all - it is a mis-indexed read (driver built against
-            // a different vtable layout) or corrupted memory. Calling through it
-            // is an immediate, *uncatchable* process kill (a bad call target is
-            // not an exception the CLR can convert), so refuse it here and let
-            // the caller's try/catch turn it into "no AMD controls". Validating
-            // the target is the only defence: there is no SEH to catch.
             if (!PointsIntoAdlx(slot))
                 throw new EntryPointNotFoundException(
                     $"ADLX vtable slot {index} points outside {Dll} - refusing to call it.");
@@ -424,17 +329,8 @@ namespace kaliteConfig.GpuOverclock.Services
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern IntPtr GetModuleHandleW(string? lpModuleName);
 
-        /// <summary>Image bounds of amdadlx64.dll, or null when unmeasurable.</summary>
         private static (IntPtr Start, IntPtr End)? _adlxImage;
 
-        /// <summary>
-        /// True when <paramref name="p"/> falls inside the loaded amdadlx64.dll
-        /// image. The bounds come from the PE headers already mapped in memory
-        /// (Base + SizeOfImage), so this needs no extra API surface and no handle.
-        /// If the module cannot be measured, returns true: refusing everything
-        /// would disable the feature outright. This is a guard against garbage
-        /// call targets, not a security boundary.
-        /// </summary>
         private static bool PointsIntoAdlx(IntPtr p)
         {
             if (p == IntPtr.Zero) return false;
@@ -455,8 +351,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 int lfanew = Marshal.ReadInt32(baseAddr, 0x3C);
                 if (lfanew <= 0 || lfanew > 0x1000) return null;
 
-                // NT headers: signature (4) + file header (20) -> optional header.
-                // SizeOfImage sits at optional-header offset 0x38 (PE32 and PE32+).
                 int sizeOfImage = Marshal.ReadInt32(baseAddr + lfanew + 4 + 20, 0x38);
                 if (sizeOfImage <= 0 || sizeOfImage > 0x40000000) return null;
 
