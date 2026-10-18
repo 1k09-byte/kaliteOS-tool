@@ -67,7 +67,6 @@ namespace kaliteConfig
         public GamingModeService GamingMode => Services.GetRequiredService<GamingModeService>();
         public ForegroundSuspendService ForegroundSuspend => Services.GetRequiredService<ForegroundSuspendService>();
         public ProfileWatcherService ProfileWatcher => Services.GetRequiredService<ProfileWatcherService>();
-        public ViewModels.BenchmarkViewModel Benchmark => Services.GetRequiredService<ViewModels.BenchmarkViewModel>();
         public SnipService Sniper => Services.GetRequiredService<SnipService>();
 
         public App()

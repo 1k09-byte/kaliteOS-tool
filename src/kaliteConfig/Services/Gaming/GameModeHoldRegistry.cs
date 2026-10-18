@@ -19,8 +19,6 @@ public enum GameModeOwner
     UserInterface,
 
     Rule,
-
-    Benchmark,
 }
 
 public sealed record GameModeHold(
