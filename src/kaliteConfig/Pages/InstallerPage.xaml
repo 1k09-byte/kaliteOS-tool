@@ -84,15 +84,8 @@
 
                 <StackPanel x:Name="ActionColumn" Grid.Row="1" Grid.Column="1"
                             Orientation="Horizontal" Spacing="8" Margin="0,8,0,0"
-                            HorizontalAlignment="Stretch">
-                    <Button x:Name="RowAction"
-                        MinWidth="88"
-                        HorizontalAlignment="Stretch"
-                        Click="RowAction_Click"
-                        Tag="{x:Bind}"
-                        Style="{StaticResource AccentButtonStyle}"
-                        Content="{x:Bind local:InstallerPage.RowActionLabel(Status), Mode=OneWay}"
-                        Visibility="{x:Bind local:InstallerPage.RowActionVisibility(Status), Mode=OneWay}" />
+                            HorizontalAlignment="Stretch"
+                            Visibility="{x:Bind local:InstallerPage.BusyVisibility(Status), Mode=OneWay}">
                     <ProgressRing x:Name="RowBusy"
                         Width="20"
                         Height="20"

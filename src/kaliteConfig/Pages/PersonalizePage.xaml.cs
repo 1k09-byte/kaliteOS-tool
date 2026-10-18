@@ -105,9 +105,8 @@ public sealed partial class PersonalizePage : Page
     private void SectionBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
         var tag = (sender.SelectedItem as SelectorBarItem)?.Tag as string;
-        WallpaperSection.Visibility = tag == "wallpaper" ? Visibility.Visible : Visibility.Collapsed;
+        WallpaperSection.Visibility = tag == "cursor" ? Visibility.Collapsed : Visibility.Visible;
         CursorSection.Visibility = tag == "cursor" ? Visibility.Visible : Visibility.Collapsed;
-        LiveSection.Visibility = tag == "live" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void AddWallpaper_Click(object sender, RoutedEventArgs e)

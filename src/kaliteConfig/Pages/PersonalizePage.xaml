@@ -37,7 +37,6 @@
             <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
                 <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
                 <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />
-                <SelectorBarItem x:Name="LiveItem" Text="Live" Tag="live" />
             </SelectorBar>
 
             <Button Content="Revert everything to how it was before this app changed it"
@@ -245,10 +244,11 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel x:Name="LiveSection" Spacing="12" Visibility="Collapsed">
+            <StackPanel x:Name="LiveSection" Spacing="12">
                 <Border Style="{StaticResource PersonalizeCard}" Padding="12">
                     <StackPanel Spacing="8">
-                        <ToggleSwitch Header="Live wallpaper" IsOn="{Binding FeatureEnabled, Mode=TwoWay}"
+                        <TextBlock Text="Live wallpaper" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ToggleSwitch Header="Enable live wallpaper" IsOn="{Binding FeatureEnabled, Mode=TwoWay}"
                                       OnContent="On" OffContent="Off" />
                         <TextBlock Text="Live wallpaper is experimental and stays off until you turn it on."
                                    Style="{StaticResource CaptionTextBlockStyle}"
