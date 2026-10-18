@@ -30,6 +30,11 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="8" />
         </Style>
+        <Style x:Key="StaticLibraryItemStyle" TargetType="GridViewItem">
+            <Setter Property="Margin" Value="0,0,12,12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
     </Page.Resources>
 
     <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
@@ -152,15 +157,22 @@
                                   ItemsSource="{Binding Library}"
                                   SelectedItem="{Binding SelectedWallpaper, Mode=TwoWay}"
                                   SelectionMode="Single"
+                                  ItemContainerStyle="{StaticResource StaticLibraryItemStyle}"
                                   MaxHeight="320"
                                   Visibility="{Binding LibraryEmpty, Converter={StaticResource InvertedBoolToVisibilityConverter}}"
                                   AutomationProperties.Name="Wallpaper library">
                             <GridView.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Spacing="4" Width="180">
-                                        <Image Width="180" Height="101" Stretch="UniformToFill"
-                                               Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
-                                               AutomationProperties.Name="{Binding OriginalName}" />
+                                        <Border Width="180" Height="101" CornerRadius="8"
+                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                            <Border.BackgroundTransition>
+                                                <BrushTransition />
+                                            </Border.BackgroundTransition>
+                                            <Image Width="180" Height="101" Stretch="UniformToFill"
+                                                   Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
+                                                   AutomationProperties.Name="{Binding OriginalName}" />
+                                        </Border>
                                         <TextBlock Text="{Binding OriginalName}"
                                                    Style="{StaticResource CaptionTextBlockStyle}"
                                                    TextTrimming="CharacterEllipsis" />
@@ -354,9 +366,12 @@
                                                 <MenuFlyoutItem Text="Remove" Click="LiveRemove_Click" />
                                             </MenuFlyout>
                                         </StackPanel.ContextFlyout>
-                                        <Image Width="180" Height="101" Stretch="UniformToFill"
-                                               Source="{x:Bind Thumb, Mode=OneTime}"
-                                               AutomationProperties.Name="{x:Bind Name}" />
+                                        <Border Width="180" Height="101" CornerRadius="8"
+                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                            <Image Width="180" Height="101" Stretch="UniformToFill"
+                                                   Source="{x:Bind Thumb, Mode=OneTime}"
+                                                   AutomationProperties.Name="{x:Bind Name}" />
+                                        </Border>
                                         <TextBlock Text="{x:Bind Name}" Style="{StaticResource CaptionTextBlockStyle}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{x:Bind KindText}" Style="{StaticResource CaptionTextBlockStyle}"

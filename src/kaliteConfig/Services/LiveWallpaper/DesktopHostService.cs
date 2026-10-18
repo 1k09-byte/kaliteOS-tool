@@ -96,6 +96,7 @@ public sealed class DesktopHostService : IDesktopHostService
         }
         try
         {
+            DesktopHostNative.ShowWindow(host, DesktopHostNative.SW_HIDE);
             DesktopHostNative.GetWindowRect(parent, out var pr);
             int x = area.X - pr.Left;
             int y = area.Y - pr.Top;
@@ -104,8 +105,9 @@ public sealed class DesktopHostService : IDesktopHostService
                 failReason = "The host window could not be placed behind the desktop icons.";
                 return false;
             }
+            const uint frameChanged = 0x0020;
             DesktopHostNative.SetWindowPos(host, IntPtr.Zero, x, y, area.Width, area.Height,
-                DesktopHostNative.SWP_NOACTIVATE | DesktopHostNative.SWP_SHOWWINDOW);
+                DesktopHostNative.SWP_NOACTIVATE | DesktopHostNative.SWP_SHOWWINDOW | frameChanged);
         }
         catch
         {
