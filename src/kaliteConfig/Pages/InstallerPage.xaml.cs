@@ -25,35 +25,6 @@ namespace kaliteConfig.Pages
         {
             ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.InstallerViewModel>(App.Services) ?? new InstallerViewModel(new Services.InstallerService());
             InitializeComponent();
-
-            ViewModel.LoadViewMode();
-            ApplyViewMode();
-        }
-
-        private void ApplyViewMode()
-        {
-            var mode = ViewModel.ViewMode;
-
-            foreach (var (grid, list) in new (FrameworkElement, FrameworkElement)[]
-            {
-                (BrowserGrid, BrowserList),
-                (LauncherGrid, LauncherList),
-                (SocialGrid, SocialList),
-                (UtilityGrid, UtilityList),
-            })
-            {
-                grid.Visibility = mode == AppViewMode.Card ? Visibility.Visible : Visibility.Collapsed;
-                list.Visibility = mode == AppViewMode.Compact ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            ViewCardBtn.IsChecked = mode == AppViewMode.Card;
-            ViewCompactBtn.IsChecked = mode == AppViewMode.Compact;
-        }
-
-        private void ViewMode_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.ViewMode = ReferenceEquals(sender, ViewCardBtn) ? AppViewMode.Card : AppViewMode.Compact;
-            ApplyViewMode();
         }
 
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
@@ -61,8 +32,6 @@ namespace kaliteConfig.Pages
             bool uninstall = sender.SelectedItem == TabUninstall;
             UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
             InstallPanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
-
-            ViewModePanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private async void BrowserCard_Click(object sender, RoutedEventArgs e)

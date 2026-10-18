@@ -22,63 +22,6 @@
             </Style.Setters>
         </Style>
 
-        <DataTemplate x:Key="InstallerCardTemplate" x:DataType="models:BrowserInstallItem">
-            <Grid Margin="0,0,0,12" RowSpacing="6">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Button
-                    x:Name="CardRoot"
-                    Grid.Row="0"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Top"
-                    Click="BrowserCard_Click"
-                    Tag="{x:Bind}"
-                    Visibility="{x:Bind local:InstallerPage.BoolToVis(IsVisible), Mode=OneWay}">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                        <Grid HorizontalAlignment="Center" Width="48" Height="48">
-                            <Image HorizontalAlignment="Center" Width="48" Height="48"
-                                Source="{x:Bind ImagePath, Converter={StaticResource AssetPathConverter}}" />
-                        </Grid>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind Name}"
-                            TextAlignment="Center"
-                            TextTrimming="CharacterEllipsis" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind StatusText, Mode=OneWay}"
-                            TextAlignment="Center"
-                            Visibility="{x:Bind local:InstallerPage.StatusToActiveVisibility(Status), Mode=OneWay}" />
-                    </StackPanel>
-                </Button>
-
-                <Button
-                    x:Name="RowAction"
-                    Grid.Row="1"
-                    HorizontalAlignment="Center"
-                    Click="RowAction_Click"
-                    Tag="{x:Bind}"
-                    Style="{StaticResource AccentButtonStyle}"
-                    Content="{x:Bind local:InstallerPage.RowActionLabel(Status), Mode=OneWay}"
-                    Visibility="{x:Bind local:InstallerPage.RowActionVisibility(Status), Mode=OneWay}" />
-
-                <ProgressRing
-                    x:Name="RowBusy"
-                    Grid.Row="1"
-                    Width="20"
-                    Height="20"
-                    HorizontalAlignment="Center"
-                    IsActive="True"
-                    Visibility="{x:Bind local:InstallerPage.BusyVisibility(Status), Mode=OneWay}" />
-            </Grid>
-        </DataTemplate>
-
         <DataTemplate x:Key="InstallerCompactTemplate" x:DataType="models:BrowserInstallItem">
             <Grid Margin="0,0,0,6" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -140,21 +83,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="40,28,40,0" ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="Apps" Style="{StaticResource TitleLargeTextBlockStyle}" />
-            <StackPanel x:Name="ViewModePanel" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                <RadioButton x:Name="ViewCardBtn" GroupName="AppViewMode" Content="Cards"
-                             IsChecked="True" Click="ViewMode_Click"
-                             ToolTipService.ToolTip="Big icon tiles" />
-                <RadioButton x:Name="ViewCompactBtn" GroupName="AppViewMode" Content="Compact"
-                             Click="ViewMode_Click"
-                             ToolTipService.ToolTip="Single-line rows, more apps at once" />
-            </StackPanel>
-        </Grid>
+        <TextBlock Grid.Row="0" Margin="40,28,40,0" Text="Apps" Style="{StaticResource TitleLargeTextBlockStyle}" />
 
         <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="36,12,36,8"
                      HorizontalAlignment="Left"
@@ -167,32 +96,17 @@
             <ScrollViewer Padding="40,0,40,28" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
                 <Grid x:Name="CategoryGrid" MaxWidth="1400" Margin="0,8,0,32" RowSpacing="16" ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="CategoryColA" Width="*" />
-                        <ColumnDefinition x:Name="CategoryColB" Width="0" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <VisualStateManager.VisualStateGroups>
-                        <VisualStateGroup x:Name="CategoryLayoutStates">
-                            <VisualState x:Name="NarrowCategoryLayout" />
-                            <VisualState x:Name="WideCategoryLayout">
-                                <VisualState.StateTriggers>
-                                    <AdaptiveTrigger MinWindowWidth="1100" />
-                                </VisualState.StateTriggers>
-                                <VisualState.Setters>
-                                    <Setter Target="CategoryColB.Width" Value="*" />
-                                    <Setter Target="LauncherCard.(Grid.Column)" Value="1" />
-                                    <Setter Target="UtilityCard.(Grid.Column)" Value="1" />
-                                </VisualState.Setters>
-                            </VisualState>
-                        </VisualStateGroup>
-                    </VisualStateManager.VisualStateGroups>
-
-                    <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="12">
+                    <StackPanel Grid.Row="0" Spacing="12">
                         <Border Style="{StaticResource CardBorder}" Padding="12,8">
                             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <ToggleSwitch IsOn="{x:Bind ViewModel.ShowInstalled, Mode=TwoWay}"
@@ -209,94 +123,42 @@
                     </StackPanel>
 
                     <Border x:Name="BrowserCard" Grid.Row="1" Grid.Column="0" VerticalAlignment="Top"
-                            Style="{StaticResource CardBorder}" Padding="16">
+                            Padding="0,4,0,18">
                         <StackPanel Spacing="12">
                             <TextBlock Text="Web Browsers" Style="{StaticResource SubtitleTextBlockStyle}" />
-                            <ItemsRepeater x:Name="BrowserGrid" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
-                                           ItemTemplate="{StaticResource InstallerCardTemplate}"
-                                           HorizontalAlignment="Left">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="176"
-                                                     MinColumnSpacing="16"
-                                                     MinRowSpacing="16"
-                                                     Orientation="Horizontal"
-                                                     ItemsJustification="Start"
-                                                     ItemsStretch="None" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
                             <ItemsRepeater x:Name="BrowserList" ItemsSource="{x:Bind ViewModel.VisibleBrowsers, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
-                                           HorizontalAlignment="Stretch" Visibility="Collapsed" />
+                                           HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Border>
 
-                    <Border x:Name="LauncherCard" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top"
-                            Style="{StaticResource CardBorder}" Padding="16">
+                    <Border x:Name="LauncherCard" Grid.Row="2" Grid.Column="0" VerticalAlignment="Top"
+                            Padding="0,4,0,18">
                         <StackPanel Spacing="12">
                             <TextBlock Text="Game Launchers" Style="{StaticResource SubtitleTextBlockStyle}" />
-                            <ItemsRepeater x:Name="LauncherGrid" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
-                                           ItemTemplate="{StaticResource InstallerCardTemplate}"
-                                           HorizontalAlignment="Left">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="176"
-                                                     MinColumnSpacing="16"
-                                                     MinRowSpacing="16"
-                                                     Orientation="Horizontal"
-                                                     ItemsJustification="Start"
-                                                     ItemsStretch="None" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
                             <ItemsRepeater x:Name="LauncherList" ItemsSource="{x:Bind ViewModel.VisibleGameLaunchers, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
-                                           HorizontalAlignment="Stretch" Visibility="Collapsed" />
+                                           HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Border>
 
-                    <Border x:Name="SocialCard" Grid.Row="2" Grid.Column="0" VerticalAlignment="Top"
-                            Style="{StaticResource CardBorder}" Padding="16">
+                    <Border x:Name="SocialCard" Grid.Row="3" Grid.Column="0" VerticalAlignment="Top"
+                            Padding="0,4,0,18">
                         <StackPanel Spacing="12">
                             <TextBlock Text="Socials &amp; Communication" Style="{StaticResource SubtitleTextBlockStyle}" />
-                            <ItemsRepeater x:Name="SocialGrid" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
-                                           ItemTemplate="{StaticResource InstallerCardTemplate}"
-                                           HorizontalAlignment="Left">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="176"
-                                                     MinColumnSpacing="16"
-                                                     MinRowSpacing="16"
-                                                     Orientation="Horizontal"
-                                                     ItemsJustification="Start"
-                                                     ItemsStretch="None" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
                             <ItemsRepeater x:Name="SocialList" ItemsSource="{x:Bind ViewModel.VisibleSocialApps, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
-                                           HorizontalAlignment="Stretch" Visibility="Collapsed" />
+                                           HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Border>
 
-                    <Border x:Name="UtilityCard" Grid.Row="2" Grid.Column="1" VerticalAlignment="Top"
-                            Style="{StaticResource CardBorder}" Padding="16">
+                    <Border x:Name="UtilityCard" Grid.Row="4" Grid.Column="0" VerticalAlignment="Top"
+                            Padding="0,4,0,18">
                         <StackPanel Spacing="12">
                             <TextBlock Text="Utilities" Style="{StaticResource SubtitleTextBlockStyle}" />
-                            <ItemsRepeater x:Name="UtilityGrid" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
-                                           ItemTemplate="{StaticResource InstallerCardTemplate}"
-                                           HorizontalAlignment="Left">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinItemWidth="160"
-                                                     MinItemHeight="176"
-                                                     MinColumnSpacing="16"
-                                                     MinRowSpacing="16"
-                                                     Orientation="Horizontal"
-                                                     ItemsJustification="Start"
-                                                     ItemsStretch="None" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
                             <ItemsRepeater x:Name="UtilityList" ItemsSource="{x:Bind ViewModel.VisibleUtilities, Mode=OneWay}"
                                            ItemTemplate="{StaticResource InstallerCompactTemplate}"
-                                           HorizontalAlignment="Stretch" Visibility="Collapsed" />
+                                           HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Border>
 

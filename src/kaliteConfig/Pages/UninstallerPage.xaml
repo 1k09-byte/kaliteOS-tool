@@ -15,7 +15,9 @@
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <Style x:Key="RemoverCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
-            <Setter Property="Padding" Value="12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
     </Page.Resources>
 
@@ -104,7 +106,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                </Grid.RowDefinitions>                        <Border Grid.Row="0" Margin="0,0,0,8" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="12,8">
+                </Grid.RowDefinitions>                        <Border Grid.Row="0" Margin="0,0,0,6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,6">
                         <Grid>
                             <Grid.Margin>0</Grid.Margin>
                     <Grid.ColumnDefinitions>
@@ -125,7 +127,7 @@
                 <ListView x:Name="AppList" Grid.Row="1" ItemsSource="{Binding FilteredApps}" SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
                           SelectionMode="Extended" ShowsScrollingPlaceholders="True" SelectionChanged="AppList_SelectionChanged"
                           HorizontalContentAlignment="Stretch"
-                          Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="4">
+                          Background="{ThemeResource LayerFillColorDefaultBrush}" BorderThickness="0" Padding="4" CornerRadius="{ThemeResource ControlCornerRadius}">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:UninstallerItem">
                             <Grid Padding="8,6" ColumnSpacing="8">
@@ -177,9 +179,9 @@
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
 
                                     <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
+                                        <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
                                                 Visibility="{Binding IsStoreApp, Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <TextBlock Text="STORE" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                            <TextBlock Text="STORE" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                                         </Border>
                                         <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                                                 BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,2"
@@ -242,9 +244,9 @@
                                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3">
                                     <TextBlock Text="{Binding SelectedApp.FormattedSize}" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" />
                                 </Border>
-                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3"
+                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,3"
                                         Visibility="{Binding SelectedApp.IsStoreApp, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <TextBlock Text="STORE" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                    <TextBlock Text="STORE" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                                 </Border>
                             </StackPanel>
                             <StackPanel Spacing="2">
@@ -312,7 +314,7 @@
                         <ListView x:Name="DriverList" Grid.Row="2" ItemsSource="{Binding FilteredDrivers}" SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
                                   SelectionMode="Extended" ShowsScrollingPlaceholders="True" SelectionChanged="DriverList_SelectionChanged"
                                   HorizontalContentAlignment="Stretch"
-                                  Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="4">
+                                  Background="{ThemeResource LayerFillColorDefaultBrush}" BorderThickness="0" Padding="4" CornerRadius="{ThemeResource ControlCornerRadius}">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:DriverPackageItem">
                                     <Grid Padding="8,6" ColumnSpacing="8">
