@@ -79,8 +79,74 @@ public sealed class WallpaperService : IWallpaperService
             .ToList();
     }
 
-    public IReadOnlyList<WallpaperLibraryItem> Library() => LoadState().Items.OrderBy(i => i.AddedUtc)
+    public IReadOnlyList<WallpaperLibraryItem> Library()
+    {
+        SeedBundled();
+        return LoadState().Items.OrderBy(i => i.AddedUtc)
         .Select(i => { i.FullPath = FilePathFor(i); return i; }).ToList();
+    }
+
+    private static string? BundledWallpaperDir
+    {
+        get
+        {
+            string? dir = AppContext.BaseDirectory;
+            for (int i = 0; i < 4 && dir is not null; i++)
+            {
+                string candidate = Path.Combine(dir, "Assets", "wallpapers");
+                if (Directory.Exists(candidate)) return candidate;
+                dir = Path.GetDirectoryName(dir.TrimEnd('\\'));
+            }
+            return null;
+        }
+    }
+
+    private bool _seeded;
+
+    private void SeedBundled()
+    {
+        if (_seeded) return;
+        _seeded = true;
+
+        try
+        {
+            string? source = BundledWallpaperDir;
+            if (source is null) return;
+
+            var state = LoadState();
+            var known = new HashSet<string>(state.Items.Select(i => i.OriginalName), StringComparer.OrdinalIgnoreCase);
+            bool added = false;
+
+            foreach (var file in Directory.EnumerateFiles(source).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                string ext = Path.GetExtension(file).ToLowerInvariant();
+                if (!AllowedExtensions.Contains(ext)) continue;
+
+                string name = Path.GetFileName(file);
+                if (!known.Add(name)) continue;
+
+                Directory.CreateDirectory(_root);
+                string id = Guid.NewGuid().ToString("N");
+                string dest = Path.Combine(_root, id + ext);
+                try { File.Copy(file, dest); }
+                catch { continue; }
+
+                state.Items.Add(new WallpaperLibraryItem
+                {
+                    Id = id,
+                    FileName = id + ext,
+                    OriginalName = name,
+                    AddedUtc = DateTime.UtcNow,
+                });
+                added = true;
+            }
+
+            if (added) SaveState(state);
+        }
+        catch
+        {
+        }
+    }
 
     public IReadOnlyList<WallpaperLibraryItem> Recent()
     {

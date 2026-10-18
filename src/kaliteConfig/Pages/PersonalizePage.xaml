@@ -11,6 +11,9 @@
 
     <Page.Resources>
         <converters:ImageFileThumbnailConverter x:Key="ThumbnailConverter" />
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+        <converters:NotNullToBoolConverter x:Key="NotNullToBoolConverter" />
         <Style x:Key="PersonalizeCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
     </Page.Resources>
 
@@ -74,10 +77,49 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Content="Add image..." Click="AddWallpaper_Click" />
                             <Button Content="Apply wallpaper" Command="{Binding ApplyWallpaperCommand}"
-                                    Style="{StaticResource AccentButtonStyle}" />
-                            <Button Content="Remove from library" Command="{Binding RemoveSelectedWallpaperCommand}" />
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    IsEnabled="{Binding SelectedWallpaper, Converter={StaticResource NotNullToBoolConverter}}" />
+                            <Button Content="Remove from library" Command="{Binding RemoveSelectedWallpaperCommand}"
+                                    IsEnabled="{Binding SelectedWallpaper, Converter={StaticResource NotNullToBoolConverter}}" />
                             <Button Content="Restore wallpaper section" Command="{Binding RevertWallpaperSectionCommand}" />
                         </StackPanel>
+
+                        <TextBlock Text="Library" Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                        <StackPanel Spacing="8"
+                                    HorizontalAlignment="Center"
+                                    Visibility="{Binding LibraryEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <FontIcon Glyph="&#xE91B;" FontSize="32"
+                                      Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                      HorizontalAlignment="Center" />
+                            <TextBlock Text="No wallpapers yet" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Add an image, or bundle some with the app."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <GridView x:Name="LibraryGrid"
+                                  ItemsSource="{Binding Library}"
+                                  SelectedItem="{Binding SelectedWallpaper, Mode=TwoWay}"
+                                  SelectionMode="Single"
+                                  MaxHeight="320"
+                                  Visibility="{Binding LibraryEmpty, Converter={StaticResource InvertedBoolToVisibilityConverter}}"
+                                  AutomationProperties.Name="Wallpaper library">
+                            <GridView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Spacing="4" Width="180">
+                                        <Image Width="180" Height="101" Stretch="UniformToFill"
+                                               Source="{Binding FullPath, Converter={StaticResource ThumbnailConverter}}"
+                                               AutomationProperties.Name="{Binding OriginalName}" />
+                                        <TextBlock Text="{Binding OriginalName}"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
                     </StackPanel>
                 </Border>
             </StackPanel>
