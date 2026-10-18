@@ -538,3 +538,103 @@ Honest list of everything from the original brief that remains:
 five largest untouched pages and would give the most visible change per commit. Then the
 typography sweep across the remaining files, then the C# colour extraction in the chart and
 overlay drawing code, then the dialogs. Each as its own commit with a green build.
+
+---
+
+# Addendum 4 — I redesigned the wrong page (correction)
+
+## The mistake
+
+For three rounds I reported "the Apps page is done" while describing
+`PackageManager/Views/PackageManagerPage.xaml`. **That page is never displayed.**
+
+`Services/Navigation/NavigationService.cs:26`:
+
+```
+PageKey.Apps => typeof(Pages.InstallerPage),
+```
+
+The rail's **Apps** item opens `Pages/InstallerPage.xaml`. A grep for `PackageManagerPage`
+across all `.cs` files returns nothing outside its own file — no navigation target, no
+`Frame.Navigate`, no reference of any kind. It is unreachable dead UI.
+
+So every Apps claim in `a3745aa`, `aefef26` and `b5f8bec` was applied to a page the user can
+never open, which is exactly why the layout looked unchanged. Only the direct Install/Update
+button in `433470f` and this commit touched the page that is actually on screen.
+
+**Correction to earlier claims in this report:** "Apps page redesigned", "Apps page
+restocked" and "Apps rows converted to ListView" all refer to the unreachable
+`PackageManagerPage`. The one-click row button and the new responsive layout below are the
+only Apps-page work that is user-visible.
+
+## `PackageManagerPage` — now confirmed dead code
+
+`PackageManagerPage.xaml` plus its five child pages (`DiscoverPackagesPage`,
+`InstalledPackagesPage`, `SoftwareUpdatesPage`, `PackageBundlesPage`,
+`PackageManagersPage`) form a complete, unreferenced Apps section — roughly 640 lines of XAML
+and their ViewModels, none of it reachable. This is the **third** latent unreachable-feature
+bug found in this project, after the meteor resource keys and the two dead tag mappings.
+
+It is **not** deleted here. `b5f8bec` converted its `PackageListView` host to a `ListView`,
+which is correct code either way, but wiring this whole section back up, or deleting it, is a
+product decision about package-manager scope. Logged as review item 5.
+
+## Apps page actually redesigned — `508919e`
+
+`Pages/InstallerPage.xaml`, the page the rail actually opens.
+
+**Layout before:** one vertical `StackPanel` (`Spacing="32"`, `MaxWidth="1064"`,
+`HorizontalAlignment="Left"`) holding the show-installed toggle, an `InfoBar`, then four
+full-width category bands stacked top to bottom — Web Browsers, Game Launchers, Socials &
+Communication, Utilities — each a `SubtitleTextBlockStyle` heading above a
+`UniformGridLayout` card grid plus a parallel compact list. One long scroll, headings
+separated by 32px of empty space, no grouping, and a hard 1064px cap that left the right
+half of a wide window empty.
+
+**Layout after:** a responsive two-column category dashboard.
+
+- `CategoryGrid` — a `Grid` with two named columns and `RowSpacing`/`ColumnSpacing` 16.
+- **Row 0** — a `CardBorder` holding the show-installed `ToggleSwitch` with its label, plus
+  the `NothingToInstall` `InfoBar`. The toggle previously floated above a 32px gap with its
+  caption as a separate `CaptionTextBlockStyle` line; it is now a labelled switch in a card.
+- **Rows 1–2** — the four categories as `CardBorder` cards in a 2×2 arrangement:
+  Browsers + Launchers on row 1, Socials + Utilities on row 2.
+- **Adaptive:** `VisualStateGroup` with `WideCategoryLayout` gated by
+  `AdaptiveTrigger MinWindowWidth="1100"`. Above 1100 effective pixels the second column is
+  `*` and the Launchers and Utilities cards sit in it; below it the second column collapses to
+  `0` and all four cards stack in column 0. The XAML-declared values are the narrow layout,
+  so the default state needs no trigger.
+- `MaxWidth` raised 1064 → 1400 so the two-column layout has room.
+
+### Before / after
+
+| Before | After |
+|---|---|
+| `StackPanel Spacing="32" MaxWidth="1064" HorizontalAlignment="Left"` | `CategoryGrid` `Grid`, `RowSpacing`/`ColumnSpacing` 16, `MaxWidth="1400"`, full width |
+| 4 full-width bands stacked vertically | 2×2 `CardBorder` category cards |
+| `SubtitleTextBlockStyle` headings floating in empty space | headings inside their cards, 12px from the card content |
+| toggle + caption as loose rows above an `InfoBar` | labelled switch in a `CardBorder`, `InfoBar` beneath it |
+| fixed 1064px cap, right half of wide windows empty | responsive 2-column / 1-column, breakpoint 1100 |
+| no adaptivity at all | `AdaptiveTrigger` + `VisualStateGroup` |
+
+### Preserved exactly
+All eight repeater `x:Name`s (`BrowserGrid`, `BrowserList`, `LauncherGrid`, `LauncherList`,
+`SocialGrid`, `SocialList`, `UtilityGrid`, `UtilityList`) and every page-level `x:Name`
+(`RootGrid`, `ViewModePanel`, `ViewCardBtn`, `ViewCompactBtn`, `MainSelectorBar`, `TabInstall`,
+`TabUninstall`, `InstallPanel`, `UninstallPanel`, `BrowserDetailsDialog`, `DialogStatusText`,
+`DialogProgressBtn`). Every `x:Bind`, every `ItemsSource`, both item templates, the
+`UniformGridLayout` parameters and the view-mode radio buttons are unchanged. The
+`UninstallerPage` host and `BrowserDetailsDialog` are untouched. The build validates every
+XAML-referenced handler, and it is green.
+
+### WinUI 3 API errors hit while building this
+`VisualStateManager.Setters` / `VisualStateSetter` are not usable on a `Grid` in this SDK
+(`WMC0010`, `WMC0001`), and `AdaptiveTrigger` has no `MaxWindowWidth` (`WMC0011`) — only
+`MinWindowWidth`. The classic `VisualStateGroup` + `StateTriggers` form is what works here, so
+the breakpoint is expressed as "wide above 1100" with narrow as the XAML default rather than
+as an explicit narrow state.
+
+## Review items added
+5. **`PackageManagerPage` and its five child pages are unreachable.** Decide: wire the
+   package-manager section into the nav, or delete it. Currently it is ~640 lines of XAML plus
+   ViewModels that no user can reach.
