@@ -204,6 +204,17 @@ namespace kaliteConfig
                     catch { }
                 });
             };
+            _tray.GameModeHeldQuery = () =>
+            {
+                try { return (Application.Current as App)?.GameMode.PendingJournalCount > 0; } catch { return false; }
+            };
+            _tray.OnResumeGame += () =>
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    try { (Application.Current as App)?.GameMode.ResumeEverything(); } catch { }
+                });
+            };
             _tray.OnStopLive += () =>
             {
                 DispatcherQueue.TryEnqueue(() =>

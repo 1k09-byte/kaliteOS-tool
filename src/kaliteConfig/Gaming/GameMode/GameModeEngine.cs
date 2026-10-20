@@ -94,10 +94,18 @@ public sealed class GameModeEngine : IDisposable
 
     public void Recover()
     {
+        if (_journal.LoadFailed)
+        {
+            _log.Add("-", "Game Mode", "Recovery", "Could not restore",
+                "The journal could not be read, so earlier changes may not have been restored");
+            return;
+        }
         if (_journal.Count == 0) return;
-        int restored = _executor.RestoreAll("Recovered after unclean exit");
-        _log.Add("-", "Game Mode", "Recovery", restored > 0 ? "Restored and verified" : "Could not restore",
-            $"Recovered after unclean exit: {restored} process(es) restored");
+        var summary = _executor.RestoreAll("Recovered after unclean exit");
+        _log.Add("-", "Game Mode", "Recovery", summary.Failed > 0 ? "Could not restore" : "Restored and verified",
+            summary.Failed > 0
+                ? $"Recovered after unclean exit: {summary.Restored} restored, {summary.Failed} could not be restored"
+                : $"Recovered after unclean exit: {summary.Restored} process(es) restored");
     }
 
     public void Dispose()
@@ -115,11 +123,14 @@ public sealed class GameModeEngine : IDisposable
         if (enabled)
         {
             _log.Add("-", "Game Mode", "Enable", "Applied and verified", "Game Mode turned on");
+            var hwnd = NativeMethods.GameMode.GetForegroundWindow();
+            if (hwnd != IntPtr.Zero) OnForegroundChanged(hwnd);
         }
         else
         {
-            ReleaseNow("Game Mode turned off");
-            _log.Add("-", "Game Mode", "Disable", "Restored and verified", "Game Mode turned off");
+            var summary = ReleaseNow("Game Mode turned off");
+            _log.Add("-", "Game Mode", "Disable", summary.Failed > 0 ? "Could not restore" : "Restored and verified",
+                summary.Failed > 0 ? $"Game Mode turned off; {summary.Failed} process(es) could not be restored" : "Game Mode turned off");
         }
         Raise();
     }
@@ -200,10 +211,10 @@ public sealed class GameModeEngine : IDisposable
         Raise();
     }
 
-    public void RemoveGame(string name)
+    public void RemoveGame(string name, string path)
     {
         var removed = Settings.Games.RemoveAll(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase)
-                                                    || string.Equals(g.Path, name, StringComparison.OrdinalIgnoreCase));
+                                                    && string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase));
         if (removed == 0) return;
         _store.Save(Settings);
         Raise();
@@ -233,29 +244,43 @@ public sealed class GameModeEngine : IDisposable
 
     public int ResumeEverything()
     {
-        int restored = _executor.RestoreAll("Resume everything now");
+        var summary = _executor.RestoreAll("Resume everything now");
         lock (_gate)
         {
-            _rows.Clear();
+            _generation++;
             _state = GameModeState.Idle;
             _activeGame = string.Empty;
-            _generation++;
+            _activeGamePid = 0;
+            _activeGameTicks = 0;
+            _loggedSkips.Clear();
+            ApplyRestoreResultLocked();
         }
-        _log.Add("-", "Game Mode", "Resume everything", "Restored and verified", $"{restored} process(es) restored");
+        _log.Add("-", "Game Mode", "Resume everything", summary.Failed > 0 ? "Could not restore" : "Restored and verified",
+            summary.Failed > 0
+                ? $"{summary.Restored} process(es) restored, {summary.Failed} could not be restored and stay in the journal"
+                : $"{summary.Restored} process(es) restored");
         Raise();
-        return restored;
+        return summary.Restored;
     }
 
     public IReadOnlyList<GameModeAffectedRow> Preview()
     {
         string gameName;
         string? gamePath;
+        int gamePid = 0;
         lock (_gate)
         {
-            if (_state == GameModeState.Active && !string.IsNullOrEmpty(_activeGame))
+            if (_state == GameModeState.Active && !string.IsNullOrEmpty(_activeGame) && _activeGamePid > 0)
             {
                 gameName = _activeGame;
-                gamePath = _activeGamePid > 0 ? ProcessPath(_activeGamePid) : null;
+                gamePid = _activeGamePid;
+                gamePath = ProcessPath(_activeGamePid);
+            }
+            else if (FindFocusedGame(out int focusedPid, out GameModeGameEntry? focused) && focused != null)
+            {
+                gameName = focused.Name;
+                gamePid = focusedPid;
+                gamePath = focused.MatchByPath ? focused.Path : ProcessPath(focusedPid);
             }
             else if (Settings.Games.Count > 0)
             {
@@ -269,7 +294,7 @@ public sealed class GameModeEngine : IDisposable
         }
 
         var facts = BuildFacts();
-        var gamePids = new HashSet<int>();
+        var gamePids = gamePid > 0 ? GameModeGuard.ExpandGameTree(facts, gamePid) : new HashSet<int>();
         var gamePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(gamePath)) gamePaths.Add(gamePath);
 
@@ -279,10 +304,9 @@ public sealed class GameModeEngine : IDisposable
             var entry = BackgroundCatalog.FindByImage(fact.Name);
             if (entry == null) continue;
             var (action, category, outcome, message) = Plan(fact, entry, gamePids, gamePaths);
-            rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, Label(category), Label(action), OutcomeLabel(outcome), message));
+            rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, Label(category), Label(action), OutcomeLabel(outcome), message, fact.CreationTicks));
         }
-        _log.Add(gameName, "Preview", "Preview", "Applied and verified", $"Previewed {rows.Count} background process(es) without changing anything");
-        Raise();
+        _log.Add(gameName, "Preview", "Preview", "Previewed (nothing changed)", $"Previewed {rows.Count} background process(es) for {gameName} without changing anything");
         return rows;
     }
 
@@ -359,7 +383,7 @@ public sealed class GameModeEngine : IDisposable
 
         _log.Add("Game Mode", "Scan", "Applied and verified", $"{facts.Count} background candidates, {gamePids.Count} protected game-tree process(es)");
         lock (_gate) _loggedSkips.Clear();
-        int applied = ApplyPlan(facts, gamePids, gamePaths, gameName);
+        ApplyPlan(facts, gamePids, gamePaths, gameName);
         EnsureWatchdog();
 
         lock (_gate)
@@ -368,7 +392,8 @@ public sealed class GameModeEngine : IDisposable
             _rescanTimer = new Timer(_ => Rescan(gamePid, gameName), null, 3000, 3000);
         }
 
-        _log.Add(gameName, "Focus", "Active", "Applied and verified", $"Game mode active; {applied} process(es) affected");
+        int held = Affected.Count;
+        _log.Add(gameName, "Focus", "Active", "Applied and verified", $"Game mode active; {held} process(es) affected");
         Raise();
     }
 
@@ -390,17 +415,21 @@ public sealed class GameModeEngine : IDisposable
         var path = ProcessPath(gamePid);
         if (!string.IsNullOrEmpty(path)) gamePaths.Add(path);
         var gamePids = GameModeGuard.ExpandGameTree(facts, gamePid);
-        int applied = ApplyPlan(facts, gamePids, gamePaths, gameName);
-        if (applied > 0) Raise();
+        int before = Affected.Count;
+        ApplyPlan(facts, gamePids, gamePaths, gameName);
+        if (Affected.Count != before) Raise();
     }
 
     private int ApplyPlan(IReadOnlyList<ProcessFact> facts, IReadOnlySet<int> gamePids, IReadOnlySet<string> gamePaths, string gameName)
     {
+        PruneJournal();
+        PruneRows();
         var journaled = _journal.Snapshot().Select(e => (e.Pid, e.CreationTicks)).ToHashSet();
+        int cap = Math.Max(0, 40 - journaled.Count);
         int applied = 0;
         foreach (var fact in facts)
         {
-            if (applied >= 40) break;
+            if (applied >= cap) break;
             if (journaled.Contains((fact.Pid, fact.CreationTicks))) continue;
             var entry = BackgroundCatalog.FindByImage(fact.Name);
             if (entry == null) continue;
@@ -420,7 +449,7 @@ public sealed class GameModeEngine : IDisposable
             lock (_gate)
             {
                 _rows.RemoveAll(r => r.Pid == fact.Pid);
-                _rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, Label(category), Label(decision.Planned), OutcomeLabel(decision.Outcome), decision.Message));
+                _rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, Label(category), Label(decision.Planned), OutcomeLabel(decision.Outcome), decision.Message, fact.CreationTicks));
             }
             _log.Add(fact.Name, Label(decision.Planned), OutcomeLabel(decision.Outcome), decision.Message);
             if (decision.Outcome == GameModeOutcome.AppliedVerified || decision.Outcome == GameModeOutcome.AppliedUnverified)
@@ -474,22 +503,31 @@ public sealed class GameModeEngine : IDisposable
         {
             try
             {
-                int restored = _executor.RestoreAll(reason);
+                var summary = _executor.RestoreAll(reason);
                 watch.Stop();
                 lock (_gate)
                 {
-                    _rows.Clear();
                     _activeGame = string.Empty;
                     _activeGamePid = 0;
+                    _activeGameTicks = 0;
                     _state = GameModeState.Idle;
                     _loggedSkips.Clear();
+                    ApplyRestoreResultLocked();
                 }
-                _log.Add("-", "Game Mode", "Release", "Restored and verified",
-                    $"Released in {watch.ElapsedMilliseconds} ms ({restored} process(es)) after {reason}");
+                _log.Add("-", "Game Mode", "Release", summary.Failed > 0 ? "Could not restore" : "Restored and verified",
+                    summary.Failed > 0
+                        ? $"Released in {watch.ElapsedMilliseconds} ms with {summary.Failed} process(es) still held after {reason}"
+                        : $"Released in {watch.ElapsedMilliseconds} ms ({summary.Restored} process(es)) after {reason}");
             }
             catch (Exception ex)
             {
-                lock (_gate) _state = GameModeState.Idle;
+                lock (_gate)
+                {
+                    _state = GameModeState.Idle;
+                    _activeGame = string.Empty;
+                    _activeGamePid = 0;
+                    _activeGameTicks = 0;
+                }
                 _log.Add("-", "Game Mode", "Release", "Could not restore", ex.Message);
             }
             Raise();
@@ -503,7 +541,7 @@ public sealed class GameModeEngine : IDisposable
         Raise();
     }
 
-    private void ReleaseNow(string reason)
+    private GameModeRestoreSummary ReleaseNow(string reason)
     {
         lock (_gate)
         {
@@ -513,11 +551,79 @@ public sealed class GameModeEngine : IDisposable
             _state = GameModeState.Idle;
             _activeGame = string.Empty;
             _activeGamePid = 0;
-            _rows.Clear();
+            _activeGameTicks = 0;
             _loggedSkips.Clear();
         }
-        _executor.RestoreAll(reason);
+        var summary = _executor.RestoreAll(reason);
+        lock (_gate) ApplyRestoreResultLocked();
         Raise();
+        return summary;
+    }
+
+    private void ApplyRestoreResultLocked()
+    {
+        var remaining = _journal.Snapshot().Select(e => (e.Pid, e.CreationTicks)).ToHashSet();
+        for (int i = _rows.Count - 1; i >= 0; i--)
+        {
+            if (remaining.Contains((_rows[i].Pid, _rows[i].CreationTicks))) continue;
+            _rows.RemoveAt(i);
+        }
+        for (int i = 0; i < _rows.Count; i++)
+            _rows[i] = _rows[i] with { State = "Could not restore", Message = "Still held; it stays in the journal" };
+    }
+
+    private void PruneRows()
+    {
+        lock (_gate) _rows.RemoveAll(r => !GameModeExecutor.SameInstance(r.Pid, r.CreationTicks));
+    }
+
+    private void PruneJournal()
+    {
+        foreach (var entry in _journal.Snapshot())
+            if (!GameModeExecutor.SameInstance(entry.Pid, entry.CreationTicks))
+                _journal.Remove(entry.Pid, entry.CreationTicks);
+    }
+
+    private bool FindFocusedGame(out int pid, out GameModeGameEntry? game)
+    {
+        pid = 0;
+        game = null;
+        var hwnd = NativeMethods.GameMode.GetForegroundWindow();
+        if (hwnd != IntPtr.Zero && ForegroundWatcher.TryResolveForeground(hwnd, out int resolved, out string name, out string? imagePath))
+        {
+            if (resolved != Environment.ProcessId)
+            {
+                var current = FindGame(resolved, name, imagePath);
+                if (current != null)
+                {
+                    pid = resolved;
+                    game = current;
+                    return true;
+                }
+            }
+        }
+
+        int last;
+        long ticks;
+        lock (_gate)
+        {
+            last = _lastForeignPid;
+            ticks = _lastForeignTicks;
+        }
+        if (last == 0 || !GameModeExecutor.SameInstance(last, ticks)) return false;
+        try
+        {
+            using var process = Process.GetProcessById(last);
+            var match = FindGame(last, process.ProcessName + ".exe", ProcessPath(last));
+            if (match == null) return false;
+            pid = last;
+            game = match;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void EnsureWatchdog()
@@ -562,9 +668,9 @@ public sealed class GameModeEngine : IDisposable
             var journal = new GameModeJournal(journalPath);
             var log = new GameModeLog(GameModeSettingsStore.LogPath);
             var executor = new GameModeExecutor(journal, log);
-            int restored = executor.RestoreAll("kaliteConfig exited unexpectedly");
-            log.Add("-", "Watchdog", "Recovery", restored > 0 ? "Restored and verified" : "Already in that state",
-                $"Watchdog restored {restored} process(es) after the app exited");
+            var summary = executor.RestoreAll("kaliteConfig exited unexpectedly");
+            log.Add("-", "Watchdog", "Recovery", summary.Failed > 0 ? "Could not restore" : summary.Restored > 0 ? "Restored and verified" : "Already in that state",
+                $"Watchdog restored {summary.Restored} process(es) after the app exited, {summary.Failed} could not be restored");
         }
         catch
         {

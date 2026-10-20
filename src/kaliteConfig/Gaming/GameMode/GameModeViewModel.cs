@@ -173,6 +173,7 @@ public sealed partial class GameModeViewModel : ObservableObject
         try
         {
             Replace(Affected, rows);
+            ApplyLogFilter();
             StatusText = rows.Count == 0
                 ? "Preview: nothing to plan. Add a game to the list first."
                 : $"Preview only: {rows.Count} background process(es) would be planned; nothing was changed.";
@@ -215,9 +216,9 @@ public sealed partial class GameModeViewModel : ObservableObject
         Refresh();
     }
 
-    public void RemoveGame(string name)
+    public void RemoveGame(string name, string path)
     {
-        _engine.RemoveGame(name);
+        _engine.RemoveGame(name, path);
         Refresh();
     }
 

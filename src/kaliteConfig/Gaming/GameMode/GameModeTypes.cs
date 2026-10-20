@@ -56,7 +56,10 @@ public sealed record GameModeAffectedRow(
     string Category,
     string Action,
     string State,
-    string Message);
+    string Message,
+    long CreationTicks);
+
+public sealed record GameModeRestoreSummary(int Restored, int Failed);
 
 public sealed record GameModeLogRow(string Time, string Process, string Action, string Result, string Message);
 

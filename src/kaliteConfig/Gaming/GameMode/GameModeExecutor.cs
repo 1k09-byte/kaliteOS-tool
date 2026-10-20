@@ -162,14 +162,22 @@ public sealed class GameModeExecutor
         ThrottlingStateMask = state,
     };
 
-    public int RestoreAll(string reason)
+    public GameModeRestoreSummary RestoreAll(string reason)
     {
         int restored = 0;
+        int failed = 0;
         foreach (var entry in _journal.Snapshot())
-            if (RestoreEntry(entry, out _)) restored++;
+        {
+            if (RestoreEntry(entry, out string message)) restored++;
+            else
+            {
+                failed++;
+                _log.Add(entry.Name, "Game Mode", "Restore", "Could not restore", message);
+            }
+        }
         if (restored > 0)
             _log.Add("-", "Game Mode", "Restore", "Restored and verified", $"Restored {restored} process(es): {reason}");
-        return restored;
+        return new GameModeRestoreSummary(restored, failed);
     }
 
     public bool RestoreEntry(GameModeJournalEntry entry, out string message)
@@ -237,8 +245,10 @@ public sealed class GameModeExecutor
                 Marshal.SizeOf<NativeMethods.GameMode.PowerThrottlingState>()))
             return false;
         var check = new NativeMethods.GameMode.PowerThrottlingState { Version = state.Version };
-        return NativeMethods.GameMode.GetProcessInformation(handle, NativeMethods.GameMode.ProcessPowerThrottling, ref check,
-            Marshal.SizeOf<NativeMethods.GameMode.PowerThrottlingState>());
+        if (!NativeMethods.GameMode.GetProcessInformation(handle, NativeMethods.GameMode.ProcessPowerThrottling, ref check,
+                Marshal.SizeOf<NativeMethods.GameMode.PowerThrottlingState>()))
+            return false;
+        return check.ControlMask == original.ControlMask && check.StateMask == original.StateMask;
     }
 
     public static bool SameInstance(int pid, long ticks)
