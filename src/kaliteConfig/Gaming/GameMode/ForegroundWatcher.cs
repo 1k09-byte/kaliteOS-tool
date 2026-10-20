@@ -48,7 +48,7 @@ public sealed class ForegroundWatcher : IDisposable
             NativeMethods.GameMode.EventSystemForeground,
             NativeMethods.GameMode.EventSystemForeground,
             IntPtr.Zero, _callback, 0, 0,
-            NativeMethods.GameMode.WineventOutofcontext | NativeMethods.GameMode.WineventSkipownprocess);
+            NativeMethods.GameMode.WineventOutofcontext);
 
         try
         {
