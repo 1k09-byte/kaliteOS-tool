@@ -30,6 +30,8 @@ public sealed class GameModeEngine : IDisposable
     private Timer? _rescanTimer;
     private readonly List<GameModeAffectedRow> _rows = new();
     private readonly HashSet<string> _loggedSkips = new();
+    private int _lastForeignPid;
+    private long _lastForeignTicks;
     private bool _started;
     private bool _watchdogStarted;
 
@@ -162,6 +164,25 @@ public sealed class GameModeEngine : IDisposable
         }
     }
 
+    public void AddFocusedApp()
+    {
+        var hwnd = NativeMethods.GameMode.GetForegroundWindow();
+        if (ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out _, out _) && pid != Environment.ProcessId)
+        {
+            AddGame(pid);
+            return;
+        }
+
+        int last;
+        long ticks;
+        lock (_gate)
+        {
+            last = _lastForeignPid;
+            ticks = _lastForeignTicks;
+        }
+        if (last != 0 && GameModeExecutor.SameInstance(last, ticks)) AddGame(last);
+    }
+
     public void AddGamePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
@@ -270,6 +291,15 @@ public sealed class GameModeEngine : IDisposable
         if (!Settings.Enabled) return;
         if (!ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out string name, out string? imagePath))
             return;
+
+        if (pid != Environment.ProcessId)
+        {
+            lock (_gate)
+            {
+                _lastForeignPid = pid;
+                _lastForeignTicks = TryStartTicks(pid);
+            }
+        }
 
         var match = FindGame(pid, name, imagePath);
         if (match != null)
