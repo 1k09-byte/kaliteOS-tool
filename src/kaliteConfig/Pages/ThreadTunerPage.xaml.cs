@@ -17,6 +17,7 @@ namespace kaliteConfig.Pages
     public sealed partial class ThreadTunerPage : Page
     {
         public ThreadTunerViewModel ViewModel { get; }
+        public Gaming.GameMode.GameModeViewModel GameMode { get; }
         private readonly global::kaliteConfig.Services.StartupService _startup;
         private bool _syncingStartupToggle;
         private TunerProcessRow? _contextProcessRow;
@@ -28,6 +29,7 @@ namespace kaliteConfig.Pages
             this.ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.ThreadTunerViewModel>(App.Services) ?? new ViewModels.ThreadTunerViewModel();
             _startup = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::kaliteConfig.Services.StartupService>(App.Services);
             this.DataContext = ViewModel;
+            this.GameMode = new Gaming.GameMode.GameModeViewModel(App.Current.GameMode);
             
             this.Loaded += ThreadTunerPage_Loaded;
             this.Unloaded += ThreadTunerPage_Unloaded;
@@ -47,6 +49,32 @@ namespace kaliteConfig.Pages
             ViewModel.IsPageVisible = false;
             base.OnNavigatedFrom(e);
         }
+
+        private void GameModePreview_Click(object sender, RoutedEventArgs e) => GameMode.Preview();
+
+        private void GameModeResume_Click(object sender, RoutedEventArgs e) => GameMode.ResumeAll();
+
+        private void GameModeAddPath_Click(object sender, RoutedEventArgs e) => GameMode.AddGamePath();
+
+        private void GameModeAddFocused_Click(object sender, RoutedEventArgs e) => GameMode.AddFocusedApp();
+
+        private void GameModeAddNeverTouch_Click(object sender, RoutedEventArgs e) => GameMode.AddNeverTouch();
+
+        private void GameModeRemoveGame_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: string name }) GameMode.RemoveGame(name);
+        }
+
+        private void GameModeRemoveNeverTouch_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: string pattern }) GameMode.RemoveNeverTouch(pattern);
+        }
+
+        private void GameModeCopyLog_Click(object sender, RoutedEventArgs e) => GameMode.CopyLog();
+
+        private void GameModeExportLog_Click(object sender, RoutedEventArgs e) => GameMode.ExportLog();
+
+        private void GameModeClearLog_Click(object sender, RoutedEventArgs e) => GameMode.ClearLog();
 
         private void AttachWindowActivation()
         {
