@@ -1,13 +1,3 @@
-﻿// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,19 +9,9 @@ namespace kaliteConfig.Services
 {
     public class FirefoxExtensionInstaller
     {
-        /// <summary>
-        /// Adds AMO install URLs to the browser's distribution/policies.json.
-        /// Returns false when the policy file could not be written, so callers can
-        /// tell the user that extensions were not applied.
-        /// </summary>
         public bool AddInstallUrls(string distributionPath, IEnumerable<string> urls)
             => WriteInstallUrls(distributionPath, urls, managedUrls: null);
 
-        /// <summary>
-        /// Makes the policy file match the current selection: managed URLs that are
-        /// no longer selected are removed, new ones are added. URLs that this app
-        /// does not manage are left untouched.
-        /// </summary>
         public bool SetInstallUrls(string distributionPath, IEnumerable<string> managedUrls, IEnumerable<string> selectedUrls)
             => WriteInstallUrls(distributionPath, selectedUrls, managedUrls);
 

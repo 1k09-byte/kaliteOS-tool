@@ -1,4 +1,4 @@
-﻿<Window
+<Window
     x:Class="kaliteConfig.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -152,7 +152,6 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Network" Tag="NetworkPage" AutomationProperties.Name="Network Control" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
@@ -183,7 +182,7 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" FontFamily="{StaticResource KaliteBodyFontFamily}">
+            <Frame x:Name="ContentFrame" CacheSize="0" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" FontFamily="{StaticResource KaliteBodyFontFamily}">
                     <Frame.ContentTransitions>
                         <TransitionCollection>
                             <NavigationThemeTransition>

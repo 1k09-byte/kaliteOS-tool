@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -40,6 +30,7 @@ namespace kaliteConfig.Pages
             this.DataContext = ViewModel;
             
             this.Loaded += ThreadTunerPage_Loaded;
+            this.Unloaded += ThreadTunerPage_Unloaded;
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -104,16 +95,40 @@ namespace kaliteConfig.Pages
 
             ViewModel.LoadProcessesCommand.Execute(null);
             HookSuspendUi();
-            
-            App.Current.ProfileWatcher.RulesChanged += (_, _) =>
-            {
-                RefreshPageGamingModeUi();
-                if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
-                {
-                    PageGamingStatusText.Text = "Gaming mode ON (automatic · from a rule)";
-                }
-            };
+            HookRulesChanged();
             _ = SyncStartupToggleAsync();
+        }
+
+        private bool _rulesHooked;
+
+        private void HookRulesChanged()
+        {
+            if (_rulesHooked) return;
+            _rulesHooked = true;
+            App.Current.ProfileWatcher.RulesChanged += ProfileWatcher_RulesChanged;
+        }
+
+        private void ProfileWatcher_RulesChanged(object? sender, EventArgs e)
+        {
+            RefreshPageGamingModeUi();
+            if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            {
+                PageGamingStatusText.Text = "Gaming mode ON (automatic · from a rule)";
+            }
+        }
+
+        private void ThreadTunerPage_Unloaded(object sender, RoutedEventArgs e)
+        {            if (_rulesHooked)
+            {
+                App.Current.ProfileWatcher.RulesChanged -= ProfileWatcher_RulesChanged;
+                _rulesHooked = false;
+            }
+            if (_suspendHooked)
+            {
+                try { App.Current.ForegroundSuspend.StatusChanged -= SuspendStatus_Changed; } catch { }
+                _suspendHooked = false;
+            }
+            try { ViewModel.Shutdown(); } catch { }
         }
 
         private async Task SyncStartupToggleAsync()

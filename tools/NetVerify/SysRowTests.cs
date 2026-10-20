@@ -68,4 +68,3 @@ internal static class SysRowTests
         check(supp["Minimum RTO (msec)"] == "300", "sys parse min RTO");
     }
 }
-

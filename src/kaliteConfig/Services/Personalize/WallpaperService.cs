@@ -82,8 +82,6 @@ public sealed class WallpaperService : IWallpaperService
         }
         catch (Exception)
         {
-            // Monitor enumeration is a convenience for the per-monitor picker; a
-            // broken display COM path must not take the whole Personalize page down.
             return Array.Empty<MonitorInfo>();
         }
     }

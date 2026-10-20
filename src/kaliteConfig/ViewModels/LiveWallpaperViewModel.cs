@@ -127,6 +127,11 @@ public sealed partial class LiveWallpaperViewModel : ObservableObject
         RefreshState();
     }
 
+    public void Shutdown()
+    {
+        try { _engine.Changed -= RefreshState; } catch { }
+    }
+
     public ObservableCollection<LiveWallpaperItem> Items { get; } = new();
     public ObservableCollection<LiveMonitorChoice> Monitors { get; } = new();
     public ObservableCollection<LiveAssignmentRow> Assignments { get; } = new();

@@ -1,15 +1,7 @@
-# Does the app paint content that only appears after an external repaint?
-#
-# Samples a screen region, nudges the app window by one pixel (twice, so it ends
-# up exactly where it started -- a real repaint with no visible change), samples
-# again, and reports whether the pixels changed. A large change means the frame
-# on screen was stale until something forced a recomposite.
-#
-# Usage: powershell -ExecutionPolicy Bypass -File tools/repaint-probe.ps1 -Region 95,455,260,110
 param(
     [string]$Region = "",
     [int]$SampleStep = 3,
-    [string]$Points = ""      # optional "x,y;x,y;..." exact pixels to print before/after
+    [string]$Points = ""
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -74,7 +66,6 @@ Probe-Points "before"
 [double]$meanBefore = $script:lastMean
 [double]$sdBefore = $script:lastSd
 
-# Nudge one pixel right/down and back: forces the compositor to produce a new frame.
 $px = $r.Left; $py = $r.Top
 [void][W.P]::SetWindowPos($proc.MainWindowHandle, [IntPtr]::Zero, $px + 1, $py + 1, 0, 0, $SWP_NOSIZE -bor $SWP_NOZORDER -bor $SWP_NOACTIVATE)
 Start-Sleep -Milliseconds 250
@@ -85,11 +76,9 @@ Sample "nudged"
 [double]$dMeanNudge = [Math]::Abs($script:lastMean - $meanBefore)
 [double]$dSdNudge = [Math]::Abs($script:lastSd - $sdBefore)
 
-# A same-position nudge can be coalesced away, so also force a repaint that cannot be
-# missed: minimising and restoring rebuilds the whole window surface.
-[void][W.P]::ShowWindow($proc.MainWindowHandle, 6)   # SW_MINIMIZE
+[void][W.P]::ShowWindow($proc.MainWindowHandle, 6)
 Start-Sleep -Milliseconds 600
-[void][W.P]::ShowWindow($proc.MainWindowHandle, 9)   # SW_RESTORE
+[void][W.P]::ShowWindow($proc.MainWindowHandle, 9)
 [void][W.P]::SetForegroundWindow($proc.MainWindowHandle)
 Start-Sleep -Milliseconds 900
 

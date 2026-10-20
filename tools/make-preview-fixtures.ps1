@@ -1,19 +1,3 @@
-<#
-  Generates the snips needed to walk through Docs/SnipPreview.md's manual checklist, straight into
-  the gallery folder (Pictures\kaliteConfig Snips) with a SNIPTEST_ prefix.
-
-    powershell -ExecutionPolicy Bypass -File tools\make-preview-fixtures.ps1
-    powershell -ExecutionPolicy Bypass -File tools\make-preview-fixtures.ps1 -Cleanup
-
-  What each fixture is for:
-    4000x3000 PNG  - 12 Mpx, direct path: placeholder -> full-res crossfade, 100% alignment,
-                     interpolation (1 px and 2 px checkers, 1 px rules, 100 px ticks).
-    8500x1500 PNG  - 12.75 Mpx but an 8500 px longest edge: the CanvasVirtualBitmap (region
-                     on demand) path via the edge rule.
-    7680x4320 JPG  - 33 Mpx, the realistic 8K case: the pixel-count rule, memory must stay flat.
-
-  Everything is a plain, deterministic pattern: no noise, no external assets.
-#>
 param(
     [switch]$Cleanup
 )
@@ -51,20 +35,16 @@ function New-Fixture {
         $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
 
-        # 1. Smooth backdrop: any quality problem (banding, blur) shows up instantly here.
         $rect = New-Object System.Drawing.Rectangle(0, 0, $Width, $Height)
         $backdrop = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, [System.Drawing.Color]::FromArgb(16, 24, 40), [System.Drawing.Color]::FromArgb(240, 236, 224), 20.0)
         try { $graphics.FillRectangle($backdrop, $rect) } finally { $backdrop.Dispose() }
 
-        # 2. Solid corner blocks: their edges are the 100% alignment reference.
         $blockW = [Math]::Min(140, [int]($Width / 8)); $blockH = [Math]::Min(140, [int]($Height / 8))
         $graphics.FillRectangle([System.Drawing.Brushes]::Red, $Width - $blockW, 0, $blockW, $blockH)
         $graphics.FillRectangle([System.Drawing.Brushes]::Lime, 0, $Height - $blockH, $blockW, $blockH)
         $graphics.FillRectangle([System.Drawing.Brushes]::Blue, $Width - $blockW, $Height - $blockH, $blockW, $blockH)
         $graphics.FillRectangle([System.Drawing.Brushes]::White, 0, 0, $blockW, $blockH)
 
-        # 3. Checkers: 1 px and 2 px tiles. At >=200% zoom these must be crisp squares; below 100%
-        #    the averaged result must be flat grey (never aliased noise).
         $checker2 = New-Object System.Drawing.Bitmap(2, 2)
         $checker2.SetPixel(0, 0, [System.Drawing.Color]::Black); $checker2.SetPixel(1, 1, [System.Drawing.Color]::Black)
         $checker2.SetPixel(1, 0, [System.Drawing.Color]::White); $checker2.SetPixel(0, 1, [System.Drawing.Color]::White)
@@ -85,7 +65,6 @@ function New-Fixture {
         }
         $checker2.Dispose(); $checker4.Dispose()
 
-        # 4. 100 px ticks with 500 px labels, plus 1 px rules: count pixels to confirm 100% is 1:1.
         $tickPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 255, 210, 60), 1)
         $rulePen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 0, 200, 255), 1)
         $tickFont = New-Object System.Drawing.Font('Consolas', 12)
@@ -98,14 +77,12 @@ function New-Fixture {
             $graphics.DrawLine($tickPen, 0, $y, 12, $y)
             if (($y % 500) -eq 0) { $graphics.DrawString("y=$y", $tickFont, [System.Drawing.Brushes]::White, 16, $y + 2) }
         }
-        $graphics.DrawLine($rulePen, 0, [int]($Height / 2) + 30, $Width, [int]($Height / 2) + 30)   # 1 px horizontal rule
-        $graphics.DrawLine($rulePen, [int]($Width / 2) + 30, 0, [int]($Width / 2) + 30, $Height)   # 1 px vertical rule
-        $graphics.DrawLine($rulePen, 600, 300, 1400, 700)                                          # 1 px diagonal
+        $graphics.DrawLine($rulePen, 0, [int]($Height / 2) + 30, $Width, [int]($Height / 2) + 30)
+        $graphics.DrawLine($rulePen, [int]($Width / 2) + 30, 0, [int]($Width / 2) + 30, $Height)
+        $graphics.DrawLine($rulePen, 600, 300, 1400, 700)
 
-        # 5. A 4x4 px block at a known offset: at 400% it must be a 16x16 screen-pixel square.
         $graphics.FillRectangle([System.Drawing.Brushes]::Magenta, 800, 300, 4, 4)
 
-        # 6. Labels.
         $titleFont = New-Object System.Drawing.Font('Segoe UI', 40, [System.Drawing.FontStyle]::Bold)
         $subFont = New-Object System.Drawing.Font('Segoe UI', 22)
         $graphics.DrawString($Label, $titleFont, [System.Drawing.Brushes]::White, 40, $Height - 200)

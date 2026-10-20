@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -75,6 +65,7 @@ public sealed partial class ThreadListDialog : ContentDialog
     private volatile bool _busy;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
+    private bool _memoryReadable = true;
     private bool _idealUserPicked;
     private int _idealCpu = -1;
     private const int CpuBoxColumns = 8;
@@ -298,6 +289,19 @@ public sealed partial class ThreadListDialog : ContentDialog
             EditorSub.Text = $"{row.Description} - {row.StartAddress}";
             PriorityCurrent.Text = "Current: " + row.CurrentText;
             SelectComboByTag(PriorityCombo, row.CurrentLevel);
+            _memoryReadable = true;
+            try
+            {
+                uint memory = await Tuner.GetMemoryPriorityAsync((uint)row.Tid);
+                SelectComboByTag(MemoryCombo, (int)memory);
+                MemoryCurrent.Text = "Current: " + DescribeMemoryPriority(memory);
+            }
+            catch (Exception ex)
+            {
+                _memoryReadable = false;
+                MemoryCombo.SelectedItem = null;
+                MemoryCurrent.Text = "Current: unreadable (" + Short(ex) + ")";
+            }
             _boostReadable = true;
             _ecoReadable = true;
             try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)row.Tid); }
@@ -344,6 +348,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             SuspendButton.Content = row.Suspended ? "Resume" : "Suspend";
             bool editable = row.CanEdit;
             PriorityCombo.IsEnabled = editable;
+            MemoryCombo.IsEnabled = editable && _memoryReadable;
             EcoToggle.IsEnabled = editable && _ecoReadable;
             AffinityCpuGrid.Opacity = editable ? 1 : 0.5;
             IdealCpuGrid.Opacity = editable ? 1 : 0.5;
@@ -452,6 +457,36 @@ public sealed partial class ThreadListDialog : ContentDialog
         return null;
     }
 
+    private uint? ComboMemoryLevel()
+    {
+        int? level = ComboLevel(MemoryCombo);
+        return level is >= 1 and <= 5 ? (uint)level.Value : null;
+    }
+
+    private static string DescribeMemoryPriority(uint level) => level switch
+    {
+        1 => "Very low (1)",
+        2 => "Low (2)",
+        3 => "Medium (3)",
+        4 => "Below normal (4)",
+        5 => "Normal (5)",
+        _ => $"Level {level}",
+    };
+
+    private async void MemoryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingEditor || _selected == null) return;
+        int? level = ComboLevel(MemoryCombo);
+        if (level is not (>= 1 and <= 5)) return;
+        try
+        {
+            await Tuner.SetMemoryPriorityAsync((uint)_selected.Tid, (uint)level!.Value);
+            MemoryCurrent.Text = "Current: " + DescribeMemoryPriority((uint)level.Value);
+            EditorStatus(null, false);
+        }
+        catch (Exception ex) { EditorStatus($"Memory priority: {Short(ex)}", true); }
+    }
+
     private async void PriorityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loadingEditor || _selected == null) return;
@@ -487,6 +522,7 @@ public sealed partial class ThreadListDialog : ContentDialog
                 Priority = prio.Value,
                 BoostEnabled = _boostReadable ? row.BoostAllowed : null,
                 EfficiencyMode = _ecoReadable ? EcoToggle.IsOn : null,
+                MemoryPriority = _memoryReadable ? ComboMemoryLevel() : null,
             };
             ulong uiMask = ReadAffinityMask();
             if (uiMask != 0)

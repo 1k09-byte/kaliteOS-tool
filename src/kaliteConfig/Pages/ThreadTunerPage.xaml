@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="kaliteConfig.Pages.ThreadTunerPage"
     x:Name="RootPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -7,7 +7,7 @@
     xmlns:models="using:kaliteConfig.Models"
     xmlns:converters="using:kaliteConfig.Converters"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />

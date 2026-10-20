@@ -5,7 +5,7 @@
     xmlns:models="using:kaliteConfig.Models"
     xmlns:vm="using:kaliteConfig.ViewModels"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    NavigationCacheMode="Enabled"
+    NavigationCacheMode="Disabled"
     Background="Transparent">
 
     <Page.Resources>

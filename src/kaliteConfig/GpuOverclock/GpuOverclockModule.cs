@@ -1,14 +1,4 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
-using System;
+﻿using System;
 using kaliteConfig.GpuOverclock.Services;
 
 namespace kaliteConfig.GpuOverclock
@@ -19,6 +9,8 @@ namespace kaliteConfig.GpuOverclock
         public static GpuOverclockModule Instance => _lazy.Value;
 
         public string ControllerVendor { get; }
+
+        public bool IsAmdController => Controller is AmdGpuTuningController;
 
         public bool IsSimulation => AmdGpuSimulation.IsActive;
 
@@ -56,7 +48,7 @@ namespace kaliteConfig.GpuOverclock
             else
             {
                 var nvidia = new NvidiaGpuTuningController();
-                if (nvidia.Initialize().IsSuccess)
+                if (nvidia.Initialize().IsSuccess && nvidia.GetIdentity().IsSuccess)
                 {
                     Controller = nvidia;
                     ControllerVendor = "NVIDIA";

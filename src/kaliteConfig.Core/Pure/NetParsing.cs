@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,10 +30,6 @@ public static class NetParsing
         "lightweight filter", "wfp native", "wfp 802.3", "native wifi filter", "filter driver"
     };
 
-    /// <summary>
-    /// OS pseudo-adapters (WAN miniports, tunnels, loopback) are not hardware and
-    /// expose nothing worth tuning. They should never appear in the adapter list.
-    /// </summary>
     public static bool IsPseudoAdapter(string description, string name)
     {
         string hay = ((description ?? "") + " " + (name ?? "")).Trim().ToLowerInvariant();
@@ -51,10 +37,6 @@ public static class NetParsing
         return PseudoAdapterHints.Any(hint => hay.Contains(hint));
     }
 
-    /// <summary>
-    /// Windows exposes the same physical NIC several times ("...#2", "...#3" virtual
-    /// ports). The identity strips that suffix so only one entry per NIC is listed.
-    /// </summary>
     public static string AdapterIdentity(string description)
     {
         string text = (description ?? "").Trim();

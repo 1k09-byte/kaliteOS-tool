@@ -8,7 +8,7 @@
     xmlns:vm="using:kaliteConfig.PackageManager.ViewModels"
     mc:Ignorable="d"
     Background="Transparent"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Grid RowSpacing="12">
         <Grid.RowDefinitions>

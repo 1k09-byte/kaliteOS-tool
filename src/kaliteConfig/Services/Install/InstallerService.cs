@@ -1,13 +1,3 @@
-﻿// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using kaliteConfig.Models;
 using System;
 using System.Collections.Generic;
@@ -269,8 +259,6 @@ namespace kaliteConfig.Services
                 }
             }
 
-            // Mullvad Browser's installer layout depends on the chosen install mode,
-            // so fall back to locating the real application folder by its executable.
             if (IsFirefoxFamily(item))
             {
                 string[] executables = GetFirefoxExecutables(item);
@@ -816,10 +804,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Deploys the selected extensions for an installed browser.
-        /// Returns null on success, otherwise a message describing why nothing was applied.
-        /// </summary>
         private string? DeployExtensions(BrowserInstallItem item)
         {
             try
@@ -880,7 +864,6 @@ namespace kaliteConfig.Services
                     : $"Extensions were not applied: could not find the {item.Name} application folder.";
             }
 
-            // Nothing selected and no policy on disk: nothing to clean up.
             if (selected.Count == 0 && !File.Exists(policyPath)) return null;
 
             var firefoxInstaller = new FirefoxExtensionInstaller();

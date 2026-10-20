@@ -7,7 +7,7 @@
     xmlns:live="using:kaliteConfig.Services.LiveWallpaper"
     xmlns:vm="using:kaliteConfig.ViewModels"
     Background="Transparent"
-    NavigationCacheMode="Enabled"
+    NavigationCacheMode="Disabled"
     Loaded="OnLoaded"
     Unloaded="OnUnloaded">
 
