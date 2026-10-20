@@ -18,6 +18,7 @@ public sealed class GameModeEngine : IDisposable
     private readonly GameModeExecutor _executor;
     private readonly GameModeLog _log;
     private readonly ForegroundWatcher _watcher = new();
+    private readonly Action<string> _watcherDiagnostic;
     private readonly object _gate = new();
 
     private GameModeState _state = GameModeState.Idle;
@@ -28,6 +29,7 @@ public sealed class GameModeEngine : IDisposable
     private Timer? _debounceTimer;
     private Timer? _rescanTimer;
     private readonly List<GameModeAffectedRow> _rows = new();
+    private readonly HashSet<string> _loggedSkips = new();
     private bool _started;
     private bool _watchdogStarted;
 
@@ -39,6 +41,8 @@ public sealed class GameModeEngine : IDisposable
         _journal = new GameModeJournal(GameModeSettingsStore.JournalPath);
         _executor = new GameModeExecutor(_journal, log);
         _watcher.ForegroundChanged += OnForegroundChanged;
+        _watcherDiagnostic = message => _log.Add("Game Mode", "Watcher", "Applied and verified", message);
+        _watcher.Diagnostic += _watcherDiagnostic;
     }
 
     public event Action? Changed;
@@ -264,7 +268,8 @@ public sealed class GameModeEngine : IDisposable
     private void OnForegroundChanged(IntPtr hwnd)
     {
         if (!Settings.Enabled) return;
-        if (!ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out string name, out string? imagePath)) return;
+        if (!ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out string name, out string? imagePath))
+            return;
 
         var match = FindGame(pid, name, imagePath);
         if (match != null)
@@ -322,6 +327,8 @@ public sealed class GameModeEngine : IDisposable
         if (!string.IsNullOrEmpty(path)) gamePaths.Add(path);
         var gamePids = GameModeGuard.ExpandGameTree(facts, gamePid);
 
+        _log.Add("Game Mode", "Scan", "Applied and verified", $"{facts.Count} background candidates, {gamePids.Count} protected game-tree process(es)");
+        lock (_gate) _loggedSkips.Clear();
         int applied = ApplyPlan(facts, gamePids, gamePaths, gameName);
         EnsureWatchdog();
 
@@ -369,6 +376,13 @@ public sealed class GameModeEngine : IDisposable
             if (entry == null) continue;
 
             var (action, category, outcome, message) = Plan(fact, entry, gamePids, gamePaths);
+            if (outcome == GameModeOutcome.SkippedProtected)
+            {
+                bool first;
+                lock (_gate) first = _loggedSkips.Add(fact.Pid + ":" + fact.CreationTicks);
+                if (first) _log.Add(fact.Name, "Skip", OutcomeLabel(outcome), message);
+                continue;
+            }
             if (outcome != GameModeOutcome.Applicable) continue;
             if (action == BackgroundAction.None) continue;
 
@@ -438,6 +452,7 @@ public sealed class GameModeEngine : IDisposable
                     _activeGame = string.Empty;
                     _activeGamePid = 0;
                     _state = GameModeState.Idle;
+                    _loggedSkips.Clear();
                 }
                 _log.Add("-", "Game Mode", "Release", "Restored and verified",
                     $"Released in {watch.ElapsedMilliseconds} ms ({restored} process(es)) after {reason}");
@@ -469,6 +484,7 @@ public sealed class GameModeEngine : IDisposable
             _activeGame = string.Empty;
             _activeGamePid = 0;
             _rows.Clear();
+            _loggedSkips.Clear();
         }
         _executor.RestoreAll(reason);
         Raise();

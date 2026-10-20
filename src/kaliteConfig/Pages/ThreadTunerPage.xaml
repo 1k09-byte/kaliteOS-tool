@@ -129,17 +129,18 @@
                             <ComboBoxItem Content="Custom" />
                         </ComboBox>
                         <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" OnContent="On" OffContent="Off"
-                                      AutomationProperties.Name="Game Mode" IsOn="{x:Bind GameMode.Enabled, Mode=TwoWay}" />
+                                      AutomationProperties.Name="Game Mode" IsOn="{x:Bind GameMode.Enabled, Mode=OneWay}" Toggled="GameModeToggle_Toggled" />
                     </Grid>
                 </Expander.Header>
 
+                <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
                 <StackPanel Spacing="12">
                     <InfoBar IsOpen="True" IsClosable="False" Severity="{x:Bind GameMode.StatusSeverity, Mode=OneWay}"
                              Message="{x:Bind GameMode.StatusText, Mode=OneWay}" />
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Preview" Click="GameModePreview_Click" AutomationProperties.Name="Preview planned actions" />
-                        <Button Content="Resume everything now" Click="GameModeResume_Click" Style="{StaticResource AccentButtonStyle}" />
+                        <Button Content="Resume everything now" Click="GameModeResume_Click" AutomationProperties.Name="Resume everything now" />
                         <NumberBox Value="{x:Bind GameMode.DebounceMs, Mode=TwoWay}" Minimum="250" Maximum="5000" SmallChange="50"
                                    SpinButtonPlacementMode="Inline" Header="Activation delay (ms)" Width="200" />
                         <TextBlock Text="{x:Bind GameMode.JournalText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
@@ -266,6 +267,7 @@
                         </StackPanel>
                     </Expander>
                 </StackPanel>
+                </ScrollViewer>
             </Expander>
 
             <Grid Grid.Row="1" Margin="28,0,28,10" ColumnSpacing="8">

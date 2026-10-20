@@ -50,6 +50,11 @@ namespace kaliteConfig.Pages
             base.OnNavigatedFrom(e);
         }
 
+        private void GameModeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch toggle) GameMode.SetEnabledFromUi(toggle.IsOn);
+        }
+
         private void GameModePreview_Click(object sender, RoutedEventArgs e) => GameMode.Preview();
 
         private void GameModeResume_Click(object sender, RoutedEventArgs e) => GameMode.ResumeAll();

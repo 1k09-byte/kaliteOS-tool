@@ -66,8 +66,7 @@ public sealed class GameModeExecutor
 
             using var handle = NativeMethods.Handles.OpenProcess(
                 NativeMethods.ProcessAccess.QueryLimitedInformation
-                | NativeMethods.ProcessAccess.SetInformation
-                | NativeMethods.ProcessAccess.SuspendResume,
+                | NativeMethods.ProcessAccess.SetInformation,
                 false, (uint)fact.Pid);
 
             if (handle.IsInvalid)
@@ -185,8 +184,7 @@ public sealed class GameModeExecutor
 
         using var handle = NativeMethods.Handles.OpenProcess(
             NativeMethods.ProcessAccess.QueryLimitedInformation
-            | NativeMethods.ProcessAccess.SetInformation
-            | NativeMethods.ProcessAccess.SuspendResume,
+            | NativeMethods.ProcessAccess.SetInformation,
             false, (uint)entry.Pid);
 
         if (handle.IsInvalid)

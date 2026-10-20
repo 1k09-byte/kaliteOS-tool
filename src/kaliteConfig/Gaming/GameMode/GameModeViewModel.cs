@@ -21,6 +21,7 @@ public sealed partial class GameModeViewModel : ObservableObject
         _engine = engine;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _engine.Changed += OnEngineChanged;
+        _updating = true;
         StatusText = string.Empty;
         StatusSeverity = InfoBarSeverity.Informational;
         GamePathInput = string.Empty;
@@ -93,6 +94,13 @@ public sealed partial class GameModeViewModel : ObservableObject
 
     partial void OnLogFilterIndexChanged(int value) => ApplyLogFilter();
 
+    public void SetEnabledFromUi(bool value)
+    {
+        if (value == _engine.Settings.Enabled) return;
+        _engine.SetEnabled(value);
+        Refresh();
+    }
+
     private void OnEngineChanged()
     {
         if (_dispatcher.HasThreadAccess) Refresh();
@@ -161,11 +169,24 @@ public sealed partial class GameModeViewModel : ObservableObject
     public void Preview()
     {
         var rows = _engine.Preview();
-        Replace(Affected, rows);
-        PreviewSummary = rows.Count == 0
-            ? "Preview found nothing to plan. Add a game to the list first."
-            : $"Preview only. {rows.Count} background process(es) would be planned; nothing was changed.";
-        Refresh();
+        _updating = true;
+        try
+        {
+            Replace(Affected, rows);
+            StatusText = rows.Count == 0
+                ? "Preview: nothing to plan. Add a game to the list first."
+                : $"Preview only: {rows.Count} background process(es) would be planned; nothing was changed.";
+        }
+        finally
+        {
+            _updating = false;
+        }
+        PreviewSummary = StatusText;
+    }
+
+    public void SetFeedback(string text)
+    {
+        PreviewSummary = text;
     }
 
     public void AddGamePath()
@@ -218,9 +239,11 @@ public sealed partial class GameModeViewModel : ObservableObject
             var package = new DataPackage();
             package.SetText(builder.ToString());
             Clipboard.SetContent(package);
+            PreviewSummary = $"Copied {LogRows.Count} log row(s) to the clipboard.";
         }
-        catch
+        catch (Exception ex)
         {
+            PreviewSummary = "Could not copy the log: " + ex.Message;
         }
     }
 
@@ -234,9 +257,11 @@ public sealed partial class GameModeViewModel : ObservableObject
             foreach (var row in _engine.LogRows)
                 builder.AppendLine($"{row.Time}\t{row.Process}\t{row.Action}\t{row.Result}\t{row.Message}");
             System.IO.File.WriteAllText(path, builder.ToString());
+            PreviewSummary = "Exported the log to " + path;
         }
-        catch
+        catch (Exception ex)
         {
+            PreviewSummary = "Could not export the log: " + ex.Message;
         }
     }
 }
