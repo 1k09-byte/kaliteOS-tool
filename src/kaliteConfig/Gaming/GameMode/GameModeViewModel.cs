@@ -198,9 +198,7 @@ public sealed partial class GameModeViewModel : ObservableObject
 
     public void AddFocusedApp()
     {
-        var hwnd = kaliteConfig.Native.NativeMethods.GameMode.GetForegroundWindow();
-        if (ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out _, out _))
-            _engine.AddGame(pid);
+        _engine.AddFocusedApp();
         Refresh();
     }
 
