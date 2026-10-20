@@ -14,11 +14,6 @@ using System.Text.Json.Serialization;
 
 namespace kaliteConfig.Models;
 
-/// <summary>
-/// Root model of a Windhawk user-data backup (format "windhawk-user-data-v1").
-/// This is the same format Windhawk 2.0's built-in backup/restore feature and
-/// its windhawk-cli.exe "data import" command consume natively.
-/// </summary>
 public sealed class WindhawkBackup
 {
     [JsonPropertyName("format")]
@@ -31,12 +26,6 @@ public sealed class WindhawkBackup
     public List<WindhawkModEntry> Mods { get; set; } = new();
 }
 
-/// <summary>
-/// Windhawk application-level settings ("Advanced" tab values). Everything is
-/// optional so partial backups apply cleanly; nested engine settings use
-/// Windhawk's dotted flat form (e.g. "engine.injectIntoGames") when written to
-/// the registry/CLI.
-/// </summary>
 public sealed class WindhawkAppSettings
 {
     [JsonPropertyName("language")]
@@ -70,7 +59,6 @@ public sealed class WindhawkAppSettings
     public WindhawkEngineSettings? Engine { get; set; }
 }
 
-/// <summary>Windhawk engine sub-settings (the "Engine" section of app settings).</summary>
 public sealed class WindhawkEngineSettings
 {
     [JsonPropertyName("loggingVerbosity")]
@@ -92,20 +80,12 @@ public sealed class WindhawkEngineSettings
     public bool? InjectIntoGames { get; set; }
 }
 
-/// <summary>
-/// Per-mod "config" block in a backup: whether the mod is installed but
-/// disabled. The bundled KaliteOS set ships taskbar-restart-explorer this way
-/// (it is a one-shot tool, not a mod meant to stay loaded), so the import
-/// verification has to know the difference between "disabled because the
-/// bundled config says so" and "failed to enable".
-/// </summary>
 public sealed class WindhawkModConfig
 {
     [JsonPropertyName("disabled")]
     public bool? Disabled { get; set; }
 }
 
-/// <summary>One mod entry inside a windhawk-user-data-v1 backup.</summary>
 public sealed class WindhawkModEntry
 {
     [JsonPropertyName("modId")]
@@ -117,26 +97,15 @@ public sealed class WindhawkModEntry
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
-    /// <summary>
-    /// Flat per-mod settings as stored in the backup: keys use Windhawk's
-    /// flattened array form (e.g. "controlStyles[0].target") and values are
-    /// JSON scalars (string / number / bool).
-    /// </summary>
     [JsonPropertyName("settings")]
     public Dictionary<string, object?>? Settings { get; set; }
 
-    /// <summary>
-    /// Installed/enabled state carried by the backup itself. Null when the file
-    /// says nothing about it (the mod is then expected to end up enabled).
-    /// </summary>
     [JsonPropertyName("config")]
     public WindhawkModConfig? Config { get; set; }
 }
 
-/// <summary>Per-mod import outcome, used for the end-of-import summary.</summary>
 public sealed record WindhawkModImportOutcome(string ModId, bool Success, string? Reason);
 
-/// <summary>Aggregate result of an ImportBackupAsync run.</summary>
 public sealed class WindhawkImportResult
 {
     public int Imported { get; set; }

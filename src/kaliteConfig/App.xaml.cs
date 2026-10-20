@@ -32,39 +32,10 @@ namespace kaliteConfig
         public static bool IsDryRun { get; private set; }
         public static bool IsAdmin { get; private set; }
 
-        /// <summary>
-        /// True when the KaliteOS system stamp is missing. MainWindow shows a
-        /// full-window lock screen in that case; nothing inside is reachable.
-        /// </summary>
-        public static bool VerificationFailed { get; private set; }
-
-        /// <summary>
-        /// True when this launch came from login autostart (Run key --tray or
-        /// the packaged startup task): the window stays hidden and the app
-        /// lives in the notification-area tray until opened.
-        /// </summary>
         public static bool StartedToTray { get; private set; }
 
         public IThemeService? ThemeService { get; set; }
 
-        /// <summary>
-        /// Applies the app's default Material (None - a solid black window surface)
-        /// while the user has not picked one in Settings.
-        ///
-        /// This exists because DevWinUI writes the applied material to disk on
-        /// first launch, so the previous default (Mica Alt) is already stored on
-        /// existing installs and reads back identically to a real user choice. The
-        /// marker in <see cref="BackdropPreference"/> is the only way to tell the
-        /// two apart; once the user picks something, this stops.
-        ///
-        /// The App theme is deliberately NOT forced here: the default is
-        /// "Use system setting", so there is nothing to apply. Material = None
-        /// alone gives the black surface in both Windows themes.
-        ///
-        /// NOTE: this is NOT fire-and-forget. DevWinUI's SetBackdropTypeAsync
-        /// awaits its own initialization task, and that task only completes once
-        /// a window's content is loaded, so it has to run after Activate().
-        /// </summary>
         private async Task ApplyDefaultAppearanceAsync()
         {
             try
@@ -79,14 +50,9 @@ namespace kaliteConfig
             }
             catch
             {
-                // Appearance must never stop the app from starting.
             }
         }
 
-        /// <summary>
-        /// The app's main window. Needed by file pickers and dialogs in pages
-        /// that don't hold a window reference (WinUI 3 unpackaged pattern).
-        /// </summary>
         public static Window? MainWindow => _windowStatic;
         
         public static IServiceProvider Services { get; private set; } = null!;
@@ -96,15 +62,9 @@ namespace kaliteConfig
         public CpuSetService CpuSets => Services.GetRequiredService<CpuSetService>();
         public NativeSnapshotService NativeSnapshot { get; } = new NativeSnapshotService();
 
-        /// <summary>
-        /// Shared Gaming mode instance: the main process list and the Threads
-        /// window both go through this, so there is exactly one restore map
-        /// and the two UIs can never fight over priorities.
-        /// </summary>
         public GamingModeService GamingMode => Services.GetRequiredService<GamingModeService>();
         public ForegroundSuspendService ForegroundSuspend => Services.GetRequiredService<ForegroundSuspendService>();
         public ProfileWatcherService ProfileWatcher => Services.GetRequiredService<ProfileWatcherService>();
-        public ViewModels.BenchmarkViewModel Benchmark => Services.GetRequiredService<ViewModels.BenchmarkViewModel>();
         public SnipService Sniper => Services.GetRequiredService<SnipService>();
 
         public App()
@@ -122,21 +82,7 @@ namespace kaliteConfig
                 IsAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
 
-            // NOTE: a job-object CPU hard cap was tried here and removed. It
-            // breaks this app specifically: CPU rate control reserves scheduling
-            // cycles per process, so every CreateProcess in a capped job fails
-            // with ERROR_NOT_ENOUGH_QUOTA ("Not enough quota is available to
-            // process this command"). Measured: it breaks spawns at CpuRate
-            // 10000 - a full core - so it is not a matter of picking a saner
-            // rate. netsh, SCEWIN_64 and every other helper this app launches
-            // died. Idle usage is instead kept down by standing the work down:
-            // the backdrop stops on deactivation (KaliteBackdrop) and the
-            // Process Control poll requires a visible, foreground window
-            // (ThreadTunerViewModel.ShouldPoll).
-
             InitializeComponent();
-            // Last-resort crash log: unhandled UI-thread exceptions land here with
-            // a full stack trace so a crash can be diagnosed after the fact.
             this.UnhandledException += (_, e) =>
             {
                 try
@@ -150,40 +96,23 @@ namespace kaliteConfig
                         $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] UNHANDLED: {e.Exception}\n" +
                         new string('-', 80) + "\n");
                 }
-                catch { /* crash logging must never throw from the handler */ }
+                catch {  }
             };
-            
-            // Services come from DI now; fire profile watcher load.
+
             _ = InitializeWatcherAsync();
         }
 
         private async Task InitializeWatcherAsync()
         {
-            // Eagerly construct the Snip service so the global capture hotkey
-            // registers at startup, not on first visit to the Snip page.
-            // Runs synchronously here (UI thread) before the first await.
             try { _ = Services.GetRequiredService<SnipService>(); }
             catch { }
-            // Per-process Priority-boost preferences are written through the real
-            // tuning service; the store itself stays free of the UI application
-            // object so it can be tested headlessly.
             global::kaliteConfig.Services.ProcessBoostPreferenceService.Applier =
                 (pid, boostEnabled) => ProcessTuning.SetBoostAsync(pid, boostEnabled);
 
             await ProfileWatcher.LoadProfilesAsync();
             ProfileWatcher.StartWatcher();
-            // Keep every Process Control setting applied: rules and boost
-            // preferences are re-armed on a fixed cadence, not just once when a
-            // process starts.
-            // Autostart to tray: the toolkit must be running for rules to
-            // apply, so unpackaged installs keep the login Run entry (with
-            // --tray) without needing the Settings toggle. Packaged installs
-            // need user consent via the StartupTask prompt - those stay on the
-            // toggle only.
             _ = EnsureAutostartAsync();
             ProfileWatcher.StartKeeper();
-            // Arm Gaming mode for gaming-mode rules whose process is already
-            // running (app started mid-game) and watch for exits.
             ProfileWatcher.StartGamingModeWatcher();
             if (UpdateCheckService.TryLaunchInstalledCopyAndExitIfStaleSession())
                 return;
@@ -199,29 +128,17 @@ namespace kaliteConfig
                 if (!await startup.IsEnabledAsync())
                     await startup.SetEnabledAsync(true);
             }
-            catch { /* autostart is best-effort; never break startup */ }
+            catch {  }
         }
 
-        /// <summary>
-        /// Startup update dialog: checks GitHub Releases shortly after
-        /// the window is up; if a newer full release exists, shows a modal
-        /// offering "Update now" (download + silent Inno install + exit) or
-        /// "Later". Never throws - a failed check is a
-        /// silent no-op, exactly like the Settings-page banner path.
-        /// </summary>
         private async Task CheckForUpdateOnStartupAsync()
         {
             try
             {
-                // Small delay so the dialog opens over a rendered window,
-                // not during the navigation/layout burst of first launch.
                 await Task.Delay(4000);
                 var vm = new ViewModels.UpdateViewModel();
                 await vm.CheckForUpdateCommand.ExecuteAsync(null);
                 if (!vm.IsAvailable || MainWindow is null) return;
-                // A failed install is explained once (the Settings banner keeps
-                // carrying it) - re-opening a modal for the same version on
-                // every launch is the loop users complained about.
                 if (vm.SuppressStartupOffer) return;
 
                 var xamlRoot = MainWindow.Content?.XamlRoot;
@@ -283,45 +200,24 @@ namespace kaliteConfig
                     }
                 };
 
-                // Keep the dialog open while the update downloads/installs.
-                // On completion the updater calls Application.Current.Exit(),
-                // which tears the process down and closes this dialog.
-                // The view model routes internally: hand off to an already
-                // installed newer copy, re-run a failed attempt's setup
-                // visibly, or download + silent-install the new release.
                 dialog.PrimaryButtonClick += (s, args) =>
                 {
-                    args.Cancel = true; // don't close on click
+                    args.Cancel = true;
                     _ = vm.UpdateNowCommand.ExecuteAsync(null);
                 };
 
-                // It stays open across the whole download, so its progress bar
-                // and status line appear and grow long after ShowAsync placed
-                // it. Held centred for the duration so it cannot walk off the
-                // middle of the screen.
                 using var centerLock = kaliteConfig.Services.DialogCenterLock.Attach(dialog);
 
                 await dialog.ShowAsync();
 
-                // Shown → don't explain this same failure again next launch.
                 if (vm.LastAttemptFailed)
                     UpdateCheckService.MarkPendingUpdateReported();
             }
-            catch { /* update prompting must never break startup */ }
+            catch {  }
         }
 
         private static System.Threading.Mutex? _singleInstanceMutex;
 
-        /// <summary>
-        /// Breadcrumb trail for process teardown.
-        ///
-        /// The reported failure is a fatal ExecutionEngineException: it is not a
-        /// catchable .NET exception, so no try/catch, no AppDomain handler and no
-        /// crash.log ever sees it. The process simply dies. A line written as each
-        /// teardown stage completes is therefore the only evidence of how far
-        /// shutdown actually got, and the last line names the stage that killed it.
-        /// No secrets are written - stage names only.
-        /// </summary>
         internal static void ShutdownTrace(string step)
         {
             try
@@ -334,39 +230,11 @@ namespace kaliteConfig
                     System.IO.Path.Combine(dir, "shutdown.log"),
                     $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {step}{Environment.NewLine}");
             }
-            catch { /* diagnostics must never block shutdown */ }
+            catch {  }
         }
 
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            // KaliteOS verification gate: computed once here, enforced by
-            // MainWindow as a full-window lock screen (nothing inside is
-            // visible or reachable). --dry-run bypasses it so dev machines
-            // without the stamp can still launch for testing. Background
-            // launches (--tray, --apply-*) exit silently so a login task
-            // never shows UI on an unstamped system.
-            VerificationFailed = !IsDryRun && !SystemVerificationService.IsVerified();
-            if (VerificationFailed)
-            {
-                try
-                {
-                    var cmdArgs = Environment.GetCommandLineArgs();
-                    bool background = cmdArgs.Any(a =>
-                        a.Equals("--tray", StringComparison.OrdinalIgnoreCase) ||
-                        a.StartsWith("--apply-", StringComparison.OrdinalIgnoreCase));
-                    if (background)
-                    {
-                        Environment.Exit(0);
-                        return;
-                    }
-                }
-                catch
-                {
-                    Environment.Exit(0);
-                    return;
-                }
-            }
-
             using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
             {
                 currentProcess.PriorityClass = System.Diagnostics.ProcessPriorityClass.Idle;
@@ -375,8 +243,6 @@ namespace kaliteConfig
             _singleInstanceMutex = new System.Threading.Mutex(true, "kaliteConfigAppMutex", out bool isFirstInstance);
             if (!isFirstInstance)
             {
-                // Already running (usually hidden in the tray): ask it to
-                // show its window, then exit instead of starting a duplicate.
                 try
                 {
                     for (int i = 0; i < 50; i++)
@@ -398,26 +264,16 @@ namespace kaliteConfig
                 return;
             }
 
-            // Saved font choice (Settings > App font): applied here, in
-            // OnLaunched - Application.Resources is not readable yet inside
-            // the App constructor (get_Resources throws E_UNEXPECTED), and
-            // this still runs BEFORE MainWindow parses, so every window,
-            // page and dialog resolves the chosen face from the first frame.
-            // No-op while the preference is the shipped default.
             try
             {
                 FontPreference.Load();
                 FontPreference.Apply();
             }
-            catch { /* a font preference must never break startup */ }
+            catch {  }
 
             _window = new MainWindow();
             _windowStatic = _window;
 
-            // Overclock module teardown on close: stops telemetry, ends the
-            // fan-curve loop with a real driver hand-back (spec §5 - closing
-            // the app must never leave a forced fan speed), disarms the TDR
-            // watchdog. Best-effort; never delays the close.
             _window.Closed += (_, _) =>
             {
                 ShutdownTrace("closed.begin");
@@ -427,20 +283,17 @@ namespace kaliteConfig
                 catch { }
                 ShutdownTrace("closed.gpu-done");
 
-                // Gaming mode holds do not survive the process: restore every
-                // demoted process's priority/eco before the app goes away, or
-                // they stay lowered with nothing left to put them back.
                 try { GamingMode.ReleaseAll(); }
+                catch { }
+                try
+                {
+                    var live = Services?.GetService(typeof(Services.LiveWallpaper.ILiveWallpaperEngine)) as Services.LiveWallpaper.ILiveWallpaperEngine;
+                    live?.StopAndRestore();
+                }
                 catch { }
                 ShutdownTrace("closed.end");
             };
 
-            // App defaults: solid black window surface (Material = None) and a
-            // forced DARK element theme. The Kalite identity is matte black:
-            // the theme is pinned to Dark rather than following the system,
-            // because the palette, the translucent cards and the animated
-            // backdrop are all tuned for a dark field - following a light
-            // system setting would leave black cards on a white window.
             ThemeService = new ThemeService()
                 .ConfigureElementTheme(ElementTheme.Dark)
                 .ConfigureBackdrop(DevWinUI.BackdropType.None, true)
@@ -448,28 +301,14 @@ namespace kaliteConfig
             StartedToTray = StartupService.IsTrayLaunch(args.Arguments);
             if (StartedToTray)
             {
-                // Login autostart: live in the tray, no window popup.
-                // The MainWindow constructor already created the tray icon
-                // (with Open/Exit), and the rules engine runs in-proc.
-                // The window was never activated, so it is already hidden -
-                // Hide() just makes that explicit. First tray-Open shows it.
                 _window.AppWindow.Hide();
             }
             else
             {
                 _window.Activate();
-                // After Activate: the backdrop call awaits the theme service's
-                // initialization, which only completes once the window's
-                // content is loaded.
                 _ = ApplyDefaultAppearanceAsync();
             }
 
-            // Reserved CPU sets reapply: re-asserts the saved mask (older Windows builds
-            // drop the live kernel reservation across reboots). This used to
-            // need its own Run entry launching the exe a second time with
-            // --apply-reserved-cpus, which showed as a SECOND item in Task
-            // Manager > Startup. The single --tray login launch covers it now.
-            // Best-effort; never breaks app launch.
             bool wantsReservedCpus = Environment.GetCommandLineArgs()
                 .Contains("--apply-reserved-cpus", StringComparer.OrdinalIgnoreCase);
             if (!wantsReservedCpus)
@@ -488,22 +327,17 @@ namespace kaliteConfig
                         if (reservedCpus.GetDesiredMask() is ulong mask && mask != 0)
                             reservedCpus.SetReservedCpuMask(mask);
                     }
-                    catch { /* startup reapply must never break app launch */ }
+                    catch {  }
                 });
             }
 
-            // Startup reapply (spec 6): the elevated Task Scheduler task
-            // launches the app with --apply-overclock-startup at login.
-            // The designated, pre-boot-validated profile is reapplied on a
-            // background thread after the driver has settled - through the
-            // full safety machine with the shortened headless window.
             if (Environment.GetCommandLineArgs().Contains("--apply-overclock-startup", StringComparer.OrdinalIgnoreCase))
             {
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await Task.Delay(8000); // let NVAPI/driver settle after login
+                        await Task.Delay(8000);
                         var module = GpuOverclock.GpuOverclockModule.Instance;
                         var startup = new GpuOverclock.Services.StartupApplyService(
                             module.Controller, module.Safety, module.Profiles, module.ChangeLog,
@@ -518,7 +352,7 @@ namespace kaliteConfig
                             }));
                         await startup.ApplyDefaultProfileAtStartupAsync();
                     }
-                    catch { /* startup reapply must never break app launch */ }
+                    catch {  }
                 });
             }
         }

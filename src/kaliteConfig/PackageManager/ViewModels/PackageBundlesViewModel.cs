@@ -21,7 +21,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.ViewModels;
 
-/// <summary>One bundle row (missing count resolved on demand).</summary>
 public sealed partial class BundleRow : ObservableObject
 {
     [ObservableProperty] public partial PackageBundle Bundle { get; set; } = new();
@@ -36,7 +35,6 @@ public sealed partial class BundleRow : ObservableObject
         $" • {Bundle.CreatedAt:yyyy-MM-dd}";
 }
 
-/// <summary>Package bundles: list, create, export/import JSON, diff, bulk-install missing.</summary>
 public sealed partial class PackageBundlesViewModel : ObservableObject
 {
     private readonly PackageManagerModule Module = PackageManagerModule.Instance;
@@ -83,7 +81,6 @@ public sealed partial class PackageBundlesViewModel : ObservableObject
         Refresh();
     }
 
-    /// <summary>Diffs one bundle against currently installed (all enabled sources).</summary>
     public async Task<IReadOnlyList<BundleItem>> CheckMissingAsync(BundleRow row, CancellationToken ct)
     {
         row.IsBusy = true;
@@ -106,7 +103,6 @@ public sealed partial class PackageBundlesViewModel : ObservableObject
         }
     }
 
-    /// <summary>Bulk-installs the missing items (continues past failures).</summary>
     public async Task<IReadOnlyList<(BundleItem Item, PackageOperationResult Result)>> InstallMissingAsync(
         BundleRow row, IReadOnlyList<BundleItem> missing, CancellationToken ct)
     {

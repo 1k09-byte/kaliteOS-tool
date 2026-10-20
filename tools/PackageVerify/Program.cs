@@ -7,11 +7,6 @@ using kaliteConfig.PackageManager.Services;
 
 namespace PackageVerify
 {
-    /// <summary>
-    /// Offline checks (table parsing, bundles, CSV, display rules) plus an
-    /// opt-in live mode that exercises the real winget.exe read-only paths.
-    /// Usage: dotnet run --project tools/PackageVerify [-- live]
-    /// </summary>
     internal static class Program
     {
         private static int _failures;
@@ -26,9 +21,6 @@ namespace PackageVerify
         {
             Console.WriteLine("=== Package manager verification (offline) ===");
 
-            // Captured live: winget upgrade (note the "< 3.14.7" oddity).
-            // Built with fixed column widths so the dash-anchored slicing is
-            // exercised exactly like the real full-width tables.
             static string Row(params (string Text, int Width)[] cols) =>
                 string.Join(" ", cols.Select(c => c.Text.PadRight(c.Width)));
             static string Dashes(params int[] widths) =>
@@ -43,7 +35,6 @@ namespace PackageVerify
             Row(("Python Launcher", 60), ("Python.Launcher", 30), ("< 3.14.7", 20), ("3.14.7", 20), ("winget", 10)) + "\n" +
             "\n18 upgrades available.\n";
 
-        // Captured live: winget list (ARP/MSIX pseudo-ids, empty Source cells).
         int[] listWidths = { 60, 85, 25, 20, 10 };
         string listSample =
             Row(("Name", 60), ("Id", 85), ("Version", 25), ("Available", 20), ("Source", 10)) + "\n" +
@@ -52,7 +43,6 @@ namespace PackageVerify
             Row(("AV1 Video Extension", 60), (@"MSIX\Microsoft.AV1VideoExtension_2.0.30.0_x64__8wekyb3d8bbwe", 85), ("2.0.30.0", 25), ("", 20), ("", 10)) + "\n" +
             Row(("Claude", 60), ("Anthropic.Claude", 85), ("1.52386.6.0", 25), ("", 20), ("winget", 10)) + "\n";
 
-        // Shape of winget search (no Available column).
         int[] searchWidths = { 25, 20, 10, 10, 10 };
         string searchSample =
             Row(("Name", 25), ("Id", 20), ("Version", 10), ("Match", 10), ("Source", 10)) + "\n" +
@@ -88,7 +78,6 @@ namespace PackageVerify
             Check(found.Count == 2 && found[0].Id == "7zip.7zip" && found[0].AvailableVersion == "",
                 "search shape (no Available column) parses");
 
-            // Compact single-dash-run shape (exact-id queries emit one run).
             string compactSample =
                 "Name  Id        Version Source\n" +
                 "-------------------------------\n" +
@@ -102,7 +91,6 @@ namespace PackageVerify
             Check(WinGetPackageSource.ParsePackageTable("garbage\nmore garbage", "w", "W").Count == 0,
                 "garbage yields nothing (no phantom rows)");
 
-            // Version-not-determinable footer (live shape) must not become a row.
             string unknownFooter =
                 Row(("Name", 60), ("Id", 30), ("Version", 20), ("Available", 20), ("Source", 10)) + "\n" +
                 Dashes(60, 30, 20, 20, 10) + "\n" +
@@ -112,7 +100,6 @@ namespace PackageVerify
             Check(footerRows.Count == 1 && footerRows[0].Id == "7zip.7zip",
                 "version-unknown footer skipped, real row kept");
 
-            // Display rules.
             var same = new PackageInfo { InstalledVersion = "1.0", AvailableVersion = "1.0" };
             Check(!same.HasUpdate && same.VersionLine == "1.0", "equal versions: no update, single display");
             var diff = new PackageInfo { InstalledVersion = "1.0", AvailableVersion = "2.0" };
@@ -123,7 +110,6 @@ namespace PackageVerify
             Check(neither.VersionLine == "-" && !neither.HasUpdate, "empty display");
             Check(new PackageInfo { Name = "", Id = "x.y" }.DisplayName == "x.y", "id fallback for empty name");
 
-            // Bundles: round-trip + missing diff.
             string dir = Path.Combine(Path.GetTempPath(), "pkgverify-" + Guid.NewGuid().ToString("N"));
             var bundles = new PackageBundleService(dir);
             var bundle = new PackageBundle { Name = "Essentials" };
@@ -147,7 +133,6 @@ namespace PackageVerify
             Check(bundles.ImportFromJson("nope") is null, "bad import rejected");
             try { Directory.Delete(dir, recursive: true); } catch { }
 
-            // CSV quoting.
             var csvRows = new List<PackageInfo>
             {
                 new() { Name = "Say \"Hi\" Tool", Id = "x.y", InstalledVersion = "1.0", AvailableVersion = "2.0", SourceLabel = "WinGet", Publisher = "Acme, Inc." },
@@ -166,7 +151,6 @@ namespace PackageVerify
             return _failures == 0 ? 0 : 1;
         }
 
-        /// <summary>Read-only winget.exe paths only - never installs anything.</summary>
         private static void LiveChecks()
         {
             Console.WriteLine("--- live winget (read-only) ---");

@@ -34,7 +34,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _filterTimer;
 
-    /// <summary>Debounces typing; filtering on every keystroke thrashed the nested ItemsRepeaters.</summary>
     private void ScheduleFilter()
     {
         try
@@ -57,7 +56,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         }
     }
 
-    /// <summary>Rebuilds the filtered collections; swapping ItemsSource beats toggling item Visibility, which re-laid-out the tree per item.</summary>
     public void ApplySettingFilter()
     {
         try
@@ -86,8 +84,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
                     if (q.Length == 0 || group.FilteredSettings.Count > 0)
                     {
                         scheme.FilteredSubgroups.Add(group);
-                        // A match inside a COLLAPSED subgroup is invisible, so a
-                        // search used to show the group name and nothing else.
                         if (q.Length > 0 && !group.IsExpanded) group.IsExpanded = true;
                     }
                 }
@@ -97,7 +93,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         }
         catch
         {
-            /* a filter pass must never take the page (and the app) down */
         }
     }
 
@@ -121,12 +116,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
     private readonly WindowsSettingsService _kernelService = new();
     private bool _suppressKernelWrite;
 
-    /// <summary>Marshals LoadingStatus updates onto the UI thread. Progress&lt;T&gt;
-    /// captured no SynchronizationContext inside the async RelayCommand, so its
-    /// callback fired on a worker thread and the cross-thread PropertyChanged
-    /// crashed the app (COMException 0x8001010E). The DispatcherQueue is
-    /// captured at construction - always on the UI thread - because
-    /// GetForCurrentThread() from a worker returns null.</summary>
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _uiDispatcher;
 
     private void ReportStatus(string status)
@@ -143,9 +132,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
 
     public PowerPlansViewModel()
     {
-        // Do NOT touch HKLM here: the XAML DataContext instantiates this on the UI
-        // thread, and an admin-only registry write would crash page navigation.
-        // Unhide runs lazily inside LoadSchemesAsync on a background thread.
         try { _uiDispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread(); }
         catch { _uiDispatcher = null; }
     }
@@ -197,15 +183,10 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            // The write failed - surface it instead of silently dropping, so the
-            // user can see why the change does not stick on their machine.
             ErrorMessage = $"Could not save \"{setting.Name}\": {ex.Message}";
         }
     }
 
-    /// <summary>Manual trigger for the hidden-settings reveal. The load path
-    /// also runs it, but only an admin token can write HKLM, so a visible
-    /// button with an error surface beats a silent no-op.</summary>
     [RelayCommand]
     public async Task UnhideAllSettingsAsync()
     {
@@ -243,9 +224,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         LoadingStatus = "Loading power schemes…";
         try
         {
-            // No auto-unhide: mass HKLM writes on every page load broke
-            // laptop Control Panel (Modern Standby overlays). Unhide is
-            // opt-in via the button (UnhideAllSettingsAsync).
             LoadingStatus = "Enumerating power schemes…";
             var status = new Progress<string>(s => ReportStatus(s));
             var schemes = await Task.Run(() => _service.GetAllSchemes(status));
@@ -269,11 +247,8 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         }
     }
 
-    /// <summary>Creates a plan as a copy of <paramref name="baseId"/> with the given
-    /// identity. Returns the new id, or null on failure (ErrorMessage is set).</summary>
     public async Task<Guid?> CreatePlanAsync(Guid baseId, string name, string description)
     {
-        // Windows has no "empty plan" API - a new plan is a duplicate of a base.
         if (string.IsNullOrWhiteSpace(name)) name = "Custom plan";
         IsLoading = true;
         LoadingStatus = $"Creating \"{name}\"…";
@@ -285,7 +260,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
                 _service.WritePlanName(newId, name);
                 _service.WritePlanDescription(newId, description ?? string.Empty);
             });
-            IsLoading = false; // LoadSchemesAsync guards on IsLoading - release first
+            IsLoading = false;
             await LoadSchemesAsync();
             SelectedScheme = Schemes.FirstOrDefault(s => s.Id == newId);
             return newId;
@@ -381,21 +356,19 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            // An unguarded native failure here took the whole app down the
-            // moment the user pressed "Set as Active".
             ErrorMessage = $"Could not activate plan: {ex.Message}";
             return;
         }
         
         foreach (var s in Schemes)
             s.IsActive = (s == scheme);
-        RefreshKernelTweaks(); // per-scheme values follow the active plan
+        RefreshKernelTweaks();
     }
     
     [RelayCommand]
     private void DeleteScheme(PowerScheme? scheme)
     {
-        if (scheme == null || scheme.IsActive) return; // Cannot delete active scheme
+        if (scheme == null || scheme.IsActive) return;
 
         try
         {
@@ -411,8 +384,6 @@ public sealed partial class PowerPlansViewModel : ObservableObject
         }
     }
 
-    /// <summary>Recovery for broken Control Panel
-    /// ("power plan information isn't available"): restores Windows defaults.</summary>
     [RelayCommand]
     public async Task RestoreDefaultSchemesAsync()
     {
@@ -491,7 +462,7 @@ public sealed partial class PowerPlansViewModel : ObservableObject
             if (file != null)
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powercfg", $"/import \"{file.Path}\"") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                await LoadSchemesAsync(); // Refresh list to get the new guid
+                await LoadSchemesAsync();
             }
         }
         catch { }

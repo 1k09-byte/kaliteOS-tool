@@ -7,11 +7,6 @@ using Windows.Storage.Streams;
 
 namespace VoiceRender
 {
-    /// <summary>
-    /// Renders benchmark voice cues offline via WinRT SpeechSynthesis.
-    /// Lists installed voices, picks en-* (Zira preferred), writes WAVs.
-    /// Exit 0 = both files written.
-    /// </summary>
     internal static class Program
     {
         private static async Task<int> Main()
@@ -53,7 +48,6 @@ namespace VoiceRender
                 byte[] bytes = new byte[stream.Size];
                 await reader.LoadAsync((uint)stream.Size);
                 reader.ReadBytes(bytes);
-                // Stream content type is audio/wav: persist bytes verbatim.
                 File.WriteAllBytes(path, bytes);
                 Console.WriteLine($"wrote {path} ({bytes.Length} bytes, {stream.ContentType})");
                 return 0;

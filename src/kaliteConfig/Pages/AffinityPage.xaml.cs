@@ -31,10 +31,6 @@ namespace kaliteConfig.Pages
 
         private async void AffinityPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Rescan on EVERY visit, not just the first one. The page is cached
-            // (NavigationCacheMode=Enabled), so a GPU that was restarted, or a
-            // driver just installed, used to leave the table showing adapters
-            // that no longer exist in that shape.
             if (!ViewModel.IsRefreshing)
             {
                 await ViewModel.RefreshDevicesCommand.ExecuteAsync(null);
@@ -44,15 +40,23 @@ namespace kaliteConfig.Pages
         private async void DeviceRow_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.Tag is not AffinityDeviceItem device) return;
+            await OpenDeviceAsync(device);
+        }
 
+        private async void DeviceRow_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is AffinityDeviceItem device)
+                await OpenDeviceAsync(device);
+        }
+
+        private async Task OpenDeviceAsync(AffinityDeviceItem device)
+        {
             try
             {
                 await ViewModel.LoadDeviceDetailsAsync(device);
             }
             catch (Exception ex)
             {
-                // A stale row (device restarted / re-enumerated) must not open an
-                // empty dialog: report it, rescan, and let the user pick again.
                 await ShowMessageAsync("Device not available", ex.Message);
                 return;
             }
@@ -81,8 +85,6 @@ namespace kaliteConfig.Pages
                 return;
             }
 
-            // Never write interrupt settings into a device that is no longer
-            // there (the classic post-GPU-restart case).
             if (!ViewModel.IsDevicePresent(ViewModel.SelectedDevice))
             {
                 string goneName = ViewModel.SelectedDevice.Name;
@@ -97,64 +99,64 @@ namespace kaliteConfig.Pages
             ViewModel.ApplyDeviceChanges(ViewModel.SelectedDevice);
             DeviceDetailsDialog.Hide();
 
-            // If the application engine actually pushed a modification to the registry
             if (ViewModel.TrackedChanges.Count > previousChanges)
             {
-                // These settings are read when the device STARTS, so the write on
-                // its own is inert - the row would change and the interrupts would
-                // not. Restart here so "applied" and "in effect" are the same
-                // moment, rather than asking and usually being answered "Later".
                 await ViewModel.RestartDeviceAfterApplyAsync(ViewModel.SelectedDevice);
             }
         }
 
         private void DialogCancel_Click(object sender, RoutedEventArgs e)
         {
-            // The dialog edits the row item in place - throw those staged
-            // edits away so Cancel truly cancels.
             ViewModel.DiscardDialogChanges();
             DeviceDetailsDialog.Hide();
         }
 
-        private async void ViewChanges_Click(object sender, RoutedEventArgs e)
+        private sealed class ChangeListRow
         {
-            // Build human-readable change list for the dialog
-            string content;
-            if (ViewModel.TrackedChanges.Count == 0)
+            public ChangeListRow(string device, string detail)
             {
-                content = "No changes have been made yet.";
-            }
-            else
-            {
-                var sb = new System.Text.StringBuilder();
-                foreach (var c in ViewModel.TrackedChanges)
-                {
-                    string oldVal = FormatValue(c.PropertyName, c.OldValue);
-                    string newVal = FormatValue(c.PropertyName, c.NewValue);
-                    sb.AppendLine($"• {c.DeviceName}");
-                    sb.AppendLine($"    {c.PropertyName}: {oldVal} → {newVal}");
-                    sb.AppendLine();
-                }
-                content = sb.ToString().TrimEnd();
+                Device = device;
+                Detail = detail;
             }
 
+            public string Device { get; }
+            public string Detail { get; }
+        }
+
+        private async void ViewChanges_Click(object sender, RoutedEventArgs e)
+        {
             var dialog = new ContentDialog
             {
                 Title = $"Tracked Changes ({ViewModel.TrackedChanges.Count})",
-                Content = new ScrollViewer
-                {
-                    MaxHeight = 400,
-                    Content = new TextBlock
-                    {
-                        Text = content,
-                        TextWrapping = TextWrapping.Wrap,
-                        IsTextSelectionEnabled = true
-                    }
-                },
                 CloseButtonText = "Close",
                 XamlRoot = XamlRoot,
                 Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style
             };
+            if (ViewModel.TrackedChanges.Count == 0)
+            {
+                dialog.Content = new TextBlock
+                {
+                    Text = "No changes have been made yet.",
+                    TextWrapping = TextWrapping.Wrap
+                };
+            }
+            else
+            {
+                var rows = new System.Collections.Generic.List<ChangeListRow>();
+                foreach (var c in ViewModel.TrackedChanges)
+                {
+                    string oldVal = FormatValue(c.PropertyName, c.OldValue);
+                    string newVal = FormatValue(c.PropertyName, c.NewValue);
+                    rows.Add(new ChangeListRow(c.DeviceName, $"{c.PropertyName}: {oldVal} → {newVal}"));
+                }
+                dialog.Content = new ListView
+                {
+                    ItemsSource = rows,
+                    ItemTemplate = (DataTemplate)Resources["ChangeRowTemplate"],
+                    ItemContainerStyle = (Style)Resources["AffinityRowContainerStyle"],
+                    SelectionMode = ListViewSelectionMode.None
+                };
+            }
             await dialog.ShowAsync();
         }
 
@@ -172,7 +174,6 @@ namespace kaliteConfig.Pages
             };
         }
 
-        // Static converter methods for x:Bind
         public static Visibility BoolToVis(bool isVisible)
         {
             return isVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -202,5 +203,7 @@ namespace kaliteConfig.Pages
         }
 
         public static bool Not(bool val) => !val;
+
+        public static string CountText(int count) => count.ToString();
     }
 }

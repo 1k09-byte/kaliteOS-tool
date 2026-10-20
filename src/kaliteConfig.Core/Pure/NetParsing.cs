@@ -14,16 +14,12 @@ using System.Linq;
 
 namespace kaliteConfig.Services;
 
-/// <summary>UI-free network logic: classification, categorization, validation, diffs,
-/// statistics, doctor rules and the revert-timer machine. Unit-tested in tools/NetVerify.</summary>
 public static class NetParsing
 {
     private static readonly string[] VpnHints = { "vpn", "tap-", "tap ", "wireguard", "nordlynx", "openvpn", "ipsec", "pptp", "l2tp", "tailscale", "zerotier", "protonvpn" };
     private static readonly string[] VirtualHints = { "hyper-v", "virtualbox", "virtual ethernet", "virtual machine", "vmware", "bluetooth", "wi-fi direct", "wifi direct", "local area connection*",
         "default switch", "wsl", "vpn" };
 
-    /// <summary>Kind from description/name. Bluetooth and Wi-Fi Direct count as Virtual;
-    /// VPN matches first so a virtual VPN adapter reports VPN.</summary>
     public static NetAdapterKind ClassifyAdapter(string description, string name)
     {
         var hay = ((description ?? "") + " " + (name ?? "")).ToLowerInvariant();
@@ -37,7 +33,37 @@ public static class NetParsing
     public static bool IsHiddenByDefault(NetAdapterKind kind, string status) =>
         kind == NetAdapterKind.Virtual || kind == NetAdapterKind.Vpn;
 
-    /// <summary>List visibility: hidden/virtual need showHidden, anything not up needs showDisconnected.</summary>
+    private static readonly string[] PseudoAdapterHints =
+    {
+        "wan miniport", "teredo", "6to4", "isatap", "ip-https",
+        "software loopback", "loopback pseudo", "kernel debug", "ras async",
+        "lightweight filter", "wfp native", "wfp 802.3", "native wifi filter", "filter driver"
+    };
+
+    /// <summary>
+    /// OS pseudo-adapters (WAN miniports, tunnels, loopback) are not hardware and
+    /// expose nothing worth tuning. They should never appear in the adapter list.
+    /// </summary>
+    public static bool IsPseudoAdapter(string description, string name)
+    {
+        string hay = ((description ?? "") + " " + (name ?? "")).Trim().ToLowerInvariant();
+        if (hay.Length == 0) return true;
+        return PseudoAdapterHints.Any(hint => hay.Contains(hint));
+    }
+
+    /// <summary>
+    /// Windows exposes the same physical NIC several times ("...#2", "...#3" virtual
+    /// ports). The identity strips that suffix so only one entry per NIC is listed.
+    /// </summary>
+    public static string AdapterIdentity(string description)
+    {
+        string text = (description ?? "").Trim();
+        int hash = text.LastIndexOf(" #", StringComparison.Ordinal);
+        if (hash >= 0 && int.TryParse(text[(hash + 2)..], out _))
+            text = text[..hash].Trim();
+        return text.ToLowerInvariant();
+    }
+
     public static bool IsListVisible(NetAdapterKind kind, bool isUp, bool showHidden, bool showDisconnected)
     {
         if ((kind == NetAdapterKind.Virtual || kind == NetAdapterKind.Vpn) && !showHidden) return false;
@@ -45,7 +71,6 @@ public static class NetParsing
         return true;
     }
 
-    /// <summary>Category purely from RegistryKeyword (never the localized display name).</summary>
     public static string CategorizeKeyword(string keyword)
     {
         var k = (keyword ?? "").ToLowerInvariant();
@@ -61,8 +86,6 @@ public static class NetParsing
         return "Vendor";
     }
 
-    /// <summary>Plain-English, honest explanations. Performance claims are marked unproven
-    /// unless a latency test measured them.</summary>
     public static readonly IReadOnlyDictionary<string, string> Explanations =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -96,7 +119,6 @@ public static class NetParsing
     public static string OptionDesc(List<NetAdvancedOption> options, string value) =>
         options.FirstOrDefault(o => o.Value == value)?.Description ?? value;
 
-    /// <summary>Null when valid, otherwise the human reason.</summary>
     public static string? ValidateValue(NetAdvancedProp prop, string value)
     {
         if (prop.Type.Equals("enum", StringComparison.OrdinalIgnoreCase))
@@ -131,7 +153,6 @@ public static class NetParsing
         return diffs;
     }
 
-    /// <summary>Rollback plan: every keyword whose live value differs from the snapshot.</summary>
     public static List<NetSettingDiff> RollbackPlan(
         IReadOnlyDictionary<string, string> snapshot,
         IReadOnlyDictionary<string, string> live,
@@ -153,8 +174,6 @@ public static class NetParsing
         return dict;
     }
 
-    /// <summary>Parses `netsh interface ipv4 show offload` into per-interface
-    /// capability lists. Sections look like "Interface 11: Wi-Fi" + capability lines.</summary>
     public static List<(string Iface, List<string> Caps)> ParseNetshOffload(string text)
     {
         var out_ = new List<(string, List<string>)>();
@@ -196,8 +215,6 @@ public static class NetParsing
             ok.Min(), ok.Average(), ok.Max(), jitter);
     }
 
-    /// <summary>Before/after verdict. A change counts only when it exceeds the summed
-    /// jitter of both runs (the measured run-to-run noise).</summary>
     public static (string Verdict, string Detail) CompareLatency(NetPingSummary before, NetPingSummary after)
     {
         if (before.Received == 0 || after.Received == 0)
@@ -211,7 +228,6 @@ public static class NetParsing
             : ("regressed", $"Average rose {delta:0.0} ms, beyond the ±{noise:0.0} ms noise.");
     }
 
-    /// <summary>Min/max-per-bucket decimation so spikes survive downsampling for graphs.</summary>
     public static List<(double Min, double Max)> DecimateMinMax(IReadOnlyList<double> samples, int buckets)
     {
         var out_ = new List<(double, double)>();
@@ -244,7 +260,6 @@ public static class NetParsing
         return (Get("VEN_"), Get("DEV_"), Get("SUBSYS_"), Get("REV_"));
     }
 
-    /// <summary>Driver date like "3-24-2025" (or ISO). Returns years old and whether &gt; 2 years.</summary>
     public static (double Years, bool OlderThanTwoYears) DriverAge(string? dateStr, DateTime utcNow)
     {
         if (DateTime.TryParse(dateStr, out var d) || DateTime.TryParseExact(dateStr, "M-d-yyyy",
@@ -287,7 +302,6 @@ public static class NetParsing
         };
     }
 
-    /// <summary>Doctor rules over real facts. No measurement behind a claim -&gt; Info + "unproven".</summary>
     public static List<NetDoctorFinding> DoctorRules(NetAdapterFacts f)
     {
         var out_ = new List<NetDoctorFinding>();
@@ -353,12 +367,8 @@ public static class NetParsing
         return out_;
     }
 
-    // ------------------------------------------------- system-wide editable rows
-
     public enum SysKind { Enum, Number }
 
-    /// <summary>One editable system-wide row. Setter describes HOW it writes:
-    /// NetshTcp/NetshUdp/NetshSupplemental/PsOffload/PsRss with the exact tag.</summary>
     public sealed record SysRowDef(
         string Section, string Key, string Label, SysKind Kind,
         List<string> Options, long Min, long Max,
@@ -366,11 +376,8 @@ public static class NetParsing
 
     private static readonly List<string> OffOnDefault = new() { "Enabled", "Disabled", "Default" };
 
-    /// <summary>Every row below was verified settable on this machine (netsh set ? help
-    /// plus -WhatIf probes for the CIM cmdlets). No row without a proven setter.</summary>
     public static List<SysRowDef> SysRowDefs() => new()
     {
-        // TCP globals: netsh interface tcp set global <tag>=<value>
         new SysRowDef("TCP Global Parameters", "Receive-Side Scaling State", "Receive-Side Scaling State",
             SysKind.Enum, new List<string>(OffOnDefault), 0, 0, "NetshTcp", "rss"),
         new SysRowDef("TCP Global Parameters", "Receive Window Auto-Tuning Level", "Receive Window Auto-Tuning Level",
@@ -399,12 +406,10 @@ public static class NetParsing
             SysKind.Enum, new List<string>(OffOnDefault), 0, 0, "NetshTcp", "prr"),
         new SysRowDef("TCP Global Parameters", "Pacing Profile", "Pacing Profile",
             SysKind.Enum, new List<string> { "Off", "InitialWindow", "SlowStart", "Always", "Default" }, 0, 0, "NetshTcp", "pacingprofile"),
-        // UDP globals: netsh interface udp set global uro=/uso=
         new SysRowDef("UDP Global Parameters", "Receive Offload State", "Receive Offload State",
             SysKind.Enum, new List<string>(OffOnDefault), 0, 0, "NetshUdp", "uro"),
         new SysRowDef("UDP Global Parameters", "Send Offload State", "Send Offload State",
             SysKind.Enum, new List<string>(OffOnDefault), 0, 0, "NetshUdp", "uso"),
-        // Offload globals: Set-NetOffloadGlobalSetting -<Property> <Enabled|Disabled|...>
         new SysRowDef("Global Offload Settings", "ReceiveSideScaling", "ReceiveSideScaling",
             SysKind.Enum, new List<string> { "Enabled", "Disabled" }, 0, 0, "PsOffload", "ReceiveSideScaling"),
         new SysRowDef("Global Offload Settings", "ReceiveSegmentCoalescing", "ReceiveSegmentCoalescing",
@@ -419,7 +424,6 @@ public static class NetParsing
             SysKind.Enum, new List<string> { "Blocked", "Allowed" }, 0, 0, "PsOffload", "NetworkDirectAcrossIPSubnets"),
         new SysRowDef("Global Offload Settings", "PacketCoalescingFilter", "PacketCoalescingFilter",
             SysKind.Enum, new List<string> { "Enabled", "Disabled" }, 0, 0, "PsOffload", "PacketCoalescingFilter"),
-        // Per-adapter RSS: Set-NetAdapterRss -Name X -<Property> <value>
         new SysRowDef("Receive Side Scaling", "RSS Profile", "RSS Profile",
             SysKind.Enum, new List<string> { "Closest", "ClosestStatic", "NUMA", "NUMAStatic", "Conservative", "Balanced" }, 0, 0, "PsRss", "Profile"),
         new SysRowDef("Receive Side Scaling", "RSS Queues", "RSS Queues",
@@ -430,7 +434,6 @@ public static class NetParsing
             SysKind.Number, new List<string>(), 0, 63, "PsRss", "MaxProcessors"),
     };
 
-    /// <summary>What each section actually covers, shown above its rows.</summary>
     private static readonly IReadOnlyDictionary<string, string> SysSectionHints =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -443,8 +446,6 @@ public static class NetParsing
     public static string SysSectionHint(string section) =>
         SysSectionHints.TryGetValue(section ?? "", out var hint) ? hint : "System-wide network settings.";
 
-    /// <summary>RSS profile int (as CIM JSON reports it) to setter name. Measured live:
-    /// 1=Closest 2=ClosestStatic 3=NUMA 4=NUMAStatic 5=Conservative 6=Balanced.</summary>
     public static string RssProfileName(int v) => v switch
     {
         1 => "Closest",
@@ -462,7 +463,6 @@ public static class NetParsing
         _ => v == 1 ? "Enabled" : "Disabled",
     };
 
-    /// <summary>Builds the exact setter command. Pure and unit-tested; execution lives in NetSysService.</summary>
     public static (string Tool, string Args) SysSetterCommand(SysRowDef row, string adapterName, string value)
         => row.Setter switch
         {
@@ -476,18 +476,12 @@ public static class NetParsing
             _ => throw new ArgumentException("Unknown setter " + row.Setter),
         };
 
-    /// <summary>Live spellings that mean one of a row's options but print differently.
-    /// netsh shows the default RFC 1323 state as "allowed".</summary>
     private static readonly IReadOnlyDictionary<string, string> SysValueAliases =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["RFC 1323 Timestamps|allowed"] = "Default",
         };
 
-    /// <summary>Maps a live value onto the row's own option spelling. Windows reports
-    /// "enabled"/"normal"/"off" while the options list is capitalized, and a combo bound
-    /// by SelectedValue shows nothing when the two differ. Values matching no option are
-    /// returned trimmed and unchanged.</summary>
     public static string CanonicalOption(SysRowDef row, string? value)
     {
         var v = (value ?? "").Trim().TrimEnd('.');

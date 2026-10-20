@@ -26,7 +26,6 @@ public class SnipThumbnailItem : ObservableObject
     public string Filename { get; set; } = "";
     public string FilePath { get; set; } = "";
 
-    /// <summary>Shared card state (skeleton / fade-in / failed / missing / blank badge).</summary>
     public SnipCardState Card { get; }
 
     public SnipThumbnailItem()
@@ -45,7 +44,6 @@ public class SnipThumbnailItem : ObservableObject
     private Task<SnipGalleryService.SnipThumbnailLoad> Loader(int tier, System.Threading.CancellationToken ct) =>
         SnipGalleryService.LoadThumbnailResultAsync(FilePath, tier, ct);
 
-    /// <summary>Kept for compatibility: the same image the card state holds.</summary>
     public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Thumbnail => Card.Image;
 
     public string ResolutionText => Card.ResolutionText;
@@ -125,10 +123,8 @@ public partial class GalleryItem : ObservableObject
     private Task<SnipGalleryService.SnipThumbnailLoad> Loader(int tier, System.Threading.CancellationToken ct) =>
         SnipGalleryService.LoadThumbnailResultAsync(Entry.FilePath, tier, ct);
 
-    /// <summary>Shared card state: Recent Snips and the Gallery render the exact same states.</summary>
     public SnipCardState Card { get; }
 
-    /// <summary>Same image the card state holds (details panel binding).</summary>
     public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Thumbnail => Card.Image;
 
     private bool _isSelected;
@@ -153,7 +149,6 @@ public partial class GalleryItem : ObservableObject
             if (SetProperty(ref _isHover, value))
             {
                 OnPropertyChanged(nameof(StarVisibility));
-                OnPropertyChanged(nameof(StarOpacity));
             }
         }
     }
@@ -177,29 +172,12 @@ public partial class GalleryItem : ObservableObject
 
     public string FavoriteGlyph => IsFavorite ? "\uE735" : "\uE734";
 
-    /// <summary>
-    /// The star is HOVER-ONLY. It used to also show whenever the item was a
-    /// favourite, which meant a permanently-visible badge in the corner of
-    /// every favourited thumbnail - a permanent overlay on the picture, and it
-    /// is now a per-item action sitting on the thumbnail rather than part of the
-    /// caption. A favourited tile is still obvious from the gold star the
-    /// moment you hover it, and the "Favorites only" filter is the persistent
-    /// way to see them.
-    /// </summary>
     public Microsoft.UI.Xaml.Visibility StarVisibility =>
         IsHover ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    /// <summary>
-    /// Full opacity once favourited (so the gold reads as "done"), dimmed while
-    /// merely hovered so an un-favourited tile's action does not compete with
-    /// the picture.
-    /// </summary>
-    public double StarOpacity => IsFavorite ? 1.0 : 0.6;
     public Microsoft.UI.Xaml.Media.Brush StarBrush => IsFavorite
         ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gold)
         : Services.Theming.ThemeHelper.SecondaryText();
-    /// <summary>The tile's single frame: accent when selected, transparent otherwise.
-    /// There is exactly one border, so selection can never look doubled.</summary>
     public Microsoft.UI.Xaml.Media.Brush TileBorder
     {
         get
@@ -222,7 +200,6 @@ public partial class GalleryItem : ObservableObject
 
     public DateTime SortKeyCreatedUtc => Entry.CreatedUtc;
 
-    /// <summary>The whole card pipeline, in tiers, DPI-aware (see <see cref="SnipCardState"/>).</summary>
     public async void EnsureThumbnailAsync(double cardDipSize, double rasterizationScale = 1.0)
     {
         _thumbnailLoading = true;
@@ -319,7 +296,6 @@ public partial class GalleryItem : ObservableObject
         _owner.OpenContainingFolder(this);
     }
 
-    /// <summary>Full viewer window: zoom/pan on the same Win2D preview the details panel uses.</summary>
     [RelayCommand]
     private void OpenInViewer()
     {
@@ -364,28 +340,14 @@ public sealed partial class SnipViewModel : ObservableObject
         Pipelines.Add(discordPipe);
     }
 
-    /// <summary>Explicit refresh (the Refresh button): re-reads everything, still merging in place.</summary>
     public System.Threading.Tasks.Task RefreshGalleryAsync() => RefreshCoreAsync(true);
 
     private string _snipFolderSignature = "";
     private bool _refreshRunning;
     private System.Threading.Tasks.Task? _refreshInFlight;
 
-    /// <summary>
-    /// The periodic background poll. Returns true when the folder had actually changed (and the
-    /// lists were merged), which is what drives the poll's adaptive interval.
-    ///
-    /// It first compares a cheap folder fingerprint (names, sizes, write times) and returns
-    /// without touching anything when the folder is unchanged, so polling often costs almost
-    /// nothing and never produces a visible refresh: no status text, no busy indicator, no
-    /// cleared lists. When something did change, the work is merged into the existing items, so
-    /// cards keep their decoded thumbnails, the scroll position stays where it is and the
-    /// selection (and the details preview) survives.
-    /// </summary>
     public async System.Threading.Tasks.Task<bool> RefreshQuietAsync()
     {
-        // A poll that lands on top of an explicit refresh just waits for it: the merge it does is
-        // the one we were about to ask for, so there is nothing to start and nothing to drop.
         if (_refreshRunning)
         {
             if (_refreshInFlight is { } running)
@@ -410,10 +372,6 @@ public sealed partial class SnipViewModel : ObservableObject
 
     private System.Threading.Tasks.Task RefreshCoreAsync(bool refreshFilters)
     {
-        // One refresh at a time, and a second caller joins the one already running instead of
-        // getting a silent no-op -- the Refresh button has to mean something even mid-poll.
-        // The published task is created before any of the work runs, so a refresh that finishes
-        // synchronously cannot clear the field and then have a completed task assigned into it.
         if (_refreshInFlight is { IsCompleted: false } inFlight) return inFlight;
 
         var completion = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
@@ -445,12 +403,6 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Recent Snips is merged the same way as the gallery: an item that is still present is kept
-    /// (keeping its decoded thumbnail and its card animations), so a quiet refresh cannot make the
-    /// hub flicker either.
-    /// </summary>
-    /// <summary>How many snips the Recent strip ever shows.</summary>
     public const int MaxRecentSnips = 5;
 
     private void MergeRecentSnips()
@@ -513,13 +465,8 @@ public sealed partial class SnipViewModel : ObservableObject
 
         _itemCache = flatItems;
 
-        // Merge rather than Clear()+Add(): the containers for snips that are still here must not
-        // be recycled, or a refresh would flash skeletons back on, jump the scroll position and
-        // drop the selection (taking the details preview with it).
         SilentListMerge.Sync(GallerySnips, flatItems, static i => i.UniqueId);
 
-        // Only a selection whose snip is actually gone (deleted, or filtered out) clears the
-        // details panel; a selection that is still on screen stays exactly as it is.
         if (SelectedGalleryItem is not null && !GallerySnips.Contains(SelectedGalleryItem))
             SelectedGalleryItem = null;
 
@@ -764,13 +711,9 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    /// <summary>Real hotkey state - this used to be a hard-coded "Hotkey: Active" even when
-    /// registration had failed (which is why a dead PrtScn was invisible to the user).</summary>
     public string StatusBarRegistrationText =>
         ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyStatusText ?? "Hotkey: not registered";
 
-    /// <summary>Live capture hotkey for the Region tile caption. The mode tiles share the
-    /// single global hotkey, so only Region advertises one - the rest show no shortcut.</summary>
     public string CaptureHotkeyCaption =>
         ((App)Microsoft.UI.Xaml.Application.Current).Sniper?.HotkeyLabel ?? "Not registered";
 
@@ -791,7 +734,6 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    /// <summary>Re-reads the capture service state (after a rebind or a failed registration).</summary>
     public void RefreshHotkeyStatus()
     {
         OnPropertyChanged(nameof(StatusBarRegistrationText));
@@ -800,8 +742,6 @@ public sealed partial class SnipViewModel : ObservableObject
         OnPropertyChanged(nameof(StatusBarHotkeyTooltip));
     }
 
-    /// <summary>"Blocked" meant: registry value PrintScreenKeyForSnippingEnabled=0,
-    /// i.e. Windows Snipping Tool no longer owns PrtScn - kaliteConfig does. Good state.</summary>
     public string StatusBarPrtScnOwner
     {
         get
@@ -897,8 +837,6 @@ public sealed partial class SnipViewModel : ObservableObject
         }
     }
 
-    /// <summary>Applies a captured combination: registers first, persists only on success,
-    /// warns on conflict and leaves the previous hotkey (and UI selection) untouched.</summary>
     public void ApplyCustomHotkey(uint modifiers, uint vk)
     {
         var app = (App)Microsoft.UI.Xaml.Application.Current;
@@ -906,7 +844,7 @@ public sealed partial class SnipViewModel : ObservableObject
         if (!ok)
         {
             NotifyMessage("Hotkey taken", message + " The previous hotkey is still active.");
-            OnPropertyChanged(nameof(SelectedHotkeyIndex)); // revert the preset picker
+            OnPropertyChanged(nameof(SelectedHotkeyIndex));
             return;
         }
         var s = SnipSettingsService.Load();
@@ -946,7 +884,6 @@ public sealed partial class SnipViewModel : ObservableObject
             }
             else if (!string.IsNullOrEmpty(app.Sniper.HotkeyError))
             {
-                // Registered, but on a fallback key: say so instead of pretending it is the chosen one.
                 NotifyMessage("Hotkey changed to a free key", message);
             }
         }
@@ -961,7 +898,6 @@ public sealed partial class SnipViewModel : ObservableObject
             key?.SetValue("PrintScreenKeyForSnippingEnabled", 0, RegistryValueKind.DWord);
             OnPropertyChanged(nameof(StatusBarHijackText));
 
-            // Machine policy as well (needs admin; best effort when elevated).
             string machineNote;
             try
             {
@@ -974,7 +910,6 @@ public sealed partial class SnipViewModel : ObservableObject
                 machineNote = "Machine policy skipped (needs admin): " + ex.Message;
             }
 
-            // Re-register our own hotkey now that Windows has let go of PrtScn.
             var s = SnipSettingsService.Load();
             var app = (App)Microsoft.UI.Xaml.Application.Current;
             var (ok, msg) = app.Sniper.RebindHotkey(s.HotkeyIndex);
@@ -1318,7 +1253,6 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
         }
     }
 
-    /// <summary>Optional "Fill" card mode: cover the card (crops) instead of fitting it (never crops).</summary>
     public bool ThumbnailFillMode
     {
         get => SnipSettingsService.Load().ThumbnailFillMode;
@@ -1333,7 +1267,6 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
         }
     }
 
-    /// <summary>Retries a card whose thumbnail failed (bypasses the cached tiers).</summary>
     public async Task RetryCardAsync(GalleryItem item, double cardDipSize, double rasterizationScale)
     {
         await item.Card.RetryAsync(cardDipSize, rasterizationScale);
@@ -1348,12 +1281,9 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
             NotifyMessage("File missing", $"{item.Filename} was deleted or moved outside the app.");
     }
 
-    /// <summary>"Remove from gallery" for a card whose file is gone: drops the list entry (and any
-    /// orphaned sidecar), leaving the user's disk alone.</summary>
     public async Task RemoveFromGalleryAsync(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return;
-        // Never delete the image here: only the gallery entry.
         try
         {
             var meta = filePath + ".meta.json";
@@ -1380,8 +1310,6 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
         NotifyMessage("Removed from gallery", $"{System.IO.Path.GetFileName(filePath)} was already gone; the gallery entry was removed.");
     }
 
-    /// <summary>Re-requests every card at the current DPI (window moved to another monitor, or the
-    /// display scale changed): the smallest tier that covers the new physical size is loaded.</summary>
     public void RefreshCardDpi(double rasterizationScale)
     {
         foreach (var item in GallerySnips) _ = item.Card.EnsureAsync(item.ThumbSize, rasterizationScale);
@@ -1476,7 +1404,6 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
 
         _undoBatch.Clear();
 
-        // Target is a single file. We need to create a new folder "Screenshots X" right here.
         string baseDir = System.IO.Path.GetDirectoryName(target.Entry.FilePath)!;
         string newDir = System.IO.Path.Combine(baseDir, "Screenshots 1");
         int counter = 1;
@@ -1486,8 +1413,7 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
             newDir = System.IO.Path.Combine(baseDir, $"Screenshots {counter}");
         }
         System.IO.Directory.CreateDirectory(newDir);
-        
-        // Move target into this new folder
+
         string targetNewPath = System.IO.Path.Combine(newDir, System.IO.Path.GetFileName(target.Entry.FilePath));
         System.IO.File.Move(target.Entry.FilePath, targetNewPath);
         
@@ -1520,8 +1446,7 @@ powershell -Command ""Get-AppxPackage -AllUsers Microsoft.ScreenSketch | Remove-
                 _undoBatch.Add((s.Entry.FilePath, sNewPath));
             }
         }
-        
-        // Show Undo toast
+
         OnPropertyChanged(nameof(HasUndo));
         NotifyMessage("Merged into folder", $"Created grouping in {System.IO.Path.GetFileName(targetDir)}. Use Undo to unpack.");
 

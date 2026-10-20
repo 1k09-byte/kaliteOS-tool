@@ -22,16 +22,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services
 {
-    /// <summary>
-    /// Maps between the Windows driver-store version format and NVIDIA's
-    /// marketing version format.
-    ///
-    /// WMI/registry DriverVersion looks like "32.0.15.6614" while NVIDIA calls
-    /// the same package "566.14". The mapping is the last 5 digits of the
-    /// Windows version split as XXX.YY - e.g. "32.0.15.6614" → "56614" →
-    /// "566.14". This is the same translation NVCleanstall uses and is stable
-    /// across DCH drivers.
-    /// </summary>
     public static class NvidiaVersionHelper
     {
         public static string? FromWmiVersion(string? wmiVersion)
@@ -44,7 +34,6 @@ namespace kaliteConfig.Services
             return $"{last5[..3]}.{last5[3..]}";
         }
 
-        /// <summary>Numeric segment comparison: negative → a older than b.</summary>
         public static int Compare(string a, string b)
         {
             var segsA = a.Split('.');
@@ -63,22 +52,12 @@ namespace kaliteConfig.Services
     public sealed record DetectedGpu(string Name, string Vendor, string DriverVersion, string VideoProcessor = "", string Status = "")
     {
         public string VramText { get; init; } = string.Empty;
-        public string GpuType { get; init; } = string.Empty;   // Discrete / Integrated
-        public string DeviceType { get; init; } = string.Empty; // Display
+        public string GpuType { get; init; } = string.Empty;
+        public string DeviceType { get; init; } = string.Empty;
         public bool IsPrimary { get; init; }
 
-        /// <summary>
-        /// Driver version read directly from the adapter's registry class key
-        /// (driver store), used to cross-check the WMI-reported version.
-        /// Null when the registry entry wasn't found.
-        /// </summary>
         public string? RegistryVersion { get; init; }
 
-        /// <summary>
-        /// PnP device ID (PCI\VEN_…&DEV_…), when known. Lets the driver lookup
-        /// query by hardware device ID instead of the marketing name - the only
-        /// reliable path for a driverless card Windows can't name.
-        /// </summary>
         public string? PnpDeviceId { get; init; }
     }
 
@@ -88,23 +67,14 @@ namespace kaliteConfig.Services
 
         private const string DisplayClassKey = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
 
-        // NVIDIA Lookup API series pairs (psid, pfid). Any valid desktop series
-        // returns the current Game Ready driver; tried in order until one succeeds.
         private static readonly (int Psid, int Pfid)[] NvidiaSeriesQueries = new[]
         {
-            (120, 929),   // RTX 30 desktop
-            (127, 1039),  // RTX 40 desktop
-            (112, 895),   // GTX 16 desktop
-            (107, 879),   // RTX 20 desktop
+            (120, 929),
+            (127, 1039),
+            (112, 895),
+            (107, 879),
         };
 
-        /// <summary>
-        /// Enumerates display adapters using robust WMI Win32_VideoController queries.
-        /// Vendor comes from the PCI hardware ID (VEN_xxxx), never from the device
-        /// name string, and only present, problem-free adapters count - WMI also
-        /// reports disabled/phantom iGPUs (e.g. AMD Radeon Graphics next to an
-        /// NVIDIA dGPU) which would otherwise show stale hardware.
-        /// </summary>
         public Task<List<DetectedGpu>> DetectGpusAsync(CancellationToken ct = default)
         {
             return Task.Run(() =>
@@ -127,8 +97,6 @@ namespace kaliteConfig.Services
                         uint configError = 0;
                         try
                         {
-                            // Non-zero means the adapter has a problem code (disabled,
-                            // failed start, phantom...). Only healthy adapters count.
                             configError = Convert.ToUInt32(obj["ConfigManagerErrorCode"] ?? 0);
                         }
                         catch { }
@@ -139,11 +107,6 @@ namespace kaliteConfig.Services
 
                         if (vendor == "Unknown") continue;
 
-                        // Keep the adapter visible when it has a problem code.
-                        // Code 28 (drivers not installed) is exactly the state this
-                        // page exists to fix - a driverless GPU must still show up
-                        // so the user can install one. Same for code 31/43 (driver
-                        // failed to load). Only skip genuinely absent hardware.
                         bool hasNoDriver = configError is 28 or 31 or 43;
                         if (configError != 0 && !hasNoDriver)
                         {
@@ -154,9 +117,6 @@ namespace kaliteConfig.Services
                             continue;
                         }
 
-                        // AdapterRAM is a 32-bit uint in WMI, so cards with >4 GB
-                        // saturate at ~0xFFFE0000 (4293918720), not uint.MaxValue.
-                        // Treat anything near the 4 GB ceiling (or zero) as clamped.
                         long vramBytes = vramRaw;
                         bool looksClamped = vramBytes <= 0 ||
                             (vramBytes > (4L * 1024 * 1024 * 1024) - (128L * 1024 * 1024));
@@ -164,8 +124,6 @@ namespace kaliteConfig.Services
                             vramBytes = ReadVramFromRegistry(obj["PNPDeviceID"]?.ToString() ?? "");
                         if (vramBytes <= 0 && vendor == "AMD")
                         {
-                            // Last resort for AMD: the driver-installed ADLX library
-                            // reports the card's raw total, same source the Overclock tab uses.
                             vramBytes = ReadVramFromAdlx(obj["PNPDeviceID"]?.ToString() ?? "");
                         }
                         string vramText = FormatVram(vramBytes);
@@ -179,15 +137,9 @@ namespace kaliteConfig.Services
 
                         string pnpId = obj["PNPDeviceID"]?.ToString() ?? "";
 
-                        // Driverless adapters report no DriverVersion; give the
-                        // ViewModel a marker it can map to the NotInstalled state.
                         if (hasNoDriver)
                             driverVersion = string.Empty;
 
-                        // Cross-check: the display class key holds the same driver
-                        // version the driver store actually loaded. A disagreement
-                        // between WMI and the registry usually means a pending
-                        // update (installed but not yet active) - surface both.
                         string? registryVersion = vendor == "NVIDIA" && !string.IsNullOrEmpty(pnpId)
                             ? ReadRegistryDriverVersion(pnpId)
                             : null;
@@ -197,7 +149,7 @@ namespace kaliteConfig.Services
                             VramText = vramText,
                             GpuType = integrated ? "Integrated" : "Discrete",
                             DeviceType = "Display",
-                            IsPrimary = false, // set by caller after ordering
+                            IsPrimary = false,
                             RegistryVersion = registryVersion,
                             PnpDeviceId = pnpId,
                         });
@@ -208,12 +160,6 @@ namespace kaliteConfig.Services
                 {
                 }
 
-                // Fallback: with no driver loaded, some systems never surface the
-                // adapter in Win32_VideoController (and PNPClass can differ).
-                // Two-stage fallback:
-                //   1. Win32_PnPEntity where PNPClass='Display'
-                //   2. Win32_PnPEntity matched by PCI vendor ID (VEN_10DE/1002/
-                //      8086) - pure hardware identity, works with no driver at all.
                 if (result.Count == 0)
                 {
                     try
@@ -238,22 +184,14 @@ namespace kaliteConfig.Services
 
                             bool isDisplayClass = pnpClass?.Equals("Display", StringComparison.OrdinalIgnoreCase) == true;
 
-                            // PCI class code in the DeviceID when present:
-                            // CC_0300/0301/0380 = display controllers.
                             bool isPciDisplay = System.Text.RegularExpressions.Regex.IsMatch(
                                 pnpId, @"CC_03[0-9A-F]{2}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-                            // Real-world case (verified on a driverless machine):
-                            // the GPU enumerates as PCI\VEN_10DE&DEV_xxxx with
-                            // Name exactly "Display", an EMPTY PNPClass, and no
-                            // CC_ suffix. Accept that shape explicitly.
                             bool isUnnamedDisplayAdapter =
                                 pnpId.StartsWith("PCI\\", StringComparison.OrdinalIgnoreCase) &&
                                 name.Trim().Equals("Display", StringComparison.OrdinalIgnoreCase) &&
                                 !string.Equals(pnpClass, "MEDIA", StringComparison.OrdinalIgnoreCase);
 
-                            // Never accept audio/SMBus/etc. companions that share
-                            // the GPU vendor ID (NVIDIA HD Audio, AMD SMBus…).
                             bool isCompanionDevice =
                                 name.Contains("Audio", StringComparison.OrdinalIgnoreCase) ||
                                 name.Contains("SMBus", StringComparison.OrdinalIgnoreCase) ||
@@ -264,7 +202,7 @@ namespace kaliteConfig.Services
                             if (!isDisplayClass && !isPciDisplay && !isUnnamedDisplayAdapter)
                                 continue;
                             if (name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase))
-                                continue; // generic fallback renderer, not real hardware identity
+                                continue;
 
                             result.Add(new DetectedGpu(name, vendor, "", name, "OK")
                             {
@@ -285,11 +223,6 @@ namespace kaliteConfig.Services
             }, ct);
         }
 
-        /// <summary>
-        /// Win32_VideoController.AdapterRAM is a UInt32 and saturates above 4 GB.
-        /// The display class registry key holds the true value in
-        /// HardwareInformation.qwMemorySize (QWORD, bytes).
-        /// </summary>
         private static long ReadVramFromRegistry(string pnpId)
         {
             try
@@ -303,10 +236,6 @@ namespace kaliteConfig.Services
                     using var child = key.OpenSubKey(sub);
                     if (child is null) continue;
 
-                    // MatchingDeviceId is the enumerator-relative ID (e.g.
-                    // "PCI\VEN_10DE&DEV_2704..."), the PNPDeviceID adds the instance
-                    // suffix - match by prefix (case-insensitive, with or without
-                    // the leading transport segment; both directions compared).
                     if (child.GetValue("MatchingDeviceId")?.ToString() is not string matching ||
                         !MatchesPnpId(matching, pnpId))
                         continue;
@@ -335,12 +264,6 @@ namespace kaliteConfig.Services
             return 0;
         }
 
-        /// <summary>
-        /// Reads DriverVersion from the adapter's display-class registry subkey
-        /// (matched by MatchingDeviceId prefix, same trick as VRAM). This is the
-        /// value the currently-loaded driver store entry reports - the registry
-        /// half of the WMI-vs-registry version cross-check.
-        /// </summary>
         private static string? ReadRegistryDriverVersion(string pnpId)
         {
             try
@@ -366,14 +289,6 @@ namespace kaliteConfig.Services
             return null;
         }
 
-        /// <summary>Lexicographic-friendly "pci\\ven_x&amp;dev_y" comparison: the matched
-        /// device id is a prefix of the full PNP device id, but casing and
-        /// separators vary between boards and Windows sessions.</summary>
-        /// <summary>
-        /// Tells ADLX to report each AMD adapter's total VRAM, matched by
-        /// VEN/DEV id against the WMI PNP device id. Returns 0 when ADLX is
-        /// unavailable or no adapter matches.
-        /// </summary>
         private static long ReadVramFromAdlx(string pnpId)
         {
             try
@@ -396,8 +311,6 @@ namespace kaliteConfig.Services
             if (pnpId.StartsWith(matching, StringComparison.OrdinalIgnoreCase)) return true;
             if (matching.StartsWith(pnpId, StringComparison.OrdinalIgnoreCase)) return true;
 
-            // Compare on the "<ven>_<dev>" core so "PCI\VEN..." vs "pci\ven..."
-            // and a missing leading "PCI\\" on one side are handled.
             static string Core(string s)
             {
                 var m = System.Text.RegularExpressions.Regex.Match(
@@ -414,7 +327,6 @@ namespace kaliteConfig.Services
             return gb >= 1.0 ? $"{gb:0} GB" : $"{bytes / (1024.0 * 1024):0} MB";
         }
 
-        // PCI vendor IDs: 10DE = NVIDIA, 1002 = AMD/ATI, 8086 = Intel.
         private static string VendorFromPnpId(string? pnpId)
         {
             if (string.IsNullOrEmpty(pnpId)) return "Unknown";
@@ -424,7 +336,6 @@ namespace kaliteConfig.Services
             return "Unknown";
         }
 
-        // Fallback for non-PCI adapters (USB display, hypervisor adapters...).
         private static string VendorFromName(string name)
         {
             if (name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) return "NVIDIA";
@@ -433,17 +344,6 @@ namespace kaliteConfig.Services
             return "Unknown";
         }
 
-        /// <summary>
-        /// Latest NVIDIA Game Ready (WHQL/DCH) driver via the same lookup API
-        /// tools like NVCleanstall use. Returns (version, directExeUrl) or nulls
-        /// when offline or when the response shape changes - callers fall back
-        /// to the official download page.
-        ///
-        /// ACCURACY FLAG: gfwsl.geforce.com AjaxDriverService.php is an
-        /// UNDOCUMENTED, reverse-engineered endpoint (not an official NVIDIA
-        /// API). It can change or disappear without notice; callers must treat
-        /// failure as "unable to check", never as ground truth.
-        /// </summary>
         public async Task<(string? Version, string? Url)> GetLatestNvidiaDriverAsync(CancellationToken ct)
         {
             foreach (var (psid, pfid) in NvidiaSeriesQueries)
@@ -461,7 +361,6 @@ namespace kaliteConfig.Services
                 }
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {
-                    // Per-series HTTP timeout: same backend serves all series, stop trying.
                     break;
                 }
                 catch (OperationCanceledException) { throw; }
@@ -509,11 +408,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Full silent pipeline for NVIDIA: download with progress, run the vendor
-        /// installer silent (-s -noreboot), then verify via exit code. Mirrors
-        /// InstallerService.InstallBrowserAsync (elevated manifest, UseShellExecute=false).
-        /// </summary>
         public async Task InstallNvidiaAsync(GpuDriverItem item, IProgress<GpuDriverStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
         {
             progress.Report(GpuDriverStatus.Downloading);
@@ -579,7 +473,6 @@ namespace kaliteConfig.Services
                     return;
                 }
 
-                // Driver packages take several minutes; 20-minute ceiling, then kill.
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 timeoutCts.CancelAfter(TimeSpan.FromMinutes(20));
                 try
@@ -622,10 +515,6 @@ namespace kaliteConfig.Services
             CleanUp(tempPath);
         }
 
-        /// <summary>
-        /// Guided path for vendors without reliable silent flags: download the
-        /// package (when a URL is known) then hand off to the vendor UI.
-        /// </summary>
         public async Task DownloadAndLaunchAsync(GpuDriverItem item, IProgress<GpuDriverStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
         {
             if (!IsHttpUrl(item.DownloadUrl))
@@ -699,9 +588,6 @@ namespace kaliteConfig.Services
                         !string.IsNullOrWhiteSpace(gpu.DriverVersion) &&
                         !gpu.Name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Registry version wins over WMI: right after an update
-                        // WMI can still report the previous driver, which made the
-                        // card look unchanged after a successful install.
                         item.InstalledVersion = string.IsNullOrWhiteSpace(gpu.RegistryVersion)
                             ? gpu.DriverVersion
                             : gpu.RegistryVersion;

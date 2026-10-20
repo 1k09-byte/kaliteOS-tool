@@ -87,8 +87,6 @@ public sealed partial class SnipPage : Page
     private void Sniper_CaptureFailed(string reason) =>
         ViewModel.NotifyMessage("Capture failed", reason);
 
-    /// <summary>The hotkey used to fail silently. Now the status bar is truthful and a
-    /// registration failure (usually PrtScn owned by Windows Snipping Tool) is reported once.</summary>
     private void ReportHotkeyStatus(bool once)
     {
         if (App.Current.Sniper is not { } sniper) return;
@@ -109,25 +107,14 @@ public sealed partial class SnipPage : Page
         }
     }
 
-    // The capture overlay is a separate window: when it closes, the main window
-    // reactivates. Refresh then so fresh saves/imports appear in the gallery.
     private void HostWindow_Activated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
     {
         _windowActive = args.WindowActivationState != Microsoft.UI.Xaml.WindowActivationState.Deactivated;
 
-        // Coming back to the window is when a snip captured in the meantime has to appear. This
-        // used to be a full gallery rebuild on every activation, which cleared the selection (and
-        // so the details preview) and reloaded every thumbnail -- the refresh the UI was visibly
-        // doing on its own. The quiet path only does that work when the folder actually changed.
         if (_windowActive)
         {
-            // Opening the burst window here is what makes a capture show up immediately: the
-            // overlay closing activates the window, and for the next few seconds the poll is at
-            // its tightest interval to pick up the save that came with it.
             NudgeRefreshCadence();
             _ = ViewModel.RefreshQuietAsync();
-            // Refocusing with failed cards retries them: cheap, bounded, and the moment the
-            // user is most likely staring at a stuck preview.
             RetryFailedPreviews();
         }
     }
@@ -135,24 +122,8 @@ public sealed partial class SnipPage : Page
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _quietRefresh;
     private bool _windowActive = true;
 
-    /// <summary>
-    /// The poll's adaptive interval: tight for a few seconds after anything changed, relaxed once
-    /// the folder has been quiet. See <see cref="SnipRefreshCadence"/> -- it only trades wakeups
-    /// for latency, never what the user sees.
-    /// </summary>
     private readonly SnipRefreshCadence _refreshCadence = new();
 
-    /// <summary>
-    /// Polls the snips folder so captures and other tools writing into it show up on their own,
-    /// without the user ever pressing Refresh.
-    ///
-    /// The poll is designed to be invisible: it fingerprints the folder first and touches nothing
-    /// when the fingerprint is unchanged, and when it did change it merges results into the
-    /// existing item instances, so no card re-enters its skeleton state, the scroll position
-    /// holds, and the selection (with the details preview) is left alone. Nothing here writes a
-    /// status line, opens a banner or shows a busy state, so a poll and a manual refresh look
-    /// exactly like an idle page.
-    /// </summary>
     private void StartQuietRefresh()
     {
         if (_quietRefresh is not null) return;
@@ -172,7 +143,6 @@ public sealed partial class SnipPage : Page
         try { timer?.Stop(); } catch { }
     }
 
-    /// <summary>Re-opens the tight part of the cadence (a snip just landed, or Refresh was pressed).</summary>
     private void NudgeRefreshCadence()
     {
         var interval = _refreshCadence.Nudge();
@@ -181,11 +151,6 @@ public sealed partial class SnipPage : Page
 
     private SnipFolderWatcher? _folderWatcher;
 
-    /// <summary>
-    /// Watches the snips folder so a save is picked up in the same breath as it happening, rather
-    /// than whenever the poll's lazy interval comes around. The callback arrives on a pool thread,
-    /// so everything it touches is marshalled back onto the UI thread.
-    /// </summary>
     private void StartFolderWatch()
     {
         _folderWatcher ??= SnipFolderWatcher.Start(
@@ -204,21 +169,14 @@ public sealed partial class SnipPage : Page
         if (DispatcherQueue is null) return;
         DispatcherQueue.TryEnqueue(async () =>
         {
-            // Re-arm either way: if the page is not in a position to poll right now, the interval
-            // it resumes with is the tight one.
             NudgeRefreshCadence();
             if (Visibility != Visibility.Visible || XamlRoot is null || !_windowActive) return;
             var changed = false;
             try { changed = await ViewModel.RefreshQuietAsync(); } catch { }
-            // A fresh save can land while still being written (non-atomic copy): its first
-            // decode may fail and park the card in Failed. A changed merge is exactly when a
-            // retry is cheap and likely to succeed, so failed cards reload on their own.
             if (changed) RetryFailedPreviews();
         });
     }
 
-    /// <summary>Re-runs the thumbnail load for cards stuck in Failed/Missing after a merge,
-    /// so previews recover without anyone pressing Retry or Refresh.</summary>
     private void RetryFailedPreviews()
     {
         try
@@ -240,10 +198,6 @@ public sealed partial class SnipPage : Page
 
     private async void QuietRefresh_Tick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
     {
-        // Never poll while the page is off screen, the window is in the background, or the user is
-        // typing into it: a list that re-orders under a caret is exactly the visible refresh this
-        // is meant to avoid. A gated tick leaves the cadence alone, so the interval the user comes
-        // back to is still the tight one from the last real change.
         if (Visibility != Visibility.Visible || XamlRoot is null || !_windowActive) return;
         if (FocusManager.GetFocusedElement(XamlRoot) is TextBox) return;
 
@@ -252,8 +206,6 @@ public sealed partial class SnipPage : Page
         catch (Exception) { }
         if (changed) RetryFailedPreviews();
 
-        // Set after the work, so a merge that takes longer than the interval cannot queue up
-        // back-to-back ticks: the next poll is always a full interval after this one finished.
         var next = _refreshCadence.Observe(changed);
         if (_quietRefresh is { } timer) timer.Interval = next;
     }
@@ -274,8 +226,6 @@ public sealed partial class SnipPage : Page
     protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        // No PurgeTrash here anymore: the bin is persistent and emptied only by
-        // explicit user action (Empty Bin / Delete Forever).
         _ = SnipThumbnailService.CleanupOrphansOnceAsync();
         await ViewModel.RunAutoDeleteAsync();
         await ViewModel.RefreshGalleryAsync();
@@ -285,8 +235,6 @@ public sealed partial class SnipPage : Page
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _bannerTimer;
 
-    /// <summary>Pushed refresh straight from our own save paths (overlay save/copy,
-    /// repeat, fullscreen): deterministic, no waiting on the file watcher.</summary>
     private async void OnGalleryChangedExternal()
     {
         try
@@ -300,8 +248,6 @@ public sealed partial class SnipPage : Page
     private void OnBannerRequested(string title, string content)
     {
         bool isError = title.Contains("fail") || title.Contains("Fail") || title.Contains("unavailable");
-        // Transient notes slide in bottom-right for 3 s (when enabled); undo and
-        // errors keep the persistent InfoBar because they need a button / must be read.
         if (!isError && !ViewModel.HasUndo && ViewModel.SnipToastEnabled)
         {
             GalleryInfoBar.IsOpen = false;
@@ -314,7 +260,6 @@ public sealed partial class SnipPage : Page
         GalleryInfoBar.IsOpen = true;
         UndoInfoButton.Visibility = ViewModel.HasUndo ? Visibility.Visible : Visibility.Collapsed;
 
-        // Auto-dismiss informational banners after ~5 s (errors stay until closed).
         if (GalleryInfoBar.Severity == InfoBarSeverity.Success)
         {
             _bannerTimer ??= DispatcherQueue.CreateTimer();
@@ -324,8 +269,6 @@ public sealed partial class SnipPage : Page
             _bannerTimer.Start();
         }
     }
-
-    // ---- slide-in toast card (3 s, bottom-right, optional) --------------------
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _toastTimer;
 
@@ -357,9 +300,8 @@ public sealed partial class SnipPage : Page
         catch { }
     }
 
-    private void ToastCard_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    private void ToastCard_Click(object sender, RoutedEventArgs e)
     {
-        // Tapping dismisses early.
         try { _toastTimer?.Stop(); ToastOut.Begin(); } catch { }
     }
 
@@ -397,9 +339,7 @@ public sealed partial class SnipPage : Page
             ViewGallery.Visibility = (tag == "Gallery") ? Visibility.Visible : Visibility.Collapsed;
             ViewBin.Visibility = (tag == "Bin") ? Visibility.Visible : Visibility.Collapsed;
             ViewStickers.Visibility = (tag == "Stickers") ? Visibility.Visible : Visibility.Collapsed;
-            ViewTools.Visibility = (tag == "Tools") ? Visibility.Visible : Visibility.Collapsed;
             ViewSettings.Visibility = (tag == "Settings") ? Visibility.Visible : Visibility.Collapsed;
-            if (tag == "Tools" && IconTestPanel.Children.Count == 0) BuildIconTestPanel();
             if (tag == "Stickers") RefreshStickerGallery();
             if (tag == "Bin") _ = RefreshBinViewAsync();
         }
@@ -414,8 +354,6 @@ public sealed partial class SnipPage : Page
         }
         catch (Exception ex) { ViewModel.NotifyMessage("Bin failed", ex.Message); }
     }
-
-    // ---- recycle bin ----------------------------------------------------------
 
     private List<string> SelectedTrashPaths() =>
         BinGridView.SelectedItems.OfType<SnipThumbnailItem>().Select(s => s.FilePath).ToList();
@@ -504,8 +442,6 @@ public sealed partial class SnipPage : Page
         }
     }
 
-    // ---- sticker gallery ----------------------------------------------------
-
     private void RefreshStickerGallery()
     {
         try
@@ -569,66 +505,8 @@ public sealed partial class SnipPage : Page
     {
     }
 
-    // Debug-only icon audit: every Snip icon rendered at 16/20/24 px so clipped
-    // or wrong glyphs are caught at a glance.
-    [System.Diagnostics.Conditional("DEBUG")]
-    private void BuildIconTestPanel()
-    {
-        foreach (var (name, glyph) in SnipIcons.All)
-        {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            var label = new TextBlock { Text = name, Width = 110, VerticalAlignment = VerticalAlignment.Center };
-            // The codepoint, written out. Printing the raw glyph here put a private-use
-            // character through a text font, which is exactly the tofu box it looked like
-            // -- the column is supposed to be readable, and the rendered glyphs already
-            // sit next to it at 16/20/24 px.
-            var code = new TextBlock
-            {
-                Text = DescribeGlyph(glyph),
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono, Consolas, Segoe UI"),
-                FontSize = 12,
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
-                Width = 90,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            row.Children.Add(label);
-            row.Children.Add(code);
-            foreach (var size in new double[] { 16, 20, 24 })
-            {
-                row.Children.Add(new Microsoft.UI.Xaml.Controls.FontIcon
-                {
-                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                    Glyph = glyph,
-                    FontSize = size,
-                    Width = size + 12,
-                    VerticalAlignment = VerticalAlignment.Center,
-                });
-            }
-            IconTestPanel.Children.Add(row);
-        }
-    }
-
-    /// <summary>"U+E8C8" for a glyph string, so the audit panel is readable text rather than
-    /// whatever a private-use codepoint happens to render as in the ambient font.</summary>
-    private static string DescribeGlyph(string glyph)
-    {
-        var text = new System.Text.StringBuilder();
-        for (var i = 0; i < glyph.Length; i++)
-        {
-            var codepoint = char.ConvertToUtf32(glyph, i);
-            if (char.IsHighSurrogate(glyph[i]) && i + 1 < glyph.Length) i++;
-            if (text.Length > 0) text.Append(' ');
-            text.Append($"U+{codepoint:X4}");
-        }
-        return text.Length == 0 ? "-" : text.ToString();
-    }
-
     private async void RefreshGallery_Click(object sender, RoutedEventArgs e)
     {
-        // Pressing Refresh explicitly also re-arms the poll, so a capture made one second later
-        // is picked up by the tight interval rather than after the lazy one. It also heals
-        // stuck previews: a card that failed while its file was still being written would
-        // otherwise sit broken forever.
         NudgeRefreshCadence();
         try { await ViewModel.RefreshGalleryAsync(); }
         catch (Exception ex) { ViewModel.NotifyMessage("Refresh failed", ex.Message); }
@@ -744,7 +622,6 @@ public sealed partial class SnipPage : Page
         ResizeSingleItem((sender as FrameworkElement)?.DataContext as GalleryItem);
     }
 
-    /// <summary>Shared resize dialog + destination picker. Null when cancelled.</summary>
     private async Task<(int W, int H, bool Lock, string Folder)?> AskResizeAsync()
     {
         var widthBox = new NumberBox
@@ -835,8 +712,6 @@ public sealed partial class SnipPage : Page
     {
         if (args.InRecycleQueue)
         {
-            // Recycled: cancel the old card's decode and animations, so no card can ever show
-            // another item's thumbnail (this is the documented recycle hook).
             UnhookCard(args.ItemContainer);
         }
         else if (args.ItemContainer.Content is GalleryItem item)
@@ -846,8 +721,6 @@ public sealed partial class SnipPage : Page
         }
         else
         {
-            // Content not seated yet (virtualization race): re-ask next phase instead of
-            // leaving a permanently blank card. Harmless when content is always ready.
             SnipThumbnailItem.ThumbLog("ccc gallery: content not ready, deferring");
             args.RegisterUpdateCallback(GalleryGrid_ContainerDeferred);
         }
@@ -893,8 +766,6 @@ public sealed partial class SnipPage : Page
         args.Handled = false;
     }
 
-    // ---- card presentation: skeleton pulse + loaded fade ------------------
-
     private sealed class CardHook
     {
         public SnipCardState? Card;
@@ -904,11 +775,6 @@ public sealed partial class SnipPage : Page
         public UIElement? RevealTarget;
     }
 
-    /// <summary>
-    /// Wires one realized container to its card state: the skeleton pulses while loading and the
-    /// pixels fade in (150 ms) when they arrive. The hook is stored on the container and removed on
-    /// recycle, so it can never fire for the wrong item.
-    /// </summary>
     private void HookCard(Microsoft.UI.Xaml.Controls.Primitives.SelectorItem container, SnipCardState card, string imageName, string skeletonName)
     {
         UnhookCard(container);
@@ -922,13 +788,10 @@ public sealed partial class SnipPage : Page
         var image = root.FindName(imageName) as UIElement;
         hook.RevealTarget = image;
 
-        // A container realized for a card that is already loaded never sees the Loaded event:
-        // EnsureAsync short-circuits when the tier is already resident. Apply it right here.
         ApplyCardVisuals(card, image);
         hook.OnLoaded = () => Reveal(image);
         card.Loaded += hook.OnLoaded;
 
-        // Failed / missing states must stop the pulse too (not just the loaded state).
         void OnCardChanged(object? _, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName is nameof(SnipCardState.State) && !card.IsLoading && hook.Pulse is not null)
@@ -944,35 +807,22 @@ public sealed partial class SnipPage : Page
         container.Tag = hook;
     }
 
-    /// <summary>Detaches from the card the container was showing (never the item it now holds).</summary>
     private static void UnhookCard(Microsoft.UI.Xaml.Controls.Primitives.SelectorItem container)
     {
         if (container.Tag is not CardHook hook) return;
         container.Tag = null;
         if (hook.Card is not null)
         {
-            hook.Card.Cancel();   // stop an in-flight decode for the item this container used to show
+            hook.Card.Cancel();
             if (hook.OnCardChanged is not null) hook.Card.PropertyChanged -= hook.OnCardChanged;
             if (hook.OnLoaded is not null) hook.Card.Loaded -= hook.OnLoaded;
         }
         hook.Pulse?.Stop();
         hook.Pulse = null;
-        // The container is about to be reused for another snip: put the image back to fully
-        // opaque so a recycled card can never inherit a hidden image.
         if (hook.RevealTarget is not null) hook.RevealTarget.Opacity = 1;
         hook.RevealTarget = null;
     }
 
-    /// <summary>
-    /// Skeleton shimmer while a thumbnail decodes, driven by a UI-thread timer on purpose.
-    ///
-    /// A Forever storyboard is driven by the render clock, which stops while the window is not
-    /// composing (minimised, occluded, or sitting behind the snipping overlay). The animation
-    /// then freezes at whatever value it had reached instead of settling, which is what left
-    /// cards looking stuck or blank until something forced a repaint. A timer ticks on the UI
-    /// thread regardless of what the compositor is doing, and it is stopped as soon as the card
-    /// settles, so no clock is left running on a collapsed element.
-    /// </summary>
     private static Microsoft.UI.Dispatching.DispatcherQueueTimer? StartSkeletonPulse(UIElement skeleton)
     {
         var queue = skeleton.DispatcherQueue;
@@ -984,56 +834,31 @@ public sealed partial class SnipPage : Page
         timer.IsRepeating = true;
         timer.Tick += (_, _) =>
         {
-            var phase = started.Elapsed.TotalMilliseconds % 2200 / 2200.0;   // one round trip
-            var triangle = phase < 0.5 ? phase * 2 : (1 - phase) * 2;        // 0 -> 1 -> 0
+            var phase = started.Elapsed.TotalMilliseconds % 2200 / 2200.0;
+            var triangle = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
             skeleton.Opacity = 0.25 + 0.45 * triangle;
         };
         timer.Start();
         return timer;
     }
 
-    /// <summary>
-    /// Pushes a card's current state onto the container it is realised in.
-    ///
-    /// The template bindings already do this, but they only re-evaluate while the container is
-    /// attached and the card raises PropertyChanged for them. A thumbnail that finished decoding
-    /// at an awkward moment -- typically while the window was not composing -- left the card
-    /// showing its skeleton while the model already held a decoded image, and only a container
-    /// re-realise (scroll, view switch, minimise/restore) put pixels on screen. Writing the few
-    /// visual properties here means a realised card can never be out of step with its state.
-    /// </summary>
     private static void ApplyCardVisuals(SnipCardState card, UIElement? image)
     {
         if (image is not Image target) return;
 
         target.Source = card.Image;
         target.Stretch = card.ImageStretch;
-        target.Width = card.ImageWidth;      // NaN = auto (the 1:1 case)
+        target.Width = card.ImageWidth;
         target.Height = card.ImageHeight;
         target.Visibility = card.Image is null ? Visibility.Collapsed : Visibility.Visible;
         if (card.Image is not null) target.Opacity = 1;
     }
 
-    /// <summary>
-    /// Makes a decoded card image visible.
-    ///
-    /// This is a plain assignment on purpose, and it used to be a 150 ms opacity storyboard.
-    /// Storyboarded opacity is advanced by the render clock, which stops while the window is not
-    /// composing -- minimised, occluded, or sitting behind the snipping overlay. A fade that
-    /// started in that window froze part-way and held the image at the opacity it had reached,
-    /// so the card showed a skeleton forever and only came back once something put the window
-    /// back into rendering. That is exactly the "the preview only shows after I take a
-    /// screenshot" report: the screenshot returns the window to rendering, the frozen fade
-    /// finally finishes, and the pixels appear. Nothing about a card being correct should depend
-    /// on an animation clock that may never tick, so the swap is now instantaneous.
-    /// </summary>
     private static void Reveal(UIElement? image)
     {
         if (image is null) return;
         image.Opacity = 1;
     }
-
-    // ---- card actions ------------------------------------------------------ 
 
     private async void CardRetry_Click(object sender, RoutedEventArgs e)
     {
@@ -1060,8 +885,6 @@ public sealed partial class SnipPage : Page
         await ViewModel.RemoveFromGalleryAsync(path);
     }
 
-    /// <summary>Moving the window to a monitor with a different scale changes RasterizationScale;
-    /// every card re-requests the tier that matches the new physical size.</summary>
     private void XamlRoot_Changed(Microsoft.UI.Xaml.XamlRoot sender, Microsoft.UI.Xaml.XamlRootChangedEventArgs args)
     {
         var scale = sender.RasterizationScale;
@@ -1119,7 +942,6 @@ public sealed partial class SnipPage : Page
         }
         else
         {
-            // Dropped onto empty space. Move back to root directory.
             var sources = _draggedGalleryItems.OfType<GalleryItem>().ToList();
             if (sources.Count > 0)
             {
@@ -1150,8 +972,6 @@ public sealed partial class SnipPage : Page
         if ((sender as FrameworkElement)?.DataContext is GalleryItem item)
             item.IsHover = false;
     }
-
-    // ---- Recent Snips hover actions ----
 
     private SnipThumbnailItem? RecentItem(object sender) =>
         (sender as FrameworkElement)?.DataContext as SnipThumbnailItem;
@@ -1223,8 +1043,6 @@ public sealed partial class SnipPage : Page
         }
     }
 
-    // ---- Capture tab extras ----
-
     public void TriggerCaptureFromTray(kaliteConfig.Services.TrayIconService.SnipMode mode)
     {
         var app = (App)Application.Current;
@@ -1290,7 +1108,7 @@ public sealed partial class SnipPage : Page
             return;
         }
         uint vk = (uint)e.Key;
-        if (!SnipHotkeyService.IsCapturableKey(vk)) return; // bare modifier: keep waiting for the main key
+        if (!SnipHotkeyService.IsCapturableKey(vk)) return;
         uint mods = 0;
         var src = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread;
         if ((src(Windows.System.VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0) mods |= SnipHotkeyService.ModControl;
@@ -1303,7 +1121,7 @@ public sealed partial class SnipPage : Page
 
 
 
-    private void ProfilePicker_SelectionChanged(object sender, SelectionChangedEventArgs e) { /* applied at capture time */ }
+    private void ProfilePicker_SelectionChanged(object sender, SelectionChangedEventArgs e) {  }
 
     private void EditProfiles_Click(object sender, RoutedEventArgs e)
     {
@@ -1348,8 +1166,6 @@ public sealed partial class SnipPage : Page
     private void QuickQrScan_Click(object sender, RoutedEventArgs e)
         => ViewModel.NotifyMessage("QR scan", "Take a snip first - QR scan lives in the snip overlay toolbar.\n" + SnipIcons.Pick("QR"));
 
-    // ---- Drop zone ----
-
     private void SnipDropZone_DragOver(object sender, DragEventArgs e)
     {
         e.AcceptedOperation = DataPackageOperation.Copy;
@@ -1372,11 +1188,9 @@ public sealed partial class SnipPage : Page
         catch (Exception ex) { ViewModel.NotifyMessage("Drop failed", ex.Message); }
     }
 
-    // ---- Gallery ----
-
     private void ClearFilters_Click(object sender, RoutedEventArgs e) => ViewModel.ClearFiltersCommand.Execute(null);
 
-    private void StatusBarPrtScn_Tapped(object sender, TappedRoutedEventArgs e) => SelectHubTag("Settings");
+    private void StatusBarPrtScn_Click(object sender, RoutedEventArgs e) => SelectHubTag("Settings");
 
     private void DetailsEdit_Click(object sender, RoutedEventArgs e)
     {
@@ -1400,7 +1214,6 @@ public sealed partial class SnipPage : Page
         }
     }
 
-    /// <summary>Detaches the selected snip into the full viewer (button or double-tap on the preview).</summary>
     private void DetailsView_Click(object sender, RoutedEventArgs e) => OpenSelectedInViewer();
 
     private void DetailsPreview_Activated(object sender, EventArgs e) => OpenSelectedInViewer();
@@ -1416,9 +1229,6 @@ public sealed partial class SnipPage : Page
         catch (Exception ex) { ViewModel.NotifyMessage("Viewer failed", ex.Message); }
     }
 
-    // The details panel used to hook the retry/remove buttons to the shared card handlers, which
-    // read DataContext off the button - the panel's DataContext is the view model, so both buttons
-    // were dead. They act on the selected item explicitly here.
     private async void DetailsRetry_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.SelectedGalleryItem is not { } item) return;

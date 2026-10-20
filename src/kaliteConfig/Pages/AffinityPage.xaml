@@ -5,276 +5,378 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:kaliteConfig.Pages"
     xmlns:models="using:kaliteConfig.Models"
-    xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     NavigationCacheMode="Enabled">
-    <!-- Entrance transition now lives on the main ContentFrame (see MainWindow.xaml). -->
 
     <Page.Resources>
-        <DataTemplate x:Key="AffinityTableRowTemplate" x:DataType="models:AffinityDeviceItem">
-            <Button
-                Margin="0,0,0,0"
-                Padding="0"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"
-                Background="Transparent"
-                BorderThickness="0"
-                MinWidth="0"
-                MinHeight="0"
-                Click="DeviceRow_Click"
-                Tag="{x:Bind}">
-                    <Grid Padding="12,14" ColumnSpacing="12">
+        <Style x:Key="AffinityRowContainerStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,2,0,2" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <SolidColorBrush x:Key="AffinityRowHoverBrush" Color="#1EFFFFFF" />
+        <SolidColorBrush x:Key="AffinityRowPressedBrush" Color="#19FFFFFF" />
+        <Style x:Key="AffinityCardRowContainerStyle" TargetType="ListViewItem"
+               BasedOn="{StaticResource AffinityRowContainerStyle}">
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Card"
+                                Control.IsTemplateFocusTarget="True"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Background" Value="{StaticResource AffinityRowHoverBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Background" Value="{StaticResource AffinityRowPressedBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <GridLength x:Key="AffinityDeviceColumn">3.2*</GridLength>
+        <GridLength x:Key="AffinityMsiColumn">0.85*</GridLength>
+        <GridLength x:Key="AffinityLimitColumn">0.85*</GridLength>
+        <GridLength x:Key="AffinityMaxMsiColumn">0.9*</GridLength>
+        <GridLength x:Key="AffinityPolicyColumn">1.15*</GridLength>
+        <GridLength x:Key="AffinityPriorityColumn">1.1*</GridLength>
+        <GridLength x:Key="AffinityProcessorsColumn">1.2*</GridLength>
+        <GridLength x:Key="AffinityChevronColumn">16</GridLength>
+
+        <DataTemplate x:Key="AffinityDeviceRowTemplate" x:DataType="models:AffinityDeviceItem">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                    <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind Name}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                               TextWrapping="WrapWholeWords"
+                               MaxLines="2"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
+                    <TextBlock Text="{x:Bind CategoryLabel}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{x:Bind MsiEnabledText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="{x:Bind MsiLimitText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Text="{x:Bind MaxMsiLimitText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Text="{x:Bind DevicePolicyShort, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="5" Text="{x:Bind DevicePriorityShort, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="6" Text="{x:Bind AffinityText, Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <FontIcon Grid.Column="7" Glyph="&#xE76C;"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                          VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="AffinityDeviceRowNarrowTemplate" x:DataType="models:AffinityDeviceItem">
+            <StackPanel Spacing="4">
+                <StackPanel>
+                    <TextBlock Text="{x:Bind Name}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                               TextWrapping="Wrap"
+                               ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
+                    <TextBlock Text="{x:Bind CategoryLabel}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2.5*" />
-                        <ColumnDefinition Width="1*" />
-                        <ColumnDefinition Width="1*" />
-                        <ColumnDefinition Width="1.2*" />
-                        <ColumnDefinition Width="1.5*" />
-                        <ColumnDefinition Width="1.5*" />
-                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Grid.BorderBrush>
-                        <SolidColorBrush Color="{ThemeResource DividerStrokeColorDefault}" />
-                    </Grid.BorderBrush>
-                    <Grid.BorderThickness>0,0,0,1</Grid.BorderThickness>
-                    <TextBlock
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind Name}"
-                        TextTrimming="CharacterEllipsis"
-                        ToolTipService.ToolTip="{x:Bind DeviceInstanceId}" />
-                    <TextBlock
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind MsiEnabledText, Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="2"
-                        Margin="0,0,16,0"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind MsiLimitText, Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="3"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind MaxMsiLimitText, Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="4"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind DevicePolicyShort, Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="5"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind DevicePriorityShort, Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="6"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind AffinityText, Mode=OneWay}" />
+                    <TextBlock Text="MSI"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind MsiEnabledText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
                 </Grid>
-            </Button>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Limit"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind MsiLimitText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Max MSI"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind MaxMsiLimitText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Policy"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind DevicePolicyShort, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Priority"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind DevicePriorityShort, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Processors"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind AffinityText, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ChangeRowTemplate">
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Device}"
+                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="{Binding Detail}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
         </DataTemplate>
     </Page.Resources>
 
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="641" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="NarrowState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="Toolbar.(Grid.Row)" Value="1" />
+                        <Setter Target="Toolbar.(Grid.Column)" Value="0" />
+                        <Setter Target="Toolbar.HorizontalAlignment" Value="Left" />
+                        <Setter Target="SummaryStrip.Orientation" Value="Vertical" />
+                        <Setter Target="GraphicsList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                        <Setter Target="NetworkList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                        <Setter Target="UsbList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                        <Setter Target="AudioList.ItemTemplate" Value="{StaticResource AffinityDeviceRowNarrowTemplate}" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Device tuning dialog (reference-style; Apply is staged until the tuning pass writes) -->
         <ContentDialog x:Name="DeviceDetailsDialog"
-                       Grid.RowSpan="2"
+                       Grid.RowSpan="3"
                        Style="{StaticResource DefaultContentDialogStyle}"
-                       Title="{x:Null}"
+                       Title="{x:Bind ViewModel.SelectedDevice.Name, Mode=OneWay, FallbackValue=''}"
                        PrimaryButtonText=""
                        CloseButtonText="">
             <ContentDialog.Resources>
-                <x:Double x:Key="ContentDialogMaxWidth">1350</x:Double>
+                <x:Double x:Key="ContentDialogMaxWidth">1180</x:Double>
                 <x:Double x:Key="ContentDialogMaxHeight">900</x:Double>
             </ContentDialog.Resources>
-            <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Hidden" VerticalScrollMode="Auto">
-            <StackPanel Spacing="16">
-                <Border
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="16,12">
-                    <Grid ColumnSpacing="14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Image
-                            Grid.Column="0"
-                            Width="44"
-                            Height="44"
-                            Stretch="Uniform"
-                            VerticalAlignment="Center"
-                            Source="{x:Bind local:AffinityPage.VendorIcon(ViewModel.SelectedDevice.Name), Mode=OneWay, FallbackValue={x:Null}}" />
-                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource KaliteSectionTitle}" Text="{x:Bind ViewModel.SelectedDevice.Name, Mode=OneWay, FallbackValue=''}" TextWrapping="Wrap" />
-                            <TextBlock
-                                FontFamily="Cascadia Mono"
-                                FontSize="11"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Text="{x:Bind ViewModel.SelectedDevice.DeviceInstanceId, Mode=OneWay, FallbackValue=''}"
-                                TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- MSI Policies card -->
-                <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="MSI Policies - Message Signaled Interrupts" />
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="300" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="MSI Mode" />
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Message-signaled interrupts reduce CPU overhead compared to legacy line-based IRQs." />
-                            </StackPanel>
-                            <ToggleSwitch
-                                Grid.Column="1"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                OnContent="Enabled"
-                                OffContent="Disabled"
-                                IsOn="{x:Bind ViewModel.SelectedDevice.MsiEnabled, Mode=TwoWay}" />
-                        </Grid>
-                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="300" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="MSI Limit" />
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Caps how many message-signaled interrupts the device may raise; lower values reduce DPC latency spikes. 0 means automatic." />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                <NumberBox Value="{x:Bind ViewModel.SelectedDevice.MsiLimit, Mode=TwoWay}" Minimum="0" Maximum="{x:Bind ViewModel.SelectedDevice.EffectiveMaxMsiLimit, Mode=OneWay}" Width="140" SpinButtonPlacementMode="Inline" IsEnabled="{x:Bind ViewModel.SelectedDevice.MsiEnabled, Mode=OneWay}" />
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- Advanced Policies card -->
-                <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" CornerRadius="8" Padding="20">
+            <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
+                          HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,0,12,0">
+                <StackPanel Spacing="24" Padding="0,0,4,0">
                     <StackPanel Spacing="4">
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Advanced Policies" />
-                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Assigns interrupts according to the default behavior of the OS." Margin="0,0,0,12" />
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="300" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Device Priority" />
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="How urgently the device's interrupts are serviced relative to other hardware." />
-                            </StackPanel>
-                            <ComboBox
-                                Grid.Column="1"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Center"
-                                ItemsSource="{x:Bind ViewModel.PriorityOptions, Mode=OneWay}"
-                                SelectedItem="{x:Bind ViewModel.SelectedDevice.SelectedPriority, Mode=TwoWay}" />
-                        </Grid>
-                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,12" />
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="300" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Device Policy" />
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Controls which processors are eligible to receive the device's interrupts." />
-                            </StackPanel>
-                            <ComboBox
-                                Grid.Column="1"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Center"
-                                ItemsSource="{x:Bind ViewModel.PolicyOptions, Mode=OneWay}"
-                                DisplayMemberPath="Label"
-                                SelectedValuePath="Value"
-                                SelectedValue="{x:Bind ViewModel.SelectedDevice.SelectedPolicy, Mode=TwoWay}"
-                                ToolTipService.ToolTip="{x:Bind ViewModel.SelectedDevice.SelectedPolicy, Mode=OneWay}" />
-                        </Grid>
+                        <TextBlock Text="{x:Bind ViewModel.SelectedDevice.CategoryLabel, Mode=OneWay, FallbackValue=''}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.SelectedDevice.DeviceInstanceId, Mode=OneWay, FallbackValue=''}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
-                </Border>
 
-                <!-- Processor Mask card (always expanded) -->
-                <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="12">
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                Grid.Column="0"
-                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                FontSize="16"
-                                VerticalAlignment="Center"
-                                Glyph="&#xE9D9;" />
-                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Processor Mask" VerticalAlignment="Center" />
-                                    <Border
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="4"
-                                        Padding="6,2"
-                                        VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.SelectedDevice.SelectedThreadCountText, Mode=OneWay, FallbackValue=''}" />
-                                    </Border>
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="MSI settings" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ToggleSwitch Header="MSI mode"
+                                      OnContent="Enabled" OffContent="Disabled"
+                                      IsOn="{x:Bind ViewModel.SelectedDevice.MsiEnabled, Mode=TwoWay}" />
+                        <TextBlock Text="Message-signaled interrupts cut CPU overhead compared with legacy line-based IRQs."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <NumberBox Header="MSI limit"
+                                   HorizontalAlignment="Stretch"
+                                   SpinButtonPlacementMode="Inline"
+                                   Value="{x:Bind ViewModel.SelectedDevice.MsiLimit, Mode=TwoWay}"
+                                   Minimum="0"
+                                   Maximum="{x:Bind ViewModel.SelectedDevice.EffectiveMaxMsiLimit, Mode=OneWay}"
+                                   IsEnabled="{x:Bind ViewModel.SelectedDevice.MsiEnabled, Mode=OneWay}" />
+                        <TextBlock Text="Caps how many interrupts the device may raise. Lower values reduce DPC latency spikes; 0 means automatic."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.SelectedDevice.MaxMsiLimitText, Mode=OneWay, FallbackValue=''}"
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Advanced policies" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ComboBox Header="Device priority"
+                                  HorizontalAlignment="Stretch"
+                                  ItemsSource="{x:Bind ViewModel.PriorityOptions, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedDevice.SelectedPriority, Mode=TwoWay}" />
+                        <TextBlock Text="How urgently this device's interrupts are serviced relative to other hardware."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <ComboBox Header="Device policy"
+                                  HorizontalAlignment="Stretch"
+                                  ItemsSource="{x:Bind ViewModel.PolicyOptions, Mode=OneWay}"
+                                  DisplayMemberPath="Label"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{x:Bind ViewModel.SelectedDevice.SelectedPolicy, Mode=TwoWay}"
+                                  ToolTipService.ToolTip="{x:Bind ViewModel.SelectedDevice.SelectedPolicy, Mode=OneWay}" />
+                        <TextBlock Text="Controls which processors are eligible to receive this device's interrupts."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8"
+                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.SelectedDevice.IsNetwork), Mode=OneWay}">
+                        <TextBlock Text="Receive Side Scaling (NDIS)" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="{x:Bind ViewModel.SelectedDevice.RssText, Mode=OneWay, FallbackValue=''}"
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Network packet processing is steered by RSS, not by the IRQ mask alone. Applying a processor mask sets the RSS base processor and queue count, then restarts the adapter."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="16">
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                  IsExpanded="{x:Bind ViewModel.SelectedDevice.IsProcessorMaskExpanded, Mode=TwoWay}">
+                            <Expander.Header>
+                                <StackPanel Spacing="0">
+                                    <TextBlock Text="Processor mask" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="{x:Bind ViewModel.SelectedDevice.SelectedThreadCountText, Mode=OneWay, FallbackValue=''}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Assign hardware interrupts to specific logical processors" />
-                            </StackPanel>
-                        </Grid>
-                        <StackPanel Spacing="8">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                                <Button Content="Select all" Command="{x:Bind ViewModel.SelectAllThreadsCommand}" />
-                                <Button Content="Clear" Command="{x:Bind ViewModel.ClearThreadsCommand}" />
-                            </StackPanel>
-                            <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedDevice.CoreGroups, Mode=OneWay}" HorizontalAlignment="Stretch">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MaximumRowsOrColumns="8" MinItemWidth="140" MinColumnSpacing="8" MinRowSpacing="8" Orientation="Horizontal" ItemsJustification="Start" />
-                                </ItemsRepeater.Layout>
-                                <ItemsRepeater.ItemTemplate>
-                                    <DataTemplate x:DataType="models:ProcessorCoreGroup">
-                                        <Border
-                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="10">
+                            </Expander.Header>
+                            <StackPanel Spacing="12">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Select all" Command="{x:Bind ViewModel.SelectAllThreadsCommand}" />
+                                    <Button Content="Clear" Command="{x:Bind ViewModel.ClearThreadsCommand}" />
+                                </StackPanel>
+                                <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedDevice.CoreGroups, Mode=OneWay}"
+                                               HorizontalAlignment="Stretch">
+                                    <ItemsRepeater.Layout>
+                                        <UniformGridLayout MaximumRowsOrColumns="8" MinItemWidth="150"
+                                                           MinColumnSpacing="8" MinRowSpacing="8"
+                                                           Orientation="Horizontal" ItemsJustification="Start" />
+                                    </ItemsRepeater.Layout>
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="models:ProcessorCoreGroup">
                                             <StackPanel Spacing="6">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <FontIcon
-                                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                        FontSize="12"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Glyph="&#xE9D9;" />
-                                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" VerticalAlignment="Center" />
-                                                </StackPanel>
+                                                <TextBlock Text="{x:Bind Title}"
+                                                           Style="{StaticResource BodyStrongTextBlockStyle}" />
                                                 <ItemsRepeater ItemsSource="{x:Bind Threads}">
                                                     <ItemsRepeater.Layout>
-                                                        <StackLayout Spacing="6" />
+                                                        <StackLayout Spacing="4" />
                                                     </ItemsRepeater.Layout>
                                                     <ItemsRepeater.ItemTemplate>
                                                         <DataTemplate x:DataType="models:ProcessorThreadItem">
@@ -283,247 +385,364 @@
                                                     </ItemsRepeater.ItemTemplate>
                                                 </ItemsRepeater>
                                             </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsRepeater.ItemTemplate>
-                            </ItemsRepeater>
-                        </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </StackPanel>
+                        </Expander>
+                        <TextBlock Text="Assign hardware interrupts to specific logical processors."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
-                </Border>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <Button Style="{ThemeResource AccentButtonStyle}" Content="Apply" Click="DialogApply_Click" />
-                    <Button Content="Cancel" Click="DialogCancel_Click" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Content="Cancel" Click="DialogCancel_Click" />
+                        <Button Style="{ThemeResource AccentButtonStyle}" Content="Apply" Click="DialogApply_Click" />
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
             </ScrollViewer>
         </ContentDialog>
 
-        <ScrollViewer
-            Grid.Row="1"
-            Padding="36,0,36,0"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            VerticalScrollBarVisibility="Auto"
-            VerticalScrollMode="Auto">
-            <StackPanel
-                Margin="0,8,0,32"
-                HorizontalAlignment="Stretch"
-                Spacing="16">
+        <Grid Grid.Row="0" Padding="28,16,28,0" ColumnSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-                <!-- Page header (scan runs automatically on first visit) -->
-                <StackPanel Spacing="4">
-                    <TextBlock Text="IRQ &amp; Affinity Tuning" Style="{StaticResource KalitePageTitle}" />
-                    <TextBlock
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
-                </StackPanel>
-                
-                <!-- Pending-actions toolbar (layout only: tuning pass wires these up) -->
-                <Border
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="10,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Command="{x:Bind ViewModel.UndoCommand}" IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE7A7;" />
-                                <TextBlock Text="Undo" />
-                            </StackPanel>
-                        </Button>
-                        <Button Command="{x:Bind ViewModel.RedoCommand}" IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE7A7;" RenderTransformOrigin="0.5,0.5">
-                                    <FontIcon.RenderTransform>
-                                        <ScaleTransform ScaleX="-1" />
-                                    </FontIcon.RenderTransform>
-                                </FontIcon>
-                                <TextBlock Text="Redo" />
-                            </StackPanel>
-                        </Button>
-                        <Button Click="ViewChanges_Click">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE890;" />
-                                <TextBlock Text="{x:Bind ViewModel.ChangeCountText, Mode=OneWay}" />
-                            </StackPanel>
-                        </Button>
-                        <!-- Enabled when any device is off the OS defaults (or this session has
-                             tracked changes) - NOT by CanUndo. Tuning applied by
-                             an earlier run leaves an empty undo stack, and the
-                             button has to stay usable to clean that up. -->
-                        <Button Command="{x:Bind ViewModel.RestoreCommand}" IsEnabled="{x:Bind ViewModel.CanRestoreDefaults, Mode=OneWay}"
-                                ToolTipService.ToolTip="Set every device back to IrqPolicyMachineDefault with MSI Priority undefined, then restart them all.">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE777;" />
-                                <TextBlock Text="Restore" />
-                            </StackPanel>
-                        </Button>
-                        <!-- No "Restart devices" button: DevicePolicy / DevicePriority /
-                             the affinity mask are only read when a device starts, so every
-                             write path (Apply, Undo, Redo, Restore) restarts what it
-                             changed by itself. A second manual step is what made writes
-                             look like they had not worked. -->
+            <StackPanel x:Name="TitleBlock" Grid.Row="0" Grid.Column="0" Spacing="4">
+                <TextBlock Text="Interrupts &amp; affinity" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <CommandBar x:Name="Toolbar" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                        DefaultLabelPosition="Right">
+                <AppBarButton Icon="Refresh" Label="Rescan" Command="{x:Bind ViewModel.RefreshDevicesCommand}" />
+                <AppBarButton Icon="Undo" Label="Undo" Command="{x:Bind ViewModel.UndoCommand}"
+                              IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}" />
+                <AppBarButton Icon="Redo" Label="Redo" Command="{x:Bind ViewModel.RedoCommand}"
+                              IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}" />
+                <AppBarButton Icon="View" Label="{x:Bind ViewModel.ChangeCountText, Mode=OneWay}"
+                              Click="ViewChanges_Click" />
+                <CommandBar.SecondaryCommands>
+                    <AppBarButton Label="Restore defaults" Icon="RepeatAll"
+                                  Command="{x:Bind ViewModel.RestoreCommand}"
+                                  IsEnabled="{x:Bind ViewModel.CanRestoreDefaults, Mode=OneWay}"
+                                  ToolTipService.ToolTip="Set every device back to IrqPolicyMachineDefault with MSI Priority undefined, then restart them all." />
+                </CommandBar.SecondaryCommands>
+            </CommandBar>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Padding="28,8,28,0" Spacing="8">
+            <ProgressBar IsIndeterminate="True"
+                         Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsRefreshing), Mode=OneWay}" />
+            <StackPanel x:Name="SummaryStrip" Orientation="Horizontal" Spacing="24">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.DeviceCountText, Mode=OneWay}"
+                               Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Devices" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="tunable adapters found" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
-                </Border>
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.MsiEnabledCountText, Mode=OneWay}"
+                               Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="MSI enabled" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="devices using message-signaled interrupts" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.ChangeCountNumberText, Mode=OneWay}"
+                               Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Changes" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="edits you can undo this session" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+            <TextBlock Text="Every edit is written immediately and stays reversible until the app closes."
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
 
-                <!-- Device table -->
-                <Border
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="4,4,4,12">
-                    <ScrollViewer
-                        HorizontalScrollBarVisibility="Disabled"
-                        HorizontalScrollMode="Disabled"
-                        VerticalScrollBarVisibility="Disabled"
-                        VerticalScrollMode="Disabled">
-                        <StackPanel Spacing="0">
-                            <!-- Column headers -->
-                            <Grid Padding="12,16" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2.5*" />
-                                    <ColumnDefinition Width="1*" />
-                                    <ColumnDefinition Width="1*" />
-                                    <ColumnDefinition Width="1.2*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.BorderBrush>
-                                    <SolidColorBrush Color="{ThemeResource DividerStrokeColorDefault}" />
-                                </Grid.BorderBrush>
-                                <Grid.BorderThickness>0,0,0,1</Grid.BorderThickness>
-                                <TextBlock Grid.Column="0" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Device" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="MSI Mode" />
-                                <TextBlock Grid.Column="2" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="MSI Limit" />
-                                <TextBlock Grid.Column="3" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Max MSI Limit" />
-                                <TextBlock Grid.Column="4" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Device Policy" />
-                                <TextBlock Grid.Column="5" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Device Priority" />
-                                <TextBlock Grid.Column="6" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Specified Proc" />
-                            </Grid>
+        <ScrollViewer Grid.Row="2" Padding="28,8,28,20"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel HorizontalAlignment="Stretch" Spacing="8">
 
-                            <!-- Graphics group -->
-                            <Button
-                                Padding="12,8"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Graphics"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon
-                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                        FontSize="12"
-                                        VerticalAlignment="Center"
-                                        Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsGraphicsExpanded), Mode=OneWay}" />
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Graphics Cards" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <ItemsRepeater
-                                ItemsSource="{x:Bind ViewModel.GraphicsDevices, Mode=OneWay}"
-                                ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                HorizontalAlignment="Stretch"
-                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsGraphicsExpanded), Mode=OneWay}">
-                                <ItemsRepeater.Layout>
-                                    <StackLayout Spacing="0" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
-
-                            <!-- Network group -->
-                            <Button
-                                Padding="12,8"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Network"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon
-                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                        FontSize="12"
-                                        VerticalAlignment="Center"
-                                        Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsNetworkExpanded), Mode=OneWay}" />
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Network Interface Controllers" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <ItemsRepeater
-                                ItemsSource="{x:Bind ViewModel.NetworkDevices, Mode=OneWay}"
-                                ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                HorizontalAlignment="Stretch"
-                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsNetworkExpanded), Mode=OneWay}">
-                                <ItemsRepeater.Layout>
-                                    <StackLayout Spacing="0" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
-
-                            <!-- USB group -->
-                            <Button
-                                Padding="12,8"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Usb"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon
-                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                        FontSize="12"
-                                        VerticalAlignment="Center"
-                                        Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsUsbExpanded), Mode=OneWay}" />
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="USB Controllers" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <ItemsRepeater
-                                ItemsSource="{x:Bind ViewModel.UsbDevices, Mode=OneWay}"
-                                ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                HorizontalAlignment="Stretch"
-                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsUsbExpanded), Mode=OneWay}">
-                                <ItemsRepeater.Layout>
-                                    <StackLayout Spacing="0" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
-
-                            <!-- Audio group -->
-                            <Button
-                                Padding="12,8"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Command="{x:Bind ViewModel.ToggleGroupCommand}"
-                                CommandParameter="Audio"
-                                Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon
-                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                        FontSize="12"
-                                        VerticalAlignment="Center"
-                                        Glyph="{x:Bind local:AffinityPage.ExpanderGlyph(ViewModel.IsAudioExpanded), Mode=OneWay}" />
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Audio Controllers" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <ItemsRepeater
-                                ItemsSource="{x:Bind ViewModel.AudioDevices, Mode=OneWay}"
-                                ItemTemplate="{StaticResource AffinityTableRowTemplate}"
-                                HorizontalAlignment="Stretch"
-                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsAudioExpanded), Mode=OneWay}">
-                                <ItemsRepeater.Layout>
-                                    <StackLayout Spacing="0" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsGraphicsExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.GraphicsDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Graphics cards"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.GraphicsDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
-                    </ScrollViewer>
-                </Border>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="GraphicsList"
+                                  ItemsSource="{x:Bind ViewModel.GraphicsDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsNetworkExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.NetworkDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Network controllers"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.NetworkDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="NetworkList"
+                                  ItemsSource="{x:Bind ViewModel.NetworkDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsUsbExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.UsbDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="USB controllers"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.UsbDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="UsbList"
+                                  ItemsSource="{x:Bind ViewModel.UsbDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
+
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          IsExpanded="{x:Bind ViewModel.IsAudioExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:AffinityPage.NonEmptyToVisibility(ViewModel.AudioDevices.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Audio controllers"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind local:AffinityPage.CountText(ViewModel.AudioDevices.Count), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="4">
+                        <Grid Padding="12,0,12,4" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityLimitColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityMaxMsiColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPolicyColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityPriorityColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityProcessorsColumn}" />
+                                <ColumnDefinition Width="{StaticResource AffinityChevronColumn}" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Device"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="Limit"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="Max MSI"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="Policy"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="Priority"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="6" Text="Processors"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="AudioList"
+                                  ItemsSource="{x:Bind ViewModel.AudioDevices, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="DeviceRow_ItemClick"
+                                  ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </StackPanel>
+                </Expander>
 
             </StackPanel>
         </ScrollViewer>

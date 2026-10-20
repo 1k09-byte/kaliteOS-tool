@@ -23,11 +23,6 @@
 
     <StackPanel Spacing="8">
 
-        <!-- ============ Simulation banner ============
-             Loud on purpose. In simulation mode every number on this page is
-             fabricated, so it has to be impossible to mistake a screenshot of
-             it for a measurement - and impossible to forget that no driver was
-             written. Remove the env var and the banner goes with it. -->
         <Border Style="{StaticResource OcCardStyle}"
                 BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
                 BorderThickness="2"
@@ -46,7 +41,6 @@
             </StackPanel>
         </Border>
 
-        <!-- ============ Safety countdown banner (safety-critical: impossible to miss) ============ -->
         <Border Style="{StaticResource OcCardStyle}"
                 BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
                 BorderThickness="2"
@@ -65,14 +59,12 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Content="Keep" Style="{StaticResource AccentButtonStyle}"
-                            Command="{x:Bind Vm.ConfirmChangesCommand}" />
+                    <Button Content="Keep" Command="{x:Bind Vm.ConfirmChangesCommand}" />
                     <Button Content="Revert now" Command="{x:Bind Vm.RevertNowCommand}" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ============ Unsupported card ============ -->
         <Border Style="{StaticResource OcCardStyle}" Padding="20"
                 Visibility="{x:Bind local:OverclockSection.NotSupportedVis(Vm.IsSupported), Mode=OneWay}">
             <StackPanel Spacing="4">
@@ -82,22 +74,18 @@
             </StackPanel>
         </Border>
 
-        <!-- The overclock card sits under a full-cover risk gate until the user
-             explicitly accepts the risk. Both live in one Grid cell so the gate
-             overlays the card completely when visible. -->
         <Grid Visibility="{x:Bind local:OverclockSection.SupportedVis(Vm.IsSupported), Mode=OneWay}">
 
             <Border Style="{StaticResource OcCardStyle}">
             <StackPanel Spacing="20">
 
-                <!-- Header -->
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2">
-                        <TextBlock Text="Overclocking" Style="{StaticResource KaliteSectionTitle}" />
+                        <TextBlock Text="Overclocking" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock Text="{x:Bind Vm.GpuTitle, Mode=OneWay}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
                     </StackPanel>
@@ -111,11 +99,6 @@
                     </Button>
                 </Grid>
 
-                <!-- Telemetry tiles: responsive grid (same UniformGridLayout pattern
-                     as InstallerPage/AffinityPage) - 6 per row on wide layouts,
-                     fewer on narrow ones. Rows rebuilt every tick; conditional
-                     tiles (hotspot, memory temp, PCIe TX/RX) only exist when
-                     the GPU actually reports them. -->
                 <ItemsRepeater ItemsSource="{x:Bind Vm.TelemetryTiles, Mode=OneWay}"
                                Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.TelemetryAvailable), Mode=OneWay}">
                     <ItemsRepeater.Layout>
@@ -131,13 +114,11 @@
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
 
-                <!-- Telemetry unavailable: distinct state, never stale values -->
                 <TextBlock Text="{x:Bind Vm.TelemetryErrorText, Mode=OneWay}"
                            Foreground="{ThemeResource SystemFillColorCautionBrush}" FontSize="12"
                            TextWrapping="Wrap"
                            Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.TelemetryErrorText), Mode=OneWay}" />
 
-                <!-- Live monitor: 1-second history graphs (last ~3 minutes), hotspot included -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Monitor" FontWeight="SemiBold" />
@@ -195,9 +176,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Two-column body: numeric controls left, graphical editors right.
-                     Wide (≥1000px): side by side. Narrow: the right column stacks
-                     below the left (same AdaptiveTrigger pattern as BiosManagerPage). -->
                 <Grid x:Name="BodyGrid" ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition x:Name="BodyCol0" Width="*" />
@@ -227,7 +205,6 @@
                         </VisualStateGroup>
                     </VisualStateManager.VisualStateGroups>
                     <StackPanel x:Name="LeftControls" Grid.Row="0" Grid.Column="0" Spacing="16">
-                <!-- Clock/limit sliders (rendered only when the driver exposes the control) -->
                 <StackPanel Spacing="16">
 
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasCoreOffset), Mode=OneWay}">
@@ -290,7 +267,6 @@
                                 StepFrequency="1" SnapsTo="StepValues" />
                     </StackPanel>
 
-                    <!-- Only rendered when TempLimitRangeC is non-null for this GPU -->
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasTempLimit), Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -311,7 +287,6 @@
                                 StepFrequency="1" SnapsTo="StepValues" />
                     </StackPanel>
                 </StackPanel>
-                    <!-- Voltage boost (V/F simple mode, left column) -->
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasVfCurve), Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -342,7 +317,6 @@
                     </StackPanel>
                 </StackPanel>
                     <StackPanel x:Name="RightControls" Grid.Row="0" Grid.Column="1" Spacing="12">
-                <!-- Fan control -->
                 <StackPanel Spacing="10" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.FanControlAvailable), Mode=OneWay}">
                     <TextBlock Text="Fan" FontWeight="SemiBold" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -381,6 +355,7 @@
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                             <Canvas x:Name="FanCurveCanvas" Height="150"
+                                    Background="Transparent"
                                     PointerPressed="FanCurveCanvas_PointerPressed"
                                     PointerMoved="FanCurveCanvas_PointerMoved"
                                     PointerReleased="FanCurveCanvas_PointerReleased"
@@ -417,7 +392,7 @@
                                        Value="{x:Bind Vm.FanRampStep, Mode=OneWay}"
                                        ValueChanged="FanRampBox_ValueChanged" SmallChange="1" />
                         </StackPanel>
-                        <Button Content="Apply curve" Style="{StaticResource AccentButtonStyle}"
+                        <Button Content="Apply curve"
                                 Command="{x:Bind Vm.StartFanCurveCommand}" />
                         <TextBlock Text="The loop re-applies the curve every few seconds. Closing the app or switching to Auto always hands control back to the driver."
                                    FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
@@ -426,7 +401,6 @@
                     <TextBlock FontSize="12" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"
                                Text="{x:Bind Vm.VfCurveError, Mode=OneWay}"
                                Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.VfCurveError), Mode=OneWay}" />
-                    <!-- Advanced V/F curve editor (right column; panel copy unchanged) -->
                     <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasVfCurve), Mode=OneWay}">
                         <Expander.Header>
@@ -434,30 +408,40 @@
                         </Expander.Header>
                         <StackPanel Spacing="8" Margin="0,8,0,0">
                             <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Drag points to set per-point clock offsets. Frequency must not decrease as voltage rises - invalid curves are blocked before anything is written. Every commit runs through the same confirmation countdown as the other controls (slightly longer for curve edits)." />
-                            <Border CornerRadius="8" Padding="4"
+                                       Text="Drag a node to shape the curve. The dashed line is the stock curve and the shaded band shows how far your curve sits above or below it. Nodes stay inside the band, and frequency can never fall as voltage rises - a bad curve is refused before anything is written. Each commit runs through the same confirmation countdown as the other controls (slightly longer for curve edits)." />
+                            <Border CornerRadius="10" Padding="2"
                                     Background="{ThemeResource LayerFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                                <Canvas x:Name="VfCurveCanvas" Height="240"
+                                <local:VfEditorCanvas x:Name="VfCurveCanvas" Height="300"
+                                        Background="Transparent"
                                         PointerPressed="VfCurveCanvas_PointerPressed"
                                         PointerMoved="VfCurveCanvas_PointerMoved"
                                         PointerReleased="VfCurveCanvas_PointerReleased"
                                         PointerCanceled="VfCurveCanvas_PointerCanceled"
+                                        PointerExited="VfCurveCanvas_PointerExited"
                                         SizeChanged="VfCurveCanvas_SizeChanged" />
                             </Border>
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="VfAxisLeft" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="VfAxisCenter" Grid.Column="1" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="VfAxisRight" Grid.Column="2" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <StackPanel Orientation="Horizontal" Spacing="18">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Rectangle Width="20" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
+                                                   Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Stock curve" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Rectangle Width="20" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
+                                                   Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                                        <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Your curve" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock x:Name="VfAxisCenter" HorizontalAlignment="Right" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </Grid>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Reset to stock curve" Click="ResetVfCurve_Click" />
-                                <Button Content="Apply point edits" Style="{StaticResource AccentButtonStyle}" Click="ApplyVfCurve_Click" />
+                                <Button Content="Apply point edits" Click="ApplyVfCurve_Click" />
                             </StackPanel>
                             <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasVoltageBoost), Mode=OneWay}">
                                 <Grid>
@@ -480,13 +464,11 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Status line -->
                 <TextBlock Text="{x:Bind Vm.StatusText, Mode=OneWay}" FontSize="12"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap"
                            Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.StatusText), Mode=OneWay}" />
 
-                <!-- Profiles -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Profiles" FontWeight="SemiBold" />
@@ -538,7 +520,7 @@
                                                           HorizontalAlignment="Left"
                                                            IsOn="{x:Bind IsStartupDefault, Mode=OneTime}"
                                                           Toggled="StartupDefault_Toggled" Tag="{x:Bind}" />
-                                            <Button Content="Apply" Style="{StaticResource AccentButtonStyle}"
+                                            <Button Content="Apply"
                                                     Click="ApplyProfile_Click" Tag="{x:Bind}" />
                                             <Button Content="Bind to game…"
                                                     Click="BindProfile_Click" Tag="{x:Bind}"
@@ -553,7 +535,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Per-game auto-switch (v2 Part B) -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Per-game auto-switch" FontWeight="SemiBold" />
@@ -613,7 +594,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Change log viewer -->
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Recent changes" FontWeight="SemiBold" />
@@ -674,7 +654,6 @@
             </StackPanel>
             </Border>
 
-            <!-- ============ Extreme-caution risk gate: covers the card until accepted ============ -->
             <Border Style="{StaticResource OcCardStyle}"
                     Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                     BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"

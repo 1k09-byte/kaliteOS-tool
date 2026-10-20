@@ -18,25 +18,11 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Persistent per-PROCESS Priority-boost preference - the process-wide twin of
-/// <see cref="BoostPreferenceService"/> (which covers single threads).
-///
-/// Unticking the boost box in the Processes list writes
-/// <c>SetProcessPriorityBoost</c> on every live instance of that process AND
-/// records the choice here. The record is re-applied when the process launches
-/// again and by the keeper sweep, which is what makes the tick box permanent
-/// instead of a one-shot that Windows forgets on the next restart.
-///
-/// Only priority boost is touched - never priority class, affinity or EcoQoS.
-/// </summary>
 public sealed class ProcessBoostPreferenceService
 {
     private sealed class Entry
     {
-        /// <summary>Process name, normalised without the ".exe" suffix.</summary>
         public string Process { get; set; } = string.Empty;
-        /// <summary>False = boost must stay disabled for this process, forever.</summary>
         public bool BoostEnabled { get; set; } = true;
     }
 
@@ -55,13 +41,6 @@ public sealed class ProcessBoostPreferenceService
 
     public static ProcessBoostPreferenceService Instance { get; } = new();
 
-    /// <summary>
-    /// Writes the process-wide boost flag for one PID. Assigned by the app at
-    /// startup (see <c>App.InitializeWatcherAsync</c>); left null here on
-    /// purpose so this service compiles and tests without the WinUI application
-    /// object - with no applier the preference is still recorded, it simply has
-    /// no live process to write to.
-    /// </summary>
     public static Func<int, bool, Task>? Applier { get; set; }
 
     private static string Normalize(string? processName)
@@ -84,7 +63,6 @@ public sealed class ProcessBoostPreferenceService
         }
         catch (Exception)
         {
-            // A corrupt preference file must never block tuning; start empty.
         }
     }
 
@@ -104,7 +82,6 @@ public sealed class ProcessBoostPreferenceService
         }
     }
 
-    /// <summary>Stored preference for a process, or null when it was never set.</summary>
     public bool? GetPreference(string? processName)
     {
         string name = Normalize(processName);
@@ -116,7 +93,6 @@ public sealed class ProcessBoostPreferenceService
         }
     }
 
-    /// <summary>Short label for tooltips/status lines.</summary>
     public string Describe(string? processName) => GetPreference(processName) switch
     {
         true => "Priority boost kept enabled",
@@ -124,11 +100,6 @@ public sealed class ProcessBoostPreferenceService
         _ => "Windows default boost",
     };
 
-    /// <summary>
-    /// Records the choice and applies it to every running instance right away,
-    /// so the tick box acts immediately and stays that way afterwards.
-    /// Returns the number of live processes it touched.
-    /// </summary>
     public async Task<int> SetAsync(string? processName, bool boostEnabled)
     {
         string name = Normalize(processName);
@@ -151,7 +122,6 @@ public sealed class ProcessBoostPreferenceService
             }
             catch
             {
-                // A process that exits mid-sweep is not an error.
             }
             finally
             {
@@ -161,7 +131,6 @@ public sealed class ProcessBoostPreferenceService
         return applied;
     }
 
-    /// <summary>Clears the stored preference (back to the Windows default).</summary>
     public async Task<bool> ClearAsync(string? processName)
     {
         string name = Normalize(processName);
@@ -176,18 +145,12 @@ public sealed class ProcessBoostPreferenceService
         return removed;
     }
 
-    /// <summary>Applies the stored preference to one live process. False when the
-    /// process has no preference or Windows refused the write.</summary>
     public async Task<bool> ApplyToProcessAsync(int pid, string? processName)
     {
         bool? wanted = GetPreference(processName);
         return wanted.HasValue && await ApplyAsync(pid, wanted.Value);
     }
 
-    /// <summary>
-    /// Re-applies every stored preference to the running processes that match.
-    /// Called when a process launches and from the keeper sweep.
-    /// </summary>
     public async Task<int> ApplyToRunningProcessesAsync()
     {
         List<Entry> entries;
@@ -226,7 +189,6 @@ public sealed class ProcessBoostPreferenceService
         }
         catch
         {
-            // Protected / elevated / already-exited processes refuse the write.
             return false;
         }
     }

@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Spacing="2">
-            <TextBlock Text="Package Bundles" Style="{StaticResource KaliteSectionTitle}" />
+            <TextBlock Text="Package Bundles" Style="{StaticResource SubtitleTextBlockStyle}" />
             <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
         </StackPanel>
@@ -48,7 +48,7 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button Content="Check missing" Click="CheckMissing_Click" Tag="{x:Bind}" />
-                                <Button Content="Install missing" Style="{StaticResource AccentButtonStyle}"
+                                <Button Content="Install missing"
                                         Click="InstallMissing_Click" Tag="{x:Bind}" />
                                 <Button Content="Export" Click="ExportBundle_Click" Tag="{x:Bind}" />
                                 <Button Content="Delete" Click="DeleteBundle_Click" Tag="{x:Bind}" />

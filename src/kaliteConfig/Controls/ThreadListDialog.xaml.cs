@@ -43,41 +43,21 @@ public sealed partial class ThreadRow : ObservableObject
     public partial bool CanEdit { get; set; } = true;
     [ObservableProperty]
     public partial bool Suspended { get; set; }
-    /// <summary>Per-row Priority-boost tick. Checked = boost allowed (default);
-    /// unticked = boost forced off live AND persisted so it stays off for this
-    /// thread identity across every future process launch. Backed by
-    /// BoostPreferenceService - never a rule, never touches priority.</summary>
     [ObservableProperty]
     public partial bool BoostAllowed { get; set; } = true;
     public string ProcessName { get; set; } = string.Empty;
     public string StartAddressValue { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Which logical CPUs this thread is allowed to run on, e.g. <c>0-7</c>,
-    /// <c>all 16</c>, or <c>0,2,4</c>. Empty when it could not be read.
-    /// </summary>
     [ObservableProperty] public partial string CpuText { get; set; } = "-";
 
-    /// <summary>
-    /// The thread's preferred CPU, or null when it has no preference and the
-    /// scheduler is free to choose from the affinity mask.
-    /// </summary>
     [ObservableProperty] public partial string? IdealCpuText { get; set; }
 
-    /// <summary>How much CPU time this one thread has used, in seconds.</summary>
     [ObservableProperty] public partial string CpuTimeText { get; set; } = "-";
 
-    /// <summary>Which CPU the thread is running on at that moment (live kernel
-    /// context-switch observation). "-" when unknown.</summary>
     [ObservableProperty] public partial string RunningCpuText { get; set; } = "-";
 
-    /// <summary>
-    /// The thread's share of the parent's total CPU time, 0-100. Null when it
-    /// cannot be computed (the parent total read failed or is still zero).
-    /// </summary>
     [ObservableProperty] public partial double? CpuShare { get; set; }
 
-    /// <summary>
 }
 
 public sealed partial class ThreadListDialog : ContentDialog
@@ -88,19 +68,10 @@ public sealed partial class ThreadListDialog : ContentDialog
     private string _processName = string.Empty;
     private ThreadRow? _selected;
     private bool _loadingEditor;
-    /// <summary>
-    /// True while the thread LIST is being rebuilt. The row template binds a
-    /// two-way CheckBox to <see cref="ThreadRow.BoostAllowed"/> and hooks
-    /// Checked/Unchecked, so every recycled container whose value differs from
-    /// the row it is being re-bound to fires those handlers. Without this guard
-    /// a plain "Refresh list" wrote boost state to live threads it never
-    /// touched - the list rebuild was silently mutating the system.
-    /// </summary>
     private bool _loadingList;
     private bool _endArmed;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _cpuTimer;
 
-    /// <summary>Set while a load is in flight, so the CPU column timer stands down.</summary>
     private volatile bool _busy;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
@@ -115,9 +86,6 @@ public sealed partial class ThreadListDialog : ContentDialog
         InitializeComponent();
         ThreadList.ItemsSource = Rows;
 
-        // Live "on CPU" column: observe kernel context switches while the
-        // dialog is open, refresh the column every second, and release the
-        // observation session when the dialog closes.
         try { Services.CpuObservationService.AddRef(); } catch { }
         _cpuTimer = DispatcherQueue.CreateTimer();
         _cpuTimer.Interval = TimeSpan.FromSeconds(1);
@@ -141,14 +109,14 @@ public sealed partial class ThreadListDialog : ContentDialog
         _processName = processName;
         Title = $"Threads - {processName} ({pid})";
         XamlRoot = root;
-        _ = ShowAsync();
+        var shown = ShowAsync().AsTask();
         await LoadThreadsAsync();
+        await shown;
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         => await LoadThreadsAsync();
 
-    /// <summary>Load ownership token, so a Refresh mid-pass supersedes the older load.</summary>
     private int _loadGeneration;
     private CancellationTokenSource? _loadCts;
 
@@ -162,24 +130,18 @@ public sealed partial class ThreadListDialog : ContentDialog
         int generation = ++_loadGeneration;
         _busy = true;
 
-        // Spinner for the whole pass, so the blank query reads as work in progress.
         SetLoading(true);
         EditorStatus("Loading threads…", false);
         try
         {
-            // Rows.Clear() plus re-add recycles every container and each rebind fires
-            // the CheckBox handlers; see _loadingList.
             _loadingList = true;
             try
             {
                 Rows.Clear();
                 SelectRow(null);
 
-                // One background pass for every column, from one handle per thread.
                 var details = await Services.ThreadQueryService.ListThreadsDetailedAsync(_pid);
 
-                // The query itself is not cancellable, so check ownership before
-                // touching any UI.
                 if (token.IsCancellationRequested || generation != _loadGeneration) return;
 
                 double parentCpuSeconds = 0;
@@ -187,7 +149,6 @@ public sealed partial class ThreadListDialog : ContentDialog
 
                 var suppressed = Services.BoostPreferenceService.Instance;
 
-                // Named threads pin to the top (then TID order); unnamed follow.
                 foreach (var t in details
                     .OrderByDescending(t => !string.IsNullOrWhiteSpace(t.Description) && t.Description != "(unnamed)")
                     .ThenBy(t => t.Tid))
@@ -202,8 +163,6 @@ public sealed partial class ThreadListDialog : ContentDialog
                         StartAddress = t.StartAddress,
                         IsNamed = named,
                         ProcessName = _processName,
-                        // Unopenable threads stay non-editable; unreadable columns
-                        // fall back to their placeholders.
                         CanEdit = t.PriorityLevel.HasValue,
                     };
 
@@ -251,13 +210,11 @@ public sealed partial class ThreadListDialog : ContentDialog
             }
             finally
             {
-                // Released only after the last Rows.Add has been pumped through the binding.
                 _loadingList = false;
             }
         }
         finally
         {
-            // Only the current load may clear the spinner.
             if (generation == _loadGeneration)
             {
                 _busy = false;
@@ -265,8 +222,6 @@ public sealed partial class ThreadListDialog : ContentDialog
                 cts.Dispose();
                 if (ReferenceEquals(_loadCts, cts)) _loadCts = null;
 
-                // Default to the first thread, after the spinner is down so the
-                // editor does not render behind the overlay.
                 if (ThreadList.SelectedItem == null && Rows.Count > 0)
                     ThreadList.SelectedItem = Rows[0];
             }
@@ -282,21 +237,18 @@ public sealed partial class ThreadListDialog : ContentDialog
             LoadingOverlay.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             RefreshButton.IsEnabled = !on;
         }
-        catch { /* the dialog may be closing */ }
+        catch {  }
     }
 
-    /// <summary>"12s", "3m 4s" or "1h 2m".</summary>
     private static string FormatCpuSeconds(double secs) =>
         secs < 60 ? $"{secs:0.0}s"
         : secs < 3600 ? $"{secs / 60:0}m {secs % 60:0}s"
         : $"{secs / 3600:0}h {(secs % 3600) / 60:0}m";
 
-    /// <summary>An affinity mask as "all 16", "0,2,4" or "none"; null → "unknown".</summary>
     private static string FormatAffinity(ulong? mask)
     {
         if (mask is not ulong m) return "unknown";
         int coreCount = Math.Max(1, Environment.ProcessorCount);
-        // Zero means the thread is free to run anywhere.
         if (m == 0) return $"all {coreCount}";
         var parts = new List<string>();
         for (int i = 0; i < 64; i++)
@@ -346,7 +298,6 @@ public sealed partial class ThreadListDialog : ContentDialog
             EditorSub.Text = $"{row.Description} - {row.StartAddress}";
             PriorityCurrent.Text = "Current: " + row.CurrentText;
             SelectComboByTag(PriorityCombo, row.CurrentLevel);
-            // Live tunables; each degrades independently.
             _boostReadable = true;
             _ecoReadable = true;
             try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)row.Tid); }
@@ -378,9 +329,6 @@ public sealed partial class ThreadListDialog : ContentDialog
             {
                 var (ig, cpu) = await Tuner.GetIdealProcessorAsync((uint)row.Tid);
                 IdealCurrent.Text = $"Current: group {ig} CPU {cpu}";
-                // Only tick a box when the thread really lives in group 0 and
-                // the read succeeded - a failed read must leave nothing
-                // pre-selected, or "Apply" silently re-applies CPU 0.
                 if (ig == 0)
                 {
                     _idealCpu = cpu;
@@ -409,8 +357,6 @@ public sealed partial class ThreadListDialog : ContentDialog
         finally { _loadingEditor = false; }
     }
 
-    /// <summary>Builds one toggle box per logical CPU. Affinity boxes are
-    /// multi-select (checked = allowed); ideal boxes are single-select.</summary>
     private void BuildAffinityBoxes(ulong liveMask)
     {
         AffinityCpuGrid.Children.Clear();
@@ -542,10 +488,6 @@ public sealed partial class ThreadListDialog : ContentDialog
                 BoostEnabled = _boostReadable ? row.BoostAllowed : null,
                 EfficiencyMode = _ecoReadable ? EcoToggle.IsOn : null,
             };
-            // One-click save: take affinity + ideal straight from the editor
-            // UI so the user does NOT have to press "Apply affinity" / "Apply
-            // ideal processor" first. The boxes are seeded from the live
-            // thread, so an untouched editor still saves the live state.
             ulong uiMask = ReadAffinityMask();
             if (uiMask != 0)
             {
@@ -557,9 +499,6 @@ public sealed partial class ThreadListDialog : ContentDialog
                 rule.IdealGroup = 0;
                 rule.IdealIndex = (byte)_idealCpu;
             }
-            // A rule with neither description nor address matches nothing
-            // (ThreadMatches requires one) - mark it match-all so an unnamed
-            // thread rule really applies to every thread, as the status line claims.
             if (string.IsNullOrWhiteSpace(rule.Description) && string.IsNullOrWhiteSpace(rule.StartAddress))
                 rule.MatchAllThreads = true;
             var watcher = App.Current.ProfileWatcher;
@@ -580,10 +519,6 @@ public sealed partial class ThreadListDialog : ContentDialog
             existing.RefreshSummaries();
             await watcher.AddOrUpdate(existing);
 
-            // "Make permanent" must also mean "in effect now": apply the freshly
-            // saved rule to THIS running instance immediately instead of waiting
-            // for the process to be launched again - a rule used to sit idle until
-            // then, which read as "my changes keep resetting".
             int applied = 0;
             try
             {
@@ -600,20 +535,13 @@ public sealed partial class ThreadListDialog : ContentDialog
         catch (Exception ex) { EditorStatus($"Save rule: {Short(ex)}", true); }
     }
 
-    /// <summary>
-    /// The row tick writes to the LIVE thread, so it must fire only on a real
-    /// user click. Checked/Unchecked also fire when the two-way binding pushes a
-    /// new value into a recycled container during a list rebuild - which is what
-    /// made "Refresh list" silently rewrite boost state on threads the user never
-    /// touched. Click is the one signal that only a real interaction produces.
-    /// </summary>
     private async void BoostBox_Click(object sender, RoutedEventArgs e)
     {
         if (_loadingEditor || _loadingList) return;
         if (sender is not CheckBox cb || cb.DataContext is not ThreadRow row) return;
 
         bool want = cb.IsChecked == true;
-        if (want == row.BoostAllowed) return; // binding caught up; nothing to do
+        if (want == row.BoostAllowed) return;
         try
         {
             if (want)
@@ -627,7 +555,6 @@ public sealed partial class ThreadListDialog : ContentDialog
         }
         catch (Exception ex)
         {
-            // Put the tick back - the write did not happen.
             row.BoostAllowed = !want;
             EditorStatus($"Boost: {Short(ex)}", true);
         }
@@ -701,12 +628,9 @@ public sealed partial class ThreadListDialog : ContentDialog
         }
         try
         {
-            // The service verifies the write against the kernel (and explains
-            // a rejection, e.g. a CPU outside this thread's affinity mask).
             await Tuner.SetIdealProcessorAsync((uint)_selected.Tid, 0, (byte)_idealCpu);
             _idealUserPicked = true;
             EditorStatus($"Ideal processor set to CPU {_idealCpu}.", false);
-            // Display what Windows reports, not what we asked for.
             try
             {
                 var (ig, cpu) = await Tuner.GetIdealProcessorAsync((uint)_selected.Tid);
@@ -773,8 +697,6 @@ public sealed partial class ThreadListDialog : ContentDialog
         }
     }
 
-    // Priority levels match System.Threading.ThreadPriorityLevel (Idle -15 …
-    // Highest +2) plus Win32 TIME_CRITICAL (+15); see SetThreadPriority docs.
     private static string DescribePriority(int level) => level switch
     {
         -15 => "Idle (-15)",

@@ -14,7 +14,6 @@ using System;
 
 namespace kaliteConfig.Converters;
 
-/// <summary>bool → Visibility (Visibility.Collapsed when false), with an optional "invert" parameter.</summary>
 public sealed class BoolToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)

@@ -29,7 +29,6 @@ public sealed partial class NetLabelValue : ObservableObject
     }
     public string Label { get; set; } = "";
     public string Value { get; set; } = "";
-    /// <summary>MACs, IPs, SSIDs and BSSIDs stay masked until tapped (screenshot-safe).</summary>
     public bool IsSensitive { get; set; }
     [ObservableProperty] public partial bool IsRevealed { get; set; }
     public string DisplayValue => IsSensitive && !IsRevealed ? "••••••••" : Value;
@@ -40,8 +39,6 @@ public sealed partial class NetLabelValue : ObservableObject
 public sealed partial class NetPropEdit : ObservableObject
 {
     public NetAdvancedProp Prop { get; }
-    /// <summary>Frozen at build time: elevation is a process-wide constant, so live
-    /// re-evaluation would never change anything.</summary>
     public bool IsEditable { get; }
     public NetPropEdit(NetAdvancedProp prop, string proposed, bool editable = true)
     {
@@ -114,18 +111,12 @@ public sealed partial class SysRowVm : ObservableObject
         Editable = editable;
     }
 
-    /// <summary>Raised on every user edit. These rows have no Apply button - the
-    /// owner writes the new value through as soon as it changes.</summary>
     public event Action<SysRowVm>? Edited;
 
-    /// <summary>Set by the owner when an edit arrives while a write is still in
-    /// flight, so the newest value is written again instead of being dropped.</summary>
     public bool ReapplyRequested { get; set; }
 
     private bool _suppressEdited;
 
-    /// <summary>Windows reports "enabled" where the option list says "Enabled", and a
-    /// combo bound by SelectedValue shows nothing when the two spellings differ.</summary>
     private string Canonical(string value) => NetParsing.CanonicalOption(Def, value);
 
     private string _original;
@@ -135,8 +126,6 @@ public sealed partial class SysRowVm : ObservableObject
         get => _proposed;
         set
         {
-            // A combo whose live value is not in its items reports null on load;
-            // that is "nothing selected", not an edit to push to the machine.
             if (value is null) return;
             if (SetProperty(ref _proposed, value))
             {
@@ -155,8 +144,6 @@ public sealed partial class SysRowVm : ObservableObject
         get => double.TryParse(_proposed, out var n) ? n : 0;
         set
         {
-            // An empty box reports NaN; keep the last good value instead of
-            // turning it into an overflow that would trip the range check.
             if (double.IsNaN(value) || double.IsInfinity(value)) return;
             Proposed = ((long)Math.Round(value)).ToString();
         }
@@ -167,9 +154,6 @@ public sealed partial class SysRowVm : ObservableObject
         ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public string? ValidationError => NetParsing.ValidateSysValue(Def, _proposed ?? "");
     public bool HasError => ValidationError != null;
-    // Only flag an error once the user actually edits the row; a stale or
-    // unreadable current value (empty / not in the options list) must not
-    // paint every row red on load.
     public Microsoft.UI.Xaml.Visibility ErrorVis => HasError && HasPendingChange
         ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public bool IsEnum => Def.Kind == NetParsing.SysKind.Enum;
@@ -206,7 +190,6 @@ public sealed partial class SysRowVm : ObservableObject
 
     public void AcceptApplied(string readBack)
     {
-        // Writing the read-back back into Proposed must not look like a new edit.
         _suppressEdited = true;
         try
         {
@@ -227,7 +210,6 @@ public sealed partial class SysSectionVm : ObservableObject
     public string Title { get; }
     public ObservableCollection<SysRowVm> Rows { get; } = new();
 
-    /// <summary>What this group of settings covers, shown above its rows.</summary>
     public string Hint { get; }
 
     public SysSectionVm(string title, string hint = "")
@@ -238,8 +220,6 @@ public sealed partial class SysSectionVm : ObservableObject
 
     private string _statusText = "";
 
-    /// <summary>Empty while nothing is staged, so the pill only appears when there is
-    /// something to review.</summary>
     public string StatusText
     {
         get => _statusText;
@@ -252,7 +232,6 @@ public sealed partial class SysSectionVm : ObservableObject
     public Microsoft.UI.Xaml.Visibility StatusVis => string.IsNullOrEmpty(_statusText)
         ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
 
-    /// <summary>Rows in this section including the ones the filter hides.</summary>
     public int RowCount => Rows.Count;
 
     public void RefreshStatus()
@@ -273,17 +252,14 @@ public sealed partial class NetworkViewModel : ObservableObject
     public ObservableCollection<NetLabelValue> RssRows { get; } = new();
     public ObservableCollection<SysSectionVm> SysSections { get; } = new();
 
-    /// <summary>Which section the SysW side panel shows.</summary>
     [ObservableProperty] public partial int SysSectionIndex { get; set; }
 
     private static readonly SysSectionVm EmptySysSection = new("No sections");
 
-    /// <summary>Never null: the W tab binds through it before the first read finishes.</summary>
     public SysSectionVm CurrentSysSection => SysSections.Count == 0
         ? EmptySysSection
         : SysSections[Math.Clamp(SysSectionIndex, 0, SysSections.Count - 1)];
 
-    /// <summary>Shown when the filter hides every row of the current section.</summary>
     public Microsoft.UI.Xaml.Visibility SysEmptyVis =>
         CurrentSysSection.Rows.Any(r => r.RowVisible == Microsoft.UI.Xaml.Visibility.Visible)
             ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
@@ -337,6 +313,9 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] public partial string SpeedUp { get; set; } = "-";
     [ObservableProperty] public partial int SpeedProgress { get; set; }
     [ObservableProperty] public partial bool SpeedRunning { get; set; }
+
+    partial void OnSpeedRunningChanged(bool value) => OnPropertyChanged(nameof(SpeedButtonText));
+    public string SpeedButtonText => SpeedRunning ? "Cancel" : "Start";
     [ObservableProperty] public partial NetAdapterInfo? CompareAdapter { get; set; }
     [ObservableProperty] public partial bool ConfirmRiskyEdit { get; set; }
 
@@ -401,7 +380,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             foreach (var a in list) Adapters.Add(a);
             OnPropertyChanged(nameof(FilteredAdapters));
             SelectedAdapter = Adapters.FirstOrDefault(a => a.Guid == keepGuid) ?? FilteredAdapters.FirstOrDefault();
-            if (SelectedAdapter is null) StatusMessage = "No adapters found. If this machine truly has none, there is nothing to show.";
+            if (SelectedAdapter is null) StatusMessage = "No physical adapters found. WAN miniports, tunnels and filter drivers are hidden.";
             else await SelectAdapterAsync(SelectedAdapter).ConfigureAwait(true);
             await LoadTcpAsync().ConfigureAwait(true);
         }
@@ -419,8 +398,6 @@ public sealed partial class NetworkViewModel : ObservableObject
     public async Task SelectAdapterAsync(NetAdapterInfo? adapter)
     {
         if (adapter is null) return;
-        // Serialize: rapid re-selections used to interleave two fills (Clear, await,
-        // Add...) and duplicate every row. A second request just re-runs once after.
         if (_selecting)
         {
             _pendingSelect = adapter;
@@ -446,8 +423,6 @@ public sealed partial class NetworkViewModel : ObservableObject
             FillRssRows(props);
             if (props.Count == 0)
                 StatusMessage = $"{adapter.Name}: the driver exposes no advanced properties.";
-            // Each group is independent: one unreadable section must not blank the
-            // whole page, so they are isolated and reported individually.
             await StepAsync("overview", () => FillOverview(adapter)).ConfigureAwait(true);
             await StepAsync("driver", () => FillDriverAsync(adapter)).ConfigureAwait(true);
             await StepAsync("hardware", () => FillHardwareAsync(adapter)).ConfigureAwait(true);
@@ -526,9 +501,6 @@ finally { _selecting = false; }
             Add("NDIS version", Get("NdisVersion"));
             string ndiService = await ReadNdiServiceAsync(a.RegistryKey).ConfigureAwait(true);
             Add("Service", ndiService);
-            // ConfigureAwait(false) here would resume on a thread-pool thread and the
-            // Add below would then touch the UI-bound DriverRows collection from the
-            // wrong thread (COMException 0x8001010E), killing the whole refresh.
             string signer = await NetAdapterService.GetSignerAsync(
                 ndiService.StartsWith("Not reported") ? null : ndiService).ConfigureAwait(true);
             Add("Digital signer", signer);
@@ -641,9 +613,6 @@ finally { _selecting = false; }
         await LoadSysAsync().ConfigureAwait(true);
     }
 
-    /// <summary>Editable system-wide rows, grouped by section. RSS rows follow the
-    /// selected adapter; the rest are machine-global. Only one section is on screen
-    /// at a time (the SysW side panel picks it).</summary>
     public async Task LoadSysAsync()
     {
         try
@@ -664,7 +633,6 @@ finally { _selecting = false; }
                 SysSections.Add(section);
             }
             OnPropertyChanged(nameof(CurrentSysSection));
-            // A re-read rebuilds every row, so the filter has to be applied again.
             ApplySysFilter(_sysChangedOnly);
             if (SysSections.Count == 0)
                 NotifyMessage("System settings unavailable", "No editable system rows could be read.");
@@ -672,7 +640,6 @@ finally { _selecting = false; }
         catch (Exception ex) { NotifyMessage("System settings unavailable", ex.Message); }
     }
 
-    /// <summary>Re-reads every row from Windows, discarding staged values.</summary>
     [RelayCommand]
     public async Task ReReadSysAsync() => await LoadSysAsync().ConfigureAwait(true);
 
@@ -694,8 +661,6 @@ finally { _selecting = false; }
 
     private bool _sysChangedOnly;
 
-    /// <summary>Runs one read step in isolation. A failure is reported once (first
-    /// failure wins) instead of aborting the remaining groups.</summary>
     private async Task StepAsync(string label, Func<Task> step)
     {
         try { await step().ConfigureAwait(true); }
@@ -707,11 +672,8 @@ finally { _selecting = false; }
 
     private string? _firstReadError;
 
-    /// <summary>One edit = one write. A second edit landing mid-write runs the write
-    /// again afterwards so the last value the user picked is the one on the machine.</summary>
     private async void OnSysRowEdited(SysRowVm row)
     {
-        // Show the staged count straight away, before the write lands.
         RefreshSectionStatusOf(row);
         if (row.IsApplying) { row.ReapplyRequested = true; return; }
         try
@@ -741,8 +703,6 @@ finally { _selecting = false; }
     public async Task ApplySysRowAsync(SysRowVm? row)
     {
         if (row is null) return;
-        // Nothing to write when the row still holds its read value, and an invalid
-        // value is reported instead of being written.
         if (!row.HasPendingChange) return;
         if (row.ValidationError is string invalid) { row.ApplyState = "Not applied: " + invalid; return; }
         if (!IsElevated) { row.ApplyState = "Needs elevation."; return; }

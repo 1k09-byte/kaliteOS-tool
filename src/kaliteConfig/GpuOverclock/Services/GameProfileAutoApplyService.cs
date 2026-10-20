@@ -18,38 +18,6 @@ using static kaliteConfig.GpuOverclock.Services.GameProcessWatcherService;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// Per-game profile auto-switch (v2 Part B).
-    ///
-    /// THE SAFETY TENSION (resolved explicitly): the safety state machine's
-    /// AwaitingConfirmation countdown assumes a user is present to confirm,
-    /// but game-launch switches fire unattended - the user may be in a
-    /// full-screen game. Blocking on an unconfirmable countdown is unusable;
-    /// silently skipping the safety layer is the anti-pattern this module
-    /// was built to avoid. Resolution:
-    ///
-    /// - Only profiles with HasBeenManuallyValidated (manually applied AND
-    ///   confirmed through the normal interactive machine in a desktop
-    ///   context, at least once) are eligible. Startup reapply and previous
-    ///   auto-applies never set that flag.
-    /// - Eligible auto-applies reuse the headless pattern proven by startup
-    ///   reapply: the SAME safety machine, TDR watchdog armed the whole
-    ///   time, window marked silent (ConfirmSilently) so it expires into
-    ///   confirm instead of blocking on invisible UI. The in-app banner still
-    ///   shows when the app IS visible, so switches are never invisible.
-    /// - A driver reset shortly after auto-apply immediately reverts (the
-    ///   machine does it) and we then apply the default profile + publish a
-    ///   status the user sees after the game closes (plus log entries).
-    /// - A refused write falls back to the default profile immediately -
-    ///   never a partially-applied, unconfirmed state while in-game.
-    /// - If the machine is busy (user mid-confirmation), the auto-apply is
-    ///   SKIPPED, not queued - never stomp an interactive session.
-    ///
-    /// Game-exit: the default profile returns only when no OTHER bound game
-    /// is still running (multi-game edge case). When no default is
-    /// designated (or it isn't trustworthy), a synthetic stock profile
-    /// (core/mem 0, power 100%, zeroed curve) is applied instead.
-    /// </summary>
     public sealed class GameProfileAutoApplyService : IDisposable
     {
         public sealed record AutoApplyStatus(
@@ -61,10 +29,8 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public event Action<AutoApplyStatus>? StatusChanged;
 
-        /// <summary>Silent-window length for game applies (curve batches still use their longer override).</summary>
         public int AutoApplyConfirmationSeconds { get; set; } = 10;
 
-        /// <summary>Extra slack past the window end before giving up the wait (tests shrink this).</summary>
         public int UnattendedWaitSlackSeconds { get; set; } = 10;
 
         private readonly IGpuTuningController _controller;
@@ -82,7 +48,7 @@ namespace kaliteConfig.GpuOverclock.Services
         private bool _applyInFlight;
         private bool _inFallback;
 
-        private readonly Dictionary<int, string> _runningPids = new(); // pid -> exe name
+        private readonly Dictionary<int, string> _runningPids = new();
         private GameProfileBinding? _activeBinding;
         private OverclockProfile? _activeProfile;
         private int _activePid;
@@ -137,7 +103,6 @@ namespace kaliteConfig.GpuOverclock.Services
             _watcher.Stop();
         }
 
-        /// <summary>Re-reads bindings from disk (call after bind/unbind/toggle).</summary>
         public void RefreshBindings()
         {
             var names = _profiles.LoadBindings()
@@ -147,11 +112,8 @@ namespace kaliteConfig.GpuOverclock.Services
             _watcher.SetWatchedExecutables(names);
         }
 
-        // Public so the OcVerify harness (and future UI tests) can drive the
-        // decision logic deterministically without spawning processes.
         public void HandleProcessStarted(ProcessEventInfo info) => _ = Task.Run(() => OnStarted(info));
 
-        // Public for the same reason as HandleProcessStarted.
         public void HandleProcessStopped(ProcessEventInfo info) => _ = Task.Run(() => OnStopped(info));
 
         private void OnStarted(ProcessEventInfo info)
@@ -159,7 +121,7 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (_gate) _runningPids[info.ProcessId] = info.ProcessName;
 
             var binding = FindBestBinding(info);
-            if (binding is null) return; // not a bound executable
+            if (binding is null) return;
 
             var profile = _profiles.FindProfile(binding.ProfileId);
             if (profile is null)
@@ -188,8 +150,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 return;
             }
 
-            // Optimistic anchor (so an exit mid-window still resolves), with
-            // restore on the provably-untouched skip paths below.
             GameProfileBinding? prevBinding;
             OverclockProfile? prevProfile;
             int prevPid;
@@ -206,14 +166,11 @@ namespace kaliteConfig.GpuOverclock.Services
             var outcome = ApplyUnattended(profile, $"for {info.ProcessName}");
             if (outcome == ApplyOutcome.Applied)
             {
-                // Most-recent launch wins when several bound games run at once.
                 Publish(profile.Name, info.ProcessName,
                     $"Applied profile '{profile.Name}' for {info.ProcessName}.");
             }
             else if (outcome == ApplyOutcome.SkippedInFlight)
             {
-                // Our own earlier apply is still settling - retry once it
-                // lands (bounded; background thread). The GPU was untouched.
                 lock (_gate)
                 {
                     _activeBinding = prevBinding;
@@ -240,7 +197,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             else if (outcome == ApplyOutcome.SkippedManualBusy)
             {
-                // A user confirmation window is open - GPU provably untouched.
                 lock (_gate)
                 {
                     _activeBinding = prevBinding;
@@ -248,16 +204,12 @@ namespace kaliteConfig.GpuOverclock.Services
                     _activePid = prevPid;
                 }
             }
-            // ApplyOutcome.Failed: the fallback already ran and re-anchored.
         }
 
         private void OnStopped(ProcessEventInfo info)
         {
             lock (_gate) _runningPids.Remove(info.ProcessId);
 
-            // An apply for the exiting game may still be settling (launched
-            // seconds ago): decide on the RESOLVED state, not the mid-window
-            // one. Bounded wait on a background thread - never the UI thread.
             WaitForApplySettle(TimeSpan.FromSeconds(45));
 
             GameProfileBinding? active;
@@ -269,11 +221,8 @@ namespace kaliteConfig.GpuOverclock.Services
                 activeProfile = _activeProfile;
                 activePid = _activePid;
             }
-            if (active is null || info.ProcessId != activePid) return; // not the game we switched for
+            if (active is null || info.ProcessId != activePid) return;
 
-            // Multi-game edge case: another bound game still running → leave
-            // the currently-applicable profile active, but re-anchor to the
-            // survivor so ITS exit triggers the revert.
             var survivor = FindRemainingBoundPid();
             if (survivor is not null)
             {
@@ -292,7 +241,6 @@ namespace kaliteConfig.GpuOverclock.Services
             ApplyDefaultOrStock($"'{info.ProcessName}' exited");
         }
 
-        /// <summary>Best enabled binding for a started process: exact full-path match wins, else a generic name binding.</summary>
         private GameProfileBinding? FindBestBinding(ProcessEventInfo info)
         {
             var want = GameProcessWatcherService.Normalize(info.ProcessName);
@@ -326,22 +274,16 @@ namespace kaliteConfig.GpuOverclock.Services
             return null;
         }
 
-        /// <summary>Outcome of one unattended apply (drives anchor restore/retry in OnStarted).</summary>
         private enum ApplyOutcome
         {
             Applied,
-            /// <summary>A user confirmation window is open - GPU provably untouched.</summary>
             SkippedManualBusy,
-            /// <summary>Our own earlier apply still settling - GPU untouched by THIS call.</summary>
             SkippedInFlight,
-            /// <summary>Write refused or TDR-reverted - the default/stock fallback already ran.</summary>
             Failed,
         }
 
-        /// <summary>True while an unattended apply holds the machine (tests poll this to sequence scenarios).</summary>
         public bool IsApplyInFlight { get { lock (_gate) return _applyInFlight; } }
 
-        /// <summary>Bounded wait until no apply is in flight and the machine is idle.</summary>
         public bool WaitForApplySettle(TimeSpan timeout)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -357,11 +299,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return !stillBusy && _safety.CurrentState == SafetyState.Idle;
         }
 
-        /// <summary>
-        /// Applies a profile through the safety machine with a silent window
-        /// (watchdog armed throughout). Returns true when the window closed
-        /// cleanly; on refusal or TDR-revert falls back to default/stock.
-        /// </summary>
         private ApplyOutcome ApplyUnattended(OverclockProfile profile, string reason)
         {
             lock (_gate)
@@ -436,7 +373,7 @@ namespace kaliteConfig.GpuOverclock.Services
                                 FallbackToDefault("the driver refused the profile values");
                                 return ApplyOutcome.Failed;
                             }
-                            _safety.ConfirmSilently(); // unattended: window expires, watchdog armed
+                            _safety.ConfirmSilently();
                             int window = _safety.GetConfirmationSecondsFor(batch.Select(b => b.ControlName));
                             WaitForSafetyIdle(TimeSpan.FromSeconds(window + UnattendedWaitSlackSeconds));
                         }
@@ -474,7 +411,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 ApplyProfileFan(profile);
 
                 profile.LastAppliedAt = DateTime.Now;
-                _profiles.Save(profile); // timestamps only - validation flags untouched (never set here)
+                _profiles.Save(profile);
                 return ApplyOutcome.Applied;
             }
             finally
@@ -483,7 +420,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>Fan half of a profile in the unattended path (mirrors the manual fan semantics).</summary>
         private void ApplyProfileFan(OverclockProfile profile)
         {
             try
@@ -549,11 +485,6 @@ namespace kaliteConfig.GpuOverclock.Services
             catch { return null; }
         }
 
-        /// <summary>
-        /// Default-or-stock revert. Single-level only (_inFallback): if the
-        /// fallback itself fails there is nothing safer to try unattended -
-        /// log it and surface it.
-        /// </summary>
         private bool FallbackToDefault(string reason)
         {
             lock (_gate)
@@ -573,12 +504,9 @@ namespace kaliteConfig.GpuOverclock.Services
                 }
                 bool isStock = fallback.Name.StartsWith("Stock", StringComparison.Ordinal);
                 _trace?.Invoke($"auto-apply fallback ({reason}): applying {(isStock ? "stock" : "default")} '{fallback.Name}'");
-                // Single-level only: the no-fallback core below never recurses.
                 bool ok = ApplyUnattendedNoFallback(fallback);
                 if (ok)
                 {
-                    // The GPU is on the fallback now - the active anchor must
-                    // follow it, so a later game-exit doesn't "revert" again.
                     lock (_gate)
                     {
                         _activeBinding = null;
@@ -595,7 +523,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>Same as ApplyUnattended but failure just logs (no further fallback).</summary>
         private bool ApplyUnattendedNoFallback(OverclockProfile profile)
         {
             lock (_gate)
@@ -634,7 +561,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     _safety.ConfirmSilently();
                     int window = _safety.GetConfirmationSecondsFor(batch.Select(b => b.ControlName));
                     WaitForSafetyIdle(TimeSpan.FromSeconds(window + UnattendedWaitSlackSeconds));
-                    // Outcome publishing belongs to the caller (FallbackToDefault).
                     return true;
                 }
                 finally
@@ -648,11 +574,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// The designated default profile when trustworthy: manually
-        /// validated, or stock-like (no OC values - nothing risky to apply
-        /// blind). Otherwise null → the caller builds synthetic stock.
-        /// </summary>
         private OverclockProfile? ResolveDefaultProfile()
         {
             try
@@ -677,7 +598,6 @@ namespace kaliteConfig.GpuOverclock.Services
                && (p.GlobalVoltageBoostOffsetMHz is null or 0)
                && p.FanMode == GpuFanMode.Auto;
 
-        /// <summary>Synthetic "no overclock" profile: zero offsets, 100% power, zeroed curve.</summary>
         private OverclockProfile? BuildStockProfile()
         {
             try
@@ -704,7 +624,6 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private void ApplyDefaultOrStock(string reason)
         {
-            // FallbackToDefault publishes the outcome itself.
             FallbackToDefault(reason);
         }
 
@@ -739,7 +658,6 @@ namespace kaliteConfig.GpuOverclock.Services
             _trace?.Invoke("auto-switch: " + message);
         }
 
-        /// <summary>Blocks the background apply task until the machine is idle (bounded).</summary>
         private void WaitForSafetyIdle(TimeSpan timeout)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();

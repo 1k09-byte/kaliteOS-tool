@@ -3,11 +3,10 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace kaliteConfig.Services.Navigation;
 
-/// <summary>Page keys — replaces the string-Tag switch in MainWindow.</summary>
 public enum PageKey
 {
     Apps, Graphics, Gaming, PriorityBoosts, ThreadTuner, Snip,
-    Network, Benchmark, WindowsSettings, BiosManager, PowerPlans, Settings
+    Network, WindowsSettings, BiosManager, PowerPlans, Personalize, Troubleshooting, Settings
 }
 
 public interface INavigationService
@@ -31,10 +30,11 @@ public sealed class NavigationService : INavigationService
         PageKey.ThreadTuner => typeof(Pages.ThreadTunerPage),
         PageKey.Snip => typeof(Pages.SnipPage),
         PageKey.Network => typeof(Pages.NetworkPage),
-        PageKey.Benchmark => typeof(Pages.BenchmarkPage),
         PageKey.WindowsSettings => typeof(Pages.WindowsSettingsHubPage),
         PageKey.BiosManager => typeof(Pages.BiosManagerPage),
         PageKey.PowerPlans => typeof(Pages.PowerPlansPage),
+        PageKey.Personalize => typeof(Pages.PersonalizePage),
+        PageKey.Troubleshooting => typeof(Pages.TroubleshootingPage),
         _ => typeof(Pages.SettingsPage),
     };
 
@@ -47,10 +47,11 @@ public sealed class NavigationService : INavigationService
         "ThreadTunerPage" => PageKey.ThreadTuner,
         "SnipPage" => PageKey.Snip,
         "NetworkPage" => PageKey.Network,
-        "BenchmarkPage" => PageKey.Benchmark,
         "WindowsSettingsPage" => PageKey.WindowsSettings,
         "BiosManagerPage" => PageKey.BiosManager,
         "PowerPlansPage" => PageKey.PowerPlans,
+        "PersonalizePage" => PageKey.Personalize,
+        "TroubleshootingPage" => PageKey.Troubleshooting,
         _ => PageKey.Settings,
     };
 

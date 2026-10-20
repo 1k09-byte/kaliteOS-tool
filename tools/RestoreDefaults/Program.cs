@@ -7,12 +7,6 @@ using kaliteConfig.Native;
 
 namespace RestoreDefaults
 {
-    /// <summary>
-    /// Returns every accessible process to stock scheduling state:
-    /// priority Normal, EcoQoS OFF, priority boost enabled, full affinity,
-    /// full default CPU Sets. Skips PID 0/4, Realtime (deliberate), and
-    /// anything it cannot open (PPL/system). Exit 0 always (reports counts).
-    /// </summary>
     internal static class Program
     {
         private static int _fixed, _clean, _skipped, _failed;
@@ -44,7 +38,7 @@ namespace RestoreDefaults
 
                     uint prio = NativeMethods.Priority.GetPriorityClass(q);
                     if (prio == 0) { _skipped++; continue; }
-                    if (prio == NativeMethods.Priority.Realtime) { _skipped++; continue; } // deliberate, don't touch
+                    if (prio == NativeMethods.Priority.Realtime) { _skipped++; continue; }
 
                     bool eco = false;
                     var st = new ProcessPowerThrottlingState { Version = NativeMethods.Power.Version };

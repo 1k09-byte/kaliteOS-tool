@@ -49,12 +49,10 @@ public class ProcessOptimizerViewModel : INotifyPropertyChanged
 
     private void RefreshState()
     {
-        // Calling PropertyChanged with null or empty tells the UI every property has updated.
         OnPropertyChanged(string.Empty);
 
         var entries = OptimizationSessionOrchestrator.Instance.GetManagedProcesses().ToList();
-        
-        // Highly naive but safe and simple observable refresh
+
         ManagedProcesses.Clear();
         foreach (var entry in entries)
         {
@@ -64,7 +62,6 @@ public class ProcessOptimizerViewModel : INotifyPropertyChanged
 
     public void RequestEndSession()
     {
-        // Immediately kills the session (user clicked "End Session Now")
         OptimizationSessionOrchestrator.Instance.EndSession();
     }
 

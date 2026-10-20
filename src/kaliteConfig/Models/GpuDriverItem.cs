@@ -19,29 +19,22 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string Name { get; set; } = string.Empty;
 
-        // NVIDIA / AMD / Intel
         [ObservableProperty]
         public partial string Vendor { get; set; } = string.Empty;
 
         [ObservableProperty]
         public partial string Description { get; set; } = string.Empty;
 
-        // Driver version currently on this machine ("" when nothing usable detected).
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
         public partial string InstalledVersion { get; set; } = string.Empty;
 
-        // Latest version from the vendor lookup ("" until checked).
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
         [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
         [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
         public partial string LatestVersion { get; set; } = string.Empty;
 
-        /// <summary>Shows the "Latest version" column only when a lookup
-        /// returned a version that differs from the installed one. Hides when
-        /// up to date (the checker's own comparison), when versions match, or
-        /// when no lookup has run yet.</summary>
         public Visibility LatestVersionVis =>
             Status == GpuDriverStatus.UpToDate
             || string.IsNullOrWhiteSpace(LatestVersion)
@@ -57,7 +50,6 @@ namespace kaliteConfig.Models
         [ObservableProperty]
         public partial string InstallerFileName { get; set; } = string.Empty;
 
-        // --- UI BINDING (observable so detection results refresh live) ---
         [ObservableProperty]
         public partial string HardwareName { get; set; } = string.Empty;
 
@@ -77,22 +69,13 @@ namespace kaliteConfig.Models
 
         public Visibility PrimaryVis => IsPrimary ? Visibility.Visible : Visibility.Collapsed;
         public Visibility SecondaryVis => IsPrimary ? Visibility.Collapsed : Visibility.Visible;
-        // -------------------------------------
 
-        // Check-button state: the button itself carries "up to date" once a
-        // check has confirmed it (disabled - nothing to do), stays actionable
-        // otherwise, and goes quiet while a download/install is running.
-
-        // Fallback official page (used when lookup/download fails, and for page-only vendors).
         [ObservableProperty]
         public partial string VendorPageUrl { get; set; } = string.Empty;
 
-        // True when the vendor installer has no reliable silent flags (AMD/Intel):
-        // the app downloads (if a URL is known) then launches the vendor UI.
         [ObservableProperty]
         public partial bool GuidedInstallOnly { get; set; }
 
-        // True when there is no direct download at all (Intel): primary button opens the page.
         [ObservableProperty]
         public partial bool IsPageOnly { get; set; }
 
@@ -102,6 +85,8 @@ namespace kaliteConfig.Models
         [NotifyPropertyChangedFor(nameof(CheckActionText))]
         [NotifyPropertyChangedFor(nameof(IsCheckEnabled))]
         [NotifyPropertyChangedFor(nameof(LatestVersionVis))]
+        [NotifyPropertyChangedFor(nameof(StateLabel))]
+        [NotifyPropertyChangedFor(nameof(StateGlyph))]
         public partial GpuDriverStatus Status { get; set; } = GpuDriverStatus.NotChecked;
 
         [ObservableProperty]
@@ -150,19 +135,39 @@ namespace kaliteConfig.Models
         public bool IsCheckEnabled => Status is not (
             GpuDriverStatus.UpToDate or GpuDriverStatus.Downloading or GpuDriverStatus.Installing);
 
-        // Radeon Software Slimmer. This is a per-machine tool, but it lives on the
-        // card because that is the binding root for the card template, the same
-        // place the other per-card UI state above sits.
+        public string StateLabel => Status switch
+        {
+            GpuDriverStatus.UpToDate => "Up to date",
+            GpuDriverStatus.UpdateAvailable => "Update available",
+            GpuDriverStatus.NotInstalled => "Not installed",
+            GpuDriverStatus.NotChecked => "Not checked",
+            GpuDriverStatus.Downloading => "Downloading",
+            GpuDriverStatus.Installing => "Installing",
+            GpuDriverStatus.Installed => "Installed",
+            GpuDriverStatus.Failed => "Failed",
+            GpuDriverStatus.ManualActionRequired => "Action needed",
+            _ => "Unknown"
+        };
 
-        /// <summary>True while the tool is being fetched or started.</summary>
+        public string StateGlyph => Status switch
+        {
+            GpuDriverStatus.UpToDate => "\uE73E",
+            GpuDriverStatus.UpdateAvailable => "\uE895",
+            GpuDriverStatus.NotInstalled => "\uE7B8",
+            GpuDriverStatus.Downloading => "\uE896",
+            GpuDriverStatus.Installing => "\uE895",
+            GpuDriverStatus.Installed => "\uE73E",
+            GpuDriverStatus.Failed => "\uE783",
+            GpuDriverStatus.ManualActionRequired => "\uE7BA",
+            _ => "\uE946"
+        };
+
         [ObservableProperty]
         public partial bool IsSlimmerBusy { get; set; }
 
-        /// <summary>True once the tool has been fetched, so the button can say "Open".</summary>
         [ObservableProperty]
         public partial bool IsSlimmerInstalled { get; set; }
 
-        /// <summary>Fetch progress 0-100. -1 means idle, which must not read as a full bar.</summary>
         [ObservableProperty]
         public partial double SlimmerProgress { get; set; } = -1;
     }

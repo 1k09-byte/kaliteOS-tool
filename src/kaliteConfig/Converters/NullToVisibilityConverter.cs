@@ -26,8 +26,6 @@ namespace kaliteConfig.Converters
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)
         {
-            // Throwing NotImplementedException here crashed the app if any
-            // TwoWay binding ever evaluated through this converter.
             return DependencyProperty.UnsetValue;
         }
     }

@@ -153,8 +153,6 @@ public static class SnipGalleryQuery
         return name;
     }
 
-    /// <summary>Resize target dimensions. Zero means "auto" for that axis.
-    /// With aspect lock a single set axis scales both; both set fits inside.</summary>
     public static (int W, int H) ComputeResizeDims(int srcW, int srcH, int reqW, int reqH, bool aspectLock)
     {
         if (srcW <= 0 || srcH <= 0) return (0, 0);
@@ -169,23 +167,17 @@ public static class SnipGalleryQuery
         return (Math.Max(1, (int)Math.Round(srcW * scale)), Math.Max(1, (int)Math.Round(srcH * scale)));
     }
 
-    /// <summary>True when every sampled pixel is identical (DRM/protected content
-    /// captures as one flat color; used to warn the user, never to block).</summary>
     public static bool IsUniformImage(byte[] bgra)
     {
         if (bgra == null || bgra.Length < 4) return true;
         byte b0 = bgra[0], g0 = bgra[1], r0 = bgra[2], a0 = bgra[3];
-        for (int i = 4; i < bgra.Length; i += 16) // sample every 4th BGRA pixel
+        for (int i = 4; i < bgra.Length; i += 16)
         {
             if (bgra[i] != b0 || bgra[i + 1] != g0 || bgra[i + 2] != r0 || bgra[i + 3] != a0) return false;
         }
         return true;
     }
 
-    /// <summary>True when the frame only LOOKS empty: at least <paramref name="fraction"/>
-    /// of sampled pixels sit within <paramref name="tolerance"/> per channel of the first
-    /// pixel. Catches near-flat captures (empty areas, JPEG noise, faint gradients) that
-    /// exact-match misses. Photos of real content fail this.</summary>
     public static bool IsNearlyBlank(byte[] bgra, double fraction = 0.99, int tolerance = 12)
     {
         if (bgra == null || bgra.Length < 4) return true;

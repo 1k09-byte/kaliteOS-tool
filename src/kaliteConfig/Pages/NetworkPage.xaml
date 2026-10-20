@@ -15,7 +15,7 @@
     <Page.Resources>
         <DataTemplate x:Key="PropGroupTemplate" x:DataType="vm:NetPropGroup">
             <StackPanel Spacing="8" Margin="0,0,0,16">
-                <TextBlock Text="{x:Bind Category}" Style="{StaticResource KaliteSectionTitle}"/>
+                <TextBlock Text="{x:Bind Category}" Style="{StaticResource SubtitleTextBlockStyle}"/>
                 <ItemsControl ItemsSource="{x:Bind Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:NetPropEdit">
@@ -58,7 +58,6 @@
                                            TextWrapping="Wrap" Visibility="{x:Bind ValidationVis, Mode=OneWay}"/>
                                 <StackPanel Grid.Row="4" Spacing="4" Margin="0,8,0,0">
                                     <TextBlock Text="{x:Bind PendingText, Mode=OneWay}" FontStyle="Italic" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                    <TextBlock Text="{x:Bind Prop.Explanation}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                                     <TextBlock Text="{x:Bind Prop.Default, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
                             </Grid>
@@ -76,13 +75,13 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind Label}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6,2"
+                <Button Grid.Column="1"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Click="SensitiveValue_Click" ToolTipService.ToolTip="Tap to reveal / hide sensitive values">
                     <TextBlock Text="{x:Bind DisplayValue, Mode=OneWay}" TextWrapping="Wrap"
                                ToolTipService.ToolTip="{x:Bind DisplayValue, Mode=OneWay}"/>
                 </Button>
-                <Button Grid.Column="2" Content="Copy" Click="CopyRow_Click" Padding="8,2"
+                <Button Grid.Column="2" Content="Copy" Click="CopyRow_Click"
                         ToolTipService.ToolTip="Copy this value"/>
             </Grid>
         </DataTemplate>
@@ -110,18 +109,13 @@
 
         <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="5" Padding="16">
         <StackPanel Spacing="14">
-            <TextBlock Text="Network" Style="{StaticResource KalitePageTitle}"/>
+            <TextBlock Text="Network" Style="{StaticResource TitleLargeTextBlockStyle}"/>
             <TextBox x:Name="AdapterSearch" Header="Search adapters" CornerRadius="3" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Content="Show hidden / virtual" IsChecked="{x:Bind ViewModel.ShowHidden, Mode=TwoWay}"/>
             <CheckBox Content="Show disconnected" IsChecked="{x:Bind ViewModel.ShowDisconnected, Mode=TwoWay}"/>
-            <!-- Advanced / Offloads / SysW edit raw driver registry values. -->
             <CheckBox x:Name="ShowAdvancedToggle" Content="Show advanced (registry-level) settings"
                       IsChecked="True" Checked="ShowAdvancedToggle_Changed" Unchecked="ShowAdvancedToggle_Changed"
                       ToolTipService.ToolTip="Advanced, Offloads and System-wide tabs" />
-            <!-- Same picker chrome as the Startup page's "Sources" list: the
-                 default ListViewItem template draws the rounded selection pill
-                 with the accent bar, so no ItemContainerStyle is applied here.
-                 An ItemContainerStyle is what removed it before. -->
             <ListView x:Name="AdapterList" ItemsSource="{x:Bind ViewModel.FilteredAdapters, Mode=OneWay}"
                       ScrollViewer.VerticalScrollBarVisibility="Hidden"
                       SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
@@ -145,7 +139,7 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <Button Content="Refresh" Click="Refresh_Click" CornerRadius="3" HorizontalAlignment="Stretch"/>
+            <Button Content="Refresh" Click="Refresh_Click" HorizontalAlignment="Stretch"/>
             <TextBlock Text="{x:Bind ViewModel.ElevationText, Mode=OneWay}" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
             <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
@@ -160,7 +154,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap"/>
+            <TextBlock Text="{x:Bind ViewModel.SelectedAdapter.Description, Mode=OneWay, FallbackValue='Pick an adapter'}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
             <InfoBar Grid.Row="1" x:Name="NetInfoBar" IsOpen="False" IsClosable="True" Severity="Informational" Margin="0,0,0,8">
                 <InfoBar.ActionButton>
                     <Button Content="Undo" Click="UndoInfoBar_Click" x:Name="UndoInfoButton"/>
@@ -201,7 +195,7 @@
                             <TextBlock Text="Every setting the driver exposes, matched by RegistryKeyword. Editing needs elevation; changes apply after preview + restart."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.PropGroups, Mode=OneWay}" ItemTemplate="{StaticResource PropGroupTemplate}"/>
-                            <TextBlock Text="Pending changes (preview)" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Pending changes (preview)" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.PendingDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
                             <CheckBox Content="I understand: virtual, VPN or disabled adapters, and this restarts the adapter (brief disconnect)." IsChecked="{x:Bind ViewModel.ConfirmRiskyEdit, Mode=TwoWay}"
                                       Visibility="{x:Bind ViewModel.IsRiskyTarget, Mode=OneWay}"/>
@@ -209,9 +203,9 @@
                                 <Button Content="Apply" Click="Apply_Click" Style="{ThemeResource AccentButtonStyle}"/>
                                 <Button Content="Reset to driver defaults" Click="ResetDefaults_Click"/>
                             </StackPanel>
-                            <TextBlock Text="Applied / failed per setting" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Applied / failed per setting" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.ApplyResults, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
-                            <TextBlock Text="Snapshots" Style="{StaticResource KaliteSectionTitle}" Margin="0,8,0,0"/>
+                            <TextBlock Text="Snapshots" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="SnapshotPicker" MinWidth="260"
                                           ItemsSource="{x:Bind ViewModel.Snapshots, Mode=OneWay}"
@@ -270,8 +264,6 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Section picker: one group of system settings on screen at a
-                             time instead of four expanders stacked on one page. -->
                         <Border Grid.Column="0" CornerRadius="12" Padding="8,12" VerticalAlignment="Stretch"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -386,8 +378,6 @@
                                                                           ItemsSource="{x:Bind Def.Options}" SelectedValue="{x:Bind Proposed, Mode=TwoWay}"
                                                                           Visibility="{x:Bind EnumVis, Mode=OneWay}"
                                                                           IsEnabled="{x:Bind Editable, Mode=OneWay}"/>
-                                                                <!-- ValidationMode Disabled: the row validates before writing, so a
-                                                                     half-typed number is never clamped into an out-of-range write. -->
                                                                 <NumberBox Width="220"
                                                                            Minimum="{x:Bind MinD, Mode=OneWay}" Maximum="{x:Bind MaxD, Mode=OneWay}"
                                                                            Value="{x:Bind ProposedNumber, Mode=TwoWay}" SpinButtonPlacementMode="Compact"
@@ -461,17 +451,16 @@
                 <TabViewItem IsClosable="False" Header="Tools">
                     <ScrollViewer Padding="0,12,12,12" VerticalScrollBarVisibility="Hidden">
                         <StackPanel Spacing="16">
-                            <TextBlock Text="Speed test" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Speed test" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="Start" Click="SpeedStart_Click" VerticalAlignment="Bottom"/>
-                                <Button Content="Cancel" Click="SpeedCancel_Click" VerticalAlignment="Bottom"/>
-                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
+                                <Button Content="{x:Bind ViewModel.SpeedButtonText, Mode=OneWay}" Click="SpeedToggle_Click" VerticalAlignment="Bottom"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedDown, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Download"/>
                                 <TextBlock Text="/" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{StaticResource KalitePageTitle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
+                                <TextBlock Text="{x:Bind ViewModel.SpeedUp, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" VerticalAlignment="Center" ToolTipService.ToolTip="Upload"/>
                             </StackPanel>
                             <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind ViewModel.SpeedProgress, Mode=OneWay}"/>
                             <TextBlock Text="{x:Bind ViewModel.SpeedStatus, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="Export" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Export" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="ExportFormatBox" SelectedIndex="0" MinWidth="120">
                                     <ComboBoxItem Content="JSON"/>
@@ -482,13 +471,13 @@
                                 <Button Content="Export..." Click="Export_Click"/>
                                 <Button Content="Copy as text" Click="CopyText_Click"/>
                             </StackPanel>
-                            <TextBlock Text="Import profile" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Import profile" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Pick JSON..." Click="Import_Click"/>
                                 <Button Content="Stage import" Click="StageImport_Click"/>
                             </StackPanel>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.ImportDiffs, Mode=OneWay}" ItemTemplate="{StaticResource DiffTemplate}"/>
-                            <TextBlock Text="Compare adapters" Style="{StaticResource KaliteSectionTitle}"/>
+                            <TextBlock Text="Compare adapters" Style="{StaticResource SubtitleTextBlockStyle}"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox x:Name="CompareABox" MinWidth="200" DisplayMemberPath="Name"
                                           ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"

@@ -35,57 +35,44 @@ namespace kaliteConfig.Pages
             };
         }
 
-        private static Brush ThemeBrush(string key)
-        {
-            try
-            {
-                var resources = Microsoft.UI.Xaml.Application.Current.Resources;
-                if (resources.TryGetValue(key, out object value)
-                    && value is Brush brush)
-                    return brush;
-            }
-            catch { }
-            return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        }
-
-        private void UninstallerCard_PointerEntered(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Border card)
-            {
-                card.Background = ThemeBrush("SubtleFillColorSecondaryBrush");
-                card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush");
-            }
-        }
-
-        private void UninstallerCard_PointerExited(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Border card)
-            {
-                card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush");
-                card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush");
-            }
-        }
-
-        private void FilterChip_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton clicked) return;
-            int index = 0;
-            if (clicked.Tag is string s) int.TryParse(s, out index);
-            else if (clicked.Tag is int i) index = i;
-            ViewModel.FilterIndex = index;
-            foreach (var chip in new[] { ChipAll, ChipDesktop, ChipStore, ChipNoUn })
-                chip.IsChecked = chip == clicked;
-        }
-
         private void AppList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
             int n = AppList.SelectedItems.Count;
             SelectionText.Text = n == 0 ? string.Empty : $"{n} selected";
-            // Batch commands run off IsSelected - mirror the ListView selection into it.
+            AppDetailsPane.IsPaneOpen = n > 0;
             foreach (var removed in e.RemovedItems.OfType<UninstallerItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<UninstallerItem>())
                 added.IsSelected = true;
+        }
+
+        private UninstallerItem? _pressedApp;
+        private bool _appPressWasSelected;
+
+        private void AppRow_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            _pressedApp = (sender as FrameworkElement)?.DataContext as UninstallerItem;
+            _appPressWasSelected = _pressedApp != null && ReferenceEquals(_pressedApp, AppList.SelectedItem);
+        }
+
+        private void AppRow_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_appPressWasSelected || _pressedApp is null || !ReferenceEquals(_pressedApp, AppList.SelectedItem)) return;
+            _appPressWasSelected = false;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                AppList.SelectedItem = null;
+                ViewModel.SelectedApp = null;
+            });
+        }
+
+        private void DetailsClose_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                AppList.SelectedItem = null;
+                ViewModel.SelectedApp = null;
+            });
         }
 
         private async void DetailsUninstall_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -101,7 +88,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = lines + "\n\nRuns each registered uninstaller, then cleans leftovers.", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Uninstall",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -117,16 +104,45 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = $"Scans for leftover files, folders and registry keys of {name} and deletes what it finds. The app itself is not uninstalled by this.", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Force remove",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             await ViewModel.ForceRemoveCommand.ExecuteAsync(null);
         }
 
+        private DriverPackageItem? _pressedDriver;
+        private bool _driverPressWasSelected;
+
+        private void DriverRow_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            _pressedDriver = (sender as FrameworkElement)?.DataContext as DriverPackageItem;
+            _driverPressWasSelected = _pressedDriver != null && ReferenceEquals(_pressedDriver, DriverList.SelectedItem);
+        }
+
+        private void DriverRow_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_driverPressWasSelected || _pressedDriver is null || !ReferenceEquals(_pressedDriver, DriverList.SelectedItem)) return;
+            _driverPressWasSelected = false;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                DriverList.SelectedItem = null;
+                ViewModel.SelectedDriver = null;
+            });
+        }
+
+        private void DetailsCloseDriver_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                DriverList.SelectedItem = null;
+                ViewModel.SelectedDriver = null;
+            });
+        }
+
         private void DriverList_SelectionChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
         {
-            // Batch removal runs off IsSelected - mirror the ListView selection into it.
+            DriverDetailsPane.IsPaneOpen = DriverList.SelectedItems.Count > 0;
             foreach (var removed in e.RemovedItems.OfType<DriverPackageItem>())
                 removed.IsSelected = false;
             foreach (var added in e.AddedItems.OfType<DriverPackageItem>())
@@ -146,7 +162,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = lines + "\n\nDeletes each package from the driver store and uninstalls it from devices using it. Those devices may stop working until a driver is reinstalled or the PC restarts.", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Remove",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -165,17 +181,36 @@ namespace kaliteConfig.Pages
             RemoverPanel.Visibility = bar.SelectedItem == TabRemover ? Visibility.Visible : Visibility.Collapsed;
             StartupPanel.Visibility = startup ? Visibility.Visible : Visibility.Collapsed;
 
-            // The applications toolbar describes apps only - hide it on the
-            // Remover/Startup tabs.
             ViewModel.IsUninstallerTabActive = uninstaller;
 
-            // Lazy-load the startup scan on first open: WMI + schtasks take
-            // seconds, so the Uninstaller tab stays fast.
             if (startup && !_startupAutoloaded && !ViewModel.IsLoadingStartup)
             {
                 _startupAutoloaded = true;
                 _ = ViewModel.LoadStartupCommand.ExecuteAsync(null);
             }
+        }
+
+        private static readonly SolidColorBrush TransparentRowBrush =
+            new(Microsoft.UI.Colors.Transparent);
+
+        private void StartupRow_PointerEntered(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, "StartupRowHoverBrush");
+
+        private void StartupRow_PointerExited(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, null);
+
+        private void StartupRow_PointerPressed(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, "StartupRowPressedBrush");
+
+        private void StartupRow_PointerReleased(object sender, PointerRoutedEventArgs e) =>
+            SetStartupRowSurface(sender, "StartupRowHoverBrush");
+
+        private void SetStartupRowSurface(object sender, string? brushKey)
+        {
+            if (sender is not Border row) return;
+            row.Background = brushKey is null
+                ? TransparentRowBrush
+                : Resources[brushKey] as Brush ?? TransparentRowBrush;
         }
 
         private async void DeleteStartupEntry_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -196,7 +231,7 @@ namespace kaliteConfig.Pages
                 Content = new TextBlock { Text = warning, TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap },
                 PrimaryButtonText = "Delete",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot,
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;

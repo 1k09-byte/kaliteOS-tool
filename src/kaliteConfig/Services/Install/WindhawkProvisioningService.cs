@@ -21,29 +21,10 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// The "Install Windhawk" half of the provisioning flow: ensures Windhawk is
-/// present by downloading the official installer and running it silently.
-/// 
-/// Direct download mode (copied from AutoOS AppsStage.cs):
-/// - Installer URL: https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.5/windhawk_setup.exe
-///   (pinned to 2.0.0-alpha.5 as requested; no GitHub API lookup).
-/// - Install:  Process.Start(windhawk_setup.exe, "/S")  hidden, wait for exit.
-/// - Settings: Assets/Windhawk/KaliteOS.json (also saved as mods-bundled.json) via windhawk-cli:
-///             windhawk-cli.exe data import "KaliteOS.json" --confirm-app-restart --yes  (WorkingDir = ProgramFiles\Windhawk)
-/// - Mod updates: mod list --update-available --json  →  mod update &lt;id&gt;
-///
-/// - The installer is NSIS ("InstallerType: nullsoft").
-/// - Silent switch: /S  (matches AutoOS AppsStage.cs).
-/// - ElevationRequirement: elevationRequired (engine service + injection). app.manifest
-///   is requireAdministrator so the installer normally runs elevated already.
-/// </summary>
 public sealed class WindhawkProvisioningService
 {
     private static readonly HttpClient _httpClient = new();
 
-    // Direct pinned URL - replaces GitHub API lookup (per user request).
-    // Keep OfficialSiteUrl for error messages / verification fallback.
     public const string DirectDownloadUrl = "https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.5/windhawk_setup.exe";
     public const string DirectVersion = "2.0.0-alpha.5";
     private const string OfficialSiteUrl = "https://windhawk.net/";
@@ -64,24 +45,12 @@ public sealed class WindhawkProvisioningService
     private readonly WindhawkDetectionService _detection = new();
     private readonly WindhawkInstallerService _installer = new();
 
-    /// <summary>
-    /// Resolves the installer to the pinned direct download URL (no GitHub API).
-    /// Mirrors AutoOS AppsStage.cs which hard-codes the URL instead of querying the API.
-    /// </summary>
     public Task<ResolvedInstaller> ResolveLatestInstallerAsync(CancellationToken ct)
     {
-        // Direct mode: no network call, just return the pinned version + URL.
-        // This matches AppsStage.cs: DownloadHelper.Download(directUrl, Path.GetTempPath(), "windhawk_setup.exe")
         var resolved = new ResolvedInstaller(DirectVersion, DirectDownloadUrl, null, 0);
         return Task.FromResult(resolved);
     }
 
-    /// <summary>
-    /// Full provisioning pipeline: resolve → download (with progress) → verify
-    /// digest → silent install → wait → verify installed. Returns the resulting
-    /// installation info. Throws only on unrecoverable failures; recoverable
-    /// stage failures throw InvalidOperationException with a user-facing message.
-    /// </summary>
     public async Task<WindhawkInstallationInfo> EnsureInstalledAsync(
         IProgress<ProvisionProgress> progress,
         CancellationToken ct)
@@ -89,41 +58,29 @@ public sealed class WindhawkProvisioningService
         var existing = _detection.Detect();
         if (existing.IsInstalled && existing.CliPath is not null)
         {
-            // 2.0+ present (CLI ships with it): nothing to install.
             progress.Report(new ProvisionProgress(
                 WindhawkProvisionStage.Done,
                 $"Windhawk {existing.Version ?? ""} (2.0+) is already installed.".Trim(),
                 null));
             return existing;
         }
-        // 1.7.x (no windhawk-cli.exe) or not installed: run the pinned
-        // 2.0.0-alpha.5 installer - the CLI it ships is required for
-        // settings import, so an existing legacy install is UPGRADED,
-        // not skipped. NSIS /S over the top handles the upgrade in place.
 
-        // 1. Resolve the latest stable installer.
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Resolving, "Resolving latest Windhawk release...", null));
         var installer = await ResolveLatestInstallerAsync(ct);
 
-        // 2. Download with progress.
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Downloading, $"Downloading Windhawk {installer.Version}...", 0));
         string tempPath = Path.Combine(Path.GetTempPath(), "windhawk_setup.exe");
         await DownloadFileAsync(installer.DownloadUrl, tempPath, installer.SizeBytes, progress, ct);
 
-        // 3. Integrity: verify SHA256 when the release metadata provided one.
         if (!string.IsNullOrEmpty(installer.Sha256))
         {
             progress.Report(new ProvisionProgress(WindhawkProvisionStage.Verifying, "Verifying installer signature...", null));
             await VerifySha256Async(tempPath, installer.Sha256!, ct);
         }
 
-        // 4. Silent install. NSIS: /S = silent, /STANDARD = standard install mode
-        // (verified against the winget manifest's InstallerSwitches and the
-        // upstream discussion confirming these exact flags).
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Installing, "Installing Windhawk (silent)...", null));
         await RunInstallerSilentlyAsync(tempPath, ct);
 
-        // 5. Verify the install actually landed (NSIS exits 0 and the UI exe exists).
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Verifying, "Verifying installation...", null));
         var result = await WaitForInstallationAsync(ct);
         if (!result.IsInstalled)
@@ -147,36 +104,24 @@ public sealed class WindhawkProvisioningService
         return result;
     }
 
-    /// <summary>
-    /// Direct-download flow copied from AutoOS AppsStage.cs (C:\Users\AutoOS\AutoOS):
-    /// - Download windhawk_setup.exe from the pinned direct URL to Path.GetTempPath()
-    /// - Install silently with /S hidden
-    /// - Download/import windhawk.json via windhawk-cli data import --confirm-app-restart --yes
-    ///   (working directory = ProgramFiles\Windhawk) then apply mod updates.
-    /// </summary>
     public async Task<WindhawkInstallerService.WindhawkInstallerResult> InstallAndImportAsync(
         string jsonPath,
         IProgress<ProvisionProgress> progress,
         CancellationToken ct)
     {
-        // 1. Resolve - direct pinned URL, no GitHub API (mirrors AutoOS AppsStage.cs).
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Resolving,
             $"Using Windhawk {DirectVersion} direct download...", null));
 
         string version = DirectVersion;
         string downloadUrl = DirectDownloadUrl;
 
-        // 2. Download the installer (AutoOS: DownloadHelper.Download(directUrl, Path.GetTempPath(), "windhawk_setup.exe"))
         progress.Report(new ProvisionProgress(WindhawkProvisionStage.Downloading,
             $"Downloading Windhawk {version}...", null));
 
         string installerPath = Path.Combine(Path.GetTempPath(), "windhawk_setup.exe");
-        // Ensure no stale/locked file from previous failed run (AutoOS kills locking processes before delete).
         try { if (File.Exists(installerPath)) File.Delete(installerPath); } catch { }
         await DownloadFileAsync(downloadUrl, installerPath, 0, progress, ct);
 
-        // Always use the provided jsonPath which must be the KaliteOS bundled file (Assets/Windhawk/KaliteOS.json).
-        // If missing, resolve the bundled asset directly - never use AutoOS remote.
         string effectiveJsonPath = jsonPath;
         if (string.IsNullOrWhiteSpace(effectiveJsonPath) || !File.Exists(effectiveJsonPath))
         {
@@ -187,13 +132,11 @@ public sealed class WindhawkProvisioningService
 
         try
         {
-            // 3. Silent install - AutoOS: Process.Start(windhawk_setup_offline.exe, "/S", hidden).WaitForExitAsync()
             progress.Report(new ProvisionProgress(WindhawkProvisionStage.Installing,
                 "Installing Windhawk (silent)...", null));
 
             await RunInstallerSilentlyAsync(installerPath, ct);
 
-            // 4. Import settings via CLI - AutoOS: windhawk-cli.exe data import "windhawk.json" --confirm-app-restart --yes
             progress.Report(new ProvisionProgress(WindhawkProvisionStage.Installing,
                 "Importing Windhawk settings...", null));
 
@@ -213,8 +156,6 @@ public sealed class WindhawkProvisioningService
         }
         finally
         {
-            // 6. Cleanup temp installer + any imported JSON copies the CLI may have created.
-            // Mirrors AutoOS AppsStage.cs cleanup: kill locking processes then delete temp files.
             _installer.CleanupTempFiles();
             WindhawkInstallerService.CleanupFile(installerPath);
         }
@@ -223,7 +164,6 @@ public sealed class WindhawkProvisioningService
     private static async Task DownloadFileAsync(
         string url, string destPath, long totalBytes, IProgress<ProvisionProgress> progress, CancellationToken ct)
     {
-        // Match AutoOS DownloadHelper behavior: attach User-Agent and follow redirects.
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("kaliteConfig-WindhawkProvisioner/1.0");
         using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -272,14 +212,10 @@ public sealed class WindhawkProvisioningService
     {
         if (!WindhawkDetectionService.IsRunningElevated())
         {
-            // requireAdministrator manifest covers packaged runs; this guards
-            // unpackaged/un elevated configurations. The engine's service install
-            // needs elevation and would silently fail otherwise.
             throw new UnauthorizedAccessException(
                 "Administrator rights are required to install Windhawk (it installs a system service). Relaunch kaliteConfig elevated and retry.");
         }
 
-        // AutoOS AppsStage.cs: Process.Start(windhawk_setup.exe, "/S", Hidden)
         var psi = new ProcessStartInfo
         {
             FileName = installerPath,
@@ -292,7 +228,6 @@ public sealed class WindhawkProvisioningService
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the Windhawk installer.");
 
-        // NSIS setup can take a while (it also installs the engine service); 10-minute ceiling.
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(TimeSpan.FromMinutes(10));
         try
@@ -307,14 +242,12 @@ public sealed class WindhawkProvisioningService
 
         int exit = -1;
         try { if (process.HasExited) exit = process.ExitCode; } catch { }
-        // NSIS: 0 = success. Verification below is the real source of truth; a
-        // non-zero exit here is logged but the file check decides.
     }
 
     private static async Task<WindhawkInstallationInfo> WaitForInstallationAsync(CancellationToken ct)
     {
         var detection = new WindhawkDetectionService();
-        for (int i = 0; i < 60; i++) // 60 * 1s = 60s
+        for (int i = 0; i < 60; i++)
         {
             ct.ThrowIfCancellationRequested();
             var info = detection.Detect();

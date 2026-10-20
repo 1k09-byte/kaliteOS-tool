@@ -18,7 +18,6 @@ using System.Linq;
 
 namespace kaliteConfig.Controls
 {
-    /// <summary>Bindable wrapper for a component row in the picker.</summary>
     public sealed class NvidiaComponentVm : INotifyPropertyChanged
     {
         private readonly NvidiaComponent _c;
@@ -40,10 +39,6 @@ namespace kaliteConfig.Controls
                 if (_isSelected == value) return;
                 _isSelected = value;
 
-                // Write through to the parsed component: the install pipeline
-                // reads Model.IsSelected to build the exclusion set, so a
-                // checkbox that only updated this wrapper was invisible to it
-                // and every component installed regardless of the selection.
                 _c.IsSelected = value;
 
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
@@ -60,7 +55,6 @@ namespace kaliteConfig.Controls
         private readonly List<NvidiaComponentVm> _vms = new();
         private bool _installStarted;
 
-        /// <summary>Selection + clean-install flag once the user confirmed; null while choosing/cancelled.</summary>
         public (IReadOnlyList<NvidiaComponent> Components, bool CleanInstall)? Result { get; private set; }
 
     public NvidiaComponentPickerDialog(XamlRoot root)
@@ -68,15 +62,10 @@ namespace kaliteConfig.Controls
         InitializeComponent();
         XamlRoot = root;
 
-        // Start in the download/verify phase: components aren't known until the
-        // package is downloaded, verified and extracted. BeginDownloadPhase()
-        // + SetVerification() + SetComponents() fill this in as the pipeline
-        // advances, so the user sees progress from the moment they confirm.
         BeginDownloadPhase();
         PrimaryButtonClick += OnPrimaryClick;
     }
 
-    /// <summary>Dialog starts here: primary disabled, progress bar running.</summary>
     public void BeginDownloadPhase()
     {
         _installStarted = false;
@@ -99,7 +88,6 @@ namespace kaliteConfig.Controls
             : $"Signature: INVALID - {verification.SignatureError}";
     }
 
-    /// <summary>Called once the package is extracted and setup.cfg is parsed.</summary>
     public void SetComponents(IReadOnlyList<NvidiaComponent> components)
     {
         _vms.Clear();
@@ -120,7 +108,6 @@ namespace kaliteConfig.Controls
         UpdateFootprint();
     }
 
-    /// <summary>Terminal failure before component selection (download/verify/extract).</summary>
     public void FailEarly(string message)
     {
         InstallProgress.Visibility = Visibility.Collapsed;
@@ -128,7 +115,7 @@ namespace kaliteConfig.Controls
         StatusText.Text = message;
         PrimaryButtonText = "Close";
         IsPrimaryButtonEnabled = true;
-        _installStarted = true; // primary just closes
+        _installStarted = true;
     }
 
         private void UpdateFootprint()
@@ -143,9 +130,6 @@ namespace kaliteConfig.Controls
         {
             if (!_installStarted)
             {
-                // Refuse an empty install: with every removable component unticked the
-                // rewritten package would fail inside NVIDIA's installer with a
-                // cryptic error. Stay in the dialog instead.
                 if (!_vms.Any(v => v.IsSelected))
                 {
                     args.Cancel = true;
@@ -153,13 +137,9 @@ namespace kaliteConfig.Controls
                     StatusText.Text = "Select at least one component (the display driver itself cannot be removed).";
                     return;
                 }
-                // First activation: keep the dialog open and run the install.
                 args.Cancel = true;
                 _installStarted = true;
 
-                // EVERY component is handed over with its final selection -
-                // passing only the ticked ones left the caller with nothing to
-                // exclude, which is why unchecked extras still installed.
                 Result = (_vms.Select(v => v.Model).ToList(),
                           CleanInstallCheck.IsChecked == true);
 
@@ -168,10 +148,8 @@ namespace kaliteConfig.Controls
                     _vms.Where(v => v.IsSelected).Select(v => v.Id).ToList(),
                     CleanInstallCheck.IsChecked == true));
             }
-            // After install completes the dialog closes normally.
         }
 
-        /// <summary>Raised once when the user confirms the component selection.</summary>
         public event EventHandler<InstallRequestEventArgs>? InstallRequested;
 
         public sealed class InstallRequestEventArgs : EventArgs
@@ -198,9 +176,7 @@ namespace kaliteConfig.Controls
         {
             StatusText.Text = message;
             LogText.Text += message + Environment.NewLine;
-            // Keep the newest line visible: the log grows downward and the
-            // dialog does not follow it otherwise.
-            try { LogScroll.ChangeView(null, LogScroll.ScrollableHeight, null); } catch { /* cosmetic */ }
+            try { LogScroll.ChangeView(null, LogScroll.ScrollableHeight, null); } catch {  }
         }
 
         public void ReportDownloadProgress(double percent)
@@ -213,16 +189,11 @@ namespace kaliteConfig.Controls
             InstallProgress.Value = Math.Clamp(percent, 0, 100);
         }
 
-        /// <summary>Back to indeterminate (verify/extract phases have no percentage).</summary>
         public void SetIndeterminate()
         {
             InstallProgress.IsIndeterminate = true;
         }
 
-        /// <summary>
-        /// Finishes the flow. success + rebootRequired → primary becomes Close,
-        /// secondary becomes "Restart now" (reboot is never automatic).
-        /// </summary>
         public void CompleteInstall(bool success, bool rebootRequired, string message)
         {
             InstallProgress.IsIndeterminate = false;
@@ -238,8 +209,6 @@ namespace kaliteConfig.Controls
                     SecondaryButtonText = "Restart now";
                     SecondaryButtonClick += (_, _) =>
                     {
-                        // Explicit consent path only - never an automatic reboot.
-                        // Elevation is a real UAC prompt; cancel = no restart.
                         var psi = new System.Diagnostics.ProcessStartInfo("shutdown", "/r /t 0")
                         { UseShellExecute = true, Verb = "runas" };
                         try { System.Diagnostics.Process.Start(psi); } catch { }

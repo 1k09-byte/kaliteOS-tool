@@ -13,11 +13,6 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// ADLX_IntRange - three adlx_int, nothing else. Layout matters: it is
-    /// written straight into by the driver, so it must match the header exactly
-    /// (SDK/Include/ADLXStructures.h).
-    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct AdlxIntRange
     {
@@ -28,32 +23,6 @@ namespace kaliteConfig.GpuOverclock.Services
         public override string ToString() => $"{MinValue}..{MaxValue} step {Step}";
     }
 
-    /// <summary>
-    /// A live handle on one AMD adapter, with the manual-tuning domains reached
-    /// from it. This is the write path's entry point.
-    ///
-    /// Two things make ADLX safe to drive from here:
-    ///
-    /// 1. The domains are fetched BY INTERFACE ID, not by casting. The graphics
-    ///    domain ships as two unrelated interfaces - IADLXManualGraphicsTuning1
-    ///    (tuning-state lists) and IADLXManualGraphicsTuning2 (scalar frequency
-    ///    and voltage) - and both derive straight from IADLXInterface, so the
-    ///    object GetManualGFXTuning hands back has one of two different vtables
-    ///    depending on which class the driver instantiated. QueryInterface with
-    ///    the IID pins the vtable to the generation we actually read, instead of
-    ///    trusting a layout we cannot see. (VRAM has the same split; fan and
-    ///    power are single chains, where a derived generation simply appends.)
-    ///
-    /// 2. Every interface is reference counted (Acquire/Release at vtable slots
-    ///    0 and 1) and released in Dispose. ADLX's own docs require it; leaking
-    ///    a driver interface per detection would slowly bleed GPU memory.
-    ///
-    /// Units, straight from the header docs, because they are not uniform:
-    ///   - core max frequency ....... MHz, but an OFFSET from Navi4+ (absolute before)
-    ///   - max VRAM frequency ....... MHz, always ABSOLUTE
-    ///   - power limit .............. percent (already, which is why it maps 1:1)
-    ///   - fan speed ................ percent
-    /// </summary>
     internal sealed class AmdGpuTuningSession : IDisposable
     {
         private readonly IntPtr _gpu;
@@ -71,45 +40,36 @@ namespace kaliteConfig.GpuOverclock.Services
             Support = support;
         }
 
-        /// <summary>What the capability queries said about this adapter.</summary>
         internal AmdGpuTuningSupport Support { get; }
 
         internal bool IsUsable => !_disposed && _gpu != IntPtr.Zero;
 
-        // ---- IADLXGPUTuningServices vtable -------------------------------------
-        // IGPUTuning.h: IADLXGPUTuningServicesVtbl, slots after Acquire/Release/QueryInterface.
         private const int TuningGetManualGfx = 14;
         private const int TuningGetManualVram = 15;
         private const int TuningGetManualFan = 16;
         private const int TuningGetManualPower = 17;
 
-        // ---- IADLXInterface vtable ---------------------------------------------
         private const int IfaceRelease = 1;
         private const int IfaceQueryInterface = 2;
 
-        // ---- IADLXManualGraphicsTuning2 (scalar frequency/voltage) --------------
         private const int Gfx2GetMaxFrequencyRange = 6;
         private const int Gfx2GetMaxFrequency = 7;
         private const int Gfx2SetMaxFrequency = 8;
 
-        // ---- IADLXManualVRAMTuning2 (absolute max VRAM frequency) ---------------
         private const int Vram2GetMaxFrequencyRange = 7;
         private const int Vram2GetMaxFrequency = 8;
         private const int Vram2SetMaxFrequency = 9;
 
-        // ---- IADLXManualPowerTuning (percent) ----------------------------------
         private const int PowerGetLimitRange = 3;
         private const int PowerGetLimit = 4;
         private const int PowerSetLimit = 5;
 
-        // ---- IADLXManualFanTuning ----------------------------------------------
         private const int FanGetTuningRanges = 3;
         private const int FanGetTuningStates = 4;
         private const int FanIsSupportedZeroRpm = 8;
         private const int FanGetZeroRpmState = 9;
         private const int FanSetZeroRpmState = 10;
 
-        // ---- IADLXManualFanTuningState / StateList -----------------------------
         private const int FanStateGetSpeed = 3;
         private const int FanStateSetSpeed = 4;
         private const int FanStateListSize = 3;
@@ -135,14 +95,6 @@ namespace kaliteConfig.GpuOverclock.Services
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int ListAtStateFn(IntPtr self, uint location, out IntPtr ppState);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate uint ListCountFn(IntPtr self);
 
-        // ---- domain acquisition -------------------------------------------------
-
-        /// <summary>
-        /// Resolves one manual-tuning domain, pinned to the IID. Returns
-        /// IntPtr.Zero when the driver does not offer that generation, which is
-        /// normal: VRAMTuning2 is Navi-era and later, older cards stop at
-        /// VRAMTuning1 (timing tables) and have no scalar frequency call at all.
-        /// </summary>
         private IntPtr Domain(int servicesSlot, string iid)
         {
             if (!IsUsable || _tuning == IntPtr.Zero) return IntPtr.Zero;
@@ -162,8 +114,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         return IntPtr.Zero;
                     }
 
-                    // The object we were handed is the caller's reference; the
-                    // versioned pointer is a new one we own.
                     AmdAdlxInterop.Fn<ReleaseFn>(domain, IfaceRelease)(domain);
                     return versioned;
                 }
@@ -182,8 +132,6 @@ namespace kaliteConfig.GpuOverclock.Services
         private IntPtr Vram2 => _vram2 != IntPtr.Zero ? _vram2 : (_vram2 = Domain(TuningGetManualVram, IidVramTuning2));
         private IntPtr Fan => _fan != IntPtr.Zero ? _fan : (_fan = Domain(TuningGetManualFan, IidFanTuning));
         private IntPtr Power => _power != IntPtr.Zero ? _power : (_power = Domain(TuningGetManualPower, IidPowerTuning));
-
-        // ---- core clock (MHz; offset from Navi4+, absolute before) -------------
 
         internal AdlxIntRange? ReadCoreMaxFrequencyRange()
         {
@@ -210,8 +158,6 @@ namespace kaliteConfig.GpuOverclock.Services
 
         internal bool TrySetCoreMaxFrequency(int mhz) => TrySet(Gfx2, Gfx2SetMaxFrequency, mhz);
 
-        // ---- VRAM (MHz, absolute) ----------------------------------------------
-
         internal AdlxIntRange? ReadMaxVramFrequencyRange()
         {
             IntPtr vram = Vram2;
@@ -236,8 +182,6 @@ namespace kaliteConfig.GpuOverclock.Services
         }
 
         internal bool TrySetMaxVramFrequency(int mhz) => TrySet(Vram2, Vram2SetMaxFrequency, mhz);
-
-        // ---- power limit (percent) ---------------------------------------------
 
         internal AdlxIntRange? ReadPowerLimitRange()
         {
@@ -264,28 +208,18 @@ namespace kaliteConfig.GpuOverclock.Services
 
         internal bool TrySetPowerLimit(int percent) => TrySet(Power, PowerSetLimit, percent);
 
-        // ---- fan (percent) ------------------------------------------------------
-
-        /// <summary>The driver's own fan-speed range, in percent.</summary>
         internal AdlxIntRange? ReadFanSpeedRange()
         {
             IntPtr fan = Fan;
             if (fan == IntPtr.Zero) return null;
             try
             {
-                // The second range out is the fan-curve temperature threshold,
-                // which is a different control and deliberately dropped.
                 return AmdAdlxInterop.Fn<GetIntRange2Fn>(fan, FanGetTuningRanges)(fan, out AdlxIntRange speed, out _) == 0
                     ? speed : null;
             }
             catch (Exception) { return null; }
         }
 
-        /// <summary>
-        /// Applies a static fan speed. ADLX has no scalar "set fan speed" on the
-        /// tuning interface - the value lives on a fan tuning state, so this
-        /// walks the state list, mutates the first state, and puts it back.
-        /// </summary>
         internal bool TrySetFanSpeed(int percent)
         {
             IntPtr fan = Fan;
@@ -315,11 +249,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// The current static fan speed, or null. Used as the revert anchor: if
-        /// we cannot read the fan state we refuse to arm a fan revert rather
-        /// than guess a value to restore.
-        /// </summary>
         internal int? ReadFanSpeed()
         {
             IntPtr fan = Fan;
@@ -345,8 +274,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (list != IntPtr.Zero) SafeRelease(list);
             }
         }
-
-        // ---- Zero RPM -------------------------------------------------------------
 
         internal bool? IsZeroRpmSupported()
         {
@@ -380,8 +307,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             catch (Exception) { return false; }
         }
-
-        // ---- helpers --------------------------------------------------------------
 
         private static bool TrySet(IntPtr iface, int slot, int value)
         {

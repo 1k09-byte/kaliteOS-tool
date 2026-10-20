@@ -17,10 +17,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>
-/// Chocolatey backend over choco.exe CLI.
-/// Uses the `-r` flag for robust limit-output parsing (pipe delimited).
-/// </summary>
 public sealed class ChocolateyPackageSource : IPackageSource
 {
     public string SourceId => PackageSourceIds.Chocolatey;
@@ -53,7 +49,7 @@ public sealed class ChocolateyPackageSource : IPackageSource
             status.DetectedVersion = result.Stdout.Trim().Split('\n')[0].Trim();
             status.ExecutablePath = await LocateExecutableAsync(ct).ConfigureAwait(false);
         }
-        catch { /* undetected */ }
+        catch {  }
         return status;
     }
 
@@ -144,7 +140,7 @@ public sealed class ChocolateyPackageSource : IPackageSource
                     progress?.Report(new PackageOperationProgress { Message = tail });
             });
             var result = await CliProcess.RunAsync(Exe, arguments, OperationTimeoutMs, ct, lines).ConfigureAwait(false);
-            if (result.ExitCode != 0 && result.ExitCode != 3010) // 3010 is sometimes reboot required
+            if (result.ExitCode != 0 && result.ExitCode != 3010)
                 return PackageOperationResult.Fail($"Chocolatey exited with code {result.ExitCode}.\n" + result.Stderr);
             return PackageOperationResult.Ok("Done.");
         }
@@ -166,7 +162,6 @@ public sealed class ChocolateyPackageSource : IPackageSource
         {
             string line = rawLine.TrimEnd('\r').Trim();
             if (string.IsNullOrEmpty(line) || !line.Contains('|')) continue;
-            // Ignore choco upgrade warnings about broken packages
             if (line.StartsWith("warning", StringComparison.OrdinalIgnoreCase)) continue;
             
             var parts = line.Split('|');
@@ -178,10 +173,8 @@ public sealed class ChocolateyPackageSource : IPackageSource
                     Name = parts[0],
                     SourceId = sourceId,
                     SourceLabel = sourceLabel,
-                    // search/list: `<id>|<version>` => map version to AvailableVersion so it shows in UI for installs, or InstalledVersion
-                    // To follow winget roughly, we'll place it in InstalledVersion for local-only, but AvailableVersion for search
                     InstalledVersion = isOutdated ? parts[1] : parts[1],
-                    AvailableVersion = (isOutdated && parts.Length >= 3) ? parts[2] : "" // If search, we could map it to Available but Installer UI deals with PackageInfo differently
+                    AvailableVersion = (isOutdated && parts.Length >= 3) ? parts[2] : ""
                 };
                 items.Add(pi);
             }

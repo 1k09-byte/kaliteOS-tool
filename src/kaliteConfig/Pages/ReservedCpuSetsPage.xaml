@@ -36,9 +36,6 @@
                      IsClosable="False" />
         </StackPanel>
 
-        <!-- Cores lay out left-to-right in an even grid; ticking a chip only
-             stages the change - nothing is written until Apply is clicked.
-             Apply sits bottom-right on the same line as the chips. -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -56,7 +53,6 @@
                     <DataTemplate x:DataType="models:CpuCoreItem">
                         <ToggleButton Content="{x:Bind Name}"
                                       IsChecked="{x:Bind IsReserved, Mode=TwoWay}"
-                                      MinWidth="96"
                                       Margin="0,0,8,8" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -66,8 +62,6 @@
                     Command="{x:Bind ViewModel.SaveCommand}"
                     IsEnabled="{x:Bind ViewModel.HasPendingChanges, Mode=OneWay}"
                     Style="{StaticResource AccentButtonStyle}"
-                    MinWidth="120"
-                    Height="36"
                     Margin="8,0,0,32"
                     VerticalAlignment="Bottom" />
         </Grid>

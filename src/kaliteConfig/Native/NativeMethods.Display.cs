@@ -13,17 +13,10 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Native;
 
-/// <summary>
-/// Win32 P/Invoke declarations for Display Configuration (CCD),
-/// EnumDisplaySettingsEx/ChangeDisplaySettingsEx, and Advanced Color (HDR).
-/// </summary>
 internal static partial class NativeMethods
 {
     internal static partial class Display
     {
-        // ──────────────────────────────────────────────────────────────
-        //  QueryDisplayConfig / SetDisplayConfig  (CCD)
-        // ──────────────────────────────────────────────────────────────
 
         internal const uint QDC_ALL_PATHS                = 0x00000001;
         internal const uint QDC_ONLY_ACTIVE_PATHS        = 0x00000002;
@@ -52,7 +45,6 @@ internal static partial class NativeMethods
             [In, Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray,
             out DISPLAYCONFIG_TOPOLOGY_ID currentTopologyId);
 
-        // Overload without topology (for QDC_ALL_PATHS which doesn't return topology)
         [DllImport("user32.dll")]
         internal static extern int QueryDisplayConfig(
             uint flags,
@@ -94,10 +86,6 @@ internal static partial class NativeMethods
         internal static extern int DisplayConfigSetDeviceInfo(
             ref DISPLAYCONFIG_SOURCE_DPI_SCALE_SET dpiScale);
 
-        // ──────────────────────────────────────────────────────────────
-        //  CCD Structs
-        // ──────────────────────────────────────────────────────────────
-
         internal enum DISPLAYCONFIG_TOPOLOGY_ID : uint
         {
             Internal  = 0x00000001,
@@ -117,8 +105,8 @@ internal static partial class NativeMethods
         internal struct DISPLAYCONFIG_PATH_SOURCE_INFO
         {
             public LUID AdapterId;
-            public uint Id;           // source index
-            public uint ModeInfoIdx;  // index into mode info array (or DISPLAYCONFIG_PATH_MODE_IDX_INVALID)
+            public uint Id;
+            public uint ModeInfoIdx;
             public uint StatusFlags;
         }
 
@@ -126,7 +114,7 @@ internal static partial class NativeMethods
         internal struct DISPLAYCONFIG_PATH_TARGET_INFO
         {
             public LUID AdapterId;
-            public uint Id;            // target index
+            public uint Id;
             public uint ModeInfoIdx;
             public DISPLAYCONFIG_VIDEO_OUTPUT_TECHNOLOGY OutputTechnology;
             public DISPLAYCONFIG_ROTATION Rotation;
@@ -249,7 +237,7 @@ internal static partial class NativeMethods
         {
             public uint Width;
             public uint Height;
-            public uint PixelFormat;  // DISPLAYCONFIG_PIXELFORMAT
+            public uint PixelFormat;
             public POINTL Position;
         }
 
@@ -269,10 +257,6 @@ internal static partial class NativeMethods
             public DISPLAYCONFIG_MODE_INFO_UNION Info;
         }
 
-        // ──────────────────────────────────────────────────────────────
-        //  DisplayConfigGetDeviceInfo helpers
-        // ──────────────────────────────────────────────────────────────
-
         internal enum DISPLAYCONFIG_DEVICE_INFO_TYPE : uint
         {
             GetSourceName         = 1,
@@ -287,11 +271,6 @@ internal static partial class NativeMethods
             SetAdvancedColorState = 10,
             GetSdrWhiteLevel     = 11,
 
-            // Per-source DPI scaling. These two are not in wingdi.h: the values are
-            // negative, so they only round-trip through a uint-typed enum that is written
-            // with unchecked((uint)-3) / unchecked((uint)-4). This is the same undocumented
-            // pair the Settings app itself uses, and it is the only way to change a
-            // monitor's scale without a sign-out.
             GetDpiScale           = unchecked((uint)-3),
             SetDpiScale           = unchecked((uint)-4),
         }
@@ -324,9 +303,6 @@ internal static partial class NativeMethods
         internal struct DISPLAYCONFIG_TARGET_DEVICE_NAME_FLAGS
         {
             public uint Value;
-            // bit 0 = friendlyNameFromEdid
-            // bit 1 = friendlyNameForced
-            // bit 2 = edidIdsValid
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -337,15 +313,11 @@ internal static partial class NativeMethods
             public string ViewGdiDeviceName;
         }
 
-        // ──────────────────────────────────────────────────────────────
-        //  Advanced Color (HDR)
-        // ──────────────────────────────────────────────────────────────
-
         [StructLayout(LayoutKind.Sequential)]
         internal struct DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO
         {
             public DISPLAYCONFIG_DEVICE_INFO_HEADER Header;
-            public uint Value;  // bitfield: advancedColorSupported(1), advancedColorEnabled(1), wideColorEnforced(1), advancedColorForceDisabled(1)
+            public uint Value;
             public uint ColorEncoding;
             public uint BitsPerColorChannel;
 
@@ -359,19 +331,9 @@ internal static partial class NativeMethods
         internal struct DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE
         {
             public DISPLAYCONFIG_DEVICE_INFO_HEADER Header;
-            public uint Value;  // bit 0 = enableAdvancedColor
+            public uint Value;
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        //  Per-source DPI scaling (undocumented; see the enum above)
-        // ──────────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Reply to <see cref="DISPLAYCONFIG_DEVICE_INFO_TYPE.GetDpiScale"/>. The three values
-        /// are step counts relative to the recommended scale for this source, not percentages:
-        /// 0 means "recommended", -1 means one step down the list, and so on. The packet is
-        /// 32 bytes, which is what the OS expects to be handed.
-        /// </summary>
         [StructLayout(LayoutKind.Sequential)]
         internal struct DISPLAYCONFIG_SOURCE_DPI_SCALE_GET
         {
@@ -381,21 +343,12 @@ internal static partial class NativeMethods
             public int MaxScaleRel;
         }
 
-        /// <summary>
-        /// Request for <see cref="DISPLAYCONFIG_DEVICE_INFO_TYPE.SetDpiScale"/>. 24 bytes.
-        /// DPI scaling belongs to the *source*, so the header carries the source's adapter
-        /// and source id rather than the target's.
-        /// </summary>
         [StructLayout(LayoutKind.Sequential)]
         internal struct DISPLAYCONFIG_SOURCE_DPI_SCALE_SET
         {
             public DISPLAYCONFIG_DEVICE_INFO_HEADER Header;
             public int ScaleRel;
         }
-
-        // ──────────────────────────────────────────────────────────────
-        //  EnumDisplaySettingsEx / ChangeDisplaySettingsEx
-        // ──────────────────────────────────────────────────────────────
 
         internal const uint ENUM_CURRENT_SETTINGS  = unchecked((uint)-1);
         internal const uint ENUM_REGISTRY_SETTINGS = unchecked((uint)-2);
@@ -416,7 +369,7 @@ internal static partial class NativeMethods
         internal const uint DM_PELSWIDTH       = 0x00080000;
         internal const uint DM_PELSHEIGHT      = 0x00100000;
         internal const uint DM_DISPLAYFREQUENCY = 0x00400000;
-        internal const uint DM_DISPLAYORIENTATION = 0x00000080;  // dmDisplayOrientation
+        internal const uint DM_DISPLAYORIENTATION = 0x00000080;
         internal const uint DM_POSITION        = 0x00000020;
 
         internal const int DMDO_DEFAULT  = 0;
@@ -435,9 +388,8 @@ internal static partial class NativeMethods
             public ushort dmDriverExtra;
             public uint dmFields;
 
-            // Union: printer or display
-            public int dmPositionX;     // POINTL.x
-            public int dmPositionY;     // POINTL.y
+            public int dmPositionX;
+            public int dmPositionY;
             public uint dmDisplayOrientation;
             public uint dmDisplayFixedOutput;
 
@@ -455,7 +407,6 @@ internal static partial class NativeMethods
             public uint dmDisplayFlags;
             public uint dmDisplayFrequency;
 
-            // ICM fields
             public uint dmICMMethod;
             public uint dmICMIntent;
             public uint dmMediaType;
@@ -482,18 +433,13 @@ internal static partial class NativeMethods
             uint dwflags,
             IntPtr lParam);
 
-        // Null DEVMODE overload (reset to registry default)
         [DllImport("user32.dll", EntryPoint = "ChangeDisplaySettingsExW", CharSet = CharSet.Unicode)]
         internal static extern int ChangeDisplaySettingsExW(
             string? lpszDeviceName,
-            IntPtr lpDevMode,   // NULL
+            IntPtr lpDevMode,
             IntPtr hwnd,
             uint dwflags,
             IntPtr lParam);
-
-        // ──────────────────────────────────────────────────────────────
-        //  Per-monitor DPI
-        // ──────────────────────────────────────────────────────────────
 
         internal enum MONITOR_DPI_TYPE : uint
         {

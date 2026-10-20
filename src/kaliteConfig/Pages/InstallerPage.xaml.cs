@@ -9,9 +9,9 @@
 // without the express written permission of the copyright holder.
 // ==============================================================================
 using System;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
 
@@ -25,182 +25,80 @@ namespace kaliteConfig.Pages
         {
             ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<ViewModels.InstallerViewModel>(App.Services) ?? new InstallerViewModel(new Services.InstallerService());
             InitializeComponent();
-            // No manual card stagger: the previous Opacity/Translation loop could
-            // strand cards at partial opacity (async, uncancelled on navigate-away,
-            // and indexed against unfiltered counts). Page entrance is covered by
-            // the NavigationThemeTransition in InstallerPage.xaml, so cards render
-            // immediately at full opacity with their resolved states.
-
-            // Restore the saved layout after InitializeComponent, so the initial
-            // pass below paints the right mode on the very first frame rather
-            // than flashing cards and then swapping.
-            ViewModel.LoadViewMode();
-            ApplyViewMode();
-        }
-
-        /// <summary>
-        /// Shows exactly one of the two layouts per section.
-        ///
-        /// Each section has two ItemsRepeaters over the SAME collection, so
-        /// switching is a visibility flip rather than a re-query: the filter
-        /// state, install progress and selection all live on the shared
-        /// BrowserInstallItem instances and stay intact.
-        /// </summary>
-        private void ApplyViewMode()
-        {
-            var mode = ViewModel.ViewMode;
-
-            foreach (var (grid, list) in new (FrameworkElement, FrameworkElement)[]
-            {
-                (BrowserGrid, BrowserList),
-                (LauncherGrid, LauncherList),
-                (SocialGrid, SocialList),
-                (UtilityGrid, UtilityList),
-            })
-            {
-                grid.Visibility = mode == AppViewMode.Card ? Visibility.Visible : Visibility.Collapsed;
-                list.Visibility = mode == AppViewMode.Compact ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            // Keep the radio buttons in step when the mode is set from code
-            // (on load) rather than by a click.
-            ViewCardBtn.IsChecked = mode == AppViewMode.Card;
-            ViewCompactBtn.IsChecked = mode == AppViewMode.Compact;
-        }
-
-        private void ViewMode_Click(object sender, RoutedEventArgs e)
-        {
-            // A RadioButton in a group is already mutually exclusive, so the
-            // sender's identity is enough to decide the mode.
-            ViewModel.ViewMode = ReferenceEquals(sender, ViewCardBtn) ? AppViewMode.Card : AppViewMode.Compact;
-            ApplyViewMode();
         }
 
         private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
-            // The Packages tab was removed at the user's request, so this now
-            // only flips between Install and Uninstall.
             bool uninstall = sender.SelectedItem == TabUninstall;
             UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
             InstallPanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
-
-            // The Cards/Compact switcher only re-lays-out the Install tab's app
-            // grid, so it is shown there and nowhere else.
-            ViewModePanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        private async void BrowserCard_Click(object sender, RoutedEventArgs e)
+        private void AppSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
-            if (sender is Button btn && btn.Tag is BrowserInstallItem browser)
+            ViewModel.SearchQuery = sender.Text ?? string.Empty;
+        }
+
+        private async void ApplyExtensions_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not BrowserInstallItem item) return;
+            try
             {
-                await ShowBrowserDetailsDialogAsync(browser);
+                await ViewModel.ApplyExtensionsCommand.ExecuteAsync(item);
+            }
+            catch (Exception ex)
+            {
+                item.ErrorMessage = ex.Message;
             }
         }
 
-        private async Task ShowBrowserDetailsDialogAsync(BrowserInstallItem browser)
+        private async void CardAction_Click(object sender, RoutedEventArgs e)
         {
-            ViewModel.SelectedBrowser = browser;
-            // Fresh open, fresh status: a previous failure must never leak into
-            // this showing (and the status line is an element now, never a
-            // Content swap, so the dialog cannot be gutted anymore).
-            DialogStatusText.Visibility = Visibility.Collapsed;
-            DialogStatusText.Text = string.Empty;
-            // Dialog lives in Page.Resources: XamlRoot must be attached per show.
-            BrowserDetailsDialog.XamlRoot = this.XamlRoot;
-            // Held for the whole showing: the install keeps feeding this dialog
-            // (progress text, status row, error line) and without the lock each
-            // of those changes walks the dialog away from the middle of the
-            // screen. Freed as soon as the dialog closes.
-            using var centerLock = Services.DialogCenterLock.Attach(BrowserDetailsDialog);
-            await BrowserDetailsDialog.ShowAsync();
-        }
-
-        // async void: anything that escapes is an unhandled UI exception and
-        // kills the app. An install/uninstall that fails (network drop, refused
-        // file lock, missing winget) has to surface as a status line instead.
-        private async void DialogProgressBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.SelectedBrowser == null) return;
+            if (sender is not Button btn || btn.Tag is not BrowserInstallItem item) return;
             try
             {
-                if (ViewModel.SelectedBrowser.Status == BrowserInstallStatus.UpdateAvailable)
-                    await ViewModel.UpdateBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
+                if (item.Status == BrowserInstallStatus.UpdateAvailable)
+                    await ViewModel.UpdateBrowserCommand.ExecuteAsync(item);
                 else
-                    await ViewModel.InstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
+                    await ViewModel.InstallBrowserCommand.ExecuteAsync(item);
             }
-            catch (Exception ex) { ShowStatus("Install failed", ex.Message); }
-        }
-
-        // DialogUninstallBtn_Click was removed with the dialog's Uninstall
-        // button. Uninstalling an installed app now happens only on the
-        // Uninstall tab (UninstallerPage), so the Apps details dialog is
-        // install-only and UninstallBrowserCommand is reached from elsewhere.
-
-        /// <summary>Reports a failed install/uninstall inside the open dialog,
-        /// so the reason is visible instead of lost to an unhandled exception.</summary>
-        private void ShowStatus(string title, string message)
-        {
-            try
+            catch (Exception ex)
             {
-                DialogStatusText.Text = $"{title}: {message}";
-                DialogStatusText.Visibility = Visibility.Visible;
-            }
-            catch
-            {
-                // Never let the error path throw as well.
+                item.ErrorMessage = ex.Message;
+                item.Status = BrowserInstallStatus.Failed;
             }
         }
 
-        // Static converter methods for x:Bind in DataTemplate
-        public static Visibility IsInstalledToVisibility(BrowserInstallStatus status)
+        public static bool IsBusyStatus(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.Downloading || status == BrowserInstallStatus.Installing;
+
+        public static Visibility BusyVisibility(BrowserInstallStatus status)
+            => IsBusyStatus(status) ? Visibility.Visible : Visibility.Collapsed;
+
+        public static Brush StatusTextBrush(BrowserInstallStatus status) => status switch
         {
-            return status == BrowserInstallStatus.Installed
-                || status == BrowserInstallStatus.AlreadyInstalled
+            BrowserInstallStatus.Failed => Services.Theming.ThemeHelper.Brush("SystemFillColorCriticalBrush", Microsoft.UI.Colors.OrangeRed),
+            BrowserInstallStatus.NotInstalled or BrowserInstallStatus.UpdateAvailable
+                => Services.Theming.ThemeHelper.Brush("AccentTextFillColorPrimaryBrush", Microsoft.UI.Colors.DodgerBlue),
+            _ => Services.Theming.ThemeHelper.Brush("TextFillColorSecondaryBrush", Microsoft.UI.Colors.Gray),
+        };
+
+        public static string ActionLabel(BrowserInstallStatus status) => status switch
+        {
+            BrowserInstallStatus.NotInstalled => "Install",
+            BrowserInstallStatus.UpdateAvailable => "Update",
+            BrowserInstallStatus.Failed => "Retry",
+            BrowserInstallStatus.Downloading => "Downloading",
+            BrowserInstallStatus.Installing => "Installing",
+            _ => "Installed"
+        };
+
+        public static bool ActionEnabled(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.NotInstalled
                 || status == BrowserInstallStatus.UpdateAvailable
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
+                || status == BrowserInstallStatus.Failed;
 
-        public static Visibility BoolToVis(bool isVisible)
-        {
-            return isVisible ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        public static Visibility StatusToNotInstalledVisibility(BrowserInstallStatus status)
-        {
-            return status == BrowserInstallStatus.Installed || status == BrowserInstallStatus.AlreadyInstalled
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-        }
-
-        /// <summary>Button caption: the same row is Install or Update depending on what is proven.</summary>
-        public static string StatusToActionLabel(BrowserInstallStatus status)
-            => status == BrowserInstallStatus.UpdateAvailable ? "Update" : "Install";
-
-        /// <summary>Hides the green tick while an update is pending; a tick next to "Update available" reads as up to date.</summary>
-        public static Visibility StatusShowsTickVisibility(BrowserInstallStatus status)
-            => status == BrowserInstallStatus.UpdateAvailable ? Visibility.Collapsed : Visibility.Visible;
-
-        /// <summary>
-        /// Cards stay clean: no static "Install" caption while states are being
-        /// checked/resolved. Status text appears only when something is actually
-        /// happening (downloading / installing / failed / just finished).
-        /// </summary>
-        public static Visibility StatusToActiveVisibility(BrowserInstallStatus status)
-        {
-            return status == BrowserInstallStatus.Downloading
-                || status == BrowserInstallStatus.Installing
-                || status == BrowserInstallStatus.Failed
-                || status == BrowserInstallStatus.Installed
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
-
-        public static bool Not(bool val) => !val;
-
-        public static string GetCloseButtonText(BrowserInstallStatus status) 
-        {
-            return status == BrowserInstallStatus.Installed || status == BrowserInstallStatus.AlreadyInstalled ? "Close" : "Cancel";
-        }
+        public static Visibility StateTextVisibility(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.NotInstalled ? Visibility.Collapsed : Visibility.Visible;
     }
 }

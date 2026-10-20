@@ -16,10 +16,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.Services;
 
-/// <summary>System-wide network settings with proven setters. TCP/UDP write through
-/// netsh (in-process, instant, no restart); offload and RSS globals write through an
-/// awaited powershell.exe (no netsh equivalent exists) with timeout, kill switch and
-/// mandatory read-back. Every row below was verified settable on this machine.</summary>
 public static class NetSysService
 {
     public sealed record RowState(NetParsing.SysRowDef Def, string Current);
@@ -135,7 +131,6 @@ public static class NetSysService
         return dict;
     }
 
-    /// <summary>Writes one row and reads it back. Returns (applied, readBack, message).</summary>
     public static async Task<(bool Ok, string ReadBack, string Message)> ApplyRowAsync(
         NetParsing.SysRowDef def, string adapterName, string value)
     {
@@ -156,8 +151,6 @@ public static class NetSysService
         }
         await Task.Delay(500).ConfigureAwait(false);
         string back = await ReadOneAsync(def, adapterName).ConfigureAwait(false);
-        // Windows answers in its own casing ("enabled" for a write of "Enabled"), so
-        // compare case-insensitively and hand the UI the canonical spelling.
         bool match = def.Kind == NetParsing.SysKind.Number
             ? back == value
             : string.Equals(NetParsing.CanonicalOption(def, back), NetParsing.CanonicalOption(def, value),

@@ -1,15 +1,11 @@
 // ==============================================================================
 // Copyright (c) 2026 kaliteConfig
 // All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
 // ==============================================================================
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Input;
 using kaliteConfig.PackageManager.Models;
 using kaliteConfig.PackageManager.ViewModels;
@@ -41,8 +37,8 @@ namespace kaliteConfig.PackageManager.Views
                 new PropertyMetadata(null, (d, e) =>
                 {
                     var self = (PackageListView)d;
-                    if (self.Repeater != null)
-                        self.Repeater.ItemsSource = (IEnumerable?)e.NewValue;
+                    if (self.PackageList != null)
+                        self.PackageList.ItemsSource = (IEnumerable?)e.NewValue;
                 }));
 
         public PackageViewMode ViewMode
@@ -75,6 +71,16 @@ namespace kaliteConfig.PackageManager.Views
             DependencyProperty.Register(nameof(ShowAction), typeof(bool), typeof(PackageListView),
                 new PropertyMetadata(true, (d, _) => ((PackageListView)d).RefreshRealizedRows()));
 
+        public bool ShowInfo
+        {
+            get => (bool)GetValue(ShowInfoProperty);
+            set => SetValue(ShowInfoProperty, value);
+        }
+
+        public static readonly DependencyProperty ShowInfoProperty =
+            DependencyProperty.Register(nameof(ShowInfo), typeof(bool), typeof(PackageListView),
+                new PropertyMetadata(true, (d, _) => ((PackageListView)d).RefreshRealizedRows()));
+
         public ICommand? ActionCommand
         {
             get => (ICommand?)GetValue(ActionCommandProperty);
@@ -95,36 +101,21 @@ namespace kaliteConfig.PackageManager.Views
             DependencyProperty.Register(nameof(CancelCommand), typeof(ICommand), typeof(PackageListView),
                 new PropertyMetadata(null, (d, _) => ((PackageListView)d).RefreshRealizedRows()));
 
+        private readonly List<PackageRow> _pushedRows = new();
+
         private void ApplyLayout()
         {
-            if (Repeater is null) return;
-            if (ViewMode == PackageViewMode.Grid)
-            {
-                Repeater.Layout = new UniformGridLayout
-                {
-                    MinItemWidth = 240,
-                    MinColumnSpacing = 12,
-                    MinRowSpacing = 12,
-                    Orientation = Orientation.Horizontal,
-                };
-            }
-            else
-            {
-                Repeater.Layout = new Microsoft.UI.Xaml.Controls.StackLayout
-                {
-                    Orientation = Orientation.Vertical,
-                    Spacing = 0,
-                };
-            }
+            if (PackageList is null) return;
+            string key = ViewMode == PackageViewMode.Grid ? "GridLayoutPanel" : "ListLayoutPanel";
+            if (PackageList.Resources.TryGetValue(key, out var value) && value is ItemsPanelTemplate panel)
+                PackageList.ItemsPanel = panel;
         }
 
-        private void Repeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+        private void PackageList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
         {
-            if (args.Element is PackageRow row)
-            {
-                if (sender.ItemsSourceView?.GetAt(args.Index) is PackageInfo item)
-                    PushToRow(row, item);
-            }
+            if (args.Item is not PackageInfo item) return;
+            if (args.ItemContainer?.Content is not PackageRow row) return;
+            PushToRow(row, item);
         }
 
         private void OnRowForwarded(object? s, PackageInfo p) => ActionRequested?.Invoke(this, p);
@@ -133,8 +124,6 @@ namespace kaliteConfig.PackageManager.Views
 
         private void PushToRow(PackageRow row, PackageInfo package)
         {
-            // Idempotent (un)subscribe: ElementPrepared also fires on recycle,
-            // and these are stable instance-method references.
             row.ActionRequested -= OnRowForwarded;
             row.InfoRequested -= OnRowInfo;
             row.SelectionToggled -= OnRowSelection;
@@ -149,26 +138,21 @@ namespace kaliteConfig.PackageManager.Views
                 row.ActionLabel = ActionLabel;
             }
             row.ShowAction = ShowAction;
+            row.ShowInfo = ShowInfo;
             row.ActionCommand = ActionCommand;
             row.CancelCommand = CancelCommand;
             row.ActionRequested += OnRowForwarded;
             row.InfoRequested += OnRowInfo;
             row.SelectionToggled += OnRowSelection;
+            if (!_pushedRows.Contains(row)) _pushedRows.Add(row);
         }
 
         private void RefreshRealizedRows()
         {
             ApplyLayout();
-            if (Repeater is null || Repeater.ItemsSourceView is null) return;
-            // Push control state into every realized row (recycled rows keep
-            // showing the ViewMode they were created with otherwise).
-            for (int i = 0; i < Repeater.ItemsSourceView.Count; i++)
+            foreach (var row in _pushedRows.ToArray())
             {
-                if (Repeater.TryGetElement(i) is PackageRow row &&
-                    Repeater.ItemsSourceView.GetAt(i) is PackageInfo item)
-                {
-                    PushToRow(row, item);
-                }
+                if (row.Package is PackageInfo item) PushToRow(row, item);
             }
         }
     }

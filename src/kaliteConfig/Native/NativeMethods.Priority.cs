@@ -17,7 +17,6 @@ internal static partial class NativeMethods
 {
     internal static partial class Priority
     {
-        // Priority classes (match managed TunerPriorityClass values 1:1).
         internal const uint Idle = 0x40;
         internal const uint BelowNormal = 0x4000;
         internal const uint Normal = 0x20;
@@ -32,7 +31,6 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool SetPriorityClass(SafeProcessHandle process, uint priorityClass);
 
-        // NOTE: DisablePriorityBoost is inverted - TRUE means the boost is OFF.
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool GetProcessPriorityBoost(SafeProcessHandle process, [MarshalAs(UnmanagedType.Bool)] out bool Svetlana);

@@ -2,13 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-// Verifies every PUA codepoint the Snip UI uses exists in Segoe MDL2 Assets
-// (segmdl2.ttf), the guaranteed-present fallback behind SymbolThemeFontFamily.
-// Meanings were verified against the Microsoft Learn glyph tables for both
-// Segoe Fluent Icons and Segoe MDL2 Assets (Nov 2026 fetch).
 internal static class GlyphTests
 {
-    // codepoint -> (where used, verified meaning)
     private static readonly (int Code, string Use, string Meaning)[] Required =
     {
         (0xE8B0, "overlay Select tool", "Click"),
@@ -53,7 +48,6 @@ internal static class GlyphTests
             check(covered.Contains(code), $"glyph U+{code:X4} ({meaning}) present for {use}");
     }
 
-    // Minimal TrueType cmap format-4 reader (BMP only; all our codepoints are E000-F8FF).
     private static HashSet<int> ParseCmap4(byte[] font)
     {
         var covered = new HashSet<int>();

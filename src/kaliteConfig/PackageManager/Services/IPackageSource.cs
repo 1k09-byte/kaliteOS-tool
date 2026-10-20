@@ -16,7 +16,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>Discover search modes (mirrors the reference Search panel).</summary>
 public enum PackageSearchMode
 {
     Name,
@@ -26,15 +25,12 @@ public enum PackageSearchMode
     Similar,
 }
 
-/// <summary>Progress for one running backend operation.</summary>
 public sealed class PackageOperationProgress
 {
-    /// <summary>0-100 when measurable, else null.</summary>
     public double? Percent { get; init; }
     public string Message { get; init; } = string.Empty;
 }
 
-/// <summary>Outcome of one backend operation (per-item results never abort a batch).</summary>
 public sealed class PackageOperationResult
 {
     public bool Success { get; init; }
@@ -44,11 +40,6 @@ public sealed class PackageOperationResult
     public static PackageOperationResult Fail(string message) => new() { Success = false, Message = message };
 }
 
-/// <summary>
-/// Every package-manager backend implements this. A source that cannot do an
-/// operation advertises it via the Can* flags (checked by the UI) and its
-/// method returns a failed result - never a throw for expected cases.
-/// </summary>
 public interface IPackageSource
 {
     string SourceId { get; }
@@ -62,7 +53,6 @@ public interface IPackageSource
     bool CanListInstalled { get; }
     bool CanListUpdates { get; }
 
-    /// <summary>Probe the underlying tool (exe present? API reachable?). Never throws.</summary>
     Task<PackageSourceStatus> DetectAsync(CancellationToken ct = default);
 
     Task<IReadOnlyList<PackageInfo>> SearchAsync(

@@ -42,20 +42,12 @@ namespace kaliteConfig.Pages
             this.Loaded += ThreadTunerPage_Loaded;
         }
 
-        /// <summary>
-        /// The process list polls every 2 s (WMI process scan + CPU sampling).
-        /// Doing that while the user is on another page is pure waste, so the
-        /// poll is gated on this page being the one on screen.
-        /// </summary>
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
             ViewModel.IsPageVisible = true;
             AttachWindowActivation();
 
-            // The poll was stood down while off-page, so the list can be up to
-            // one tick stale on the way back in. Refresh immediately rather than
-            // making the user wait up to 2 s to see the current process list.
             _ = ViewModel.RefreshProcessesNowAsync();
         }
 
@@ -65,11 +57,6 @@ namespace kaliteConfig.Pages
             base.OnNavigatedFrom(e);
         }
 
-        /// <summary>
-        /// Follows the host window's foreground state so the 2 s poll stops while the
-        /// app is minimised or behind another window. Being on this page is not the
-        /// same as being able to see it.
-        /// </summary>
         private void AttachWindowActivation()
         {
             if (_activationAttached) return;
@@ -92,10 +79,6 @@ namespace kaliteConfig.Pages
             bool active = args.WindowActivationState != Microsoft.UI.Xaml.WindowActivationState.Deactivated;
             ViewModel.IsWindowActive = active;
 
-            // Coming back to the foreground: the poll stood down while hidden, so
-            // the deltas would otherwise show one huge bogus jump covering the whole
-            // hidden period. Reset the baselines and refresh once, which is the same
-            // reason the counter toggle resets on re-enable.
             if (active && ViewModel.IsPageVisible)
             {
                 ViewModel.OnReturningToForeground();
@@ -110,16 +93,10 @@ namespace kaliteConfig.Pages
                 : resources["TextFillColorPrimaryBrush"]);
         }
 
-        /// <summary>x:Bind helper for the per-process boost tick box.</summary>
         public static bool Not(bool value) => !value;
 
         private void ThreadTunerPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Processes is the default tab. SelectorBar draws its active
-            // indicator from SelectedItem, which is null until something
-            // selects an item - so on the first visit neither tab was marked
-            // active. Setting it here (rather than only in XAML) also covers
-            // the cached-page case where the selection must survive.
             if (MainSelectorBar.SelectedItem == null)
             {
                 MainSelectorBar.SelectedItem = TabProcesses;
@@ -168,13 +145,11 @@ namespace kaliteConfig.Pages
 
         private int _lastSelectedPid = -1;
 
-        /// <summary>Disclosure chevron on a process row: expand / collapse its children.</summary>
-        private void RowChevron_Tapped(object sender, TappedRoutedEventArgs e)
+        private void RowChevron_Click(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement { DataContext: TunerProcessRow row })
             {
                 ViewModel.ToggleExpanded(row);
-                e.Handled = true; // don't also trigger the row's double-tap
             }
         }
 
@@ -191,9 +166,6 @@ namespace kaliteConfig.Pages
             bool hasTarget = SelectedProcess is not null;
             bool mine = svc.IsHeldBy(GameModeOwner.UserInterface);
 
-            // The button acts on THIS page's hold only. A session kept alive by a
-            // rule or by the benchmark's A/B harness is left alone - that is the
-            // whole point of refcounting the session.
             PageGamingModeButton.Content = mine ? "Turn off Gaming mode" : "Enable Gaming mode";
             PageGamingModeButton.IsEnabled = true;
             PageRestoreButton.IsEnabled = svc.RestorableCount > 0 || svc.IsActive;
@@ -235,8 +207,6 @@ namespace kaliteConfig.Pages
                 }
                 else
                 {
-                    // Releases only the page's own hold; if a rule or the benchmark
-                    // is still holding the session, the state stays applied.
                     bool ended = svc.Release(GameModeOwner.UserInterface);
                     PageGamingStatusText.Text = ended
                         ? "Gaming mode off · priorities restored"
@@ -255,12 +225,10 @@ namespace kaliteConfig.Pages
 
         private async void Page_RestorePriorities(object sender, RoutedEventArgs e)
         {
-            // Full stop, whoever started it: this is the explicit "put it back" button.
             App.Current.GamingMode.ReleaseAll();
             PageGamingStatusText.Text = "Priorities restored";
             RefreshPageGamingModeUi();
 
-            // Also normalize everything else the app/other tools changed.
             var dialog = new ContentDialog
             {
                 Title = "Normalize all priorities?",
@@ -282,7 +250,6 @@ namespace kaliteConfig.Pages
             }
         }
 
-        // ─── Suspend mode (image-3 style: freeze background, resume on switch-back) ──
         private bool _suspendHooked;
 
         private void HookSuspendUi()
@@ -308,11 +275,6 @@ namespace kaliteConfig.Pages
             }
             catch { }
         }
-
-        // Suspend-mode controls (Resume all / Auto / Add game / Games…) were
-        // removed from the page: the service still tracks state (its status and
-        // suspended count stay visible above, and MainWindow resumes everything
-        // it suspended on exit), but the page no longer drives it.
 
         private async void ExecuteTuning(object sender, Func<TunerProcessRow, Task> action)
         {
@@ -345,7 +307,6 @@ namespace kaliteConfig.Pages
 
         private async Task UpdateProcessMenuStateAsync(MenuFlyout menu, TunerProcessRow row)
         {
-            // Disable mutating actions if process is protected
             foreach (var item in menu.Items)
             {
                 string text = (item as MenuFlyoutItem)?.Text ?? (item as MenuFlyoutSubItem)?.Text ?? "";
@@ -503,18 +464,10 @@ namespace kaliteConfig.Pages
             if (sender is MenuFlyoutItem item && item.Tag is string tag)
             {
                 bool enabled = tag != "Disabled";
-                // Same path as the tick box column: apply to the live process and
-                // remember the choice, so the menu action is permanent too.
                 ExecuteTuning(sender, row => SetProcessBoostAsync(row, enabled));
             }
         }
 
-        /// <summary>
-        /// Per-process Priority boost: writes the live process and records the
-        /// choice, which the watcher re-applies on every launch and the keeper
-        /// sweep re-applies while the process runs. Without the stored
-        /// preference this was a one-shot Windows forgot on the next restart.
-        /// </summary>
         private async Task SetProcessBoostAsync(TunerProcessRow row, bool enabled)
         {
             int applied = await Services.ProcessBoostPreferenceService.Instance.SetAsync(row.Name, enabled);
@@ -523,8 +476,6 @@ namespace kaliteConfig.Pages
 
             if (applied == 0)
             {
-                // Recorded, but nothing was running to write it to (or Windows
-                // refused every instance) - say so instead of pretending.
                 _ = new ContentDialog
                 {
                     Title = "Boost preference saved",
@@ -551,7 +502,6 @@ namespace kaliteConfig.Pages
             }
             catch (Exception ex)
             {
-                // Put the tick back where it was: the write did not happen.
                 row.BoostAllowed = !enabled;
                 await new ContentDialog
                 {
@@ -577,7 +527,7 @@ namespace kaliteConfig.Pages
         {
             var dlg = new RuleEditorDialog { XamlRoot = this.XamlRoot };
             dlg.LoadFrom(target, isNew);
-            if (await dlg.ShowAsync() == ContentDialogResult.Primary || dlg.ShortcutAccepted)
+            if (await dlg.ShowRuleEditorAsync() == ContentDialogResult.Primary || dlg.ShortcutAccepted)
             {
                 target.CopyFrom(dlg.Draft);
                 await App.Current.ProfileWatcher.AddOrUpdate(target);

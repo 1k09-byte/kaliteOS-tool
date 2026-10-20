@@ -13,23 +13,13 @@ using System.Runtime.InteropServices;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// System-tray icon via raw Win32 (Shell_NotifyIcon + a hidden message window).
-/// No extra packages: double-click restores the window, right-click offers
-/// Open / Exit. The window must route its close through this (hide instead).
-///
-/// Callback correctness: the callback message MUST come from
-/// RegisterWindowMessage, not a raw WM_APP constant. WM_APP-range values are
-/// per-window private conventions - every other tray icon on the system uses
-/// one too, so a hardcoded WM_APP+1 made this window receive (and misread as
-/// clicks) every tray message in the shell, flooding WndProc hundreds of
-/// times per second and drowning the real right-click. A registered message
-/// is globally unique, and wParam is additionally checked against uID.
-/// </summary>
 public sealed class TrayIconService : IDisposable
 {
     public Action? OnOpen;
     public Action? OnExit;
+    public Action? OnPauseLive;
+    public Action? OnStopLive;
+    public Func<(bool CanPause, bool CanStop)>? LiveStateQuery;
     public event Action<SnipMode>? OnTakeScreenshot;
 
     public enum SnipMode
@@ -60,14 +50,14 @@ public sealed class TrayIconService : IDisposable
     private const uint TPM_RIGHTBUTTON = 0x0002;
     private const uint TPM_NONOTIFY = 0x0080;
 
-    // Menu item IDs
     private const uint ID_VERSION = 99;
     private const uint ID_OPEN = 100;
     private const uint ID_TAKE_SNIP = 101;
+    private const uint ID_PAUSE_LIVE = 102;
+    private const uint ID_STOP_LIVE = 103;
     private const uint ID_SEPARATOR1 = 107;
     private const uint ID_EXIT = 108;
 
-    /// <summary>App version for the tray menu header (assembly version, no dots trimmed).</summary>
     public static string AppVersion
     {
         get
@@ -81,7 +71,6 @@ public sealed class TrayIconService : IDisposable
         }
     }
 
-    /// <summary>Per-process registered tray callback message, resolved once.</summary>
     private static uint? _callbackMsg;
 
     private static uint CallbackMsg => _callbackMsg ??= RegisterWindowMessageW("kaliteConfig_TrayCallback");
@@ -199,10 +188,6 @@ public sealed class TrayIconService : IDisposable
     private IntPtr _icon = IntPtr.Zero;
     private WndProcDelegate? _proc;
 
-    /// <summary>
-    /// Keeps the WndProc delegate alive for exactly as long as the native
-    /// window that calls it exists. See the note in Show() before touching it.
-    /// </summary>
     private GCHandle _procPin;
 
     private bool _added;
@@ -227,27 +212,6 @@ public sealed class TrayIconService : IDisposable
         {
             _proc = WndProc;
 
-            // The delegate MUST be kept alive for the whole life of the window,
-            // and a normal field reference is NOT enough.
-            //
-            // Marshal.GetFunctionPointerForDelegate hands a raw function pointer
-            // to native code. The runtime cannot see that reference, so it does
-            // not treat the delegate as reachable: once the TrayIconService
-            // itself becomes unreachable the collector is free to take both the
-            // object and the delegate. The hidden window and its class
-            // registration, however, are native state the collector knows
-            // nothing about, and Windows will keep delivering messages to them.
-            //
-            // The first such delivery calls into a collected delegate and the
-            // runtime aborts the process with Environment.FailFast. That is not
-            // a catchable exception: it has no managed source, no stack trace,
-            // and it never reaches crash.log - it just kills the app, typically
-            // as it is closing. Observed exactly that, repeatedly, on exit.
-            //
-            // A GCHandle is tracked by the runtime in its own global handle
-            // table, so the delegate stays reachable regardless of what the
-            // managed graph looks like. It is released in Dispose(), and only
-            // AFTER DestroyWindow - see there for why the order matters.
             if (!_procPin.IsAllocated) _procPin = GCHandle.Alloc(_proc);
 
             var cls = new WNDCLASSEX
@@ -262,15 +226,6 @@ public sealed class TrayIconService : IDisposable
                 Tlog($"RegisterClassEx failed err={Marshal.GetLastWin32Error()}");
                 return false;
             }
-            // A hidden-but-VISIBLE popup parked off-screen (NOT a message-only
-            // window): tray callbacks arrive and the window CAN take the
-            // foreground - which TrackPopupMenu requires, or the menu closes
-            // the instant it opens (observed: picked=0 two ms after enter).
-            // WS_EX_NOACTIVATE was removed for exactly that reason: a
-            // NOACTIVATE window cannot become foreground, so SetForegroundWindow
-            // silently failed and the right-click menu never opened.
-            // TOOLWINDOW keeps it out of Alt-Tab, Task View and the taskbar,
-            // and at 1x1 off-screen it is invisible regardless.
             const uint WS_POPUP = 0x80000000;
             const uint WS_EX_TOOLWINDOW = 0x00000080;
             _hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, _className, "kaliteConfigTray",
@@ -308,12 +263,6 @@ public sealed class TrayIconService : IDisposable
         return ok;
     }
 
-    /// <summary>
-    /// Updates the hover tooltip (NIM_MODIFY). Used for the persistent
-    /// "currently active game profile" indicator - the user is usually not
-    /// looking at the main window when an auto-switch fires, but the tray
-    /// is always one hover away. No-op when the icon isn't up.
-    /// </summary>
     public bool UpdateTooltip(string tooltip)
     {
         try
@@ -338,19 +287,13 @@ public sealed class TrayIconService : IDisposable
         {
             if (msg == CallbackMsg)
             {
-                // Identity check: registered messages are unique, but stay
-                // defensive - only treat it as ours when the sender says uID 1.
                 if (wParam != (IntPtr)1) return DefWindowProcW(hWnd, msg, wParam, lParam);
 
                 uint mouse = (uint)(lParam.ToInt64() & 0xFFFF);
-                // Reentrancy guard: the menu modal loop (and any stray double
-                // delivery) must not invoke handlers while one is in flight.
                 if (System.Threading.Interlocked.CompareExchange(ref _inCallback, 1, 0) == 0)
                 {
                     try
                     {
-                        // WM_MOUSEMOVE floods while the cursor sits on the icon;
-                        // it carries no action, so don't even log it.
                         if (mouse != 0x0200) Tlog($"callback mouse=0x{mouse:X}");
                         if (mouse == WM_LBUTTONDBLCLK || mouse == WM_LBUTTONUP)
                             OnOpen?.Invoke();
@@ -362,9 +305,6 @@ public sealed class TrayIconService : IDisposable
             }
             else if (msg == WM_CLOSE)
             {
-                // Hidden helper window: never let WM_CLOSE destroy it while
-                // the notify icon still points here (a destroyed window makes
-                // the icon a zombie: visible but permanently unclickable).
                 return IntPtr.Zero;
             }
         }
@@ -379,36 +319,28 @@ public sealed class TrayIconService : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
-            // Version header: grayed, non-clickable. Tells the user which build
-            // this tray icon belongs to.
             AppendMenuW(menu, MF_STRING | MF_GRAYED, ID_VERSION, "kaliteConfig v" + AppVersion);
             AppendMenuW(menu, MF_SEPARATOR, ID_SEPARATOR1, null);
 
-            // Open kaliteConfig
             AppendMenuW(menu, MF_STRING, ID_OPEN, "Open kaliteConfig");
 
-            // Take Screenshot
             AppendMenuW(menu, MF_STRING, ID_TAKE_SNIP, "Take Screenshot");
 
-            // Separator
+            bool canPause = false;
+            bool canStop = false;
+            try
+            {
+                if (LiveStateQuery is { } query) (canPause, canStop) = query();
+            }
+            catch { }
+            AppendMenuW(menu, canPause ? MF_STRING : MF_STRING | MF_GRAYED, ID_PAUSE_LIVE, "Pause live wallpaper");
+            AppendMenuW(menu, canStop ? MF_STRING : MF_STRING | MF_GRAYED, ID_STOP_LIVE, "Stop live wallpaper");
+
             AppendMenuW(menu, MF_SEPARATOR, ID_SEPARATOR1, null);
 
-            // Exit
             AppendMenuW(menu, MF_STRING, ID_EXIT, "Exit");
 
             if (!GetCursorPos(out POINT pt)) { Tlog("GetCursorPos failed"); return; }
-            // TrackPopupMenu's window must be foreground when the menu opens,
-            // or the first click outside (or the button-up from the right
-            // click itself) cancels it and TrackPopupMenu returns 0.
-            //
-            // SetForegroundWindow alone FAILS here (observed: picked=0 two ms
-            // after enter): a background process has no foreground rights, so
-            // the call is silently denied and the menu dismisses instantly.
-            // The standard workaround (Raymond Chen / KB9495115 pattern):
-            // attach this thread's input queue to the foreground thread, make
-            // ourselves foreground, run the menu, then detach. With the queues
-            // attached the foreground transfer is permitted and the menu stays
-            // open for a real click.
             IntPtr fg = GetForegroundWindow();
             uint fgThread = fg != IntPtr.Zero ? GetWindowThreadProcessId(fg, IntPtr.Zero) : 0;
             uint myThread = GetCurrentThreadId();
@@ -417,14 +349,9 @@ public sealed class TrayIconService : IDisposable
             {
                 SetForegroundWindow(_hwnd);
                 uint picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, pt.X, pt.Y, 0, _hwnd);
-                // KB135788: hand the foreground back so the taskbar doesn't stay
-                // stuck and the next tray click works first time.
                 PostMessageW(_hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
                 Tlog($"picked={picked} attached={attached}");
                 HandleMenuSelection(picked);
-                // If TrackPopupMenu was cancelled (picked==0) the foreground jump
-                // leaves a focus hole; another foreground pass on our own window
-                // clears it without stealing focus from anything else.
                 if (picked == 0) SetForegroundWindow(_hwnd);
             }
             finally
@@ -445,13 +372,18 @@ public sealed class TrayIconService : IDisposable
             case ID_TAKE_SNIP:
                 OnTakeScreenshot?.Invoke(SnipMode.Region);
                 break;
+            case ID_PAUSE_LIVE:
+                OnPauseLive?.Invoke();
+                break;
+            case ID_STOP_LIVE:
+                OnStopLive?.Invoke();
+                break;
             case ID_EXIT:
                 OnExit?.Invoke();
                 break;
         }
     }
 
-    /// <summary>Restores and foregrounds a hidden top-level window.</summary>
     public static class TrayForeground
     {
         private const int SW_RESTORE = 9;
@@ -494,11 +426,6 @@ public sealed class TrayIconService : IDisposable
             if (_icon != IntPtr.Zero) { DestroyIcon(_icon); _icon = IntPtr.Zero; }
             if (_hwnd != IntPtr.Zero) { DestroyWindow(_hwnd); _hwnd = IntPtr.Zero; }
 
-            // Release the delegate pin only now that the window is gone and
-            // unregistering the class has taken the class's last reference to
-            // the function pointer. DestroyWindow delivers WM_DESTROY
-            // synchronously on this thread, so by this point no further call
-            // into the delegate can be in flight or arrive later.
             if (_procPin.IsAllocated) { _procPin.Free(); _procPin = default; }
             _proc = null;
 

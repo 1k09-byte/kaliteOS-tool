@@ -10,53 +10,72 @@
     Background="Transparent"
     NavigationCacheMode="Enabled">
 
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
+        <Grid Margin="32,24,32,0" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-        <NavigationView x:Name="InnerNav"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        OpenPaneLength="220"
-                        IsBackButtonVisible="Collapsed"
-                        IsSettingsVisible="False"
-                        IsPaneToggleButtonVisible="False"
-                        PaneDisplayMode="Left"
-                        SelectionChanged="InnerNav_SelectionChanged">
-            <NavigationView.MenuItems>
-                <NavigationViewItem Content="Discover Packages" Tag="Discover">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE738;" FontSize="16" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Software Updates" Tag="Updates">
-                    <NavigationViewItem.InfoBadge>
-                        <InfoBadge Value="{x:Bind Module.UpdateCount, Mode=OneWay}"
-                                   Visibility="{x:Bind local:PackageManagerPage.BadgeVis(Module.UpdateCount), Mode=OneWay}" />
-                    </NavigationViewItem.InfoBadge>
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE72C;" FontSize="16" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+            <StackPanel Grid.Column="0" Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="Apps" Style="{StaticResource TitleLargeTextBlockStyle}" />
+                    <InfoBadge Value="{x:Bind Module.UpdateCount, Mode=OneWay}"
+                               VerticalAlignment="Center"
+                               Visibility="{x:Bind local:PackageManagerPage.BadgeVis(Module.UpdateCount), Mode=OneWay}" />
+                </StackPanel>
+                <TextBlock Text="Discover, install and update packages from every configured source."
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
 
-            </NavigationView.MenuItems>
-            <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="Package Managers" Tag="Managers">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE713;" FontSize="16" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-            </NavigationView.FooterMenuItems>
-            <Frame x:Name="ContentFrame" Margin="16,0,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                <Frame.ContentTransitions>
-                    <TransitionCollection>
-                        <NavigationThemeTransition>
-                            <NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                                <EntranceNavigationTransitionInfo />
-                            </NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                        </NavigationThemeTransition>
-                    </TransitionCollection>
-                </Frame.ContentTransitions>
-            </Frame>
-        </NavigationView>
+        <SelectorBar x:Name="SectionBar"
+                     Grid.Row="1"
+                     Margin="32,16,32,0"
+                     HorizontalAlignment="Left"
+                     SelectionChanged="SectionBar_SelectionChanged">
+            <SelectorBarItem x:Name="SectionDiscover" Text="Discover" Tag="Discover" IsSelected="True">
+                <SelectorBarItem.Icon>
+                    <FontIcon Glyph="&#xE738;" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Name="SectionInstalled" Text="Installed" Tag="Installed">
+                <SelectorBarItem.Icon>
+                    <FontIcon Glyph="&#xE7B3;" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Name="SectionUpdates" Text="Updates" Tag="Updates">
+                <SelectorBarItem.Icon>
+                    <FontIcon Glyph="&#xE72C;" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Name="SectionBundles" Text="Bundles" Tag="Bundles">
+                <SelectorBarItem.Icon>
+                    <FontIcon Glyph="&#xE8B7;" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Name="SectionManagers" Text="Managers" Tag="Managers">
+                <SelectorBarItem.Icon>
+                    <FontIcon Glyph="&#xE713;" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+        </SelectorBar>
+
+        <Border Grid.Row="2"
+                Margin="32,16,32,24"
+                Style="{StaticResource CardBorder}"
+                Padding="0">
+            <Frame x:Name="ContentFrame"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Stretch" />
+        </Border>
     </Grid>
 </Page>

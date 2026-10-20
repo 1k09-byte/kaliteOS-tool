@@ -19,13 +19,6 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.Services;
 
-/// <summary>Reads every network adapter and its driver settings.
-/// Mechanism: managed System.Net.NetworkInformation for link/IP/stats, the driver
-/// class registry key (HKLM\...\Control\Class\{4d36e972...}\NNNN, matched by
-/// NetCfgInstanceId) for everything the driver exposes, and awaited netsh for
-/// TCP-global and Wi-Fi state. No CIM/WMI, no PowerShell SDK, no orphan processes:
-/// registry and NetworkInformation are in-process; netsh goes through NetProcess
-/// with a timeout and kill switch. All reads are async off the UI thread.</summary>
 public static class NetAdapterService
 {
     public const string NetClassGuid = "{4d36e972-e325-11ce-bfc1-08002be10318}";
@@ -41,6 +34,9 @@ public static class NetAdapterService
         catch (Exception ex) { throw new InvalidOperationException("Could not enumerate adapters: " + ex.Message, ex); }
         foreach (var nic in nics)
         {
+            // WAN miniports, tunnels and the loopback pseudo-interface are OS
+            // plumbing, not hardware, and only clutter the tuning page.
+            if (NetParsing.IsPseudoAdapter(nic.Description, nic.Name)) continue;
             try { list.Add(ReadOne(nic)); }
             catch (Exception ex)
             {
@@ -54,7 +50,12 @@ public static class NetAdapterService
                 });
             }
         }
-        return list.OrderBy(a => a.Kind).ThenBy(a => a.Name).ToList();
+        return list
+            .GroupBy(a => NetParsing.AdapterIdentity(a.Description), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(a => a.IsUp).ThenBy(a => a.Name).First())
+            .OrderBy(a => a.Kind)
+            .ThenBy(a => a.Name)
+            .ToList();
     });
 
     private static NetAdapterInfo ReadOne(NetworkInterface nic)
@@ -136,7 +137,6 @@ public static class NetAdapterService
         };
     }
 
-    /// <summary>00NN subkey whose NetCfgInstanceId matches the interface GUID (braces tolerant).</summary>
     public static string FindRegistryKey(string guid)
     {
         try
@@ -204,7 +204,7 @@ public static class NetAdapterService
         foreach (var kw in keywords.OrderBy(k => k))
         {
             try { props.Add(ReadOneProp(regKey, kw, current)); }
-            catch { /* one bad property never blocks the other 30 */ }
+            catch {  }
         }
         return props;
     });
@@ -297,7 +297,7 @@ public static class NetAdapterService
             try
             {
                 if (!File.Exists(sys)) return "Driver file not found at " + sys + ".";
-#pragma warning disable SYSLIB0057 // No replacement reads Authenticode signers; this is exactly its job.
+#pragma warning disable SYSLIB0057
                 var cert = System.Security.Cryptography.X509Certificates.X509Certificate.CreateFromSignedFile(sys);
 #pragma warning restore SYSLIB0057
                 return "Signed: " + cert.Subject;
@@ -343,7 +343,6 @@ public static class NetAdapterService
             throw new InvalidOperationException("netsh interface udp show global failed: " + (r.Stderr.Trim().Length > 0 ? r.Stderr.Trim() : "exit " + r.ExitCode));
         var dict = NetParsing.ParseNetshKeyValues(r.Stdout);
         if (dict.Count == 0) throw new InvalidOperationException("netsh returned no parseable UDP values.");
-        // Stock client default for both is enabled.
         return dict.Select(kv => new NetTcpEntry(kv.Key, kv.Value,
             string.Equals("enabled", kv.Value, StringComparison.OrdinalIgnoreCase) ? "Default" : "Changed")).ToList();
     }

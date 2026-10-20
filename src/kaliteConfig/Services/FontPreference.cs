@@ -12,46 +12,6 @@ using Microsoft.UI.Xaml.Media;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// The user's app-font choice (Settings > App font) and the machinery that
-/// puts it in front of every piece of text in the app.
-///
-/// The face is baked into XAML at parse time in three places: the font
-/// resource keys (KaliteFontFamily/KaliteDisplayFontFamily for display type,
-/// XamlAutoFontFamily/ContentControlThemeFontFamily/TextControlThemeFontFamily
-/// for body type), the explicit FontFamily setters inside the
-/// text styles (implicit TextBlock style, the redefined WinUI caption/body/
-/// title styles, the Kalite* styles, KaliteButton and its dependents), and
-/// FontFamily attributes in already-parsed windows. So choosing a font means:
-///
-///   1. startup: rewrite the resource keys and CLONE every style that carries
-///      the old face (plus every style that BasedOn-chains into one) BEFORE
-///      MainWindow parses - from then on every page, dialog and popup resolves
-///      the new face fresh;
-///   2. live change: the same rewrite, then stamp a local FontFamily onto the
-///      already-loaded visual tree - a local value outranks a style setter, so
-///      existing elements flip immediately. Elements are only stamped when
-///      their current face actually IS the old app face, so monospace readouts
-///      (Consolas, Cascadia) and symbol-glyph fonts keep theirs.
-///
-/// INVARIANT: every runtime write goes into the APPLICATION ROOT dictionary
-/// (Application.Resources), never into a merged dictionary. Merged XAML
-/// dictionaries have Source set, and a local value in one poisons XAML
-/// loading - the next Application.LoadComponent (a page parse) dies with
-/// XamlParseException "Local values are not allowed in resource dictionary
-/// with Source set" (0x8000FFFF). Root entries shadow merged ones for every
-/// later lookup, so shadowing at the root is both safe and sufficient.
-///
-/// DISPLAY vs BODY: the saved "app font" is the DISPLAY face only (page
-/// titles, section titles, eyebrows via KaliteFontFamily +
-/// KaliteDisplayFontFamily). Body copy, controls and inputs always stay on
-/// Segoe UI Variable/Text - the wide display faces at 12-14px are what made
-/// the UI read as cluttered. So Apply writes the user's pick into the two
-/// display keys and pins the three body keys to Segoe.
-/// (Jim Nightshade, Uncial Antiqua, Cormorant Garamond) are opt-in; the
-/// preference is applied at startup from a saved value, and the shipped XAML
-/// face is converted on first Apply.
-/// </summary>
 internal static class FontPreference
 {
     public const string DefaultTag = "Default";
@@ -67,16 +27,9 @@ internal static class FontPreference
     private static readonly FontFamily Cormorant =
         new("ms-appx:///Assets/Fonts/CormorantGaramond-Regular.ttf#Cormorant Garamond");
 
-    /// <summary>
-    /// Every resource key whose style carries the app face, directly or through
-    /// a BasedOn chain. A fixed list on purpose: enumerating a merged
-    /// (Source-set) dictionary's Keys is not reliable at startup, and these are
-    /// the only styles in the app that bake in the face (KaliteTheme.xaml and
-    /// the implicit TextBlock style in App.xaml).
-    /// </summary>
     private static readonly object[] StyleKeys =
     {
-        typeof(TextBlock),          // implicit TextBlock style (App.xaml)
+        typeof(TextBlock),
         "CaptionTextBlockStyle",
         "BodyTextBlockStyle",
         "BodyStrongTextBlockStyle",
@@ -88,20 +41,14 @@ internal static class FontPreference
         "KalitePageTitle",
         "KaliteSectionTitle",
         "KaliteEyebrow",
-        "KaliteButton",
-        typeof(Button),             // implicit Button style (KaliteTheme.xaml)
-        "KaliteSubtleButton",
-        "KaliteIconButton",
     };
 
     private static string PrefPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "kaliteConfig", "font-preference.txt");
 
-    /// <summary>Chosen tag; <see cref="DefaultTag"/> until the user picks one.</summary>
     public static string Selected { get; private set; } = DefaultTag;
 
-    /// <summary>Reads the saved choice. Called once from App before any window XAML.</summary>
     public static void Load()
     {
         try
@@ -112,10 +59,9 @@ internal static class FontPreference
                 if (tag.Length > 0) Selected = tag;
             }
         }
-        catch { /* an unreadable preference must never break startup */ }
+        catch {  }
     }
 
-    /// <summary>Persists the choice (best effort) and updates <see cref="Selected"/>.</summary>
     public static void Save(string tag)
     {
         Selected = string.IsNullOrWhiteSpace(tag) ? DefaultTag : tag.Trim();
@@ -124,12 +70,9 @@ internal static class FontPreference
             Directory.CreateDirectory(Path.GetDirectoryName(PrefPath)!);
             File.WriteAllText(PrefPath, Selected);
         }
-        catch { /* the choice still applies for this session */ }
+        catch {  }
     }
 
-    /// <summary>
-    /// The face a tag stands for. Default = the default WinUI font (Segoe UI).
-    /// </summary>
     public static FontFamily Resolve(string tag) => tag switch
     {
         JimTag => Jim,
@@ -142,14 +85,6 @@ internal static class FontPreference
         a is not null && b is not null &&
         string.Equals(a.Source, b.Source, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Applies <see cref="Selected"/> to the running app: rewrites the three
-    /// font resource keys, re-creates every style that baked in the old face
-    /// (all shadowed into the application root dictionary), and - when
-    /// <paramref name="liveRoot"/> is given (a font change made while the UI is
-    /// up) - restamps the loaded visual tree. No-op when the resolved face is
-    /// already the applied one.
-    /// </summary>
     public static void Apply(DependencyObject? liveRoot = null)
     {
         try
@@ -167,15 +102,6 @@ internal static class FontPreference
             Diag($"Apply: before='{before.Source}' after='{after.Source}' same={Same(before, after)}");
             if (Same(before, after)) return;
 
-            // 1. The font keys, shadowed at the root so every later
-            //    {StaticResource}/{ThemeResource} lookup resolves the new face.
-            //    Display keys follow the user's pick; body keys are pinned to
-            //    Segoe so controls/inputs/body copy never inherit a wide
-            //    display face (the clutter this overhaul removes).
-            //    TextControlThemeFontFamily is the one people forget: WinUI's
-            //    TextBox/ComboBox/NumericUpDown templates read it, NOT
-            //    ContentControlThemeFontFamily. It is not defined by this app,
-            //    so writing it simply adds it at the root.
             resources["KaliteFontFamily"] = after;
             resources["KaliteDisplayFontFamily"] = after;
             resources["KaliteBodyFontFamily"] = DefaultFace;
@@ -183,31 +109,18 @@ internal static class FontPreference
             resources["ContentControlThemeFontFamily"] = DefaultFace;
             resources["TextControlThemeFontFamily"] = DefaultFace;
 
-            // 2. The styles that baked the old face in while the theme loaded.
             Diag("Apply: rewriting styles");
             RewriteStyles(resources, before, after);
             Diag("Apply: styles rewritten");
 
-            // 3. Anything already on screen.
             if (liveRoot is not null) Stamp(liveRoot, before, after);
         }
         catch (Exception ex)
         {
             Diag("Apply FAILED: " + ex);
-            // A font change must never take the app down; worst case the new
-            // face lands after the next launch (the preference is persisted).
         }
     }
 
-    /// <summary>
-    /// Re-creates every listed style whose own FontFamily setter held the old
-    /// face, plus every collected style that chains (BasedOn) into one of
-    /// those, and writes the clones back UNDER THE SAME KEYS into the
-    /// application root dictionary. The originals in the merged theme
-    /// dictionary are left untouched - writing there poisons XAML loading (see
-    /// the class doc). Clones are BasedOn-remapped so no chain leads back to a
-    /// stale face.
-    /// </summary>
     private static void RewriteStyles(ResourceDictionary root, FontFamily before, FontFamily after)
     {
         var entries = new List<(object Key, Style Style)>();
@@ -216,15 +129,11 @@ internal static class FontPreference
                 entries.Add((key, style));
         if (entries.Count == 0) return;
 
-        // Styles that carry the old face themselves...
         var cloneSet = new HashSet<Style>();
         foreach (var (_, style) in entries)
             if (HasFaceSetter(style, before))
                 cloneSet.Add(style);
 
-        // ...plus everything that chains into one, transitively. A dependent
-        // without its own FontFamily setter (the implicit Button style) would
-        // otherwise keep pointing at the stale original.
         bool grew = true;
         while (grew)
         {
@@ -254,7 +163,7 @@ internal static class FontPreference
         foreach (var (key, style) in entries)
             if (clones.TryGetValue(style, out var clone))
                 try { root[key] = clone; }
-                catch { /* a refused shadow keeps its entry; the stamp still fixes live text */ }
+                catch {  }
     }
 
     private static bool HasFaceSetter(Style style, FontFamily face)
@@ -282,14 +191,6 @@ internal static class FontPreference
         return clone;
     }
 
-    /// <summary>
-    /// Walks the loaded visual tree top-down and swaps the old face for the new
-    /// one where it appears. Top-down matters: once a parent Control is stamped,
-    /// its children read the new face through inheritance and are skipped, so
-    /// only elements that carry the old face themselves (a style setter or a
-    /// local value) are touched. Anything else - Consolas readouts, symbol
-    /// glyph fonts - does not match and is left alone.
-    /// </summary>
     public static void Stamp(DependencyObject node, FontFamily before, FontFamily after)
     {
         switch (node)

@@ -24,13 +24,6 @@ using NvAPIWrapper.GPU;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// Real IGpuTuningController over NvAPIWrapper (LLT.NvAPIWrapper.Net fork).
-    /// All NVAPI access is serialized behind the process-wide NvApiSession.Gate
-    /// (NVAPI is not thread-safe, and the display panel shares the same driver session).
-    /// Expected failures come back as GpuResult values; only truly exceptional
-    /// conditions throw.
-    /// </summary>
     public sealed class NvidiaGpuTuningController : IGpuTuningController
     {
         private bool _initialized;
@@ -58,13 +51,10 @@ namespace kaliteConfig.GpuOverclock.Services
                 }
                 catch (Exception ex)
                 {
-                    // Missing/broken nvapi.dll lands here (DllNotFoundException/BadImageFormat).
                     return GpuResult.Fail(OverclockErrorKind.NvApiInitFailed, ex.GetType().Name);
                 }
             }
         }
-
-        // ---------- identity ----------
 
         public GpuResult<GpuIdentity> GetIdentity()
         {
@@ -75,7 +65,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     var gpu = _gpu!;
                     uint devId = 0;
-                    try { devId = gpu.BusInformation?.PCIIdentifiers?.DeviceId ?? 0; } catch { /* bus query optional */ }
+                    try { devId = gpu.BusInformation?.PCIIdentifiers?.DeviceId ?? 0; } catch {  }
                     return GpuResult<GpuIdentity>.Ok(new GpuIdentity
                     {
                         FullName = gpu.FullName ?? "NVIDIA GPU",
@@ -93,11 +83,8 @@ namespace kaliteConfig.GpuOverclock.Services
 
         internal static string FormatDriverVersion(uint raw)
         {
-            // NVAPI packs the version as major*100 + minor (56636 -> "566.36").
             return raw == 0 ? "unknown" : $"{raw / 100}.{raw % 100:00}";
         }
-
-        // ---------- telemetry ----------
 
         public GpuResult<GpuTelemetrySnapshot> ReadTelemetry()
         {
@@ -115,7 +102,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         if (clocks.GraphicsClock.IsPresent) coreMhz = clocks.GraphicsClock.Frequency / 1000.0;
                         if (clocks.MemoryClock.IsPresent) memMhz = clocks.MemoryClock.Frequency / 1000.0;
                     }
-                    catch (NVIDIAApiException) { /* some domains refuse on some cards */ }
+                    catch (NVIDIAApiException) {  }
 
                     int? gpuTemp = null, hotspot = null, memTemp = null;
                     try
@@ -123,11 +110,8 @@ namespace kaliteConfig.GpuOverclock.Services
                         var sensors = gpu.ThermalInformation?.ThermalSensors?.ToList();
                         var core = sensors?.FirstOrDefault(s => s.Target == ThermalSettingsTarget.GPU);
                         if (core != null) gpuTemp = core.CurrentTemperature;
-                        // Hotspot: a second GPU-target sensor, when the driver exposes one.
                         var second = sensors?.Where(s => s.Target == ThermalSettingsTarget.GPU).Skip(1).FirstOrDefault();
                         if (second != null) hotspot = second.CurrentTemperature;
-                        // VRAM temperature: exposed as a Memory-target sensor on
-                        // some boards/drivers; usually absent on consumer cards.
                         var mem = sensors?.FirstOrDefault(s => s.Target == ThermalSettingsTarget.Memory);
                         if (mem != null) memTemp = mem.CurrentTemperature;
                     }
@@ -138,7 +122,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         voltageMv = GPUApi.GetCurrentVoltage(gpu.Handle).ValueInMicroVolt / 1000.0;
                     }
-                    catch (NVIDIAApiException) { } // private API - refused on some driver builds
+                    catch (NVIDIAApiException) { }
 
                     double? powerPct = null;
                     try
@@ -149,25 +133,17 @@ namespace kaliteConfig.GpuOverclock.Services
                     }
                     catch (NVIDIAApiException) { }
 
-                    // Absolute watts come from nvml.dll (what nvidia-smi itself links
-                    // against). NVAPI alone only exposes % of the current limit.
                     double? powerW = null;
                     if (NvmlBridge.TryReadPowerDrawMw(out var mw))
                     {
                         powerW = mw / 1000.0;
                     }
 
-                    // PCIe throughput: NVML exposes cumulative KB counters;
-                    // differenced across ticks here into KB/s (null until the
-                    // second tick, on counter reset, or when refused).
                     var (pcieTx, pcieRx) = ReadPcieRates();
 
                     int? fanRpm = null, fanPct = null;
                     try
                     {
-                        // Client fan-coolers status first (modern cards report here).
-                        // NOTE: FanCoolersStatusEntry is a STRUCT - FirstOrDefault()
-                        // would give Nullable<T> with no members; index instead.
                         var fanEntries = GPUApi.GetClientFanCoolersStatus(gpu.Handle).FanCoolersStatusEntries;
                         if (fanEntries is { Length: > 0 })
                         {
@@ -185,7 +161,7 @@ namespace kaliteConfig.GpuOverclock.Services
                             fanRpm = coolerInfo.CurrentFanSpeedInRPM;
                             fanPct = coolerInfo.CurrentFanSpeedLevel;
                         }
-                        catch (NVIDIAApiException) { } // AIB cards without NVCPL cooler reporting
+                        catch (NVIDIAApiException) { }
                     }
                     if (fanPct is < 0) fanPct = null;
                     if (fanRpm is < 0) fanRpm = null;
@@ -247,20 +223,11 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // Cached absolute power limit (watts) from NVML so %-of-limit can be
-        // cross-checked; refreshed on ReadCapabilities.
         internal double? _powerLimitWCache;
 
-        // Previous NVML PCIe counters for rate computation (always touched
-        // under _gate, same as every other controller field).
         private uint? _pciePrevTxKb, _pciePrevRxKb;
         private DateTime _pciePrevAt = DateTime.MinValue;
 
-        /// <summary>
-        /// Differences the cumulative NVML PCIe counters across ticks into
-        /// KB/s rates. Null until the second successful tick, when a counter
-        /// resets, or when NVML refuses the counters.
-        /// </summary>
         private (double? TxKBs, double? RxKBs) ReadPcieRates()
         {
             try
@@ -290,8 +257,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---------- capabilities ----------
-
         public GpuResult<GpuCapabilities> ReadCapabilities()
         {
             lock (NvApiSession.Gate)
@@ -308,7 +273,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     int? tempCur = null;
                     bool fanSupported = false;
 
-                    // Clock delta ranges live on the P0 state's clock entries.
                     try
                     {
                         var info = GPUApi.GetPerformanceStates20(gpu.Handle);
@@ -330,7 +294,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     catch (NVIDIANotSupportedException) { }
                     catch (NVIDIAApiException ex) when (ex.Status == Status.NotSupported) { }
 
-                    // Power + thermal limits via the performance-control block.
                     try
                     {
                         var pc = gpu.PerformanceControl;
@@ -357,9 +320,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     }
                     catch (NVIDIAApiException) { }
 
-                    // The client fan-coolers API is the authoritative modern
-                    // signal: if it answers with entries, the fan is controllable
-                    // even when the legacy cooler block claims otherwise.
                     if (!fanSupported)
                     {
                         try
@@ -370,10 +330,8 @@ namespace kaliteConfig.GpuOverclock.Services
                         catch (NVIDIAApiException) { }
                     }
 
-                    // Absolute power limit in watts from NVML (powers the W-column).
                     if (NvmlBridge.TryReadDefaultPowerLimitMw(out var defMw)) _powerLimitWCache = defMw / 1000.0;
 
-                    // ---- v2 probes: V/F curve + voltage boost (support-detected, never assumed) ----
                     bool vfSupported = false;
                     int vfCount = 0;
                     try
@@ -381,7 +339,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         var gr = BoostTableRange(PublicClockDomain.Graphics);
                         if (gr is not null && gr.Value.Last > gr.Value.First)
                         {
-                            // Any V/F base source answering means the curve UI can render.
                             try
                             {
                                 var st = GPUApi.GetClientClkVFPointsStatus(gpu.Handle, 1);
@@ -422,11 +379,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         CurrentPowerLimitPercent = powerPctCur,
                         CurrentTempLimitC = tempCur,
                         FanControlSupported = fanSupported,
-                        // No Zero RPM on this side: the NVAPI wrapper exposes no
-                        // zero-fan entry point, so the honest answer is "not
-                        // available" and the toggle stays hidden rather than
-                        // appearing and doing nothing. See the interface's
-                        // default implementations.
                         ZeroRpmSupported = false,
                         VfCurveSupported = vfSupported,
                         VfCurvePointCount = vfCount,
@@ -442,14 +394,11 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private static OverclockControlRange? DeltaRangeToMhz(IPerformanceStates20ClockEntry e)
         {
-            // FrequencyDeltaInkHz and its DeltaRange are structs - always present.
             var d = e.FrequencyDeltaInkHz;
             var r = d.DeltaRange;
             if (r.Maximum <= r.Minimum) return null;
             return new OverclockControlRange(r.Minimum / 1000.0, r.Maximum / 1000.0, 1);
         }
-
-        // ---------- current values (revert anchors / readback) ----------
 
         public GpuResult<(int CoreOffsetMHz, int MemOffsetMHz)> ReadCurrentOffsets()
         {
@@ -457,10 +406,6 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 if (!EnsureGpu(out var fail)) return GpuResult<(int, int)>.Fail(fail.ErrorKind, fail.Detail);
 
-                // Modern drivers: the applied offset lives in the V/F boost
-                // table (all domain points shift together). The legacy PStates20
-                // delta read keeps reporting 0 there, so it cannot be the
-                // readback source.
                 try
                 {
                     var coreRange = BoostTableRange(PublicClockDomain.Graphics);
@@ -470,11 +415,6 @@ namespace kaliteConfig.GpuOverclock.Services
                         var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
                         var deltas = table.GPUDeltas;
 
-                        // All points of a domain move together, but a domain's
-                        // reported range can include unwritable padding points
-                        // that stay 0 (measured: memory [127..131] with only
-                        // [130..131] live). The applied uniform delta is the
-                        // entry with the largest magnitude in the range.
                         static int DomainDelta(PrivateClockBoostTableV1.GPUDelta[] d, int first, int last)
                         {
                             int best = 0;
@@ -491,9 +431,8 @@ namespace kaliteConfig.GpuOverclock.Services
                         return GpuResult<(int, int)>.Ok((core, mem));
                     }
                 }
-                catch (NVIDIAApiException) { /* fall through to legacy read */ }
+                catch (NVIDIAApiException) {  }
 
-                // Legacy drivers: the PStates20 delta read.
                 try
                 {
                     var info = GPUApi.GetPerformanceStates20(_gpu!.Handle);
@@ -503,7 +442,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         foreach (var e in entries)
                         {
-                            var d = e.FrequencyDeltaInkHz; // struct copy - no null
+                            var d = e.FrequencyDeltaInkHz;
                             if (e.DomainId == PublicClockDomain.Graphics) core = d.DeltaValue;
                             if (e.DomainId == PublicClockDomain.Memory) mem = d.DeltaValue;
                         }
@@ -539,20 +478,12 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---------- writes ----------
-
         public GpuResult SetCoreOffsetMhz(int offsetMhz)
             => SetClockOffset(PublicClockDomain.Graphics, offsetMhz);
 
         public GpuResult SetMemoryOffsetMhz(int offsetMhz)
             => SetClockOffset(PublicClockDomain.Memory, offsetMhz);
 
-        /// <summary>
-        /// Point ranges of the clock boost table per public clock domain, from
-        /// GetClockBoostRanges. On a RTX 4070 SUPER this is Graphics=[0..126]
-        /// and Memory=[127..131]; indices move with the GPU so they are always
-        /// queried live.
-        /// </summary>
         private (int First, int Last)? BoostTableRange(PublicClockDomain domain)
         {
             try
@@ -571,11 +502,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// Editable delta range (MHz) for one public clock domain as reported by
-        /// PStates20 - the same source ReadCapabilities uses, so the clamp here
-        /// and the UI slider range can never disagree. Null when not queryable.
-        /// </summary>
         private (int MinMhz, int MaxMhz)? QueryDeltaRangeMhz(PublicClockDomain domain)
         {
             try
@@ -597,19 +523,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return null;
         }
 
-        /// <summary>
-        /// Applies a whole-domain clock offset by shifting the V/F curve: every
-        /// boost-table point of the domain moves by the same delta. This is the
-        /// write path modern drivers still accept - the PStates20 delta write
-        /// (SetPerformanceStates20) returns NotSupported on current drivers
-        /// even when its read side reports editable ranges.
-        ///
-        /// Defense-in-depth (phase-2 finding): the driver ACCEPTS out-of-range
-        /// deltas at the API level without error, so every write is clamped to
-        /// the driver-queried range first. This also protects profile applies,
-        /// where the value comes from a saved file rather than a range-limited
-        /// slider.
-        /// </summary>
         private GpuResult SetClockOffset(PublicClockDomain domain, int offsetMhz)
         {
             lock (NvApiSession.Gate)
@@ -624,8 +537,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     var range = BoostTableRange(domain);
                     if (range is null) return GpuResult.Fail(OverclockErrorKind.ControlUnsupported);
 
-                    // Build the table from the driver's CURRENT state so the
-                    // other domain's offsets are preserved untouched.
                     var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
                     var src = table.GPUDeltas;
                     var deltas = new PrivateClockBoostTableV1.GPUDelta[src.Length];
@@ -657,8 +568,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!EnsureGpu(out var fail)) return fail;
                 try
                 {
-                    // Clamp to the driver-reported power-limit range (same source
-                    // as ReadCapabilities) before writing.
                     var pl = _gpu!.PerformanceControl.PowerLimitInformation?.FirstOrDefault();
                     if (pl != null && pl.MaximumPowerInPercent > pl.MinimumPowerInPercent)
                         percent = Math.Clamp(percent, pl.MinimumPowerInPercent, pl.MaximumPowerInPercent);
@@ -695,8 +604,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!EnsureGpu(out var fail)) return fail;
                 try
                 {
-                    // Clamp to the driver-reported thermal-limit range (same
-                    // source as ReadCapabilities) before writing.
                     var tl = _gpu!.PerformanceControl.ThermalLimitInformation?.FirstOrDefault();
                     if (tl != null && tl.MaximumTemperature > tl.MinimumTemperature)
                         tempLimitC = (int)Math.Clamp((double)tempLimitC, tl.MinimumTemperature, tl.MaximumTemperature);
@@ -706,7 +613,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     if (entries is null || entries.Length == 0)
                         return GpuResult.Fail(OverclockErrorKind.ControlUnsupported);
 
-                    // Replace the first policy's target, keep the rest untouched.
                     var newEntries = entries.Select((e, i) => i == 0
                         ? new PrivateThermalPoliciesStatusV2.ThermalPoliciesStatusEntry(e.Controller, tempLimitC)
                         : e).ToArray();
@@ -731,10 +637,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!EnsureGpu(out var fail)) return fail;
                 percent = Math.Clamp(percent, 0, 100);
 
-                // Modern path first: the client fan-coolers API (what current
-                // NVIDIA tooling and the LLT fork's own fan control drive).
-                // Legacy SetCoolerLevels is refused by recent cards/drivers -
-                // that was the "driver refused the change to fan speed" failure.
                 try
                 {
                     var status = GPUApi.GetClientFanCoolersStatus(_gpu!.Handle);
@@ -752,8 +654,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 catch (NVIDIANotSupportedException) { }
                 catch (NVIDIAApiException) { }
 
-                // Legacy fallback: CoolerPolicy.Manual via the old cooler-levels
-                // private API (older cards, e.g. pre-Turing boards).
                 try
                 {
                     var cooler = _gpu!.CoolerInformation.Coolers?.FirstOrDefault();
@@ -774,10 +674,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// NVAPI's zero-fan calls are not in the wrapper we build against, so
-        /// this declines with the reason rather than inheriting the generic one.
-        /// </summary>
         public GpuResult<bool> IsZeroRpmEnabled()
             => GpuResult<bool>.Fail(
                 OverclockErrorKind.ControlUnsupported,
@@ -794,8 +690,6 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 if (!EnsureGpu(out var fail)) return fail;
 
-                // Modern path: an explicit FanCoolersControlMode.Auto write -
-                // a real hand-back, not "stop writing".
                 try
                 {
                     var status = GPUApi.GetClientFanCoolersStatus(_gpu!.Handle);
@@ -813,7 +707,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 catch (NVIDIANotSupportedException) { }
                 catch (NVIDIAApiException) { }
 
-                // Legacy fallback: restore default cooler settings.
                 try
                 {
                     _gpu!.CoolerInformation.RestoreCoolerSettingsToDefault();
@@ -830,28 +723,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---------- voltage / V-F curve (v2) ----------
-
-        /// <summary>
-        /// Reads the graphics-domain V/F curve. Base voltages/frequencies come
-        /// from the driver's V/F point status (preferred) or the static VFP
-        /// curve (fallback); current per-point offsets come from the boost
-        /// table; per-point editable ranges come from the boost ranges (with
-        /// the PStates20 delta range as fallback).
-        ///
-        /// INDEX-ALIGNMENT NOTE (verify on hardware): when the V/F status
-        /// point count equals the graphics boost-table slice length the join
-        /// is 1:1 (the expected shape - both describe the same table). When
-        /// counts differ, voltage/frequency labels are proportionally
-        /// resampled for DISPLAY ONLY; offsets always address exact
-        /// boost-table indices, so the write path is unaffected either way.
-        ///
-        /// BASE-STABILITY NOTE: the queried base is a session-start anchor.
-        /// Callers must cache it and re-read offsets only (never re-derive
-        /// the base after an apply), so labels can't drift mid-session.
-        /// "Reset to stock" is a zero-delta write, which restores driver
-        /// stock regardless of how the base labels were derived.
-        /// </summary>
         public GpuResult<GpuVoltageFrequencyCurve> ReadVoltageFrequencyCurve()
         {
             lock (NvApiSession.Gate)
@@ -879,7 +750,7 @@ namespace kaliteConfig.GpuOverclock.Services
                         for (int i = 0; i < n && first + i < src.Length; i++)
                             curDeltaMhz[i] = src[first + i].FrequencyDeltaInkHz / 1000;
                     }
-                    catch (NVIDIAApiException) { /* offsets stay 0 - base still valid */ }
+                    catch (NVIDIAApiException) {  }
 
                     bool vbSupported = false;
                     uint vbCurrent = 0;
@@ -921,11 +792,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// V/F base labels (voltages in mV, stock frequencies in MHz) from the
-        /// live point status, falling back to the static VFP curve. Returns
-        /// false when neither source answers.
-        /// </summary>
         private bool TryReadVfBaseLabels(out int[] voltsMv, out int[] baseMhz)
         {
             voltsMv = Array.Empty<int>();
@@ -943,13 +809,13 @@ namespace kaliteConfig.GpuOverclock.Services
                             ? (int)pts[i].VoltageInMilliV
                             : (int)(pts[i].VoltageInMicroV / 1000);
                         int f = (int)Math.Round(pts[i].FrequencyInkHz / 1000.0);
-                        // Filter uninitialized trailing padding (zeros) or garbage (out of bounds).
                         if (v > 0 && v < 3000 && f > 0 && f < 6000)
                             valid.Add((v, f));
                     }
                     if (valid.Count > 0)
                     {
                         valid.Sort((a, b) => a.V.CompareTo(b.V));
+                        MakeVfBaseMonotonic(valid);
                         voltsMv = valid.Select(p => p.V).ToArray();
                         baseMhz = valid.Select(p => p.F).ToArray();
                         return true;
@@ -974,6 +840,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     if (valid.Count > 0)
                     {
                         valid.Sort((a, b) => a.V.CompareTo(b.V));
+                        MakeVfBaseMonotonic(valid);
                         voltsMv = valid.Select(p => p.V).ToArray();
                         baseMhz = valid.Select(p => p.F).ToArray();
                         return true;
@@ -984,16 +851,12 @@ namespace kaliteConfig.GpuOverclock.Services
             return false;
         }
 
-        /// <summary>
-        /// Per-point editable offset ranges (MHz) for one clock domain's
-        /// boost-table slice. Primary source is the boost-range entries
-        /// covering each point; entries whose min/max look like ABSOLUTE
-        /// frequencies (floor above zero - real delta ranges always extend to
-        /// or below zero, since underclocking is allowed) are rejected as
-        /// garbage, because clamping an offset to an absolute-frequency range
-        /// would catapult the clock. Falls back to the uniform PStates20
-        /// delta range; null when neither is queryable.
-        /// </summary>
+        private static void MakeVfBaseMonotonic(List<(int V, int F)> pts)
+        {
+            for (int i = 1; i < pts.Count; i++)
+                if (pts[i].F < pts[i - 1].F) pts[i] = (pts[i].V, pts[i - 1].F);
+        }
+
         private List<(int MinMhz, int MaxMhz)>? QueryPointRangesMhz(PublicClockDomain domain, int first, int last)
         {
             int n = last - first + 1;
@@ -1011,7 +874,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     {
                         if (r.ClockDomain != domain) continue;
                         if (i < r.FirstPointIndex || i > r.LastPointIndex) continue;
-                        // Delta-range discriminator (see doc comment).
                         if (r.MaximumInkHz > r.MinimumInkHz
                             && r.MinimumInkHz <= 0
                             && Math.Abs((long)r.MaximumInkHz) <= 2_000_000
@@ -1036,15 +898,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return result;
         }
 
-        /// <summary>
-        /// Writes per-point graphics-domain offsets (MHz, boost-table point
-        /// order). Count must match the live slice; every point is clamped to
-        /// its driver-queried range first (the driver accepts out-of-range
-        /// deltas without error - same defense-in-depth as SetClockOffset).
-        /// Other domains are preserved from current driver state.
-        /// Monotonicity is NOT re-checked here - the caller validates
-        /// client-side before committing (GpuVoltageFrequencyCurve.ValidateMonotonic).
-        /// </summary>
         public GpuResult SetVoltageFrequencyCurveOffsets(IReadOnlyList<int> offsetsMhz)
         {
             lock (NvApiSession.Gate)
@@ -1094,11 +947,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// Reads the CURRENT per-point graphics-domain offsets straight from
-        /// the boost table - the revert anchor and resync source for curve
-        /// batches. Empty when unsupported.
-        /// </summary>
         public GpuResult<int[]> ReadVfCurveOffsets()
         {
             lock (NvApiSession.Gate)
@@ -1110,10 +958,6 @@ namespace kaliteConfig.GpuOverclock.Services
                     if (range is null) return GpuResult<int[]>.Ok(Array.Empty<int>());
                     var table = GPUApi.GetClockBoostTable(_gpu!.Handle, 1);
                     var src = table.GPUDeltas;
-                    // Insane range from the driver (negative first index past
-                    // the end, empty slice): refuse cleanly instead of
-                    // indexing out of range (a thrown exception here would
-                    // escape the controller's never-throw contract).
                     int count = range.Value.Last - range.Value.First + 1;
                     if (range.Value.First < 0 || range.Value.Last >= src.Length || count <= 0)
                         return GpuResult<int[]>.Fail(OverclockErrorKind.ControlUnsupported);
@@ -1168,8 +1012,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        // ---------- helpers ----------
-
         private bool EnsureGpu(out GpuResult fail)
         {
             fail = GpuResult.Ok();
@@ -1199,7 +1041,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return true;
         }
 
-        /// <summary>Called when the GPU may have changed (re-detect) - forgets the cached handle.</summary>
         public void InvalidateGpu()
         {
             lock (NvApiSession.Gate) _gpu = null;

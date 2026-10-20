@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using kaliteConfig.GpuOverclock.Models;
 using kaliteConfig.GpuOverclock.ViewModels;
 using Microsoft.UI;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -25,11 +26,6 @@ using Microsoft.UI.Xaml.Shapes;
 
 namespace kaliteConfig.GpuOverclock.Views
 {
-    /// <summary>
-    /// Overclock section embedded at the bottom of the Graphics page. Exposes
-    /// the ViewModel so the host page can re-detect (RefreshAsync) when the
-    /// GPU changes, and Teardown on unload.
-    /// </summary>
     public sealed partial class OverclockSection : UserControl
     {
         public OverclockViewModel Vm { get; }
@@ -48,8 +44,6 @@ namespace kaliteConfig.GpuOverclock.Views
             this.Unloaded += (_, _) => Vm.Teardown();
         }
 
-        // ---------------- x:Bind visibility helpers ----------------
-
         public static Visibility NotSupportedVis(bool isSupported)
             => isSupported ? Visibility.Collapsed : Visibility.Visible;
 
@@ -65,7 +59,6 @@ namespace kaliteConfig.GpuOverclock.Views
         public static Visibility SupportedVis(bool isSupported)
             => isSupported ? Visibility.Visible : Visibility.Collapsed;
 
-        // Risk gate covers the card until accepted (inverse of RiskAccepted).
         public static Visibility NotRiskAcceptedVis(bool riskAccepted)
             => riskAccepted ? Visibility.Collapsed : Visibility.Visible;
 
@@ -75,16 +68,9 @@ namespace kaliteConfig.GpuOverclock.Views
         public static Visibility FanCurveVis(GpuFanMode mode)
             => mode == GpuFanMode.Curve ? Visibility.Visible : Visibility.Collapsed;
 
-        // ---------------- slider commit (debounce on release, not per-tick) ----------------
-
-        // The commit handlers already track user edits in the ViewModel (the
-        // commit methods mirror the value into CoreOffsetValue etc., and the
-        // x:Bind feeds it back). ValueChanged fires again for that programmatic
-        // update - swallowing that echo prevents the revert resync / profile
-        // apply slider moves from being re-queued as fresh user writes.
         private void CoreOffsetSlider_ValueChanged(object sender, RoutedEventArgs e)
         {
-            if (Vm.IsBusy) return; // programmatic update, not a user edit
+            if (Vm.IsBusy) return;
             if (sender is Slider s && Vm is { IsSupported: true } && Vm.CoreOffsetValue != s.Value)
                 Vm.OnCoreOffsetCommitted(s.Value);
         }
@@ -116,13 +102,14 @@ namespace kaliteConfig.GpuOverclock.Views
                 Vm.FanStaticPercent = (int)s.Value;
         }
 
-        /// <summary>
-        /// Keeps the Zero RPM switch in step with the view model when the state
-        /// changes somewhere other than the switch itself - a re-detect, or the
-        /// driver-reset handler turning it off.
-        /// </summary>
         private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            if (e.PropertyName == nameof(OverclockViewModel.HasVfCurve))
+            {
+                if (Vm.HasVfCurve) DispatcherQueue.TryEnqueue(RedrawVfCurve);
+                return;
+            }
+
             if (e.PropertyName != nameof(OverclockViewModel.ZeroRpmEnabled)) return;
             if (_syncingZeroRpm) return;
 
@@ -136,13 +123,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 _syncingZeroRpm = false;
             }
         }
-
-        // ---------------- Zero RPM ----------------
-        //
-        // The toggle is pushed from the driver's state, not from the click: the
-        // write can be refused (fan forced to a mode, driver says no), and a
-        // switch left visually on after a refusal is worse than no switch. So
-        // every path ends in a resync back onto the toggle's IsOn.
 
         private bool _syncingZeroRpm;
 
@@ -159,7 +139,6 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             await Vm.SetZeroRpmAsync(enabled);
 
-            // Snap the switch back to whatever the driver actually says.
             _syncingZeroRpm = true;
             try
             {
@@ -171,16 +150,6 @@ namespace kaliteConfig.GpuOverclock.Views
             }
         }
 
-        // ---------------- numeric text boxes (layout pass): validated at the
-        // input layer, committed through the SAME debounced-write + safety
-        // path as the sliders. Invalid keystrokes (NaN) never reach the
-        // write path; out-of-range values clamp to the live slider range.
-
-        /// <summary>
-        /// Shared typed-value commit: ignores invalid text, clamps to the
-        /// live range (re-firing into the equal path), and no-ops when the
-        /// value already matches (kills programmatic-update echoes).
-        /// </summary>
         private void CommitNumberBox(object sender, double min, double max, double current, Action<double> commit)
         {
             if (Vm.IsBusy) return;
@@ -234,21 +203,19 @@ namespace kaliteConfig.GpuOverclock.Views
             if (double.IsNaN(box.Value)) return;
             double clamped = Math.Clamp(box.Value, 0, 100);
             if (clamped != box.Value) { box.Value = clamped; return; }
-            // Same staging semantics as the static slider: sets the value;
-            // the ViewModel's change hook debounces the write in Static mode.
             if (Vm.FanStaticPercent != clamped) Vm.FanStaticPercent = (int)clamped;
         }
 
         private void FanIntervalBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
             if (sender is NumberBox box && !double.IsNaN(box.Value) && Vm.FanIntervalMs != box.Value)
-                Vm.FanIntervalMs = box.Value; // ViewModel clamps (100–10000) and pushes live to the loop
+                Vm.FanIntervalMs = box.Value;
         }
 
         private void FanRampBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
             if (sender is NumberBox box && !double.IsNaN(box.Value) && Vm.FanRampStep != box.Value)
-                Vm.FanRampStep = box.Value; // ViewModel clamps (0–100) and pushes live to the loop
+                Vm.FanRampStep = box.Value;
         }
 
         private void StartupReapply_Toggled(object sender, RoutedEventArgs e)
@@ -257,8 +224,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 Vm.ToggleStartupReapplyCommand.Execute(null);
         }
 
-        // Startup-default toggle: skip when the visual state was set
-        // programmatically by RefreshProfiles (IsOn already matches storage).
         private void StartupDefault_Toggled(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.Tag is OverclockProfile p
@@ -280,8 +245,6 @@ namespace kaliteConfig.GpuOverclock.Views
             if ((sender as FrameworkElement)?.Tag is OverclockProfile p)
                 Vm.DeleteProfileCommand.Execute(p);
         }
-
-        // ---------------- per-game bindings (v2 Part B) ----------------
 
         private void BindProfile_Click(object sender, RoutedEventArgs e)
         {
@@ -317,8 +280,6 @@ namespace kaliteConfig.GpuOverclock.Views
                 _ = Vm.LockBindingPathAsync(r);
         }
 
-        // ---------------- V/F curve (v2): simple slider ----------------
-
         private void VfFlatSlider_ValueChanged(object sender, RoutedEventArgs e)
         {
             if (Vm.IsBusy) return;
@@ -337,65 +298,68 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void ApplyVfCurve_Click(object sender, RoutedEventArgs e) => Vm.ApplyVfCurveEdits();
 
-        // ---------------- V/F curve canvas: direct-drag graph ----------------
-
         private int _vfDragIndex = -1;
+        private int _vfHoverIndex = -1;
         private double _vfGrabDelta;
-        private int _vfDragStartOffset;
+        private int[]? _vfDragSnapshot;
+        private VfPlotGeom? _vfGeom;
+        private bool _vfChromeValid;
+
+        private readonly List<int> _vfKnots = new();
+        private readonly List<Ellipse> _vfHandles = new();
+        private Polyline? _vfStockLine;
+        private Polyline? _vfLiveLine;
+        private Polygon? _vfBand;
+        private Line? _vfGuideV;
+        private Line? _vfGuideH;
+        private Border? _vfReadoutChip;
+        private TextBlock? _vfReadoutText;
+        private Brush _vfNodeFill = new SolidColorBrush(Colors.White);
+        private Brush _vfNodeActiveFill = new SolidColorBrush(Colors.DodgerBlue);
+
+        private static Brush VfBrush(string key, Windows.UI.Color fallback)
+            => Application.Current.Resources[key] as Brush ?? new SolidColorBrush(fallback);
 
         private void VfCurveCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             _vfDragIndex = -1;
-            if (!Vm.HasVfCurve || Vm.VfPoints.Count == 0) return;
+            _vfDragSnapshot = null;
+            if (!Vm.HasVfCurve || Vm.VfPoints.Count == 0 || _vfGeom is null) return;
             var canvas = (Canvas)sender;
             var pos = e.GetCurrentPoint(canvas).Position;
-            // Miss (empty space, axis labels) grabs nothing and handles nothing,
-            // so the ScrollViewer can still scroll from the canvas.
-            int hit = VfHitTest(pos);
-            if (hit < 0 || !TryGetVfPlotGeom(out var g)) return;
-            _vfDragIndex = hit;
-            var row = Vm.VfPoints[_vfDragIndex];
-            _vfDragStartOffset = row.OffsetMHz;
-            // Relative grab so the first movement doesn't snap the point
-            // to the cursor line when the grip does not touch the point.
-            _vfGrabDelta = pos.Y - g.Y(row.EffectiveMHz);
+            int knot = VfHitTest(pos);
+            if (knot < 0 || knot >= _vfKnots.Count) return;
+            int idx = _vfKnots[knot];
+            if (idx >= Vm.VfPoints.Count) return;
+            var row = Vm.VfPoints[idx];
+            _vfDragIndex = idx;
+            _vfDragSnapshot = Vm.VfPoints.Select(r => r.OffsetMHz).ToArray();
+            _vfGrabDelta = pos.Y - _vfGeom.Y(row.EffectiveMHz);
             canvas.CapturePointer(e.Pointer);
+            UpdateVfDynamic();
             e.Handled = true;
         }
 
         private void VfCurveCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            if (_vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
             var canvas = (Canvas)sender;
             var point = e.GetCurrentPoint(canvas);
-            // Capture can be lost mid-gesture (window deactivates, touch
-            // reroutes): without this, every later hover rewrite offsets
-            // with no button held. Only an in-contact pointer may edit.
-            if (!point.IsInContact) { _vfDragIndex = -1; return; }
-            var pos = point.Position;
-
-            if (!TryGetVfPlotGeom(out var g)) return;
-            double frac = 1.0 - ((pos.Y - _vfGrabDelta) - g.PlotT) / Math.Max(1.0, g.PlotH);
-            frac = Math.Clamp(frac, 0.0, 1.0);
-            var row = Vm.VfPoints[_vfDragIndex];
-            int want = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo)) - row.BaseFrequencyMHz;
-            // Monotonic envelope: the dragged point may touch its neighbours
-            // but never cross them, so a drag can no longer sculpt a curve the
-            // release commit has to reject (the old code let every drag cross,
-            // then errored on release - on flat-top boost tables that meant
-            // nearly every upward drag failed). Equal is allowed, matching the
-            // validator. An inverted envelope (neighbours already crossed from
-            // a bad base read) skips the assignment; release reports it.
-            int lo = Math.Min(row.MinOffsetMHz, row.MaxOffsetMHz);
-            int hi = Math.Max(row.MinOffsetMHz, row.MaxOffsetMHz);
-            if (_vfDragIndex > 0)
-                lo = Math.Max(lo, Vm.VfPoints[_vfDragIndex - 1].EffectiveMHz - row.BaseFrequencyMHz);
-            if (_vfDragIndex < Vm.VfPoints.Count - 1)
-                hi = Math.Min(hi, Vm.VfPoints[_vfDragIndex + 1].EffectiveMHz - row.BaseFrequencyMHz);
-            if (lo <= hi)
-                row.OffsetMHz = Math.Clamp(want, lo, hi);
-            RedrawVfCurve();
+            if (_vfDragIndex < 0)
+            {
+                UpdateVfHover(point.Position, canvas);
+                return;
+            }
+            if (!point.IsInContact) return;
+            ApplyVfDrag(point.Position);
             e.Handled = true;
+        }
+
+        private void VfCurveCanvas_PointerExited(object sender, PointerRoutedEventArgs e)
+        {
+            if (_vfHoverIndex < 0) return;
+            _vfHoverIndex = -1;
+            if (sender is VfEditorCanvas vf) vf.ShowHandCursor(false);
+            UpdateVfDynamic();
         }
 
         private void VfPoints_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -411,25 +375,21 @@ namespace kaliteConfig.GpuOverclock.Views
 
         private void VfRow_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(VfCurvePointRow.OffsetMHz))
-                RedrawVfCurve();
+            if (e.PropertyName != nameof(VfCurvePointRow.OffsetMHz)) return;
+            if (_vfDragIndex >= 0) return;
+            UpdateVfDynamic();
         }
 
         private void VfCurveCanvas_SizeChanged(object sender, RoutedEventArgs e) => RedrawVfCurve();
 
-        // Room for Y tick labels (left), X tick labels + title (bottom),
-        // and the Y axis title (top).
-        private const double VfPadL = 46, VfPadR = 10, VfPadT = 20, VfPadB = 42;
+        private const double VfPadL = 64, VfPadR = 18, VfPadT = 34, VfPadB = 52;
+        private const int VfMaxHandles = 21;
 
-        /// <summary>
-        /// Plot geometry shared by drawing and drag hit-testing, so the
-        /// pointer math can never drift from what is on screen.
-        /// </summary>
         private sealed record VfPlotGeom(double PlotL, double PlotT, double PlotW, double PlotH,
             int VMin, int VMax, int FLo, int FHi)
         {
-            public double X(double v) => PlotL + (v - VMin) / (VMax - VMin) * PlotW;
-            public double Y(double f) => PlotT + (1.0 - (f - FLo) / (FHi - FLo)) * PlotH;
+            public double X(double v) => PlotL + (v - VMin) / Math.Max(1.0, (double)(VMax - VMin)) * PlotW;
+            public double Y(double f) => PlotT + (1.0 - (f - FLo) / Math.Max(1.0, (double)(FHi - FLo))) * PlotH;
         }
 
         private bool TryGetVfPlotGeom(out VfPlotGeom g)
@@ -437,150 +397,344 @@ namespace kaliteConfig.GpuOverclock.Views
             g = null!;
             var pts = Vm.VfPoints;
             if (pts.Count == 0 || !Vm.HasVfCurve || VfCurveCanvas is null) return false;
-            double w = VfCurveCanvas.ActualWidth, h = VfCurveCanvas.ActualHeight;
-            if (w < VfPadL + VfPadR + 20 || h < VfPadT + VfPadB + 20) return false;
-            int vMin = pts.Min(r => r.VoltageMv), vMax = pts.Max(r => r.VoltageMv);
-            if (vMax == vMin) { vMin--; vMax++; }
-            int fLo = pts.Min(r => r.BaseFrequencyMHz + r.MinOffsetMHz);
-            int fHi = pts.Max(r => r.BaseFrequencyMHz + r.MaxOffsetMHz);
-            if (fHi == fLo) { fLo--; fHi++; }
+            double w = VfCurveCanvas.ActualWidth;
+            double h = VfCurveCanvas.ActualHeight;
+            if (w < VfPadL + VfPadR + 40 || h < VfPadT + VfPadB + 40) return false;
+
+            int vMin = pts.Min(r => r.VoltageMv);
+            int vMax = pts.Max(r => r.VoltageMv);
+            if (vMax == vMin) { vMin -= 25; vMax += 25; }
+
+            int baseLo = pts.Min(r => r.BaseFrequencyMHz);
+            int baseHi = pts.Max(r => r.BaseFrequencyMHz);
+            int margin = (int)Math.Clamp((baseHi - baseLo) * 0.22, 140, 420);
+            int fLo = Math.Min(baseLo - margin, pts.Min(r => r.EffectiveMHz) - 40);
+            int fHi = Math.Max(baseHi + margin, pts.Max(r => r.EffectiveMHz) + 40);
+            if (fHi - fLo < 200) { int mid = (fLo + fHi) / 2; fLo = mid - 100; fHi = mid + 100; }
+
             g = new VfPlotGeom(VfPadL, VfPadT, w - VfPadL - VfPadR, h - VfPadT - VfPadB, vMin, vMax, fLo, fHi);
             return true;
         }
 
-        /// <summary>"Nice" tick step (1/2/2.5/5 × 10^n) for at most maxTicks ticks.</summary>
-        private static (double Step, double First) VfNiceTicks(double min, double max, int maxTicks)
-            => GraphTicks.NiceTicks(min, max, maxTicks);
-
-        private static string VfTickLabel(double v) => GraphTicks.Label(v);
+        private void BuildVfKnots()
+        {
+            _vfKnots.Clear();
+            int n = Vm.VfPoints.Count;
+            if (n == 0) return;
+            if (n <= VfMaxHandles)
+            {
+                for (int i = 0; i < n; i++) _vfKnots.Add(i);
+                return;
+            }
+            int gaps = VfMaxHandles - 1;
+            for (int k = 0; k < gaps; k++)
+            {
+                int idx = (int)Math.Round(k * (n - 1) / (double)gaps);
+                if (_vfKnots.Count == 0 || idx != _vfKnots[^1]) _vfKnots.Add(idx);
+            }
+            if (_vfKnots[^1] != n - 1) _vfKnots.Add(n - 1);
+        }
 
         private void RedrawVfCurve()
         {
             if (VfCurveCanvas is null) return;
             VfCurveCanvas.Children.Clear();
-            VfAxisLeft.Text = "";
-            VfAxisRight.Text = "";
-            VfAxisCenter.Text = "";
-            if (!TryGetVfPlotGeom(out var g)) return;
-            var pts = Vm.VfPoints;
+            _vfHandles.Clear();
+            _vfStockLine = null;
+            _vfLiveLine = null;
+            _vfBand = null;
+            _vfGuideV = null;
+            _vfGuideH = null;
+            _vfReadoutChip = null;
+            _vfReadoutText = null;
+            _vfChromeValid = false;
+            _vfGeom = null;
+            _vfHoverIndex = -1;
+            BuildVfKnots();
+            if (!TryGetVfPlotGeom(out var g))
+            {
+                VfAxisCenter.Text = "";
+                return;
+            }
+            _vfGeom = g;
+            DrawVfChrome(g);
+            _vfChromeValid = true;
+            UpdateVfDynamic();
+        }
 
-            var secondary = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush
-                ?? new SolidColorBrush(Colors.Gray);
-            var accent = Application.Current.Resources["AccentFillColorDefaultBrush"] as Brush
-                ?? new SolidColorBrush(Colors.DodgerBlue);
-            var grid = Application.Current.Resources["DividerStrokeColorDefaultBrush"] as Brush
-                ?? new SolidColorBrush(Colors.Gray) { Opacity = 0.35 };
+        private void DrawVfChrome(VfPlotGeom g)
+        {
+            var secondary = VfBrush("TextFillColorSecondaryBrush", Colors.Gray);
+            var tertiary = VfBrush("TextFillColorTertiaryBrush", Colors.Gray);
+            var accent = VfBrush("AccentFillColorDefaultBrush", Colors.DodgerBlue);
+            var accentSoft = VfBrush("AccentFillColorTertiaryBrush", Colors.DodgerBlue);
+            var grid = VfBrush("DividerStrokeColorDefaultBrush", Colors.Gray);
+            _vfNodeFill = VfBrush("SolidBackgroundFillColorBaseBrush", Colors.White);
+            _vfNodeActiveFill = accent;
 
             double plotR = g.PlotL + g.PlotW, plotB = g.PlotT + g.PlotH;
 
-            // Gridlines + X ticks (voltage, mV).
-            var (xStep, xFirst) = VfNiceTicks(g.VMin, g.VMax, 6);
-            for (double t = xFirst; t <= g.VMax + 1e-9; t += xStep)
-            {
-                double x = g.X(t);
-                VfCurveCanvas.Children.Add(new Line
-                    { X1 = x, Y1 = g.PlotT, X2 = x, Y2 = plotB, Stroke = grid, StrokeThickness = 1 });
-                VfCurveCanvas.Children.Add(new Line
-                    { X1 = x, Y1 = plotB, X2 = x, Y2 = plotB + 4, Stroke = secondary, StrokeThickness = 1 });
-                var label = new TextBlock
-                    { Text = VfTickLabel(t), FontSize = 10, Foreground = secondary, TextAlignment = TextAlignment.Center, Width = 64 };
-                Canvas.SetLeft(label, Math.Clamp(x - 32, 0, Math.Max(0, VfCurveCanvas.ActualWidth - 64)));
-                Canvas.SetTop(label, plotB + 5);
-                VfCurveCanvas.Children.Add(label);
-            }
-
-            // Gridlines + Y ticks (frequency, MHz).
-            var (yStep, yFirst) = VfNiceTicks(g.FLo, g.FHi, 5);
-            for (double t = yFirst; t <= g.FHi + 1e-9; t += yStep)
+            var (fyStep, fyFirst) = GraphTicks.NiceTicks(g.FLo, g.FHi, 6);
+            for (double t = fyFirst; t <= g.FHi + 1e-9; t += fyStep)
             {
                 double y = g.Y(t);
+                if (y < g.PlotT - 0.5 || y > plotB + 0.5) continue;
                 VfCurveCanvas.Children.Add(new Line
-                    { X1 = g.PlotL, Y1 = y, X2 = plotR, Y2 = y, Stroke = grid, StrokeThickness = 1 });
-                VfCurveCanvas.Children.Add(new Line
-                    { X1 = g.PlotL - 4, Y1 = y, X2 = g.PlotL, Y2 = y, Stroke = secondary, StrokeThickness = 1 });
-                var label = new TextBlock
-                    { Text = VfTickLabel(t), FontSize = 10, Foreground = secondary, TextAlignment = TextAlignment.Right, Width = g.PlotL - 8 };
-                Canvas.SetLeft(label, 0);
-                Canvas.SetTop(label, y - 8);
-                VfCurveCanvas.Children.Add(label);
+                    { X1 = g.PlotL, Y1 = y, X2 = plotR, Y2 = y, Stroke = grid, StrokeThickness = 1, Opacity = 0.5 });
+                var lbl = new TextBlock
+                    { Text = GraphTicks.Label(t), FontSize = 11, Foreground = secondary, TextAlignment = TextAlignment.Right, Width = g.PlotL - 10 };
+                Canvas.SetLeft(lbl, 0);
+                Canvas.SetTop(lbl, y - 8);
+                VfCurveCanvas.Children.Add(lbl);
             }
 
-            // Axes.
-            VfCurveCanvas.Children.Add(new Line
-                { X1 = g.PlotL, Y1 = g.PlotT, X2 = g.PlotL, Y2 = plotB, Stroke = secondary, StrokeThickness = 1.5 });
-            VfCurveCanvas.Children.Add(new Line
-                { X1 = g.PlotL, Y1 = plotB, X2 = plotR, Y2 = plotB, Stroke = secondary, StrokeThickness = 1.5 });
+            var (vxStep, vxFirst) = GraphTicks.NiceTicks(g.VMin, g.VMax, 7);
+            for (double t = vxFirst; t <= g.VMax + 1e-9; t += vxStep)
+            {
+                double x = g.X(t);
+                if (x < g.PlotL - 0.5 || x > plotR + 0.5) continue;
+                VfCurveCanvas.Children.Add(new Line
+                    { X1 = x, Y1 = g.PlotT, X2 = x, Y2 = plotB, Stroke = grid, StrokeThickness = 1, Opacity = 0.5 });
+                var lbl = new TextBlock
+                    { Text = GraphTicks.Label(t), FontSize = 11, Foreground = secondary, TextAlignment = TextAlignment.Center, Width = 56 };
+                Canvas.SetLeft(lbl, Math.Clamp(x - 28, 0, Math.Max(0, VfCurveCanvas.ActualWidth - 56)));
+                Canvas.SetTop(lbl, plotB + 7);
+                VfCurveCanvas.Children.Add(lbl);
+            }
 
-            // Curves: stock dashed gray underneath, live accent on top.
-            var stock = new Polyline
+            VfCurveCanvas.Children.Add(new Line
+                { X1 = g.PlotL, Y1 = g.PlotT, X2 = g.PlotL, Y2 = plotB, Stroke = secondary, StrokeThickness = 1.25, Opacity = 0.7 });
+            VfCurveCanvas.Children.Add(new Line
+                { X1 = g.PlotL, Y1 = plotB, X2 = plotR, Y2 = plotB, Stroke = secondary, StrokeThickness = 1.25, Opacity = 0.7 });
+
+            var yTitle = new TextBlock { Text = "Clock (MHz)", FontSize = 11, Foreground = tertiary };
+            Canvas.SetLeft(yTitle, 4);
+            Canvas.SetTop(yTitle, 8);
+            VfCurveCanvas.Children.Add(yTitle);
+
+            var xTitle = new TextBlock
+                { Text = "Voltage (mV)", FontSize = 11, Foreground = tertiary, TextAlignment = TextAlignment.Center, Width = 160 };
+            Canvas.SetLeft(xTitle, Math.Clamp(g.PlotL + g.PlotW / 2 - 80, 0, Math.Max(0, VfCurveCanvas.ActualWidth - 160)));
+            Canvas.SetTop(xTitle, plotB + 27);
+            VfCurveCanvas.Children.Add(xTitle);
+
+            _vfStockLine = new Polyline
             {
                 Stroke = secondary,
                 StrokeThickness = 1.5,
                 StrokeDashArray = new DoubleCollection { 4, 3 },
-                Opacity = 0.8,
+                Opacity = 0.55,
+                IsHitTestVisible = false,
             };
-            var live = new Polyline { Stroke = accent, StrokeThickness = 2 };
-            foreach (var r in pts)
-            {
-                stock.Points.Add(new Windows.Foundation.Point(g.X(r.VoltageMv), g.Y(r.BaseFrequencyMHz)));
-                live.Points.Add(new Windows.Foundation.Point(g.X(r.VoltageMv), g.Y(r.EffectiveMHz)));
-            }
-            VfCurveCanvas.Children.Add(stock);
-            VfCurveCanvas.Children.Add(live);
+            foreach (var r in Vm.VfPoints)
+                _vfStockLine.Points.Add(new Windows.Foundation.Point(g.X(r.VoltageMv), g.Y(r.BaseFrequencyMHz)));
+            VfCurveCanvas.Children.Add(_vfStockLine);
 
-            // Thumbs: every point when few, decimated when many (hit-testing
-            // still considers ALL points by nearest-X, so decimation is visual only).
-            int step = pts.Count <= 48 ? 1 : (pts.Count + 47) / 48;
-            for (int i = 0; i < pts.Count; i += step)
+            _vfBand = new Polygon { Fill = accentSoft, Opacity = 0.3, IsHitTestVisible = false };
+            VfCurveCanvas.Children.Add(_vfBand);
+
+            _vfLiveLine = new Polyline
             {
-                var dot = new Ellipse
+                Stroke = accent,
+                StrokeThickness = 2.5,
+                StrokeLineJoin = PenLineJoin.Round,
+                IsHitTestVisible = false,
+            };
+            VfCurveCanvas.Children.Add(_vfLiveLine);
+
+            _vfGuideV = new Line
+                { Stroke = accent, StrokeThickness = 1, Opacity = 0.55, IsHitTestVisible = false, Visibility = Visibility.Collapsed };
+            _vfGuideH = new Line
+                { Stroke = accent, StrokeThickness = 1, Opacity = 0.55, IsHitTestVisible = false, Visibility = Visibility.Collapsed };
+            VfCurveCanvas.Children.Add(_vfGuideV);
+            VfCurveCanvas.Children.Add(_vfGuideH);
+
+            _vfReadoutText = new TextBlock { FontSize = 12, FontWeight = FontWeights.SemiBold };
+            _vfReadoutChip = new Border
+            {
+                Background = VfBrush("CardBackgroundFillColorSecondaryBrush", Colors.Black),
+                BorderBrush = VfBrush("CardStrokeColorDefaultBrush", Colors.Gray),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8, 4, 8, 4),
+                Child = _vfReadoutText,
+                IsHitTestVisible = false,
+                Visibility = Visibility.Collapsed,
+            };
+            VfCurveCanvas.Children.Add(_vfReadoutChip);
+
+            foreach (int idx in _vfKnots)
+            {
+                var h = new Ellipse
                 {
-                    Width = 9, Height = 9,
-                    Fill = accent,
-                    Stroke = secondary,
-                    StrokeThickness = 1,
+                    Width = 11,
+                    Height = 11,
+                    Fill = _vfNodeFill,
+                    Stroke = accent,
+                    StrokeThickness = 2.5,
+                    IsHitTestVisible = false,
                 };
-                Canvas.SetLeft(dot, g.X(pts[i].VoltageMv) - 4.5);
-                Canvas.SetTop(dot, g.Y(pts[i].EffectiveMHz) - 4.5);
-                VfCurveCanvas.Children.Add(dot);
+                _vfHandles.Add(h);
+                VfCurveCanvas.Children.Add(h);
             }
-
-            // Axis titles (drawn last so they stay readable).
-            var yTitle = new TextBlock { Text = "Frequency (MHz)", FontSize = 11, Foreground = secondary };
-            Canvas.SetLeft(yTitle, g.PlotL);
-            Canvas.SetTop(yTitle, 0);
-            VfCurveCanvas.Children.Add(yTitle);
-
-            var xTitle = new TextBlock
-                { Text = "Voltage (mV)", FontSize = 11, Foreground = secondary, TextAlignment = TextAlignment.Center, Width = 200 };
-            Canvas.SetLeft(xTitle, g.PlotL + g.PlotW / 2 - 100);
-            Canvas.SetTop(xTitle, plotB + 20);
-            VfCurveCanvas.Children.Add(xTitle);
-
-            VfAxisCenter.Text = $"{pts.Count} points · {g.FLo}–{g.FHi} MHz envelope";
         }
 
-        /// <summary>
-        /// Dot hit-test: the press must land near an actual dot. The old
-        /// nearest-X-always version grabbed a point from anywhere on the canvas,
-        /// so stray presses yanked the line and release auto-committed the
-        /// damage to the driver.
-        /// </summary>
+        private void UpdateVfDynamic()
+        {
+            if (VfCurveCanvas is null || !_vfChromeValid || _vfGeom is null) return;
+            var g = _vfGeom;
+            var pts = Vm.VfPoints;
+            if (pts.Count == 0 || _vfLiveLine is null || _vfBand is null) return;
+
+            _vfLiveLine.Points.Clear();
+            _vfBand.Points.Clear();
+            var forward = new List<Windows.Foundation.Point>(pts.Count);
+            foreach (var r in pts)
+            {
+                var p = new Windows.Foundation.Point(g.X(r.VoltageMv), g.Y(r.EffectiveMHz));
+                forward.Add(p);
+                _vfLiveLine.Points.Add(p);
+            }
+            foreach (var p in forward) _vfBand.Points.Add(p);
+            for (int i = pts.Count - 1; i >= 0; i--)
+                _vfBand.Points.Add(new Windows.Foundation.Point(g.X(pts[i].VoltageMv), g.Y(pts[i].BaseFrequencyMHz)));
+
+            for (int k = 0; k < _vfHandles.Count && k < _vfKnots.Count; k++)
+            {
+                int idx = _vfKnots[k];
+                if (idx >= pts.Count) continue;
+                var r = pts[idx];
+                bool active = idx == _vfDragIndex || idx == _vfHoverIndex;
+                var h = _vfHandles[k];
+                h.Width = h.Height = active ? 15 : 11;
+                h.Fill = active ? _vfNodeActiveFill : _vfNodeFill;
+                Canvas.SetLeft(h, g.X(r.VoltageMv) - h.Width / 2);
+                Canvas.SetTop(h, g.Y(r.EffectiveMHz) - h.Height / 2);
+            }
+
+            UpdateVfReadout(g, _vfDragIndex >= 0 ? _vfDragIndex : _vfHoverIndex);
+
+            VfAxisCenter.Text = $"{pts.Count} nodes · {pts.Min(r => r.EffectiveMHz)}-{pts.Max(r => r.EffectiveMHz)} MHz applied";
+        }
+
+        private void UpdateVfReadout(VfPlotGeom g, int idx)
+        {
+            if (_vfReadoutChip is null || _vfReadoutText is null || _vfGuideV is null || _vfGuideH is null) return;
+            if (idx < 0 || idx >= Vm.VfPoints.Count)
+            {
+                _vfReadoutChip.Visibility = Visibility.Collapsed;
+                _vfGuideV.Visibility = Visibility.Collapsed;
+                _vfGuideH.Visibility = Visibility.Collapsed;
+                return;
+            }
+            var r = Vm.VfPoints[idx];
+            double x = g.X(r.VoltageMv), y = g.Y(r.EffectiveMHz);
+            _vfReadoutText.Text = $"{r.VoltageMv} mV · {r.EffectiveMHz} MHz  ({r.OffsetMHz:+0;-0;0})";
+            _vfReadoutChip.Visibility = Visibility.Visible;
+            _vfReadoutChip.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double cw = _vfReadoutChip.DesiredSize.Width;
+            double ch = _vfReadoutChip.DesiredSize.Height;
+            double cx = Math.Clamp(x + 14, g.PlotL, Math.Max(g.PlotL, VfCurveCanvas.ActualWidth - cw - 6));
+            double cy = Math.Clamp(y - ch - 12, 2, Math.Max(2, VfCurveCanvas.ActualHeight - ch - 2));
+            Canvas.SetLeft(_vfReadoutChip, cx);
+            Canvas.SetTop(_vfReadoutChip, cy);
+            _vfGuideV.X1 = x; _vfGuideV.X2 = x; _vfGuideV.Y1 = g.PlotT; _vfGuideV.Y2 = g.PlotT + g.PlotH;
+            _vfGuideH.Y1 = y; _vfGuideH.Y2 = y; _vfGuideH.X1 = g.PlotL; _vfGuideH.X2 = g.PlotL + g.PlotW;
+            _vfGuideV.Visibility = Visibility.Visible;
+            _vfGuideH.Visibility = Visibility.Visible;
+        }
+
         private int VfHitTest(Windows.Foundation.Point pos)
         {
-            if (!TryGetVfPlotGeom(out var g)) return -1;
+            if (_vfGeom is null || _vfKnots.Count == 0) return -1;
+            var g = _vfGeom;
             var pts = Vm.VfPoints;
             int best = -1;
-            double bestDist = double.MaxValue;
-            for (int i = 0; i < pts.Count; i++)
+            double bestD = 18 * 18;
+            int loose = -1;
+            double looseDx = 24;
+            for (int k = 0; k < _vfKnots.Count; k++)
             {
-                double dx = Math.Abs(g.X(pts[i].VoltageMv) - pos.X);
-                double dy = Math.Abs(g.Y(pts[i].EffectiveMHz) - pos.Y);
-                if (dx > 28 || dy > 60) continue;
-                double d = dx + dy;
-                if (d < bestDist) { bestDist = d; best = i; }
+                int idx = _vfKnots[k];
+                if (idx >= pts.Count) continue;
+                var r = pts[idx];
+                double dx = g.X(r.VoltageMv) - pos.X;
+                double dy = g.Y(r.EffectiveMHz) - pos.Y;
+                double d = dx * dx + dy * dy;
+                if (d <= bestD) { bestD = d; best = k; }
+                double adx = Math.Abs(dx);
+                if (adx < looseDx) { looseDx = adx; loose = k; }
             }
-            return best;
+            if (best >= 0) return best;
+            bool inside = pos.X >= g.PlotL - 10 && pos.X <= g.PlotL + g.PlotW + 10
+                          && pos.Y >= g.PlotT - 10 && pos.Y <= g.PlotT + g.PlotH + 10;
+            return inside ? loose : -1;
+        }
+
+        private void UpdateVfHover(Windows.Foundation.Point pos, Canvas canvas)
+        {
+            if (_vfGeom is null) return;
+            int knot = VfHitTest(pos);
+            int hover = knot >= 0 && knot < _vfKnots.Count ? _vfKnots[knot] : -1;
+            if (hover == _vfHoverIndex) return;
+            _vfHoverIndex = hover;
+            if (canvas is VfEditorCanvas vf) vf.ShowHandCursor(hover >= 0);
+            UpdateVfDynamic();
+        }
+
+        private void ApplyVfDrag(Windows.Foundation.Point pos)
+        {
+            if (_vfGeom is null || _vfDragIndex < 0 || _vfDragIndex >= Vm.VfPoints.Count) return;
+            var g = _vfGeom;
+            int idx = _vfDragIndex;
+            var pts = Vm.VfPoints;
+            var row = pts[idx];
+
+            double frac = 1.0 - ((pos.Y - _vfGrabDelta) - g.PlotT) / Math.Max(1.0, g.PlotH);
+            frac = Math.Clamp(frac, 0.0, 1.0);
+            int targetEff = (int)Math.Round(g.FLo + frac * (g.FHi - g.FLo));
+
+            int knotPos = _vfKnots.IndexOf(idx);
+            int lo = Math.Min(row.MinOffsetMHz, row.MaxOffsetMHz);
+            int hi = Math.Max(row.MinOffsetMHz, row.MaxOffsetMHz);
+            if (knotPos > 0)
+            {
+                int lk = _vfKnots[knotPos - 1];
+                lo = Math.Max(lo, pts[lk].EffectiveMHz - 1 - row.BaseFrequencyMHz);
+            }
+            if (knotPos >= 0 && knotPos < _vfKnots.Count - 1)
+            {
+                int rk = _vfKnots[knotPos + 1];
+                hi = Math.Min(hi, pts[rk].EffectiveMHz + 1 - row.BaseFrequencyMHz);
+            }
+
+            int want = targetEff - row.BaseFrequencyMHz;
+            if (lo <= hi) row.OffsetMHz = Math.Clamp(want, lo, hi);
+
+            ShapeVfSpans(idx);
+            UpdateVfDynamic();
+        }
+
+        private void ShapeVfSpans(int idx)
+        {
+            int knotPos = _vfKnots.IndexOf(idx);
+            if (knotPos < 0) return;
+            if (knotPos > 0) InterpolateVfSpan(_vfKnots[knotPos - 1], idx);
+            if (knotPos < _vfKnots.Count - 1) InterpolateVfSpan(idx, _vfKnots[knotPos + 1]);
+        }
+
+        private void InterpolateVfSpan(int a, int b)
+        {
+            if (b <= a + 1) return;
+            var pts = Vm.VfPoints;
+            double ea = pts[a].EffectiveMHz;
+            double eb = pts[b].EffectiveMHz;
+            for (int i = a + 1; i < b; i++)
+            {
+                double t = (i - a) / (double)(b - a);
+                int eff = (int)Math.Round(ea + (eb - ea) * t);
+                pts[i].OffsetMHz = eff - pts[i].BaseFrequencyMHz;
+            }
         }
 
         private void VfCurveCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -589,35 +743,46 @@ namespace kaliteConfig.GpuOverclock.Views
             int idx = _vfDragIndex;
             _vfDragIndex = -1;
             try { ((Canvas)sender).ReleasePointerCapture(e.Pointer); } catch { }
-            if (idx < 0 || idx >= Vm.VfPoints.Count) return;
-            var row = Vm.VfPoints[idx];
-            // Tap without a move: nothing changed, so skip the driver write
-            // and the safety-machine churn entirely.
-            if (row.OffsetMHz == _vfDragStartOffset) { e.Handled = true; return; }
-            // Commit on release: validates monotonicity, then routes through
-            // the same safety state machine as every other control. A rejected
-            // curve snaps the dragged point back: the old code kept the invalid
-            // value in the row, so the graph displayed a curve that was never
-            // applied and every later Apply kept failing on it.
+            var snap = _vfDragSnapshot;
+            _vfDragSnapshot = null;
+            if (idx < 0 || idx >= Vm.VfPoints.Count) { RedrawVfCurve(); return; }
+
+            bool changed = false;
+            if (snap is not null)
+                for (int i = 0; i < snap.Length && i < Vm.VfPoints.Count; i++)
+                    if (snap[i] != Vm.VfPoints[i].OffsetMHz) { changed = true; break; }
+
+            if (!changed)
+            {
+                RedrawVfCurve();
+                e.Handled = true;
+                return;
+            }
+
             Vm.ApplyVfCurveEdits();
-            if (!string.IsNullOrEmpty(Vm.VfCurveError))
-                row.OffsetMHz = _vfDragStartOffset;
+            if (!string.IsNullOrEmpty(Vm.VfCurveError) && snap is not null)
+            {
+                for (int i = 0; i < snap.Length && i < Vm.VfPoints.Count; i++)
+                    Vm.VfPoints[i].OffsetMHz = snap[i];
+                Vm.ClearVfCurveError();
+            }
+            RedrawVfCurve();
             e.Handled = true;
         }
 
         private void VfCurveCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
         {
-            // Drag aborted (touch canceled, capture lost): put the dragged
-            // point back where the gesture found it.
-            if (_vfDragIndex >= 0 && _vfDragIndex < Vm.VfPoints.Count)
-                Vm.VfPoints[_vfDragIndex].OffsetMHz = _vfDragStartOffset;
+            if (_vfDragIndex >= 0)
+            {
+                var snap = _vfDragSnapshot;
+                if (snap is not null)
+                    for (int i = 0; i < snap.Length && i < Vm.VfPoints.Count; i++)
+                        Vm.VfPoints[i].OffsetMHz = snap[i];
+            }
             _vfDragIndex = -1;
+            _vfDragSnapshot = null;
+            RedrawVfCurve();
         }
-
-        // ---------------- Fan curve graph: drag ↔ table two-way sync ----------------
-        // The TABLE stays the commit path (Apply curve button) - the graph only
-        // edits row values, exactly like typing in the table cells. No write
-        // logic changes: dragging never starts the loop by itself.
 
         private int _fanDragIndex = -1;
 
@@ -680,7 +845,6 @@ namespace kaliteConfig.GpuOverclock.Views
 
             double plotR = g.PlotL + g.PlotW, plotB = g.PlotT + g.PlotH;
 
-            // Fixed 0–100 % scale so drags read true; units baked into labels.
             var (yStep, yFirst) = GraphTicks.NiceTicks(0, 100, 4);
             for (double t = yFirst; t <= 100 + 1e-9; t += yStep)
             {
@@ -748,7 +912,6 @@ namespace kaliteConfig.GpuOverclock.Views
             _fanDragIndex = -1;
             if (Vm.CurvePoints.Count == 0) return;
             var canvas = (Canvas)sender;
-            // Miss grabs nothing and handles nothing (scroll still works).
             int hit = FanHitTest(e.GetCurrentPoint(canvas).Position);
             if (hit < 0) return;
             _fanDragIndex = hit;
@@ -760,12 +923,10 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             if (_fanDragIndex < 0 || _fanDragIndex >= Vm.CurvePoints.Count) return;
             var point = e.GetCurrentPoint((Canvas)sender);
-            // See VF handler: never edit on a hover after lost capture.
             if (!point.IsInContact) { _fanDragIndex = -1; return; }
             if (!TryGetFanPlotGeom(out var g)) return;
             var pos = point.Position;
             double frac = 1.0 - (pos.Y - g.PlotT) / Math.Max(1.0, g.PlotH);
-            // Table rows are int %; the setter path is identical to typing.
             Vm.CurvePoints[_fanDragIndex].FanPercent = (int)Math.Round(Math.Clamp(frac, 0.0, 1.0) * 100.0);
             e.Handled = true;
         }
@@ -775,8 +936,6 @@ namespace kaliteConfig.GpuOverclock.Views
             if (_fanDragIndex < 0) return;
             _fanDragIndex = -1;
             try { ((Canvas)sender).ReleasePointerCapture(e.Pointer); } catch { }
-            // Deliberately NO auto-commit: the table + Apply curve button
-            // stays the single commit path for Curve mode.
             e.Handled = true;
         }
 
@@ -784,8 +943,6 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             _fanDragIndex = -1;
         }
-
-        // ---------------- Monitor graphs (live history incl. hotspot) ----------------
 
         private void MonitorCanvas_SizeChanged(object sender, RoutedEventArgs e) => RedrawMonitor();
 
@@ -814,11 +971,6 @@ namespace kaliteConfig.GpuOverclock.Views
             }, 0, 100);
         }
 
-        /// <summary>
-        /// Draws autoscaled history sparklines (nulls break the line - gaps,
-        /// never fabricated zeros). Fixed bounds pin scales where they carry
-        /// meaning (0–100 % fan, watts from 0).
-        /// </summary>
         private void DrawMonitorSeries(Canvas canvas,
             IReadOnlyList<MonitorSample> history,
             (Func<MonitorSample, double?> Get, string BrushKey)[] series,

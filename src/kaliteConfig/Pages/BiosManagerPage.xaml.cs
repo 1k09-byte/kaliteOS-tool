@@ -32,26 +32,17 @@ namespace kaliteConfig.Pages
             this.DataContext = ViewModel;
         }
 
-        // Every open of the page auto-exports the live BIOS settings with the
-        // bundled SCEWIN tool and shows them (a cached dump is shown instantly
-        // while the fresh export runs). Manual "Load dump" still works.
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
             _ = ViewModel.AutoLoadAsync();
         }
 
-        // ---- toolbar / overlays ----
-
         private void LoadDump_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.LoadFileCommand.Execute(null);
         }
 
-        /// <summary>
-        /// Apply flow with review: build the Name → Old → New change list and
-        /// validation warnings in a dialog; only then flash to BIOS.
-        /// </summary>
         private async void ApplyToBios_Click(object sender, RoutedEventArgs e)
         {
             if (!ViewModel.HasDocument) return;
@@ -113,16 +104,9 @@ namespace kaliteConfig.Pages
             ViewModel.SaveFileCommand.Execute(null);
         }
 
-
-        // ---- list / tree / search events ----
-
         private void SettingsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ViewModel.SelectedRow = e.AddedItems?.OfType<BiosSettingRow>().FirstOrDefault();
-            // Recreate the picker's selection here (no TwoWay binding): while
-            // ItemsSource repopulates, SelectedValue can transiently resolve to
-            // nothing and write an empty value over the real one. One-way
-            // display plus this explicit sync avoids that race entirely.
             if (ViewModel.SelectedRow is { } row && row.IsEnumerated)
                 ValueCombo.SelectedValue = row.SelectedToken;
         }
@@ -132,14 +116,6 @@ namespace kaliteConfig.Pages
             ViewModel.FilterCommand.Execute(sender.Text);
         }
 
-        // ---- category filters ----
-
-        /// <summary>
-        /// Writes the picked option back to the row. A TwoWay SelectedValue
-        /// binding can fire while the ComboBox is repopulating and push an
-        /// empty string over the current value ("Value is empty" bug), so the
-        /// write-back is done here once a real selection exists.
-        /// </summary>
         private void ValueCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ViewModel.SelectedRow is not { } row || !row.IsEnumerated) return;
@@ -147,9 +123,7 @@ namespace kaliteConfig.Pages
                 row.SelectedToken = option.RawToken;
         }
 
-        // ---- quick edit (used when the detail pane is collapsed below 1000px) ----
-
-        private void ValuePill_Tapped(object sender, TappedRoutedEventArgs e)
+        private void ValuePill_Click(object sender, RoutedEventArgs e)
         {
             if (this.ActualWidth < 1000 &&
                 ((FrameworkElement)sender).DataContext is BiosSettingRow row)

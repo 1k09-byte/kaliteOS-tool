@@ -13,12 +13,6 @@ using System.Collections.Generic;
 
 namespace kaliteConfig.Models;
 
-/// <summary>
-/// A node in the BIOS menu tree, built from the dump's section header lines
-/// (e.g. "----- Advanced ----- CPU Configuration -----"). Counts are
-/// subtree-inclusive so a badge like "CPU Configuration (24)" tells the user
-/// how many settings live below the node before they open it.
-/// </summary>
 public sealed class BiosMenuSection
 {
     public string Name { get; }
@@ -27,7 +21,6 @@ public sealed class BiosMenuSection
     public List<BiosMenuSection> Children { get; } = new();
     public List<BiosSetting> Settings { get; } = new();
 
-    /// <summary>Direct settings plus everything in descendants.</summary>
     public int TotalCount { get; private set; }
 
     public bool IsRoot => Path.Length == 0;

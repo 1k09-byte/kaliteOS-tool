@@ -19,15 +19,8 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.GpuOverclock.ViewModels
 {
-    /// <summary>
-    /// One AMD adapter, as the AMD page shows it: identity on the left, the
-    /// tuning domains the driver says it exposes on the right.
-    /// </summary>
     public sealed partial class AmdGpuCardItem : ObservableObject
     {
-        // Plain settable properties (not init/required): the XAML compiler emits
-        // strongly-typed assigners for every member bound in a DataTemplate, and
-        // init-only members fail to compile in that generated file.
         public string Name { get; set; } = string.Empty;
         public string PnpString { get; set; } = string.Empty;
         public string DeviceIdText { get; set; } = string.Empty;
@@ -39,20 +32,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public bool ManualPower { get; set; }
         public bool AnyControlSupported { get; set; }
 
-        /// <summary>"Discrete" / "Integrated" - ADLX has no other classification.</summary>
         public string KindText => IsDiscrete ? "Discrete" : "Integrated";
 
         public string DeviceKindText => $"{KindText} · {VramText}";
 
-        /// <summary>
-        /// The second line, pre-joined. Deliberately NOT three &lt;Run&gt; elements
-        /// with bindings on them: Run.Text is not a bindable property, and a
-        /// binding on it throws as soon as the template is instantiated - which
-        /// is exactly the first time a detected card is shown.
-        /// </summary>
         public string SubtitleText => $"{DeviceKindText}  ·  {DeviceIdText}";
 
-        /// <summary>One line naming the domains the driver will actually accept.</summary>
         public string CapabilityText
         {
             get
@@ -69,12 +54,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         }
     }
 
-    /// <summary>
-    /// Backing model for the AMD section of the Overclock page. Detection is
-    /// real: it goes through ADLX (see <see cref="AmdAdlxInterop"/>) and asks the
-    /// installed AMD driver what each adapter supports. Nothing here is inferred
-    /// from card names.
-    /// </summary>
     public sealed partial class AmdOverclockViewModel : ObservableObject
     {
         public ObservableCollection<AmdGpuCardItem> Cards { get; } = new();
@@ -87,19 +66,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty] public partial bool HasTunableCard { get; set; }
         [ObservableProperty] public partial string? ErrorMessage { get; set; }
 
-        /// <summary>
-        /// Explains an empty or dead end. Kept as one nullable string (rather
-        /// than several booleans the page would have to AND together) so the XAML
-        /// stays a plain NullToVisibility binding.
-        /// </summary>
         [ObservableProperty] public partial string? InfoNote { get; set; }
 
-        /// <summary>Set when a tunable card exists but this build writes nothing yet.</summary>
         [ObservableProperty] public partial string? WriteNote { get; set; }
 
         private bool _loaded;
 
-        /// <summary>Runs the ADLX probe once per page instance.</summary>
         public async Task EnsureLoadedAsync()
         {
             if (_loaded) return;
@@ -118,9 +90,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 ErrorMessage = null;
                 StatusText = "Detecting AMD GPUs…";
 
-                // Simulation replaces the whole section, not just adds to it: a
-                // real 780M listed next to a fabricated 7900 XTX would be two
-                // answers to one question.
                 if (AmdGpuSimulation.IsActive)
                 {
                     AdlxAvailable = true;
@@ -211,7 +180,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             AnyControlSupported = gpu.AnyControlSupported,
         };
 
-        /// <summary>Pulls the human part out of a PNP id, e.g. "13C0" from VEN_1002&amp;DEV_13C0.</summary>
         internal static string DescribeDeviceId(string? pnpString)
         {
             if (string.IsNullOrEmpty(pnpString)) return "device id unknown";

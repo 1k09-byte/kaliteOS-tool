@@ -13,50 +13,29 @@ using System;
 namespace kaliteConfig.GpuOverclock.Models
 {
 
-    /// <summary>
-    /// Distinct failure modes the module recognizes. Each maps to a specific,
-    /// user-legible message - no raw exception text is surfaced in the UI.
-    /// The taxonomy deliberately mirrors NVIDIAApiException.Status cases we can
-    /// actually see from NVAPI, plus module-level states.
-    /// </summary>
     public enum OverclockErrorKind
     {
-        /// <summary>No NVIDIA discrete GPU present (or only WDDM 1.0-era adapters).</summary>
         GpuNotDetected,
 
-        /// <summary>GPU present but not NVIDIA. Currently only NVIDIA has a backend; kept distinct from a generic unsupported control so the UI can explain that the card is the problem.</summary>
         GpuNotNvidia,
 
-        /// <summary>NvAPIWrapper initialize failed: nvapi library missing/mismatched, driver too old.</summary>
         NvApiInitFailed,
 
-        /// <summary>Control is unsupported on this GPU/driver (no range, NotSupported status).</summary>
         ControlUnsupported,
 
-        /// <summary>Write rejected by driver although the value was within the queried range.</summary>
         WriteRejected,
 
-        /// <summary>Write succeeded but telemetry/readback does not confirm the new value.</summary>
         ReadbackMismatch,
 
-        /// <summary>Driver reset (TDR) detected during/after a write window.</summary>
         DriverReset,
 
-        /// <summary>GPU disappeared mid-session (re-detect removed it, eGPU unplug).</summary>
         GpuDisconnected,
 
-        /// <summary>Fan control unsupported / cooler is not controllable on this board.</summary>
         FanControlUnsupported,
 
-        /// <summary>Unexpected failure - details in the change log, message kept generic.</summary>
         Unknown,
     }
 
-    /// <summary>
-    /// Result wrapper for controller operations. Expected failure modes are
-    /// returned as values - exceptions are reserved for genuinely exceptional
-    /// conditions (OOM, thread aborts).
-    /// </summary>
     public class GpuResult
     {
         public bool IsSuccess { get; }
@@ -85,7 +64,6 @@ namespace kaliteConfig.GpuOverclock.Models
         public static new GpuResult<T> Fail(OverclockErrorKind kind, string? detail = null) => new(kind, detail);
     }
 
-    /// <summary>Human-legible message for each error kind (UI-facing, no exception text).</summary>
     public static class OverclockErrorMessages
     {
         public static string For(OverclockErrorKind kind) => kind switch

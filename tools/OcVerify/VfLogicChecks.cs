@@ -6,14 +6,6 @@ using kaliteConfig.GpuOverclock.Services;
 
 namespace OcVerify
 {
-    /// <summary>
-    /// GPU-independent v2 logic checks: V/F curve math (monotonicity, clamping,
-    /// flat expansion, base/edit separation), the shared ProfileBatchBuilder
-    /// against a fake controller, the safety machine's per-control countdowns
-    /// + curve/voltage revert anchors, and game-binding match rules.
-    /// Runs anywhere (no NVAPI, no GPU) - the hardware half lives in
-    /// Program.VerifyVfCurve, which must run on the real RTX machine.
-    /// </summary>
     internal static class VfLogicChecks
     {
         private static int _failures;
@@ -42,7 +34,6 @@ namespace OcVerify
             return _failures;
         }
 
-        // Synthetic 8-point curve: 700..825 mV, 1500..2205 MHz stock, ±200 range.
         private static GpuVoltageFrequencyCurve SyntheticCurve()
         {
             var c = new GpuVoltageFrequencyCurve();
@@ -70,7 +61,6 @@ namespace OcVerify
                 $"mid-curve dip rejected with a pointing error ({e1})");
 
             var equal = new[] { 0, 0, -100, 0, 0, 0, 0, 0 };
-            // point4 base 1800-100=1700 vs point3 1700 -> equal is allowed (non-decreasing)
             Check(c.ValidateMonotonic(equal, out _), "equal adjacent frequencies allowed (non-decreasing)");
 
             var clamped = c.ClampOffsets(new[] { 0, 0, 0, 0, 0, 0, 0, 500 });
@@ -82,7 +72,6 @@ namespace OcVerify
             var flatClamped = c.ExpandFlatOffset(999);
             Check(flatClamped.All(o => o == 200), "flat expansion respects per-point maxima");
 
-            // Base/edit separation: clamping must never mutate the queried base.
             c.ClampOffsets(new[] { 10, 20, 30, 40, 50, 60, 70, 80 });
             Check(c.Points.All(p => p.OffsetMHz == 0), "ClampOffsets leaves the base curve untouched");
 
@@ -171,7 +160,7 @@ namespace OcVerify
                 Name = "p",
                 CoreOffsetMHz = 50,
                 VfCurveOffsets = new List<int> { 10, 10, 10, 10, 10, 10, 10, 10 },
-                GlobalVoltageBoostOffsetMHz = 99, // table must win over flat
+                GlobalVoltageBoostOffsetMHz = 99,
             };
             var batch = ProfileBatchBuilder.Build(fake, caps, profile, _ => "old", live, out var skip);
             Check(skip is null, "matching table builds with no skip");
@@ -221,7 +210,6 @@ namespace OcVerify
                 if (e.State == SafetyState.AwaitingConfirmation) seenWindow = e.CountdownSecondsRemaining;
             };
 
-            // Curve batch -> longer window (22 default, not the 15 global).
             var curveBatch = new[]
             {
                 new PendingChange(OcControlNames.VoltageFrequencyCurve,
@@ -233,12 +221,10 @@ namespace OcVerify
             Check(seenWindow == 22, $"curve batch opens a 22s window (saw {seenWindow}s)");
             Check(fake.LiveCurve.All(o => o == 30), "curve write landed on the fake");
 
-            // Timeout revert must restore the PRE-batch per-point anchor.
             safety.RevertNow();
             Check(fake.LiveCurve.All(o => o == 5), "curve revert restores pre-batch per-point offsets (not zeros)");
             Check(safety.CurrentState == SafetyState.Idle, "machine idle after curve revert");
 
-            // Plain batch still uses the global default.
             seenWindow = -1;
             var plainBatch = new[]
             {
@@ -248,7 +234,6 @@ namespace OcVerify
             Check(seenWindow == 15, $"plain batch keeps the 15s window (saw {seenWindow}s)");
             safety.Confirm();
 
-            // Voltage-boost revert restores its anchor too.
             fake.LiveVoltageBoost = 10;
             var vbBatch = new[]
             {
@@ -258,7 +243,6 @@ namespace OcVerify
             safety.RevertNow();
             Check(fake.LiveVoltageBoost == 10, "voltage-boost revert restores the pre-batch percent");
 
-            // Failed curve write never opens a window.
             fake.FailCurveWrite = true;
             seenWindow = -1;
             var failBatch = new[]
@@ -294,10 +278,6 @@ namespace OcVerify
                 "empty binding never matches");
         }
 
-        // Unattended auto-switch decision paths, driven directly (no real
-        // processes): validation gate, unknown exe, busy-machine skip,
-        // exit-to-default, multi-game survivor, deleted-profile binding,
-        // and TDR-during-window fallback. Timing is shrunk via 1s windows.
         private static void AutoApply()
         {
             var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
@@ -370,28 +350,23 @@ namespace OcVerify
                 return cond();
             }
 
-            // Applies run on background tasks: never start the next scenario
-            // while one is still settling, or exits/starts interleave.
             void Settle(int timeoutMs = 25000)
             {
                 WaitFor(() => !svc.IsApplyInFlight && safety.CurrentState == SafetyState.Idle, timeoutMs);
             }
 
-            // 1: unvalidated profile never auto-applies.
             svc.HandleProcessStarted(Ev("Fresh.exe", 101));
             Check(WaitFor(() => (svc.Current.LastMessage ?? "").Contains("not yet validated"))
                   && !fake.Writes.Any(w => w == "core=40"),
                 "unvalidated profile is ignored (no write, validation hint published)");
             svc.HandleProcessStopped(Ev("Fresh.exe", 101));
 
-            // 2: unknown exe is ignored silently (no binding -> no status churn).
             int writesBefore = fake.Writes.Count;
             svc.HandleProcessStarted(Ev("Notepad.exe", 102));
             System.Threading.Thread.Sleep(500);
             Check(fake.Writes.Count == writesBefore, "unbound executable triggers nothing");
             svc.HandleProcessStopped(Ev("Notepad.exe", 102));
 
-            // 3: validated start applies through the silent window.
             svc.HandleProcessStarted(Ev("GameA.exe", 1111));
             Check(WaitFor(() => (svc.Current.LastMessage ?? "").StartsWith("Applied profile 'Ranked'"))
                   && fake.Writes.Contains("core=20"),
@@ -399,7 +374,6 @@ namespace OcVerify
             Check(svc.Current.ActiveProfileName == "Ranked", "active profile tracked");
             Settle();
 
-            // 4: busy safety machine -> skip, never stomp.
             var manual = safety.ApplyBatchAsync(new[]
             {
                 new PendingChange(OcControlNames.CoreClockOffset, () => fake.SetCoreOffsetMhz(1), "o", "n"),
@@ -411,12 +385,9 @@ namespace OcVerify
             safety.Confirm();
             WaitFor(() => safety.CurrentState == SafetyState.Idle);
             svc.HandleProcessStopped(Ev("GameB.exe", 2222));
-            Settle(); // skipped start restored the anchor; the stop is a no-op
+            Settle();
 
-            // 5: exit with nobody else running -> default returns.
             svc.HandleProcessStopped(Ev("GameA.exe", 1111));
-            // Writes land at batch-apply time; the status message publishes
-            // after the silent window closes - poll for BOTH, not one-then-other.
             bool t5 = WaitFor(() => fake.Writes.Contains("core=5")
                       && (svc.Current.LastMessage ?? "").Contains("Daily"));
             if (!t5)
@@ -424,7 +395,6 @@ namespace OcVerify
             Check(t5, "game exit reverts to the designated default ('Daily', core=5)");
             Settle();
 
-            // 6: multi-game - most-recent wins; survivor keeps its profile.
             int mark = fake.Writes.Count;
             svc.HandleProcessStarted(Ev("GameA.exe", 1111));
             Check(WaitFor(() => (svc.Current.LastMessage ?? "").StartsWith("Applied profile 'Ranked'")), "A started again");
@@ -443,14 +413,12 @@ namespace OcVerify
                 "last bound game exiting falls back to default");
             Settle();
 
-            // 7: binding to a deleted profile is skipped with a hint.
             svc.HandleProcessStarted(Ev("Ghost.exe", 103));
             Check(WaitFor(() => (svc.Current.LastMessage ?? "").Contains("deleted")),
                 "deleted-profile binding surfaces a hint instead of applying");
             svc.HandleProcessStopped(Ev("Ghost.exe", 103));
             Settle();
 
-            // 8: TDR during the silent window -> revert + default + report.
             svc.HandleProcessStarted(Ev("GameA.exe", 1111));
             bool sawWindow = WaitFor(() => safety.CurrentState == SafetyState.AwaitingConfirmation, 8000);
             if (sawWindow) watchdog.Fire();
@@ -460,7 +428,6 @@ namespace OcVerify
                 "driver reset after auto-apply reverts and applies default, with a visible report");
             svc.HandleProcessStopped(Ev("GameA.exe", 1111));
 
-            // 9: watcher lifecycle is safe without bindings resolving.
             var watcher = new GameProcessWatcherService();
             watcher.SetWatchedExecutables(new[] { "GameA.exe" });
             watcher.Start();
@@ -473,7 +440,6 @@ namespace OcVerify
             safety.DisposeAsync().GetAwaiter().GetResult();
             try { System.IO.Directory.Delete(dir, recursive: true); } catch { }
         }
-        // Graph axis ticks: the exact helpers the canvas uses.
         private static void GraphAxisTicks()
         {
             var (xStep, xFirst) = GraphTicks.NiceTicks(700, 1075, 6);
@@ -488,13 +454,11 @@ namespace OcVerify
             Check(GraphTicks.Label(750) == "750" && GraphTicks.Label(2.5) == "2.5",
                 "tick labels compact (int plain, fraction one decimal)");
 
-            // Full tick sweep stays inside the data range and covers it.
             var ticks = new System.Collections.Generic.List<double>();
             for (double t = xFirst; t <= 1075 + 1e-9; t += xStep) ticks.Add(t);
             Check(ticks.Count >= 3 && ticks.Count <= 7 && ticks[0] >= 700 && ticks[^1] <= 1075,
                 $"volt sweep yields {ticks.Count} in-range ticks ({string.Join(",", ticks)})");
         }
-        // Fan ramp/smoothing step used by the curve loop.
         private static void FanRamp()
         {
             Check(FanCurveExecutionService.RampTowards(30, 80, 0) == 80,
@@ -508,7 +472,6 @@ namespace OcVerify
             Check(FanCurveExecutionService.RampTowards(50, 50, 5) == 50,
                 "ramp holds a reached target");
         }
-        // Hardware quiesce gate: the 0xc0000005 guard for device restarts.
         private static void HardwareQuiesce()
         {
             Check(!HardwareQuiesceGate.IsQuiesced, "gate starts open");
@@ -523,7 +486,6 @@ namespace OcVerify
             Check(!HardwareQuiesceGate.IsQuiesced && HardwareQuiesceGate.Reason is null,
                 "release reopens gate and clears reason");
 
-            // Polling loop performs zero native reads while held, resumes after.
             var fake = new FakeController();
             var polling = new GpuTelemetryPollingService(fake, TimeSpan.FromMilliseconds(100));
             int updates = 0;

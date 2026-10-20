@@ -16,30 +16,8 @@ using Microsoft.Win32;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// Answers two questions the Graphics page needs before it draws anything:
-    /// which GPU vendors are actually installed, and which GPU Windows will
-    /// render a given program on.
-    ///
-    /// Both come from Windows' own state rather than from the app guessing:
-    ///
-    ///   - The display-class registry key (the same one
-    ///     GpuDriverService cross-checks driver versions against) holds one
-    ///     subkey per installed display adapter, and its MatchingDeviceId is the
-    ///     adapter's PCI hardware id. Reading it is a few hundred microseconds;
-    ///     WMI, which GpuDriverService uses for the full detection on the Drivers
-    ///     tab, takes hundreds of milliseconds and is far too slow to run while
-    ///     a page is deciding which tabs to show.
-    ///
-    ///   - Per-app graphics preferences live in
-    ///     HKCU\Software\Microsoft\DirectX\UserGpuPreferences, keyed by the full
-    ///     executable path, with a value like "GpuPreference=2;". That is the
-    ///     same store Settings > System > Display > Graphics writes.
-    /// </summary>
     public static class GpuVendorPresenceService
     {
-        /// <summary>The Windows display setup class GUID. Every display adapter
-        /// with a bound driver has a subkey here.</summary>
         private const string DisplayClassKey =
             @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
 
@@ -47,11 +25,6 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private static GpuVendorFlags? _cached;
 
-        /// <summary>
-        /// Which vendors are present. Cached after the first call: the answer
-        /// only changes when a driver is installed, and the Graphics page asks on
-        /// every visit. Call <see cref="Invalidate"/> after installing one.
-        /// </summary>
         public static GpuVendorFlags Detect()
         {
             if (_cached is GpuVendorFlags cached) return cached;
@@ -60,7 +33,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return flags;
         }
 
-        /// <summary>Forces the next <see cref="Detect"/> to re-read the hardware.</summary>
         public static void Invalidate() => _cached = null;
 
         private static GpuVendorFlags ReadFromRegistry()
@@ -81,8 +53,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             catch (Exception)
             {
-                // A locked-down or missing key just means we fall through to the
-                // WMI probe below, which is slower but works everywhere.
             }
 
             GpuVendorFlags fromRegistry = GpuVendorFlags.FromPnpIds(ids);
@@ -93,11 +63,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 : fromRegistry;
         }
 
-        /// <summary>
-        /// Fallback for a machine where the display class key is empty (no driver
-        /// bound, or the key is unreadable). Slow, so it only runs when the fast
-        /// path found nothing.
-        /// </summary>
         private static IEnumerable<string> ProbePnpIdsViaWmi()
         {
             var ids = new List<string>();
@@ -115,10 +80,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return ids;
         }
 
-        /// <summary>
-        /// Windows' per-app graphics preference for one executable, or null when
-        /// the app has never been assigned one.
-        /// </summary>
         public static RendererChoice? GetPreferenceFor(string? executablePath)
         {
             if (string.IsNullOrWhiteSpace(executablePath)) return null;
@@ -135,11 +96,6 @@ namespace kaliteConfig.GpuOverclock.Services
             }
         }
 
-        /// <summary>
-        /// The per-app preference for a program the user named. A bare name is
-        /// resolved against the installed app if it can be found, because the
-        /// registry is keyed by the full path.
-        /// </summary>
         public static RendererChoice? GetPreferenceForApp(string? input)
         {
             if (string.IsNullOrWhiteSpace(input)) return null;
@@ -148,13 +104,9 @@ namespace kaliteConfig.GpuOverclock.Services
             if (trimmed.Contains('\\') || trimmed.Contains('/'))
                 return GetPreferenceFor(trimmed);
 
-            // Resolved against the install locations; if nothing is there the
-            // bare name will not be a key in the registry either, which is the
-            // honest answer: that app has no per-app preference.
             return GetPreferenceFor(ResolveInstalledPath(trimmed));
         }
 
-        /// <summary>Looks an executable up in the usual install locations.</summary>
         private static string ResolveInstalledPath(string executableName)
         {
             string fileName = executableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
@@ -188,10 +140,6 @@ namespace kaliteConfig.GpuOverclock.Services
             return fileName;
         }
 
-        /// <summary>
-        /// What the Radeon tab should say about an app: which GPU it renders on,
-        /// and therefore whether these settings can affect it at all.
-        /// </summary>
         public static RendererVerdict EvaluateRenderer(GpuVendorFlags vendors, string? app)
             => RendererPolicy.Evaluate(vendors.HasNvidia, vendors.HasAmd, GetPreferenceForApp(app));
     }

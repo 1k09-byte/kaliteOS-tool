@@ -96,7 +96,6 @@ public sealed partial class NetworkPage : Page
         try
         {
             timer.Stop();
-            // Refresh keeps the selected adapter (by GUID) and never clears editors.
             if (Visibility != Visibility.Visible) return;
             try { await ViewModel.RefreshAsync().ConfigureAwait(true); }
             catch (Exception ex) { OnBanner("Live refresh failed", ex.Message); }
@@ -198,7 +197,6 @@ public sealed partial class NetworkPage : Page
         catch (Exception ex) { OnBanner("Could not open Device Manager", ex.Message); }
     }
 
-    /// <summary>Opens the classic Control Panel adapter list, which is the only supported way to reach its Properties sheet.</summary>
     private void ControlPanelProps_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -236,8 +234,6 @@ public sealed partial class NetworkPage : Page
     {
         try
         {
-            // A collapsed tab must never be the selected one: hiding a selected
-            // tab leaves the TabView showing nothing with no way to recover.
             if (NetTabs.SelectedItem is TabViewItem { Visibility: not Visibility.Visible } hidden)
                 NetTabs.SelectedIndex = 0;
         }
@@ -331,7 +327,6 @@ public sealed partial class NetworkPage : Page
                 Canvas.SetLeft(lbl, 2);
                 Canvas.SetTop(lbl, y - 8);
             }
-            // Min/max-per-bucket decimation so spikes survive.
             int buckets = Math.Max(1, (int)(w - 40));
             var rxBands = NetParsing.DecimateMinMax(rx, buckets);
             var txBands = NetParsing.DecimateMinMax(tx, buckets);
@@ -351,13 +346,12 @@ public sealed partial class NetworkPage : Page
         catch { }
     }
 
-    private async void SpeedStart_Click(object sender, RoutedEventArgs e)
+    private async void SpeedToggle_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.SpeedRunning) { ViewModel.CancelSpeedTest(); return; }
         try { await ViewModel.StartSpeedTestAsync().ConfigureAwait(true); }
         catch (Exception ex) { OnBanner("Speed test failed", ex.Message); }
     }
-
-    private void SpeedCancel_Click(object sender, RoutedEventArgs e) => ViewModel.CancelSpeedTest();
 
     private void SysChangedOnly_Changed(object sender, RoutedEventArgs e)
     {
@@ -472,13 +466,8 @@ public sealed partial class NetworkPage : Page
         catch (Exception ex) { OnBanner("Compare failed", ex.Message); }
     }
 
-    /// <summary>Reveals the registry-level tabs on demand; they stay collapsed until asked for.</summary>
     private void ShowAdvancedToggle_Changed(object sender, RoutedEventArgs e)
     {
-        // x:Name fields are null while InitializeComponent is still running, and
-        // setting IsChecked="True" in XAML fires Checked right there - before the
-        // TabView below this toggle has been constructed. Without this guard the
-        // page threw NRE on every navigation.
         if (AdvancedTab is null || OffloadsTab is null || SysWTab is null) return;
 
         Visibility v = ShowAdvancedToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;

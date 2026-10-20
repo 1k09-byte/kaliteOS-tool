@@ -8,62 +8,11 @@
     xmlns:converters="using:kaliteConfig.Converters"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     NavigationCacheMode="Enabled">
-    <!-- Entrance transition now lives on the main ContentFrame (see MainWindow.xaml). -->
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter" />
-        
-        <!-- Table rows: flat, hairline-separated lines, but with softened
-             corners - RowSurface is rounded so the hover/selection fill
-             curves instead of being a sharp rectangle. No full outline
-             around the row: the fill is the only highlight. -->
-        <Style x:Key="ProcessCardItemStyle" TargetType="ListViewItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />            <Setter Property="FocusVisualPrimaryThickness" Value="0" />
-            <Setter Property="FocusVisualSecondaryThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="RowSurface" Background="Transparent" CornerRadius="8" Margin="0,1">
-                            <ContentPresenter Background="Transparent"
-                                              Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              ContentTransitions="{TemplateBinding ContentTransitions}"
-                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Padding="{TemplateBinding Padding}"
-                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Selected">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowSurface" Storyboard.TargetProperty="Background">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <!-- Rule Row Template -->
+
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
             <Border Margin="12,4" Padding="14,10" CornerRadius="8"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -120,9 +69,9 @@
 
     <Grid x:Name="RootGrid" UseLayoutRounding="True" Background="Transparent">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" /> <!-- Action Bar -->
-            <RowDefinition Height="Auto" /> <!-- SelectorBar -->
-            <RowDefinition Height="*" />    <!-- Main Content Panel -->
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="28,20,28,0" ColumnSpacing="12">
@@ -144,24 +93,18 @@
             </Grid.ColumnDefinitions>
             <SelectorBar CornerRadius="8" x:Name="MainSelectorBar" SelectionChanged="MainSelectorBar_SelectionChanged"
                         Grid.Column="0" VerticalAlignment="Center" Background="Transparent">
-                <!-- SelectedItem set in code-behind (Loaded): a SelectorBar with no
-                     selection draws no active indicator, so the Processes tab
-                     looked unselected on the first visit. -->
                 <SelectorBarItem CornerRadius="8" x:Name="TabProcesses" Text="Processes" Background="Transparent" IsSelected="True" />
                 <SelectorBarItem CornerRadius="8" x:Name="TabRules" Text="Rules" Background="Transparent" />
             </SelectorBar>
         </Grid>
 
-        <!-- Processes Panel -->
-        <Grid x:Name="ProcessesPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="ProcessesPanel" Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <!-- Toolbar: one plain row, no card. Column 3 is the elastic spacer
-                 that pushes the status cluster to the right edge. -->
             <Grid Grid.Row="0" Margin="28,0,28,10" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -171,9 +114,9 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Button CornerRadius="6" x:Name="PageGamingModeButton" Grid.Column="0" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode" MinWidth="160" Padding="12,6"
+                <Button x:Name="PageGamingModeButton" Grid.Column="0" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode"
                         ToolTipService.ToolTip="Raises the selected process to Above Normal and applies the safe Gaming Mode profile." />
-                <Button CornerRadius="6" x:Name="PageRestoreButton" Grid.Column="1" Content="Restore changes" Click="Page_RestorePriorities" IsEnabled="False" Padding="12,6"
+                <Button x:Name="PageRestoreButton" Grid.Column="1" Content="Restore changes" Click="Page_RestorePriorities" IsEnabled="False"
                         ToolTipService.ToolTip="Revert every priority kaliteConfig changed." />
                 <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,3" Margin="4,0,0,0" CornerRadius="4"
                         Visibility="{Binding Optimizer.IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -188,8 +131,6 @@
                 <TextBox CornerRadius="6" x:Name="ProcessesSearchBox" Grid.Column="3" MaxWidth="260" MinWidth="200" HorizontalAlignment="Left"
                          Margin="8,0,0,0" PlaceholderText="Search processes or PID" VerticalAlignment="Center"
                          Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <!-- Own column: sharing column 3 with the search box stacked this
-                     on top of the Gaming mode button. -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="8,0,8,0">
                     <TextBlock Text="Counters" FontSize="11" VerticalAlignment="Center" />
                     <ToggleSwitch CornerRadius="6" x:Name="CountersToggle" VerticalAlignment="Center"
@@ -205,13 +146,8 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Column Headers: plain caption row above a hairline rule, no card. -->
             <Grid Grid.Row="1" Margin="28,0,28,0" ColumnSpacing="12" Padding="14,0,32,6"
                       BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
-                    <!-- Counter columns collapse to 0 via the same fixed width in
-                         header and rows. Auto widths would size the header's long
-                         caption differently from the row's number and the columns
-                         would drift out of alignment. -->
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2.5*" />
                         <ColumnDefinition Width="80" />
@@ -240,15 +176,9 @@
                                ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it - the choice is saved and re-applied to this process every time it starts." />
             </Grid>
 
-            <!-- Process table: no card, no border around the list. Rows are flat
-                     lines separated by hairlines, the way a process table reads.
-                     Right padding reserves a gutter for the scroll bar, which
-                     WinUI draws ON TOP of the content; the header row above
-                     carries the same 18px so columns stay aligned. -->
             <Grid Grid.Row="2">
             <ListView x:Name="ProcessesGrid" Margin="28,0,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
-                      Background="Transparent" BorderThickness="0" Padding="0,0,18,0"
-                      ItemContainerStyle="{StaticResource ProcessCardItemStyle}">
+                      Background="Transparent" BorderThickness="0" Padding="0,0,18,0">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:TunerProcessRow">
                         <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" CornerRadius="8">
@@ -293,39 +223,29 @@
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="100" />
-                                <!-- Same widths as the header row, so every
-                                     column lines up with its caption. -->
                                 <ColumnDefinition Width="{x:Bind ShowCounters, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
                                 <ColumnDefinition Width="{x:Bind ShowCounters, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
                                 <ColumnDefinition Width="80" />
                                 <ColumnDefinition Width="90" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Tree indent: children sit 14 px further right per
-                                 level, under the process that spawned them. -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                         Margin="{x:Bind IndentMargin, Mode=OneWay}">
-                                <!-- Chevron slot is a fixed-width box so every row's icon lands on
-                                     the same x. Collapsing the whole slot on leaf
-                                     rows would pull their icons left, out of line
-                                     with the parents' icons. -->
                                 <Grid Width="12" Height="16" VerticalAlignment="Center">
-                                    <FontIcon Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" FontSize="10"
-                                              Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              Visibility="{x:Bind HasChildrenVis, Mode=OneWay}"
-                                              Tapped="RowChevron_Tapped"
-                                              ToolTipService.ToolTip="Expand or collapse child processes" />
+                                    <Button
+                                        MinWidth="0"
+                                        MinHeight="0"
+                                        Padding="0"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="{x:Bind HasChildrenVis, Mode=OneWay}"
+                                        Click="RowChevron_Click"
+                                        ToolTipService.ToolTip="Expand or collapse child processes">
+                                        <FontIcon Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" FontSize="10" />
+                                    </Button>
                                 </Grid>
-                                <!-- Icon slot is a fixed-size box either way, so
-                                     names align down the column. With no extracted
-                                     icon a generic document glyph stands in. -->
                                 <Grid Width="16" Height="16">
                                     <Image Source="{x:Bind AppIcon, Mode=OneWay}" Width="16" Height="16"
                                            Visibility="{x:Bind AppIconVis, Mode=OneWay}" />
-                                    <!-- Last resort only (the wininit.exe bitmap above covers
-                                     every icon-less row in practice): the previous
-                                     generic glyph. -->
                                     <FontIcon Glyph="&#xE8A5;" FontSize="14"
                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -342,8 +262,6 @@
                             <TextBlock Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind Threads, Mode=OneWay}" />
                             <TextBlock Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind PriorityText, Mode=OneWay}" />
                             <TextBlock Grid.Column="6" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <!-- Counter columns: hidden unless the user turns them on, and not
-                                 computed at all while hidden. -->
                             <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12"
                                        Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}"
                                        Visibility="{x:Bind ShowCountersVis, Mode=OneWay}" />
@@ -351,8 +269,6 @@
                                        Text="{x:Bind CyclesDelta, Mode=OneWay}"
                                        Visibility="{x:Bind ShowCountersVis, Mode=OneWay}" />
 
-                            <!-- Per-process Priority boost. Unticking applies to the
-                                 live process immediately and is remembered for good. -->
                             <CheckBox Grid.Column="9"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
@@ -369,11 +285,6 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- First-load state: same shape as the Threads dialog's spinner.
-                 The process scan is a WMI pass plus a CPU sample, so the grid is
-                 genuinely empty for a beat on entering the page; without this it
-                 just looks broken. Overlay on the list, so nothing shifts when
-                 it disappears. -->
             <Grid x:Name="ProcessesLoadingOverlay" MinHeight="220" Background="Transparent"
                   Visibility="{x:Bind ViewModel.IsProcessListLoadingVis, Mode=OneWay}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
@@ -394,8 +305,7 @@
             </Grid>
         </Grid>
 
-        <!-- RulesPanel -->
-        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -403,7 +313,6 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Rules toolbar -->
             <Border Grid.Row="0" Margin="28,4,28,10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="12,8">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -412,19 +321,18 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <TextBox CornerRadius="8" Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
                          Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button CornerRadius="8" Content="Edit" VerticalAlignment="Center" Click="RuleEdit_Click" />
-                    <Button CornerRadius="8" Content="Enable / disable" VerticalAlignment="Center" Click="RuleToggle_Click" />
-                    <Button CornerRadius="8" Content="Delete" VerticalAlignment="Center" Click="RuleDelete_Click" />
+                    <Button Content="Edit" VerticalAlignment="Center" Click="RuleEdit_Click" />
+                    <Button Content="Enable / disable" VerticalAlignment="Center" Click="RuleToggle_Click" />
+                    <Button Content="Delete" VerticalAlignment="Center" Click="RuleDelete_Click" />
                 </StackPanel>
-                <Button CornerRadius="8" Grid.Column="3" Content="Add rule" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center" Click="RuleAdd_Click" />
+                <Button Grid.Column="3" Content="Add rule" VerticalAlignment="Center" Click="RuleAdd_Click" />
             </Grid>
             </Border>
 
-            <!-- Rules column headers -->
             <Border Grid.Row="1" Margin="28,0,28,0" Padding="14,8" CornerRadius="8"
                     Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                 <Grid ColumnSpacing="12">
@@ -443,13 +351,11 @@
                 </Grid>
             </Border>
 
-            <!-- Rules list -->
             <ListView CornerRadius="12" x:Name="RulesList" Grid.Row="2" Margin="16,0,16,0" ItemsSource="{x:Bind ViewModel.DisplayedProcessProfiles, Mode=OneWay}"
                       SelectedItem="{x:Bind ViewModel.SelectedProfile, Mode=TwoWay}"
                       ItemTemplate="{StaticResource RuleRowTemplate}"
                       SelectionMode="Single" ShowsScrollingPlaceholders="False" />
 
-            <!-- Rules footer -->
             <Grid Grid.Row="3" Margin="12,8,12,12">
                 <StackPanel Orientation="Horizontal" Spacing="24">
                     <TextBlock x:Name="RulesCountText" Text="0 rules" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />

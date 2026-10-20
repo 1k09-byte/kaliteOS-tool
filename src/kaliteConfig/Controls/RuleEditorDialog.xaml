@@ -10,29 +10,12 @@
     CornerRadius="12"
     PrimaryButtonClick="Dialog_PrimaryClick">
 
-    <ContentDialog.PrimaryButtonStyle>
-        <!-- Stock WinUI accent button: the primary action follows the OS
-             accent like every other Windows dialog. -->
-        <Style TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="11,5" />
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-        </Style>
-    </ContentDialog.PrimaryButtonStyle>
-    <ContentDialog.CloseButtonStyle>
-        <Style TargetType="Button" BasedOn="{StaticResource KaliteButton}">
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="11,5" />
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-        </Style>
-    </ContentDialog.CloseButtonStyle>
 
     <ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
+        <Style x:Key="RuleDialogButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
     </ContentDialog.Resources>
 
     <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
@@ -47,7 +30,6 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Target + applies to -->
             <Grid Grid.Row="0" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*" />
@@ -56,7 +38,7 @@
                 <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Text="Target process" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <AutoSuggestBox x:Name="TargetBox" PlaceholderText=""
-                                    Text="{x:Bind Draft.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    Text="{x:Bind Draft.Pattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                     TextChanged="TargetBox_TextChanged"
                                     SuggestionChosen="TargetBox_SuggestionChosen" />
                 </StackPanel>
@@ -70,7 +52,6 @@
 
             <TextBlock Grid.Row="1" Text="Tab accepts the highlighted suggestion" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
-            <!-- Tabs -->
             <Grid Grid.Row="2" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -80,7 +61,6 @@
                 <Button x:Name="TabThreads" Grid.Column="1" Content="Thread rules" HorizontalAlignment="Stretch" Click="Tab_Click" Tag="Threads" />
             </Grid>
 
-            <!-- Process settings panel -->
             <StackPanel x:Name="SettingsPanel" Grid.Row="3" Spacing="8">
                 <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
                     <Grid ColumnSpacing="12">
@@ -158,7 +138,7 @@
                         <CheckBox Grid.Column="0" Content="CPU affinity" VerticalAlignment="Center"
                                   IsChecked="{x:Bind AffinityEnabled, Mode=TwoWay}" />
                         <TextBlock Grid.Column="1" x:Name="DraftAffinitySummaryText" Text="All logical processors" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
-                        <Button Grid.Column="2" x:Name="AffinityChooseButton" Content="Choose..." Click="AffinityChoose_Click" />
+                        <Button Grid.Column="2" x:Name="AffinityChooseButton" Content="Choose..." Click="AffinityChoose_Click" CornerRadius="8" />
                     </Grid>
                 </Border>
                 <Border Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,8">
@@ -171,22 +151,17 @@
                         <CheckBox Grid.Column="0" Content="CPU Sets" VerticalAlignment="Center"
                                   IsChecked="{x:Bind CpuSetsEnabled, Mode=TwoWay}" />
                         <TextBlock Grid.Column="1" x:Name="CpuSetsSummaryText" Text="All logical processors" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
-                        <Button Grid.Column="2" x:Name="CpuSetsChooseButton" Content="Choose..." Click="CpuSetsChoose_Click" />
+                        <Button Grid.Column="2" x:Name="CpuSetsChooseButton" Content="Choose..." Click="CpuSetsChoose_Click" CornerRadius="8" />
                     </Grid>
                 </Border>
             </StackPanel>
 
-            <!-- Thread rules panel: same two-pane tuner as the Process tab's
-                 Threads dialog (Image 2) - saved rules on the left, the same
-                 per-thread editor on the right. A single saved rule (e.g. only
-                 .NET Finalizer) shows just that one row on the left. -->
             <Grid x:Name="ThreadsPanel" Grid.Row="3" Visibility="Collapsed" ColumnSpacing="20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Thread rule list -->
                 <Grid Grid.Column="0" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -233,17 +208,20 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                    <Button Grid.Row="2" Content="Delete rule" Click="ThreadRule_DeleteButton_Click" HorizontalAlignment="Left" />
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                        <Button Content="View live threads" Click="ViewLiveThreads_Click" CornerRadius="8"
+                                ToolTipService.ToolTip="Open the running threads of the target process" />
+                        <Button Content="Delete rule" Click="ThreadRule_DeleteButton_Click" CornerRadius="8" />
+                    </StackPanel>
                 </Grid>
 
-                <!-- Per-thread-rule editor -->
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" MaxHeight="480">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Select a thread rule to inspect and tune it." FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    x:Name="RuleNoSelectionText" />
                         <StackPanel Spacing="10" x:Name="RuleEditorPanel" Visibility="Collapsed">
-                            <TextBlock x:Name="RuleEditorTitle" Style="{StaticResource KaliteSectionTitle}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="RuleEditorTitle" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                             <TextBlock x:Name="RuleEditorSub" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                             <TextBlock Text="Thread priority" Style="{StaticResource CaptionTextBlockStyle}" />
@@ -271,7 +249,7 @@
                             <Grid x:Name="RuleIdealCpuGrid" ColumnSpacing="6" RowSpacing="6" />
                             <Button Content="Apply ideal processor" Click="RuleIdealApply_Click" HorizontalAlignment="Left" />
 
-                            <Button Content="Delete rule" HorizontalAlignment="Left" Click="ThreadRule_DeleteButton_Click"
+                            <Button Content="Delete rule" HorizontalAlignment="Left" Click="ThreadRule_DeleteButton_Click" CornerRadius="8"
                                     ToolTipService.ToolTip="Remove this thread rule from the profile" />
 
                             <TextBlock x:Name="RuleEditorStatusBox" FontSize="12" TextWrapping="Wrap"
@@ -281,7 +259,6 @@
                 </ScrollViewer>
             </Grid>
 
-            <!-- Summary -->
             <Border Grid.Row="4" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefault}" BorderThickness="1" CornerRadius="8" Padding="12,10">
                 <TextBlock x:Name="SummaryText" Text="0 process settings Â· 0 thread rules" Style="{StaticResource BodyTextBlockStyle}" />
             </Border>

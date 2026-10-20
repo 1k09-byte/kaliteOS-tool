@@ -17,10 +17,6 @@ using Microsoft.UI.Windowing;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Captures all monitors simultaneously.
-/// Currently uses GDI BitBlt for compatibility.
-/// </summary>
 public sealed class MultiMonitorCaptureService : IDisposable
 {
     private readonly DispatcherQueue _dispatcherQueue;
@@ -31,10 +27,6 @@ public sealed class MultiMonitorCaptureService : IDisposable
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
     }
 
-    /// <summary>
-    /// Captures all monitors simultaneously and returns the captured frames.
-    /// </summary>
-    /// <returns>List of captured frames with their monitor coordinates</returns>
     public async Task<List<CapturedMonitor>> CaptureAllMonitorsAsync()
     {
         var monitors = new List<CapturedMonitor>();
@@ -43,20 +35,10 @@ public sealed class MultiMonitorCaptureService : IDisposable
         if (displayAreas.Count == 0)
             return monitors;
 
-        // Capture all monitors in parallel using GDI (reusing existing SnipCaptureHelper)
         var captureTasks = displayAreas.Select(async area =>
         {
             try
             {
-                // OuterBounds is the right rectangle here: it is the display's full
-                // desktop area, which is what a fullscreen capture should contain.
-                // WorkArea would exclude the taskbar (measured 58px at the bottom on
-                // this machine) and silently crop it out of the capture.
-                //
-                // It was previously switched to WorkArea on the theory that
-                // OuterBounds included some reserved edge - that was wrong, and the
-                // measured rcMonitor/rcWork pair shows the only difference is the
-                // taskbar.
                 var bounds = area.OuterBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0)
                     return null;
@@ -98,9 +80,6 @@ public sealed class MultiMonitorCaptureService : IDisposable
     }
 }
 
-/// <summary>
-/// Represents a captured monitor frame.
-/// </summary>
 public class CapturedMonitor
 {
     public string DisplayId { get; set; } = "";

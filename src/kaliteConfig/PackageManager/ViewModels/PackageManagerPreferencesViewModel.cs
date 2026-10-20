@@ -20,7 +20,6 @@ using System.Threading.Tasks;
 
 namespace kaliteConfig.PackageManager.ViewModels;
 
-/// <summary>Package Managers preferences: detection status, enable toggles, exe overrides.</summary>
 public sealed partial class PackageManagerPreferencesViewModel : ObservableObject
 {
     private readonly PackageManagerModule Module = PackageManagerModule.Instance;

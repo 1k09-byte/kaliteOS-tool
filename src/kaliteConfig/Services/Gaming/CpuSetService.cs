@@ -18,11 +18,6 @@ using kaliteConfig.Native;
 
 namespace kaliteConfig.Services;
 
-/// <summary>
-/// Reads full CPU topology via <c>GetSystemCpuSetInformation</c> and reads/writes
-/// per-process and per-thread default/selected CPU Sets. All native calls run on
-/// worker threads; parsing is offset-based so layout changes degrade, not corrupt.
-/// </summary>
 [System.Diagnostics.DebuggerNonUserCode]
 public sealed class CpuSetService
 {
@@ -33,7 +28,7 @@ public sealed class CpuSetService
             if (!NativeMethods.CpuSets.GetSystemCpuSetInformation(null, 0, out uint needed, IntPtr.Zero, 0))
             {
                 int err = Marshal.GetLastWin32Error();
-                if (err != 122) // ERROR_INSUFFICIENT_BUFFER is the expected first answer
+                if (err != 122)
                 {
                     throw new Win32Exception(err, "Querying CPU set buffer size failed.");
                 }
@@ -59,7 +54,7 @@ public sealed class CpuSetService
                 byte type = buffer[offset + 4];
                 if (size < 20 || offset + size > buffer.Length)
                 {
-                    break; // Truncated entry: keep what parsed cleanly.
+                    break;
                 }
 
                 if (type == (byte)CpuSetInformationType.CpuSetInformation)
@@ -166,8 +161,6 @@ public sealed class CpuSetService
     {
         await CpuSetService.RunNativeAsync(() =>
         {
-            // Same lesson as thread affinity: the setter validates against
-            // current state, so the handle needs QUERY_INFORMATION too.
             using var thread = NativeMethods.Handles.OpenThread(
                 NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation,
                 false, tid);
@@ -179,7 +172,6 @@ public sealed class CpuSetService
         }).ConfigureAwait(false);
     }
 
-    /// <summary>Ranks distinct EfficiencyClass values; rank 0 = highest class value.</summary>
     internal static Dictionary<byte, int> RankClasses(IEnumerable<CpuSetEntry> topology)
     {
         var ordered = topology.Select(c => c.EfficiencyClass).Distinct().OrderByDescending(v => v).ToList();

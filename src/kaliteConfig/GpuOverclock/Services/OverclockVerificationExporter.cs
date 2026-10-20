@@ -17,11 +17,6 @@ using kaliteConfig.GpuOverclock.Models;
 
 namespace kaliteConfig.GpuOverclock.Services
 {
-    /// <summary>
-    /// Maps the change-log viewer's ComboBox filter indexes to the enum filters
-    /// (index 0 = "all", 1..n = enum declaration order). Kept here so the
-    /// mapping is pure logic - unit-testable without the WinUI ViewModel.
-    /// </summary>
     public static class OverclockLogFilter
     {
         public static OverclockChangeResult? ResultFromIndex(int index)
@@ -38,22 +33,11 @@ namespace kaliteConfig.GpuOverclock.Services
                && (source is null || entry.Source == source);
     }
 
-    /// <summary>
-    /// Builds the GPU overclock verification record (Markdown) from the change
-    /// log: a human-readable audit document in the same shape as
-    /// Docs/OverclockVerification.md, exportable from the in-app viewer.
-    /// Pure string building - no filesystem, no UI - so it round-trips in tests.
-    /// </summary>
     public static class OverclockVerificationExporter
     {
-        /// <summary>Recommended file name for a record generated at <paramref name="when"/>.</summary>
         public static string SuggestedFileName(DateTime when)
             => $"kaliteConfig-overclock-verification-{when:yyyy-MM-dd}.md";
 
-        /// <summary>
-        /// Builds the full record. Entries appear oldest-first (chronological,
-        /// like the on-disk log), one table row per logged change.
-        /// </summary>
         public static string BuildMarkdown(
             IReadOnlyList<AppliedChangeLogEntry> entries,
             string? gpuName = null,
@@ -74,7 +58,6 @@ namespace kaliteConfig.GpuOverclock.Services
               .AppendLine("Every row is one audited driver write made by this app, including reverts and refusals.")
               .AppendLine();
 
-            // ---- summary counts ----
             sb.AppendLine("## Summary");
             sb.AppendLine();
             sb.AppendLine("| Result | Count |");
@@ -85,7 +68,6 @@ namespace kaliteConfig.GpuOverclock.Services
             sb.AppendLine();
             sb.AppendLine();
 
-            // ---- per-entry table ----
             sb.AppendLine("## Changes");
             sb.AppendLine();
             if (entries.Count == 0)
@@ -116,7 +98,6 @@ namespace kaliteConfig.GpuOverclock.Services
                 ? e.OldValue
                 : $"{e.OldValue} -> {e.NewValue}";
 
-        /// <summary>Table cells never break the table: escape pipes and newlines.</summary>
         private static string Cell(string value)
             => value.Replace("|", "\\|", StringComparison.Ordinal).Replace("\r\n", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
     }

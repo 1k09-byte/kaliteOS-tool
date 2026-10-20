@@ -13,9 +13,6 @@ using System.Collections.Generic;
 
 namespace kaliteConfig.Services;
 
-// NOTE: types bound in XAML ({x:Bind}) must be classes with get+set properties;
-// positional records are init-only and break XamlTypeInfo generation.
-
 public enum NetAdapterKind { Ethernet, WiFi, Virtual, Vpn, Other }
 
 public sealed record NetWifiInfo(
@@ -138,7 +135,6 @@ public sealed class NetSettingDiff
     public string To { get; set; } = "";
 }
 
-/// <summary>Facts the Doctor rules evaluate. All strings are display-ready; empty means unknown.</summary>
 public sealed record NetAdapterFacts(
     NetAdapterKind Kind,
     string Status,

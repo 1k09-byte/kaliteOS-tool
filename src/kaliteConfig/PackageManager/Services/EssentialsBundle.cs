@@ -13,8 +13,6 @@ using kaliteConfig.PackageManager.Models;
 
 namespace kaliteConfig.PackageManager.Services;
 
-/// <summary>Built-in Essentials bundle, seeded once on first run (never re-seeded
-/// after the user deletes it). All IDs are winget package IDs.</summary>
 public static class EssentialsBundle
 {
     public const string BundleName = "Essentials";
@@ -30,9 +28,6 @@ public static class EssentialsBundle
         new BundleItem { PackageId = "Rufus.Rufus", SourceId = "winget", DisplayName = "Rufus" },
         new BundleItem { PackageId = "Ventoy.Ventoy", SourceId = "winget", DisplayName = "Ventoy" },
         new BundleItem { PackageId = "Microsoft.VisualStudioCode", SourceId = "winget", DisplayName = "Visual Studio Code" },
-        // Microsoft.VisualStudio.2022.Community no longer resolves: the unversioned
-        // id is Visual Studio Community 2026 (18.x) now, so the 2022-era id is
-        // dead and a bundle seeding on it installs nothing.
         new BundleItem { PackageId = "Microsoft.VisualStudio.Community", SourceId = "winget", DisplayName = "Visual Studio Community 2026" },
         new BundleItem { PackageId = "Git.Git", SourceId = "winget", DisplayName = "Git" },
         new BundleItem { PackageId = "Python.Python.3.14", SourceId = "winget", DisplayName = "Python 3.14" },

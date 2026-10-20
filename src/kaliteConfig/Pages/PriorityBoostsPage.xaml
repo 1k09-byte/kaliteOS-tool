@@ -8,7 +8,6 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <!-- Rule Row Template -->
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
             <Border Margin="12,4" Padding="14,10" CornerRadius="8"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -70,7 +69,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="36,24,36,0" Spacing="8">
-            <TextBlock Text="Threads &amp; Boosts" Style="{StaticResource KalitePageTitle}" />
+            <TextBlock Text="Threads &amp; Boosts" Style="{StaticResource TitleLargeTextBlockStyle}" />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="36,12,36,16">
@@ -84,8 +83,7 @@
             </SelectorBar>
         </Grid>
 
-        <!-- Threads Panel -->
-        <Grid x:Name="ThreadsPanel" Grid.Row="2" Style="{StaticResource KaliteEntranceGrid}">
+        <Grid x:Name="ThreadsPanel" Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -93,14 +91,13 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Info bar -->
             <Grid Grid.Row="0" Margin="12,4,12,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Spacing="4">
-                    <TextBlock Text="Thread Tune" Style="{StaticResource KaliteSectionTitle}" />
+                    <TextBlock Text="Thread Tune" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <TextBlock Text="Untick the checkbox to disable priority boost for a thread permanently."
                                Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                 </StackPanel>
@@ -108,7 +105,6 @@
                          Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </Grid>
 
-            <!-- Column headers -->
             <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
                     Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                 <Grid ColumnSpacing="12">
@@ -127,7 +123,6 @@
                 </Grid>
             </Border>
 
-            <!-- Thread list -->
             <ListView x:Name="ThreadTuneList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedThreadBoostRows, Mode=OneWay}"
                       SelectionMode="None" ShowsScrollingPlaceholders="False">
                 <ListView.ItemTemplate>
@@ -169,8 +164,7 @@
             </Grid>
         </Grid>
 
-        <!-- Rules Panel -->
-    <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource KaliteEntranceGrid}">
+    <Grid x:Name="RulesPanel" Grid.Row="2" Visibility="Collapsed">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -178,7 +172,6 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Rules toolbar -->
         <Grid Grid.Row="0" Margin="12,4,12,10" ColumnSpacing="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -186,7 +179,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource KaliteSectionTitle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="0" Text="Rules" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,12,0" />
             <TextBox Grid.Column="1" MaxWidth="320" HorizontalAlignment="Left" PlaceholderText="Search rules" VerticalAlignment="Center"
                      Text="{x:Bind ViewModel.RulesFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
@@ -197,7 +190,6 @@
             <Button Grid.Column="3" Content="Add rule" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center" Click="RuleAdd_Click" />
         </Grid>
 
-        <!-- Rules column headers -->
         <Border Grid.Row="1" Margin="12,0,12,0" Padding="14,8" CornerRadius="6"
                 Background="{ThemeResource SubtleFillColorSecondaryBrush}">
             <Grid ColumnSpacing="12">
@@ -216,13 +208,11 @@
             </Grid>
         </Border>
 
-        <!-- Rules list -->
         <ListView x:Name="RulesList" Grid.Row="2" ItemsSource="{x:Bind ViewModel.DisplayedThreadProfiles, Mode=OneWay}"
                   SelectedItem="{x:Bind ViewModel.SelectedProfile, Mode=TwoWay}"
                   ItemTemplate="{StaticResource RuleRowTemplate}"
                   SelectionMode="Single" ShowsScrollingPlaceholders="False" />
 
-        <!-- Rules footer -->
         <Grid Grid.Row="3" Margin="12,8,12,12">
             <StackPanel Orientation="Horizontal" Spacing="24">
                 <TextBlock x:Name="RulesCountText" Text="0 rules" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />

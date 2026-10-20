@@ -28,7 +28,7 @@ public sealed class LeftoverScannerService
         Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFilesX86),
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) // ProgramData
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)
     };
 
     private static readonly string[] SearchRegistryHives = new[]
@@ -48,7 +48,6 @@ public sealed class LeftoverScannerService
                 targets.Add(item.Publisher);
             }
 
-            // 1. Filesystem scan
             foreach (var rootDir in SearchDirectories)
             {
                 if (!Directory.Exists(rootDir)) continue;
@@ -72,7 +71,6 @@ public sealed class LeftoverScannerService
                 catch { }
             }
 
-            // 2. Registry scan (HKCU and HKLM)
             foreach (var baseKey in new[] { Registry.LocalMachine, Registry.CurrentUser })
             {
                 foreach (var hive in SearchRegistryHives)
@@ -99,7 +97,6 @@ public sealed class LeftoverScannerService
                 }
             }
 
-            // 3. Return distinct explicitly identified paths
             return leftovers.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         });
     }
@@ -128,7 +125,7 @@ public sealed class LeftoverScannerService
                         File.Delete(path);
                     }
                 }
-                catch { } // Best effort deletion
+                catch { }
             }
         });
     }

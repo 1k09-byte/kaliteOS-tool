@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="kaliteConfig.Pages.TroubleshootingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent"
+    NavigationCacheMode="Enabled"
+    Loaded="OnLoaded">
+
+    <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Padding="28,16,28,20" Spacing="12">
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="Troubleshooting" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="Recovery restarts for this PC. Save your work first."
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <InfoBar x:Name="StatusBar" IsOpen="False" IsClosable="True" />
+
+            <Border Style="{StaticResource CardBorder}" Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="UEFI firmware settings" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="Restart straight into the motherboard firmware (BIOS/UEFI) setup screen."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                    <Button Content="Restart to firmware now" Click="Firmware_Click"
+                            Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Safe mode" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="Restart Windows with only the essential drivers and services. Use it once to test — normal startup returns on the next boot — or keep it on every restart while you repair the PC."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="SafeStateText"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Restart in safe mode once" Click="SafeOnce_Click" />
+                        <Button Content="Use safe mode on every restart" Click="SafeAlways_Click" />
+                        <Button Content="Restore normal startup" Click="NormalStartup_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

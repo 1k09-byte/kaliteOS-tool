@@ -21,21 +21,12 @@ namespace kaliteConfig.Services
     {
         private const string KernelSessionKey = @"SYSTEM\CurrentControlSet\Control\Session Manager\kernel";
         private const string ValueName = "ReservedCpuSets";
-        
-        // Legacy second Run entry. It launched the same exe a second time just to
-        // re-assert the mask, so a user who enabled this got TWO entries in
-        // Task Manager > Startup for one app. Retired: the --tray launch already
-        // starts the app at login and now applies the mask itself. The name is
-        // kept only so existing installs can have the orphan deleted.
+
         private const string RunKeyPath = @"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValueName = "kaliteConfig_ReservedCpuSets";
 
-        // The "apply at startup" preference now lives beside the mask it applies,
-        // under the same key as DesiredKeyPath above.
         private const string ApplyAtStartupValueName = "ReservedCpuSetsApplyAtStartup";
 
-        // Desired mask, so a startup launch can re-assert the reservation even
-        // when the OS dropped the live kernel value across a reboot.
         private const string DesiredKeyPath = @"SOFTWARE\kaliteConfig";
         private const string DesiredValueName = "ReservedCpuSetsDesiredMask";
 
@@ -52,11 +43,9 @@ namespace kaliteConfig.Services
                     return null;
                 }
 
-                // Make sure we have safely at least 8 bytes, padding if short
                 byte[] safeBytes = new byte[8];
                 Array.Copy(bytes, safeBytes, Math.Min(bytes.Length, 8));
-                
-                // Read directly as a ulong (BitConverter expects little-endian, matching the OS representation).
+
                 ulong mask = BitConverter.ToUInt64(safeBytes, 0);
                 return mask;
             }
@@ -80,7 +69,6 @@ namespace kaliteConfig.Services
                 throw new UnauthorizedAccessException("Cannot open kernel Session Manager key. Run as Administrator.");
             }
 
-            // Convert to byte array (8 bytes, little endian)
             byte[] bytes = BitConverter.GetBytes(mask);
             key.SetValue(ValueName, bytes, RegistryValueKind.Binary);
 
@@ -142,30 +130,24 @@ namespace kaliteConfig.Services
         {
             try
             {
-                // Check HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\CurrentBuildNumber
                 using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion", false);
                 if (key != null)
                 {
                     var buildValue = key.GetValue("CurrentBuildNumber") as string;
                     if (int.TryParse(buildValue, out int build))
                     {
-                        // 19044 is Windows 10 21H2. Older builds don't persist the kernel flag beyond boot.
                         return build < 19044;
                     }
                 }
             }
             catch
             {
-                // Ignored - safely assume normal operation if parsing fails
             }
             return false;
         }
 
         public bool GetApplyAtStartup()
         {
-            // Self-heal: an install that predates the consolidation still has the
-            // second Run entry. Report the preference from the new value, but drop
-            // the orphan first or Task Manager keeps showing the duplicate forever.
             RemoveLegacyRunEntry();
             try
             {

@@ -36,32 +36,12 @@ public sealed partial class SnipOverlayWindow : Window
     private AppWindow _appWindow;
     private byte[]? _bgraPixels;
 
-    /// <summary>
-    /// The frozen capture frame as a GPU texture, created ONCE when the pixels
-    /// load and reused for every redraw.
-    ///
-    /// This used to be built inside DrawCanvas_Draw via
-    /// CanvasBitmap.CreateFromBytes, and disposed at the end of the handler -
-    /// so every single redraw re-uploaded the entire full-screen BGRA buffer and
-    /// allocated a fresh texture. That is ~5.8 MB at 1600x900 and ~33 MB at 4K,
-    /// per invalidate, and an invalidate happens on every pointer move while
-    /// dragging and every annotation edit. The cost showed up two ways: CPU
-    /// spiking while the snipping tool was in use, and the overlay stalling
-    /// outright when the machine was already loaded, because the texture upload
-    /// starved behind everything else.
-    /// </summary>
     private Microsoft.Graphics.Canvas.CanvasBitmap? _frame;
     private int _imgWidth;
     private int _imgHeight;
 
-    /// <summary>Exe name focused when capture fired (set by SnipService for the Source column).</summary>
     public string SourceApp { get; set; } = "";
 
-    // Display scale factor. The captured bitmap is in physical pixels, but the
-    // CanvasControl defaults to 96 DPI (logical units). We set the canvas DPI to
-    // 96 * scale so 1 drawing unit == 1 physical pixel (crisp preview, and
-    // selection coordinates line up with the bitmap exactly). Pointer positions
-    // arrive in DIPs, so they are multiplied by _dpiScale before use.
     private double _dpiScale = 1.0;
     private bool _dpiScaleApplied;
 
@@ -81,7 +61,6 @@ public sealed partial class SnipOverlayWindow : Window
     private Point _moveLast;
     private (byte[] Bgra, int W, int H)? _activeSticker;
 
-    /// <summary>Topmost-first annotation hit test (last drawn = top).</summary>
     private Models.SnipObject? AnnotationAt(Point px)
     {
         for (int i = _annotations.Count - 1; i >= 0; i--)
@@ -165,7 +144,6 @@ public sealed partial class SnipOverlayWindow : Window
     private Windows.UI.Color _currentColor = Microsoft.UI.Colors.Red;
     private float _currentStrokeThickness = 4f;
 
-    // Pending free-typing text annotation
     private TextBox? _textEditor;
 
     private static readonly Windows.UI.Color[] PresetColors =
@@ -186,13 +164,10 @@ public sealed partial class SnipOverlayWindow : Window
     private Point _startPointAnchor;
     private Point _endPointAnchor;
 
-    // Explicit capture state machine (Idle -> Selecting -> Selected -> Closed).
-    // Fresh windows are used per capture; ResetState additionally guarantees the
-    // 20th snip behaves like the first even if a window is ever reused.
     private Services.SnipCaptureState _state = Services.SnipCaptureState.Idle;
-    private Point _pressPx;       // press position, bitmap pixels
-    private Point _lastCursorPx;  // last known cursor, bitmap pixels
-    private int _monX, _monY, _monW, _monH; // captured monitor rect, screen pixels
+    private Point _pressPx;
+    private Point _lastCursorPx;
+    private int _monX, _monY, _monW, _monH;
     private bool _hudVisible;
     private readonly Services.SnipRegionLogic.ModifierHoldTracker _mods = new();
 
@@ -226,11 +201,6 @@ public sealed partial class SnipOverlayWindow : Window
 
         _appWindow = this.AppWindow;
 
-        // Borderless + always-on-top instead of ExtendsContentIntoTitleBar + FullScreen.
-        // Extending content into the title bar makes Windows install a DRAG REGION across the
-        // top of the window (documented behaviour), which swallows the pointer and starts a
-        // window drag instead of a selection box. A frame-less window has no caption, no drag
-        // region and no inset, so its client area is exactly the captured monitor rectangle.
         if (_appWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.SetBorderAndTitleBar(false, false);
@@ -245,7 +215,6 @@ public sealed partial class SnipOverlayWindow : Window
         UpdateInstantModeVisual();
     }
 
-    /// <summary>Converts a DIP-space pointer position into bitmap pixel space.</summary>
     private Point ToPixels(Point p) => new Point(p.X * _dpiScale, p.Y * _dpiScale);
 
     private void ApplyDpiScale()
@@ -253,7 +222,7 @@ public sealed partial class SnipOverlayWindow : Window
         if (_dpiScaleApplied) return;
         try
         {
-            if (RootGrid is null || RootGrid.XamlRoot is null) return; // content not loaded yet
+            if (RootGrid is null || RootGrid.XamlRoot is null) return;
             _dpiScale = RootGrid.XamlRoot.RasterizationScale;
             if (_dpiScale > 0)
             {
@@ -274,8 +243,6 @@ public sealed partial class SnipOverlayWindow : Window
         try
         {
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            // Keep this window out of any capture (multi-overlay safety). The frozen
-            // frame was grabbed before we existed, so this cannot blank our own image.
             if (!SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE))
                 OverlayLog("WARN SetWindowDisplayAffinity failed");
             bool fg = GetForegroundWindow() == hwnd;
@@ -284,37 +251,14 @@ public sealed partial class SnipOverlayWindow : Window
             if (!fg) this.Activate();
         }
         catch (Exception ex) { OverlayLog("show ERR " + ex.Message); }
-        // Focus the root grid so keyboard shortcuts work (Escape to close, etc.)
         try { RootGrid.Focus(FocusState.Programmatic); } catch { }
-        // Also try focusing the DrawCanvas as a fallback for keyboard input
         try { DrawCanvas?.Focus(FocusState.Programmatic); } catch { }
-        // Settings and the contextual row must be applied BEFORE the first paint.
-        // They used to run after DrawCanvas.Invalidate() above, so the first frame
-        // was drawn with default tools and then had to be invalidated again; the
-        // overlay appeared, blinked, and corrected itself a frame later.
         ApplySavedSettings();
         UpdateFormatRow();
         SetOverlayCursor(Microsoft.UI.Input.InputSystemCursorShape.Cross);
         UpdateHud("show");
-        // One invalidate, after the tool state is final, so the first frame the user
-        // sees is the finished overlay rather than a frame that has to be corrected.
         DrawCanvas?.Invalidate();
 
-        // Entrance polish ONLY. RootGrid must have a ScaleTransform before the
-        // storyboard can target (RenderTransform).(ScaleTransform.ScaleX) -
-        // without one, Begin() throws from this Loaded handler, which is
-        // unhandled and took the whole capture down with it. The try/catch
-        // guarantees the overlay stays usable even if the animation fails:
-        // Opacity is forced back to 1 so the frozen frame can never be left
-        // invisible.
-        //
-        // Opacity only. This used to also animate ScaleX/ScaleY on RootGrid, but
-        // RootGrid is the root of a full-screen overlay whose child is a swap-chain
-        // CanvasControl showing the frozen desktop: scaling it forced the compositor
-        // to re-raster a whole monitor's worth of pixels on every one of those
-        // frames, which delayed the first real paint and read as a stutter on open.
-        // A compositor-driven opacity fade on the same element is a cheap property
-        // animation and gives the same "it appeared" feel.
         try
         {
             var content = (UIElement)RootGrid;
@@ -333,8 +277,6 @@ public sealed partial class SnipOverlayWindow : Window
         }
     }
 
-    /// <summary>Full reset: selection, drag, annotations, toolbar, hover. Called on
-    /// every show so reused windows cannot leak previous-capture state.</summary>
     private void ResetState()
     {
         _state = Services.SnipCaptureState.Idle;
@@ -351,19 +293,12 @@ public sealed partial class SnipOverlayWindow : Window
         HideTextEditor();
         if (SnipToolbar != null) SnipToolbar.Visibility = Visibility.Collapsed;
         if (ToolbarHost != null) ToolbarHost.Visibility = Visibility.Collapsed;
-        // Keep the PositionToolbar bookkeeping in step with the direct writes above,
-        // or the next capture would think the toolbar is already on screen and skip
-        // re-showing it.
         _toolbarWasVisible = false;
         _tbMeasured = false;
         _lastTbLeft = double.NaN;
         _lastTbTop = double.NaN;
     }
 
-    // WinUI 3 exposes the cursor only as UIElement.ProtectedCursor (protected).
-    // Without a subclassed root element, reflection is the documented fallback
-    // (WindowsAppSDK discussion #1816). Crosshair while Idle/Selecting, sizing
-    // cursors on handles - all guarded so a failure just keeps the arrow.
     private void SetOverlayCursor(Microsoft.UI.Input.InputSystemCursorShape shape)
     {
         try
@@ -414,7 +349,6 @@ public sealed partial class SnipOverlayWindow : Window
             var file = await picker.PickSingleFileAsync();
             if (file != null)
             {
-                // Safe unique names via the shared service (same-second imports no longer overwrite).
                 await Services.SnipStickerService.ImportStickersAsync(new[] { file.Path });
                 RefreshStickerGrid();
             }
@@ -431,8 +365,6 @@ public sealed partial class SnipOverlayWindow : Window
         {
             try
             {
-                // Decode to raw pixels (not a device-bound bitmap): the sticker must draw
-                // on both the preview device and the export render target.
                 var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(path);
                 using var stream = await file.OpenReadAsync();
                 var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
@@ -445,8 +377,6 @@ public sealed partial class SnipOverlayWindow : Window
                 _activeSticker = (data.DetachPixelData(), (int)decoder.PixelWidth, (int)decoder.PixelHeight);
                 OverlayLog($"sticker selected {System.IO.Path.GetFileName(path)} {_activeSticker.Value.W}x{_activeSticker.Value.H}");
 
-                // Drop the sticker straight onto the shot (selection center, selected),
-                // so it can be dragged into place immediately - no extra click needed.
                 double scx = (_startPoint.X + _endPoint.X) / 2, scy = (_startPoint.Y + _endPoint.Y) / 2;
                 var stamp = CreateStickerAt(new Point(scx, scy));
                 if (stamp != null)
@@ -458,7 +388,6 @@ public sealed partial class SnipOverlayWindow : Window
                     DrawCanvas.Invalidate();
                     OverlayLog($"sticker stamped total={_annotations.Count}");
                 }
-                // Clear selection states of other toggle buttons
                 foreach (var btn in ToolButtons)
                 {
                     btn.IsChecked = false;
@@ -504,7 +433,6 @@ public sealed partial class SnipOverlayWindow : Window
         if (!string.IsNullOrEmpty(settings.ActiveTool))
         {
             var toolName = settings.ActiveTool;
-            // Legacy button names from the old toolbar map onto the new tools.
             toolName = toolName switch
             {
                 "BtnToolRect" => "Select",
@@ -610,7 +538,6 @@ public sealed partial class SnipOverlayWindow : Window
         }
         else
         {
-            // Single-key tool shortcuts
             ActiveTool? tool = e.Key switch
             {
                 Windows.System.VirtualKey.V => ActiveTool.Select,
@@ -644,7 +571,6 @@ public sealed partial class SnipOverlayWindow : Window
                 e.Handled = true;
                 return;
             }
-            // [ and ] move the selected annotation back / forward in z-order.
             if (e.Key == (Windows.System.VirtualKey)219) { MoveSelectedZ(-1); e.Handled = true; return; }
             if (e.Key == (Windows.System.VirtualKey)221) { MoveSelectedZ(1); e.Handled = true; return; }
         }
@@ -702,8 +628,6 @@ public sealed partial class SnipOverlayWindow : Window
                 foreach (var ann in _annotations)
                 {
                     if (ann is Models.SnipSpotlight sp) { sp.ScreenWidth = _imgWidth; sp.ScreenHeight = _imgHeight; }
-                    // The frozen frame is the effect background: blur/pixelate needs it
-                    // in the live preview too, otherwise redactions look missing.
                     if (_frame is not null) ann.Draw(args.DrawingSession, _frame);
                     if (ann.IsSelected)
                     {
@@ -721,7 +645,6 @@ public sealed partial class SnipOverlayWindow : Window
 
                 if (_isDragging && _state == Services.SnipCaptureState.Selecting)
                 {
-                    // Live W x H readout near the cursor.
                     string dims = $"{w:0} × {h:0}";
                     double tx = Math.Max(4, Math.Min(_lastCursorPx.X + 16, _imgWidth - 110));
                     double ty = Math.Max(4, Math.Min(_lastCursorPx.Y + 16, _imgHeight - 30));
@@ -763,10 +686,6 @@ public sealed partial class SnipOverlayWindow : Window
         }
     }
 
-    /// <summary>
-    /// Replaces the cached capture frame. Disposes the previous texture first so
-    /// repeated captures cannot leak GPU memory.
-    /// </summary>
     private void RebuildFrame()
     {
         _frame?.Dispose();
@@ -785,10 +704,6 @@ public sealed partial class SnipOverlayWindow : Window
         ResetState();
         ApplyDpiScale();
 
-        // Size must be set BEFORE RebuildFrame: the cache is built at
-        // _imgWidth x _imgHeight and bails out if either is <= 0. Calling it
-        // first left _frame null, and the draw path then drew nothing but the
-        // transparent clear - which is why a capture showed a full black screen.
         _imgWidth = w;
         _imgHeight = h;
         _bgraPixels = bgraPixels;
@@ -802,7 +717,7 @@ public sealed partial class SnipOverlayWindow : Window
         float y = (float)Math.Min(_startPoint.Y, _endPoint.Y);
         float w = (float)Math.Abs(_startPoint.X - _endPoint.X);
         float h = (float)Math.Abs(_startPoint.Y - _endPoint.Y);
-        float grab = (float)(12 * (_dpiScale <= 0 ? 1 : _dpiScale)); // 12 DIP grab radius, in bitmap pixels
+        float grab = (float)(12 * (_dpiScale <= 0 ? 1 : _dpiScale));
         return Services.SnipRegionLogic.HitTestSelection(x, y, w, h, pt.X, pt.Y, grab) switch
         {
             Services.SnipHit.NewSelection => DragMode.NewSelection,
@@ -837,9 +752,6 @@ public sealed partial class SnipOverlayWindow : Window
         }
     }
 
-    /// <summary>Stamps a sticker at a usable default size (longest edge 160 px) centered
-    /// on the given point and clamped into the selection, so a plain click still leaves
-    /// a visible stamp. Dragging resizes from the press point via UpdateBounds.</summary>
     private Models.SnipSticker? CreateStickerAt(Point pt)
     {
         if (_activeSticker is not { } st) return null;
@@ -876,7 +788,6 @@ public sealed partial class SnipOverlayWindow : Window
             return;
         }
 
-        // Ensure DPI scale is applied before processing pointer
         ApplyDpiScale();
 
         var pt = ToPixels(raw.Position);
@@ -885,8 +796,6 @@ public sealed partial class SnipOverlayWindow : Window
         ObserveModifiersLive();
         SetOverlayCursor(Microsoft.UI.Input.InputSystemCursorShape.Cross);
 
-        // Text annotation: click places an inline editor; the object is
-        // committed when the user presses Enter.
         if (_currentTool == ActiveTool.Text && SnipToolbar.Visibility == Visibility.Visible)
         {
             BeginTextEditor(pt);
@@ -895,7 +804,6 @@ public sealed partial class SnipOverlayWindow : Window
 
         if (_currentTool != ActiveTool.Select && SnipToolbar.Visibility == Visibility.Visible)
         {
-            // Sticker tool with nothing chosen yet: open the picker instead of stamping air.
             if (_currentTool == ActiveTool.Sticker && _activeSticker is null)
             {
                 try { BtnToolSticker.Flyout.ShowAt(BtnToolSticker); } catch { }
@@ -917,8 +825,6 @@ public sealed partial class SnipOverlayWindow : Window
             return;
         }
 
-        // With the Select tool on a committed selection, grabbing an annotation
-        // moves it instead of the selection box.
         if (_currentTool == ActiveTool.Select && _state == Services.SnipCaptureState.Selected)
         {
             var hit = AnnotationAt(pt);
@@ -967,8 +873,6 @@ public sealed partial class SnipOverlayWindow : Window
             KeyDownLive(Windows.System.VirtualKey.Menu));
     }
 
-    /// <summary>A lost/cancelled capture must never leave a drag stuck on (that is what makes
-    /// "drag to draw a box" stop working after an alt-tab or a focus change).</summary>
     private void RootGrid_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
         EndDragWithoutCommit();
@@ -1020,7 +924,6 @@ public sealed partial class SnipOverlayWindow : Window
                 ke.Handled = true;
             }
         };
-        // pt is in bitmap pixels; Canvas attached properties use DIPs.
         Canvas.SetLeft(_textEditor, Math.Max(8, Math.Min(pt.X / _dpiScale, _imgWidth / _dpiScale - 270)));
         Canvas.SetTop(_textEditor, Math.Max(8, Math.Min(pt.Y / _dpiScale, _imgHeight / _dpiScale - 44)));
         var host = ToolbarHost?.Parent as Canvas;
@@ -1048,8 +951,6 @@ public sealed partial class SnipOverlayWindow : Window
         if (_isDragging && _currentTool != ActiveTool.Select && _currentAnnotation != null)
         {
             pt = ClampToSelection(pt);
-            // Constraint modifiers apply ONLY to shape annotations, read live, and
-            // never while Shift is still held over from the capture hotkey.
             if ((_currentAnnotation is Models.SnipRectangle || _currentAnnotation is Models.SnipEllipse)
                 && Services.SnipRegionLogic.ShouldSquareShape(true,
                     KeyDownLive(Windows.System.VirtualKey.Shift), _mods.ShiftPreheld))
@@ -1070,7 +971,7 @@ public sealed partial class SnipOverlayWindow : Window
         {
             _movingAnnotation.MoveBy(pt.X - _moveLast.X, pt.Y - _moveLast.Y);
             if (!BoundsWithinSelection(_movingAnnotation.GetBounds()))
-                _movingAnnotation.MoveBy(-(pt.X - _moveLast.X), -(pt.Y - _moveLast.Y)); // keep export == canvas
+                _movingAnnotation.MoveBy(-(pt.X - _moveLast.X), -(pt.Y - _moveLast.Y));
             else
                 _moveLast = pt;
             DrawCanvas.Invalidate();
@@ -1129,10 +1030,6 @@ public sealed partial class SnipOverlayWindow : Window
         catch { }
     }
 
-    /// <summary>F12 debug HUD + backing data. Shows overlay state, last pointer
-    /// event and coordinates, element under the pointer, physical and DIP cursor
-    /// position, window rect vs monitor rect, DPI scale, live modifier states and
-    /// whether the overlay is the foreground window.</summary>
     private void UpdateHud(string lastEvent)
     {
         try
@@ -1173,9 +1070,6 @@ public sealed partial class SnipOverlayWindow : Window
         catch { }
     }
 
-    /// <summary>Anything drawn outside the selection is cropped away on copy/save,
-    /// so annotations are clamped into the committed selection: what you draw is
-    /// exactly what gets exported.</summary>
     private Point ClampToSelection(Point px)
     {
         double w = Math.Abs(_endPoint.X - _startPoint.X), h = Math.Abs(_endPoint.Y - _startPoint.Y);
@@ -1192,17 +1086,11 @@ public sealed partial class SnipOverlayWindow : Window
         return b.X >= x0 - 1 && b.Y >= y0 - 1 && b.X + b.Width <= x0 + w + 1 && b.Y + b.Height <= y0 + h + 1;
     }
 
-    // Cached measure of the toolbar, so a drag never has to force a layout pass.
-    // The toolbar's size only changes when FormatRow is shown/hidden or on first
-    // measure, so UpdateFormatRow invalidates this rather than every move re-measuring.
     private double _tbW, _tbH;
     private bool _tbMeasured;
-    // Last values written to the Canvas, so a move that does not change the
-    // toolbar's position costs nothing.
     private double _lastTbLeft = double.NaN, _lastTbTop = double.NaN;
     private bool _toolbarWasVisible;
 
-    /// <summary>Drops the cached toolbar size; the next PositionToolbar re-measures.</summary>
     private void InvalidateToolbarMeasure() => _tbMeasured = false;
 
     private void PositionToolbar()
@@ -1213,8 +1101,6 @@ public sealed partial class SnipOverlayWindow : Window
         float h = (float)Math.Abs(_startPoint.Y - _endPoint.Y);
         if (w <= 0 || h <= 0)
         {
-            // Setting Visibility to the value it already holds still invalidates the
-            // visual tree in WinUI, so only write it on an actual transition.
             if (_toolbarWasVisible)
             {
                 ToolbarHost.Visibility = Visibility.Collapsed;
@@ -1231,13 +1117,9 @@ public sealed partial class SnipOverlayWindow : Window
             if (SnipToolbar.Visibility != Visibility.Visible)
                 SnipToolbar.Visibility = Visibility.Visible;
             _toolbarWasVisible = true;
-            _tbMeasured = false;   // first time on screen: measure exactly once
+            _tbMeasured = false;
         }
 
-        // The old code called UpdateLayout() on every pointer move, forcing a full
-        // measure+arrange of the whole toolbar tree (25+ buttons, two flyouts, a
-        // slider and a ColorPicker) per mouse event. Once measured the size is
-        // stable, so only pay for it when something can actually have changed it.
         if (!_tbMeasured)
         {
             ToolbarHost.UpdateLayout();
@@ -1256,7 +1138,6 @@ public sealed partial class SnipOverlayWindow : Window
         else
             top = _imgHeight - tbH - 8;
 
-        // Coordinates are in bitmap pixels; Canvas attached properties use DIPs.
         double pxW = tbW * _dpiScale, pxH = tbH * _dpiScale;
         left = Math.Max(8, Math.Min(left, _imgWidth - pxW - 8));
         top = Math.Max(8, Math.Min(top, _imgHeight - pxH - 8));
@@ -1308,8 +1189,6 @@ public sealed partial class SnipOverlayWindow : Window
 
             try { RootGrid.ReleasePointerCapture(e.Pointer); } catch { }
 
-            // A click with no drag selects the hovered window; it never creates a
-            // default-sized box. A missed click collapses any selection.
             if (_currentTool == ActiveTool.Select && _dragMode == DragMode.NewSelection
                 && Services.SnipRegionLogic.IsClick(_pressPx.X, _pressPx.Y, _endPoint.X, _endPoint.Y))
             {
@@ -1343,8 +1222,6 @@ public sealed partial class SnipOverlayWindow : Window
 
             if (_state == Services.SnipCaptureState.Selected && BtnInstantMode.IsChecked == true && Math.Abs(_endPoint.X - _startPoint.X) > 10 && Math.Abs(_endPoint.Y - _startPoint.Y) > 10)
             {
-                // Instant mode is fire-and-forget: copy (which also files it in the
-                // gallery) and get off the screen. Turn it off for the editor toolbar.
                 OverlayLog("instant-copy firing");
                 _ = CopySelectionToClipboardAsync().ContinueWith(t =>
                 {
@@ -1354,8 +1231,6 @@ public sealed partial class SnipOverlayWindow : Window
         }
     }
 
-    /// <summary>Selects the topmost DWM window under the press point (click with no
-    /// drag). Returns false when no window was hit: the caller collapses instead.</summary>
     private bool SnapClickToWindow()
     {
         try
@@ -1401,8 +1276,6 @@ public sealed partial class SnipOverlayWindow : Window
             foreach (var ann in _annotations)
             {
                 if (ann is Models.SnipSpotlight sp) { sp.ScreenWidth = _imgWidth; sp.ScreenHeight = _imgHeight; }
-                // Background passed so blur/pixelate redactions flatten into the
-                // exported pixels instead of being silently dropped.
                 ann.Draw(ds, bmp);
             }
             ds.Transform = oldTransform;
@@ -1436,8 +1309,6 @@ public sealed partial class SnipOverlayWindow : Window
 
     private async void BtnCopy_Click(object sender, RoutedEventArgs e)
     {
-        // The overlay always goes away after a copy attempt (success or Fail gets a
-        // toast either way) so a finished snip can never stick on screen.
         await CopySelectionToClipboardAsync();
         this.Close();
     }
@@ -1460,9 +1331,6 @@ public sealed partial class SnipOverlayWindow : Window
             dp.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(mStream));
             try
             {
-                // CF_DIB alongside the PNG: pass the stream itself (both a stream
-                // reference and raw bytes throw "data type mismatch" here).
-                // Best-effort only - the PNG covers all modern paste targets.
                 byte[] dib = Services.SnipRegionLogic.BuildDib32(cropped, w, h);
                 var dibStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
                 await dibStream.WriteAsync(dib.AsBuffer());
@@ -1472,8 +1340,6 @@ public sealed partial class SnipOverlayWindow : Window
             catch (Exception ex) { OverlayLog("DIB WARN " + ex.Message); }
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
 
-            // Every copy is also kept in the gallery (same annotated pixels).
-            // No success toast: captures are silent, failures still shout.
             try
             {
                 var saved = await SnipGalleryService.SaveSnipAsync(cropped, w, h, SourceApp);
@@ -1493,8 +1359,6 @@ public sealed partial class SnipOverlayWindow : Window
         }
     }
 
-    /// <summary>Fills exactly the captured monitor rectangle (physical pixels), so the frozen
-    /// frame maps 1:1 to the window client area and every pointer coordinate is a screen pixel.</summary>
     public void PlaceOnMonitor(int x, int y, int width, int height)
     {
         _monX = x; _monY = y; _monW = width; _monH = height;
@@ -1509,17 +1373,14 @@ public sealed partial class SnipOverlayWindow : Window
             else
             {
                 OverlayLog($"Skipping move/resized: dimensions too small (w={width} h={height})");
-                // Still try to move to the correct position even if we can't resize
                 _appWindow.Move(new Windows.Graphics.PointInt32(x, y));
             }
         }
         catch (Exception ex) { OverlayLog($"PlaceOnMonitor ERR: {ex.Message}"); }
     }
 
-    /// <summary>Position of this overlay's monitor within the multi-monitor capture set.</summary>
     public int MonitorIndex { get; set; }
 
-    /// <summary>Selects the whole captured monitor as the active region.</summary>
     public void SelectFullscreen()
     {
         _startPoint = new Point(0, 0);
@@ -1529,14 +1390,12 @@ public sealed partial class SnipOverlayWindow : Window
         DrawCanvas.Invalidate();
     }
 
-    /// <summary>Selects the whole monitor and copies it to the clipboard.</summary>
     public void FullscreenCopy()
     {
         SelectFullscreen();
         _ = CopySelectionToClipboardAsync();
     }
 
-    /// <summary>Enter-picker entry point. Brings this overlay forward; the user then draws the region here.</summary>
     public void ShowMonitorPicker()
     {
         Activate();
@@ -1566,7 +1425,6 @@ public sealed partial class SnipOverlayWindow : Window
 
     private void ShowToast(string title, string content)
     {
-        // Notifications are off by user request: log only, never pop, never clickable.
         OverlayLog($"toast-suppressed [{title}] {content}");
     }
 
@@ -1588,7 +1446,6 @@ public sealed partial class SnipOverlayWindow : Window
         UpdateFormatRow();
     }
 
-    /// <summary>Shows the contextual format row only for tools that use it.</summary>
     private void UpdateFormatRow()
     {
         if (FormatRow is null || BtnFillToggle is null || FillSeparator is null || SliderThickness is null) return;
@@ -1596,15 +1453,12 @@ public sealed partial class SnipOverlayWindow : Window
             or ActiveTool.Ellipse or ActiveTool.Ink or ActiveTool.Highlight
             or ActiveTool.Text or ActiveTool.Number or ActiveTool.Spotlight;
         FormatRow.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        // Showing/hiding the contextual row changes the toolbar's height, so the
-        // cached measure is stale and the next PositionToolbar must re-measure.
         InvalidateToolbarMeasure();
 
         bool fillApplies = _currentTool is ActiveTool.Rectangle or ActiveTool.Ellipse;
         BtnFillToggle.Visibility = fillApplies ? Visibility.Visible : Visibility.Collapsed;
         FillSeparator.Visibility = fillApplies ? Visibility.Visible : Visibility.Collapsed;
 
-        // For the text tool the "thickness" slider acts as font size.
         SliderThickness.Minimum = 1;
         SliderThickness.Maximum = 20;
         UpdatePreviewDot();
@@ -1816,7 +1670,6 @@ public sealed partial class SnipOverlayWindow : Window
                 return;
             }
 
-            // Remap boundaries to global SnipOverlayWindow positions
             double offsetX = Math.Max(0, Math.Min(_startPoint.X, _endPoint.X));
             double offsetY = Math.Max(0, Math.Min(_startPoint.Y, _endPoint.Y));
 

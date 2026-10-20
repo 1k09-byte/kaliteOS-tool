@@ -43,8 +43,6 @@ internal struct FileTime
 
 internal static partial class NativeMethods
 {
-    // SetupDi device-property read - the same mechanism the reference tool
-    // uses for DEVPKEY_PciDevice_InterruptMessageMaximum.
     internal static partial class SetupApi
     {
         internal const uint DIGCF_PRESENT = 0x00000002;
@@ -66,8 +64,6 @@ internal static partial class NativeMethods
             internal uint pid;
         }
 
-        // pciprop.h: DEFINE_PCI_DEVICE_DEVPKEY(DEVPKEY_PciDevice_InterruptMessageMaximum, 15).
-        // GUID verified against the live property store via SetupDiGetDevicePropertyKeys.
         internal static readonly DEVPROPKEY DEVPKEY_PciDevice_InterruptMessageMaximum = new()
         {
             fmtid = new Guid("3AB22E31-8264-4B4E-9AF5-A8D2D8E33E62"),
@@ -85,8 +81,6 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool SetupDiGetDeviceInstanceId(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, StringBuilder deviceInstanceId, uint deviceInstanceIdSize, out uint requiredSize);
 
-        // NOTE: explicit W entry point - this API is Unicode-only; without it
-        // the runtime probes for a nonexistent ...PropertyA and every call throws.
         [DllImport("setupapi.dll", EntryPoint = "SetupDiGetDevicePropertyW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool SetupDiGetDeviceProperty(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, ref DEVPROPKEY propertyKey, out uint propertyType, [Out] byte[]? propertyBuffer, uint propertyBufferSize, out uint requiredSize, uint flags);
@@ -115,7 +109,6 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool SetProcessAffinityMask(SafeProcessHandle process, IntPtr affinityMask);
 
-        // Returns the previous mask; 0 (IntPtr.Zero) means failure.
         [LibraryImport("kernel32.dll", SetLastError = true)]
         internal static partial IntPtr SetThreadAffinityMask(SafeThreadHandle thread, IntPtr affinityMask);
 
@@ -132,15 +125,6 @@ internal static partial class NativeMethods
             ref GroupAffinity groupAffinity,
             IntPtr previousGroupAffinity);
 
-        // GetThreadIdealProcessorEx takes only (thread, out ideal) - no third
-        // parameter - and returns BOOL, filling the PPROCESSOR_NUMBER out
-        // parameter. Measured against kernel32 itself (tools/ideal-processor-probe.ps1:
-        // returns 1/TRUE while the processor number comes back in the struct).
-        //
-        // This used to be declared as returning the processor number, with
-        // "(DWORD)-1 on failure": that comparison never matched, so the failure
-        // branch was dead code and a failed read reported an uninitialised
-        // processor as if it were the thread's live ideal processor.
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool GetThreadIdealProcessorEx(
@@ -195,7 +179,6 @@ internal static partial class NativeMethods
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool TerminateThread(SafeThreadHandle thread, uint exitCode);
 
-        // Returns HRESULT (0 = S_OK). Frees with LocalFree - never leak the pointer.
         [LibraryImport("kernel32.dll")]
         internal static partial int GetThreadDescription(SafeThreadHandle thread, out IntPtr description);
 

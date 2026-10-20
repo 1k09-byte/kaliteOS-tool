@@ -23,11 +23,6 @@ using Microsoft.UI.Xaml;
 
 namespace kaliteConfig.GpuOverclock.ViewModels
 {
-    /// <summary>
-    /// Overclock module ViewModel. All NVAPI work happens off the UI thread
-    /// (polling loop, Task.Run around controller calls); everything user-facing
-    /// is marshaled back through the DispatcherQueue.
-    /// </summary>
     public partial class OverclockViewModel : ObservableObject
     {
         private readonly GpuOverclockModule _module;
@@ -63,8 +58,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             CurvePoints.Add(new FanCurvePointRow(85, 100));
         }
 
-        // ---------------- availability / identity ----------------
-
         [ObservableProperty]
         public partial bool IsSupported { get; private set; }
 
@@ -74,14 +67,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial string GpuTitle { get; private set; } = "";
 
-        /// <summary>
-        /// True when the page is showing a fabricated AMD card. Set once at
-        /// construction because the module's vendor choice cannot change while
-        /// the page is alive, and the banner must not blink.
-        /// </summary>
         public bool IsSimulation => _module.IsSimulation;
 
-        /// <summary>Which simulated card is on screen.</summary>
         public string SimulationLabel => _module.SimulationLabel;
 
         [ObservableProperty]
@@ -89,8 +76,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         [ObservableProperty]
         public partial string StatusText { get; private set; } = "";
-
-        // ---------------- telemetry ----------------
 
         [ObservableProperty]
         public partial bool TelemetryAvailable { get; private set; }
@@ -134,7 +119,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial string PcieTputText { get; private set; } = "-";
 
-        /// <summary>Tile rows for the responsive telemetry grid (rebuilt every tick).</summary>
         public ObservableCollection<TelemetryTileRow> TelemetryTiles { get; } = new();
 
         private void OnTelemetryUpdate(TelemetryUpdate update)
@@ -143,7 +127,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 if (update.Health == TelemetryHealth.Unavailable)
                 {
-                    // Distinct unavailable state - never show stale/zeroed values as fact.
                     TelemetryAvailable = false;
                     TelemetryErrorText = string.IsNullOrEmpty(update.ErrorDetail)
                         ? "Telemetry unavailable - the GPU or driver is not responding."
@@ -152,7 +135,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 }
 
                 var s = update.Snapshot!;
-                _latestTempC = s.GpuTempC; // feeds the fan-curve loop
+                _latestTempC = s.GpuTempC;
                 TelemetryAvailable = true;
                 TelemetryErrorText = "";
                 CoreClockText = s.CoreClockMHz is null ? "-" : $"{s.CoreClockMHz.Value:0} MHz";
@@ -179,15 +162,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 : kbPerSecond >= 1024 ? $"{kbPerSecond / 1024:0.#} MB/s"
                 : $"{kbPerSecond:0} KB/s";
 
-        /// <summary>
-        /// Rebuilds the responsive tile grid in the brief's two-row order.
-        /// Conditional tiles (hotspot, memory temp, PCIe throughput) are
-        /// omitted when the GPU doesn't report them - never shown as zeros.
-        /// </summary>
         private void RebuildTelemetryTiles(GpuTelemetrySnapshot s)
         {
-            TelemetryTiles.Clear();
-            void Add(string label, string value) => TelemetryTiles.Add(new TelemetryTileRow(label, value));
+            var desired = new List<(string Label, string Value)>(12);
+            void Add(string label, string value) => desired.Add((label, value));
             Add("Core clock", CoreClockText);
             Add("Memory clock", MemClockText);
             Add("GPU temperature", TempText);
@@ -200,17 +178,33 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             Add("VRAM usage", VramText);
             Add("PCIe bus", PcieText);
             if (s.PcieTxKBs is not null && s.PcieRxKBs is not null) Add("PCIe TX/RX", PcieTputText);
+
+            bool shapeMatches = TelemetryTiles.Count == desired.Count;
+            if (shapeMatches)
+            {
+                for (int i = 0; i < desired.Count; i++)
+                {
+                    if (TelemetryTiles[i].Label != desired[i].Label) { shapeMatches = false; break; }
+                }
+            }
+
+            if (shapeMatches)
+            {
+                for (int i = 0; i < desired.Count; i++)
+                    TelemetryTiles[i].Value = desired[i].Value;
+                return;
+            }
+
+            TelemetryTiles.Clear();
+            foreach (var (label, value) in desired)
+                TelemetryTiles.Add(new TelemetryTileRow(label, value));
         }
 
-        // ---------------- monitor history (live graphs incl. hotspot) ----------------
-
         private readonly Queue<MonitorSample> _history = new();
-        private const int HistoryLimit = 180; // 1s ticks → ~3 minutes of history
+        private const int HistoryLimit = 180;
 
-        /// <summary>Raised on the UI thread after each tick appends history.</summary>
         public event Action? MonitorUpdated;
 
-        /// <summary>Copy of the history for the graph canvases (UI thread only).</summary>
         public IReadOnlyList<MonitorSample> GetMonitorHistory() => _history.ToList();
 
         [ObservableProperty]
@@ -253,13 +247,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         private static string FormatPower(GpuTelemetrySnapshot s)
         {
-            // Prefer absolute watts (NVML); fall back to %-of-limit (NVAPI native).
             if (s.PowerDrawW is not null) return $"{s.PowerDrawW.Value:0.#} W";
             if (s.PowerDrawPercentOfLimit is not null) return $"{s.PowerDrawPercentOfLimit.Value:0}% of limit";
             return "-";
         }
-
-        // ---------------- capabilities + control values ----------------
 
         [ObservableProperty]
         public partial bool HasCoreOffset { get; private set; }
@@ -309,7 +300,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial double TempLimitValue { get; private set; }
 
-        // Display strings for the slider rows (kept in sync via change hooks below).
         public string CoreOffsetDisplay => HasCoreOffset ? $"{CoreOffsetValue:+0;-0;0} MHz" : "";
         public string MemOffsetDisplay => HasMemOffset ? $"{MemOffsetValue:+0;-0;0} MHz" : "";
         public string PowerLimitDisplay => HasPowerLimit ? $"{PowerLimitValue:0.#}%" : "";
@@ -320,13 +310,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         partial void OnPowerLimitValueChanged(double value) => OnPropertyChanged(nameof(PowerLimitDisplay));
         partial void OnTempLimitValueChanged(double value) => OnPropertyChanged(nameof(TempLimitDisplay));
 
-        /// <summary>
-        /// True when this AMD card yields at least one control we can actually
-        /// drive. Asked of the capabilities rather than of the support flags:
-        /// a domain the driver advertises can still come back with no range, and
-        /// "supports manual tuning" is not the same as "we can set something",
-        /// which is the question the unsupported page is trying to answer.
-        /// </summary>
         private static bool HasAnyControl(AmdGpuTuningController amd)
         {
             var caps = amd.ReadCapabilities();
@@ -355,9 +338,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     return;
                 }
 
-                // An AMD card that reports no tunable controls is a real answer,
-                // not an error. Say which card and why, instead of leaving the
-                // page looking broken.
                 if (_module.Controller is AmdGpuTuningController amd && !HasAnyControl(amd))
                 {
                     SetUnsupported(
@@ -369,10 +349,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
                 _module.Telemetry.Start();
 
-                // Crash-orphan recovery: if a previous process died mid-Curve
-                // mode, its forced fan % would persist silently. The liveness
-                // marker detects that and hands the fan back to the driver
-                // before the user ever sees a stuck fan.
                 var recovered = await Task.Run(() =>
                     FanCurveExecutionService.EnsureNoOrphanedFanControl(_module.Controller));
                 if (recovered)
@@ -390,12 +366,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 }
 
                 await LoadCapabilitiesAsync();
-                // Phase 6: populate the viewer immediately - startup-path entries
-                // (orphan recovery, startup reapply) are logged before this.
                 RefreshLog();
-                // v2 Part B: the game watcher lives as long as the app - start
-                // it here (idempotent) so bindings work even if the user never
-                // opens the profiles expander.
                 _module.GameAutoApply.Start();
                 RefreshBindings();
             }
@@ -405,13 +376,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
         }
 
-        /// <summary>
-        /// Called on GPU re-detect: stops the fan curve loop (spec §5 - the loop
-        /// must hand back to Auto when the GPU is re-detected; after a re-detect
-        /// the controller may resolve a different adapter, and a blind loop
-        /// would force fan speeds on it), forgets the cached handle and re-reads
-        /// ranges.
-        /// </summary>
         public async Task RefreshAsync()
         {
             if (FanMode == GpuFanMode.Curve)
@@ -452,29 +416,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
             var c = caps.Value;
 
-            // Mobile GPUs are ALLOWED. This check used to refuse anything with
-            // IsNotebook set or "Laptop"/"Mobile" in the adapter name, which
-            // locked out every laptop dGPU regardless of whether the vendor API
-            // actually exposed controls for it. Whether a control is usable is
-            // decided by the driver: a range is null when the card cannot do it,
-            // and the UI already renders nothing for a null range. Locking out
-            // mobile parts here threw that away, so a laptop with a perfectly
-            // tunable card was told it was unsupported.
-            //
-            // Integrated GPUs stay locked. They share system memory with the CPU
-            // and generally expose no tuning domains, so there is nothing safe
-            // to apply - and overclocking one can destabilise the whole system
-            // rather than just the display.
-            //
-            // The decision is the vendor API's IsIntegrated, not the product
-            // name. The name test used to include "Radeon", which is the
-            // branding of every AMD card ever shipped - it refused discrete
-            // Radeons too, not just the iGPU. A discrete Radeon is unlocked now
-            // and only a real integrated adapter is refused.
-            //
-            // The Intel match is kept deliberately: an Intel adapter is always
-            // integrated, and NVIDIA's NVML SystemType enum has no integrated
-            // member, so the Intel name is still the signal for that vendor.
             if (c.IsIntegrated ||
                 c.GpuName.Contains("Integrated", StringComparison.OrdinalIgnoreCase) ||
                 c.GpuName.Contains("Intel", StringComparison.OrdinalIgnoreCase))
@@ -514,7 +455,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 PowerLimitMin = pr.Minimum; PowerLimitMax = pr.Maximum;
                 PowerLimitValue = pr.Clamp(powerCur);
             }
-            HasTempLimit = c.TempLimitRangeC is not null; // control hidden entirely when null
+            HasTempLimit = c.TempLimitRangeC is not null;
             if (c.TempLimitRangeC is { } tr)
             {
                 TempLimitMin = tr.Minimum; TempLimitMax = tr.Maximum;
@@ -526,15 +467,11 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             ZeroRpmAvailable = c.ZeroRpmSupported;
             if (c.ZeroRpmSupported) _ = SyncZeroRpmAsync();
 
-            // Pick up a persisted-by-session fan loop setup (new VM, same process).
             FanIntervalMs = _module.FanCurve.Interval.TotalMilliseconds;
             FanRampStep = _module.FanCurve.MaxStepPercentPerTick;
 
             await LoadVfCurveAsync(c);
 
-            // Display strings must be re-notified here explicitly: when the
-            // current offset is 0 the value setter (0 → 0) fires no change
-            // notification, and the text would stay at its initial empty binding.
             NotifySliderDisplays();
 
             StatusText = "";
@@ -547,8 +484,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             OnPropertyChanged(nameof(PowerLimitDisplay));
             OnPropertyChanged(nameof(TempLimitDisplay));
         }
-
-        // ---------------- V/F curve + voltage boost (v2) ----------------
 
         [ObservableProperty]
         public partial bool HasVfCurve { get; private set; }
@@ -565,19 +500,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial double VfFlatValue { get; private set; }
 
-        /// <summary>True when the live per-point offsets are not all equal (simple slider can't represent them).</summary>
         [ObservableProperty]
         public partial bool VfOffsetsMixed { get; private set; }
 
-        /// <summary>Client-side validation error (e.g. non-monotonic) - blocks commit while set.</summary>
         [ObservableProperty]
         public partial string VfCurveError { get; private set; } = "";
 
-        /// <summary>
-        /// True only when the driver actually answers the voltage-boost-percent
-        /// query. Usually false on Ampere/Ada (vBIOS-locked) - the control
-        /// stays hidden then and nothing implies true overvolting.
-        /// </summary>
         [ObservableProperty]
         public partial bool HasVoltageBoost { get; private set; }
 
@@ -592,15 +520,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         partial void OnVfFlatValueChanged(double value) => OnPropertyChanged(nameof(VfFlatDisplay));
         partial void OnVoltageBoostPercentValueChanged(double value) => OnPropertyChanged(nameof(VoltageBoostPercentDisplay));
 
-        /// <summary>
-        /// Session-start base anchor: queried once, never re-derived, so the
-        /// base labels can't drift after applies (see controller notes).
-        /// </summary>
         private GpuVoltageFrequencyCurve? _liveCurve;
 
         private GpuCapabilities? _caps;
 
-        /// <summary>True once the user drags in the advanced editor (saved as a per-point table, not flat).</summary>
         private bool _vfAdvancedDirty;
 
         private async Task LoadVfCurveAsync(GpuCapabilities caps)
@@ -643,7 +566,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             VfFlatValue = uniform ? first : 0;
         }
 
-        /// <summary>Simple mode: one flat offset across all points (UI shorthand - writes the full table).</summary>
         public void OnVfFlatCommitted(double value)
         {
             if (_liveCurve is null || !HasVfCurve) return;
@@ -657,7 +579,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             QueueVfCurveWrite(offsets, $"flat {(int)value:+0;-0;0} MHz");
         }
 
-        /// <summary>Advanced mode: commit the per-point edits from the graph/table.</summary>
         public void ApplyVfCurveEdits()
         {
             if (_liveCurve is null || !HasVfCurve || VfPoints.Count == 0) return;
@@ -669,7 +590,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             QueueVfCurveWrite(offsets, "per-point edits");
         }
 
-        /// <summary>Reset to stock curve: zero deltas, still routed through the safety machine.</summary>
+        public void ClearVfCurveError() => VfCurveError = "";
+
         public void ResetVfCurve()
         {
             if (_liveCurve is null || !HasVfCurve) return;
@@ -711,7 +633,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 "previous %", $"{(uint)value}%");
         }
 
-        /// <summary>Re-reads live curve offsets into the rows (base anchor untouched).</summary>
         private async Task ResyncVfFromHardwareAsync()
         {
             if (!HasVfCurve || _liveCurve is null) return;
@@ -723,12 +644,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
         }
 
-        // ---------------- writes (debounced batch -> safety machine) ----------------
-
         public void OnCoreOffsetCommitted(double value)
         {
-            // Live preview: the readout label follows the slider thumb during the
-            // drag instead of only updating after the driver write round-trips.
             CoreOffsetValue = value;
             QueueWrite(OcControlNames.CoreClockOffset, () => _module.Controller.SetCoreOffsetMhz((int)value),
                 $"{_anchors.CoreMhz:+0;-0;0} MHz", $"{(int)value:+0;-0;0} MHz");
@@ -755,12 +672,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 _anchors.TempC is null ? "driver default" : $"{_anchors.TempC} °C", $"{(int)value} °C");
         }
 
-        /// <summary>
-        /// Debounced batching: changes to any controls within the debounce
-        /// window become ONE safety batch with one confirmation countdown.
-        /// The timer restarts on every queued write, so the flush fires once,
-        /// after the LAST change (e.g. when a slider drag settles).
-        /// </summary>
         private void QueueWrite(string controlName, Func<GpuResult> apply, string oldDisplay, string newDisplay)
         {
             if (!IsSupported) return;
@@ -770,7 +681,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             _debounceTimer.IsRepeating = false;
             _debounceTimer.Tick -= FlushDirty;
             _debounceTimer.Tick += FlushDirty;
-            _debounceTimer.Stop(); // restart the window on every change (trailing debounce)
+            _debounceTimer.Stop();
             _debounceTimer.Start();
         }
 
@@ -779,8 +690,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             _debounceTimer?.Stop();
             if (_dirty.Count == 0) return;
 
-            // A confirmation window/revert is still in flight: defer the flush
-            // rather than failing - this is NOT a driver refusal.
             if (_module.Safety.CurrentState != SafetyState.Idle)
             {
                 _debounceTimer?.Start();
@@ -807,10 +716,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             });
         }
 
-        /// <summary>
-        /// Re-reads the driver's current offsets/limits after a revert (or any
-        /// external change) and moves the slider positions to match.
-        /// </summary>
         private async Task ResyncControlsFromHardwareAsync()
         {
             var offs = await Task.Run(_module.Controller.ReadCurrentOffsets);
@@ -870,10 +775,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                         ? "Your last change caused a driver reset and was automatically reverted."
                         : "Changes were reverted.";
 
-                    // A card that just reset with its fan stopped stays stopped
-                    // until someone touches the machine, so Zero RPM goes off
-                    // here rather than waiting to be noticed. Best effort: if the
-                    // driver is gone there is nothing left to write to.
                     if (e.RevertReason == "driver reset detected" && ZeroRpmEnabled)
                     {
                         ZeroRpmEnabled = false;
@@ -881,15 +782,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                             .ContinueWith(t =>
                             {
                                 if (!t.Result.IsSuccess) return;
-                                // Back on the UI thread: Progress<T>/Task.Run
-                                // captured no SynchronizationContext, and a
-                                // cross-thread PropertyChanged is a hard crash.
                                 _dispatcher.TryEnqueue(() => StatusText += " Zero RPM was turned off.");
                             });
                     }
 
-                    // Sliders must show restored hardware values, not the user's
-                    // attempted values. Fire-and-forget resync.
                     _ = ResyncControlsFromHardwareAsync();
                 }
                 else if (e.State == SafetyState.AwaitingConfirmation)
@@ -900,21 +796,11 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             });
         }
 
-        // ---------------- risk acceptance gate ----------------
-
-        /// <summary>
-        /// Session-scoped: the extreme-caution gate covers the whole overclock
-        /// card until explicitly accepted. Deliberately NOT persisted - every
-        /// app start re-arms the gate so the risk acknowledgment is never
-        /// "set and forgotten".
-        /// </summary>
         [ObservableProperty]
         public partial bool RiskAccepted { get; private set; }
 
         [RelayCommand]
         public void AcceptRisk() => RiskAccepted = true;
-
-        // ---------------- safety UI ----------------
 
         [ObservableProperty]
         public partial SafetyState SafetyStateValue { get; private set; }
@@ -934,19 +820,15 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [RelayCommand]
         public void RevertNow() => _module.Safety.RevertNow();
 
-        // ---------------- fan control ----------------
-
         [ObservableProperty]
         public partial GpuFanMode FanMode { get; private set; } = GpuFanMode.Auto;
 
         [ObservableProperty]
         public partial double FanStaticPercent { get; set; } = 50;
 
-        /// <summary>Curve-loop tick interval in ms (live on the service; session-scoped, not saved to profiles).</summary>
         [ObservableProperty]
         public partial double FanIntervalMs { get; set; } = 2000;
 
-        /// <summary>Ramp cap in percentage-points per tick; 0 = off (direct apply, as before).</summary>
         [ObservableProperty]
         public partial double FanRampStep { get; set; } = 0;
 
@@ -967,30 +849,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [ObservableProperty]
         public partial bool FanControlAvailable { get; private set; }
 
-        // ---------------- Zero RPM ----------------
-
-        /// <summary>
-        /// True when the driver answers the Zero RPM query. Separate from
-        /// <see cref="FanControlAvailable"/>: many cards can force a fixed fan
-        /// speed but cannot stop the fan at idle, and vice versa.
-        /// </summary>
         [ObservableProperty]
         public partial bool ZeroRpmAvailable { get; private set; }
 
         [ObservableProperty]
         public partial bool ZeroRpmEnabled { get; private set; }
 
-        /// <summary>
-        /// Turns Zero RPM on or off, with the two rules that keep it from
-        /// fighting the rest of the panel or stranding a card with a stopped fan.
-        ///
-        /// The toggle is a raw driver write rather than a batched profile change,
-        /// because it has no revert anchor: the safety machine reverts clock,
-        /// power and fan values it read beforehand, and there is nothing to read
-        /// here that would be safe to restore. So it is gated instead - refused
-        /// while a fan mode is forcing the fan, and turned back off the moment
-        /// the driver resets (see the safety-state handler).
-        /// </summary>
         public async Task SetZeroRpmAsync(bool enabled)
         {
             if (Safety.CurrentState != SafetyState.Idle) return;
@@ -1014,15 +878,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshLog();
         }
 
-        /// <summary>Re-reads Zero RPM from the driver, so the toggle tells the truth.</summary>
         public async Task SyncZeroRpmAsync()
         {
             var read = await Task.Run(() => _module.Controller.IsZeroRpmEnabled());
             ZeroRpmEnabled = read.IsSuccess && read.Value;
         }
 
-        // Radio-button state; the setters funnel into the same guarded commands
-        // the buttons would call, so unchecking fires nothing.
         public bool FanAutoChecked
         {
             get => FanMode == GpuFanMode.Auto;
@@ -1054,8 +915,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             if (Safety.CurrentState != SafetyState.Idle) return;
             FanMode = GpuFanMode.Auto;
             await _module.FanCurve.StopAsync("switched to auto");
-            // Explicit reset call through the safety machine so a stale forced
-            // speed can never persist silently.
             var res = await Task.Run(_module.Controller.RestoreFanAuto);
             _module.ChangeLog.Log(new AppliedChangeLogEntry
             {
@@ -1114,14 +973,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         partial void OnFanStaticPercentChanged(double value)
         {
-            // Dragging the static slider while in Static mode re-applies through
-            // the same debounced batch path.
             if (FanMode == GpuFanMode.Static)
                 QueueWrite(OcControlNames.FanSpeed, () => _module.Controller.SetFanStaticPercent((int)value),
                     "previous %", $"{(int)value}%");
         }
-
-        // ---------------- profiles ----------------
 
         [ObservableProperty]
         public partial OverclockProfile? SelectedProfile { get; set; }
@@ -1142,14 +997,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshBindings();
         }
 
-        /// <summary>Designated startup profile (or null) - shown by the UI.</summary>
         public string? StartupDefaultName => _module.Profiles.GetDefaultProfileName();
 
-        /// <summary>
-        /// Designates/clears the startup default. Registration and the known-safe
-        /// flag are separate concerns: the task runs the app with the reapply
-        /// argument; only pre-boot-validated profiles are actually applied.
-        /// </summary>
         [RelayCommand]
         public void SetStartupDefault(OverclockProfile? profile)
         {
@@ -1162,8 +1011,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 _module.Profiles.SetDefaultProfile(profile.Name);
             }
-            // Rebuild rows so every toggle/badge reflects storage truth -
-            // without this the previously-default row keeps showing On.
             RefreshProfiles();
         }
 
@@ -1188,14 +1035,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 if (_vfAdvancedDirty)
                 {
-                    // Advanced edits: persist the per-point table (clamped to
-                    // live ranges so a hand-edited file can't smuggle garbage).
                     p.VfCurveOffsets = _liveCurve.ClampOffsets(VfPoints.Select(r => r.OffsetMHz).ToList());
                 }
                 else if ((int)VfFlatValue != 0)
                 {
-                    // Simple mode: persist the portable flat value; the apply
-                    // path expands it against whatever GPU is live then.
                     p.GlobalVoltageBoostOffsetMHz = (int)VfFlatValue;
                 }
             }
@@ -1204,12 +1047,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshProfiles();
         }
 
-        /// <summary>
-        /// Applies a profile as one batch through the same safety state machine -
-        /// profile loads are never exempt (spec 6). Uses the shared
-        /// ProfileBatchBuilder so interactive, startup, and game auto-switch
-        /// applies are byte-identical.
-        /// </summary>
         [RelayCommand]
         public async Task ApplyProfileAsync(OverclockProfile? profile)
         {
@@ -1242,16 +1079,11 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     StatusText = "The driver refused one or more values from this profile.";
                     return;
                 }
-                // Give the confirmation window a moment: a revert inside it must
-                // NOT mark the profile pre-boot validated. Curve batches run a
-                // longer window - wait for the batch's actual window.
                 int window = _module.Safety.GetConfirmationSecondsFor(batch.Select(b => b.ControlName));
                 var closedCleanly = await WaitForSafetyIdleAsync(TimeSpan.FromSeconds(window + 5));
                 _windowWasReverted = !closedCleanly || _lastRevertWasRecent;
             }
 
-            // Fan settings follow after the clock/limit batch confirmed-or-reverted
-            // is handled by the machine; static mode applies through a fan batch.
             if (profile.FanMode == GpuFanMode.Static && profile.FanStaticPercent is { } fp)
             {
                 FanStaticPercent = fp;
@@ -1269,12 +1101,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
 
             profile.LastAppliedAt = DateTime.Now;
-            // A profile whose interactive batch survived its confirmation window
-            // becomes "pre-boot validated" - eligible for startup reapply.
-            // The same clean interactive confirm ALSO marks it manually
-            // validated - eligible for per-game auto-switch. Only this
-            // desktop interactive path sets the manual flag: startup reapply
-            // and game auto-apply never do.
             if (Safety.CurrentState == SafetyState.Idle && !_windowWasReverted)
             {
                 profile.ConfirmedAt = DateTime.Now;
@@ -1283,7 +1109,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
             _module.Profiles.Save(profile);
             await ResyncVfFromHardwareAsync();
-            RefreshProfiles(); // validation badges + binding validity may have changed
+            RefreshProfiles();
         }
 
         [RelayCommand]
@@ -1309,10 +1135,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
             else
             {
-                // Registering the task without a designated profile would run
-                // the reapply argument against nothing - require the default
-                // first so registration state never silently diverges from
-                // what the startup path will actually do.
                 if (_module.Profiles.GetDefaultProfileName() is null)
                 {
                     StatusText = "Designate a profile as the startup default first (toggle \"At startup\" on a profile).";
@@ -1324,19 +1146,14 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             StartupReapplyEnabled = _module.StartupTask.IsRegistered;
         }
 
-        // ---------------- per-game auto-switch (v2 Part B) ----------------
-
         public ObservableCollection<GameBindingRow> Bindings { get; } = new();
 
-        /// <summary>Persistent "currently active" indicator (also mirrored to the tray tooltip).</summary>
         [ObservableProperty]
         public partial string ActiveGameProfileText { get; private set; } = "No game profile active.";
 
-        /// <summary>Last auto-switch event, timestamped - visible next time the app opens.</summary>
         [ObservableProperty]
         public partial string LastAutoSwitchText { get; private set; } = "";
 
-        /// <summary>Watcher mechanism (event-driven WMI vs polling fallback) - never silently degraded.</summary>
         [ObservableProperty]
         public partial string GameWatcherStatusText { get; private set; } = "";
 
@@ -1371,11 +1188,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             GameWatcherStatusText = $"Watcher: {_module.GameWatcher.ModeDescription}";
         }
 
-        /// <summary>
-        /// Binds a profile to a game executable (file picker). Portable by
-        /// default (executable-name match) - the row offers exact-path
-        /// locking for generically-named executables.
-        /// </summary>
         [RelayCommand]
         public async Task BindProfileToGameAsync(OverclockProfile? profile)
         {
@@ -1411,7 +1223,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshBindings();
         }
 
-        /// <summary>Relaxes a binding to a portable executable-name match.</summary>
         [RelayCommand]
         public void ClearBindingPath(GameBindingRow? row)
         {
@@ -1421,7 +1232,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshBindings();
         }
 
-        /// <summary>Locks a binding to an exact executable path (file picker).</summary>
         [RelayCommand]
         public async Task LockBindingPathAsync(GameBindingRow? row)
         {
@@ -1434,11 +1244,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             RefreshBindings();
         }
 
-        /// <summary>
-        /// Game-executable picker. The brokered WinUI picker throws in
-        /// elevated processes, so the Win32 common dialog is the fallback -
-        /// the same pattern the verification-record export uses.
-        /// </summary>
         private async Task<string?> PickGameExecutableAsync()
         {
             try
@@ -1453,7 +1258,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
             catch
             {
-                // Elevated session → brokered picker unavailable; Win32 dialog works.
             }
             try
             {
@@ -1469,17 +1273,9 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
         }
 
-        // ---------------- change log ----------------
-
-        /// <summary>ComboBox index of the result filter: 0 = all results,
-        /// 1..n follow the OverclockChangeResult declaration order - mapped in
-        /// OverclockLogFilter so the mapping itself stays unit-testable.</summary>
         [ObservableProperty]
         public partial int LogResultFilterIndex { get; set; }
 
-        /// <summary>ComboBox index of the source filter: 0 = all sources,
-        /// 1..n follow the OverclockChangeSource declaration order - mapped in
-        /// OverclockLogFilter.</summary>
         [ObservableProperty]
         public partial int LogSourceFilterIndex { get; set; }
 
@@ -1500,17 +1296,9 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             OnPropertyChanged(nameof(LogIsEmpty));
         }
 
-        // ---------------- verification record export ----------------
-
         private string? _gpuName;
         private string? _driverVersion;
 
-        /// <summary>
-        /// Exports the in-memory change-log tail as a Markdown verification
-        /// record (same shape as Docs/OverclockVerification.md). The brokered
-        /// WinUI save picker throws in elevated processes, so the Win32 common
-        /// dialog is the fallback - the same pattern BiosManager uses.
-        /// </summary>
         [RelayCommand]
         public async Task ExportVerificationRecordAsync()
         {
@@ -1530,7 +1318,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             }
             catch
             {
-                // Elevated session → brokered picker unavailable; the Win32 dialog works.
                 var hwnd = App.MainWindow != null ? WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow) : 0;
                 path = kaliteConfig.Services.Win32FilePicker.PickSaveFile(
                     hwnd, suggested,
@@ -1561,7 +1348,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     UseShellExecute = true,
                 });
             }
-            catch { /* log file may not exist yet */ }
+            catch {  }
         }
 
         public void Teardown()
@@ -1574,7 +1361,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         }
     }
 
-    /// <summary>Editable row for the fan curve grid.</summary>
     public sealed class FanCurvePointRow : ObservableObject
     {
         private int _tempC;
@@ -1590,11 +1376,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public int FanPercent { get => _fanPercent; set => SetProperty(ref _fanPercent, value); }
     }
 
-    /// <summary>
-    /// Editable row for one V/F curve point. Voltage and base frequency are
-    /// read-only driver values; only the offset is user-editable (clamped to
-    /// the point's driver-queried range by the canvas/editor before commit).
-    /// </summary>
     public sealed class VfCurvePointRow : ObservableObject
     {
         private int _offsetMHz;
@@ -1618,10 +1399,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             get => _offsetMHz;
             set
             {
-                // Driver ranges have historically come back inverted (Max<Min) on
-                // some laptop GPUs, which made Math.Clamp throw mid-drag and
-                // silently cancel the whole gesture. Normalize before clamping
-                // so the edit always lands in a sane range.
                 int lo = Math.Min(MinOffsetMHz, MaxOffsetMHz);
                 int hi = Math.Max(MinOffsetMHz, MaxOffsetMHz);
                 int clamped = Math.Clamp(value, lo, hi);
@@ -1635,7 +1412,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public string Label => $"{VoltageMv} mV · {EffectiveMHz} MHz ({OffsetMHz:+0;-0;0})";
     }
 
-    /// <summary>UI row for one per-game binding: the binding plus the resolved profile name/validity.</summary>
     public sealed class GameBindingRow : ObservableObject
     {
         public GameBindingRow(GameProfileBinding binding, string profileName, bool profileValidated)
@@ -1673,7 +1449,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         }
     }
 
-    /// <summary>One responsive telemetry tile (value + label, rebuilt every tick).</summary>
     public sealed class TelemetryTileRow : ObservableObject
     {
         private string _value = "-";
@@ -1689,7 +1464,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public string Value { get => _value; set => SetProperty(ref _value, value); }
     }
 
-    /// <summary>One monitor-history sample (nulls = not reported that tick).</summary>
     public sealed record MonitorSample(
         int? GpuTempC,
         int? HotspotTempC,

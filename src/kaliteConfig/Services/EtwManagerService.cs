@@ -22,7 +22,7 @@ namespace kaliteConfig.Services
             var sessionDict = new Dictionary<string, EtwSessionModel>(StringComparer.OrdinalIgnoreCase);
             IntPtr[] propertyArray = new IntPtr[MaxSessions];
             int structSize = Marshal.SizeOf(typeof(NativeMethods.Etw.EVENT_TRACE_PROPERTIES));
-            int bufferSize = structSize + 4096; // struct + LoggerName + LogFileName
+            int bufferSize = structSize + 4096;
 
             for (int i = 0; i < MaxSessions; i++)
             {
@@ -84,7 +84,6 @@ namespace kaliteConfig.Services
                     }
                 }
 
-                // Enumerate offline Autologgers so they don't disappear from the UI
                 try
                 {
                     using (var root = Registry.LocalMachine.OpenSubKey(AutologgerKey))
@@ -128,17 +127,11 @@ namespace kaliteConfig.Services
                     Marshal.FreeHGlobal(propertyArray[i]);
             }
 
-            // Ensure the Auto-Clear loop is running in the background for system-tray operation
             EnsureAutoClearRunning();
 
             return sessions;
         }
 
-        /// <summary>
-        /// Stops an active ETW session using <c>cmd /c logman stop</c>.
-        /// We route through cmd.exe so the shell resolves logman from
-        /// the system PATH even in edge-case packaged contexts.
-        /// </summary>
         public bool StopSession(string sessionName)
         {
             try
@@ -154,7 +147,7 @@ namespace kaliteConfig.Services
                 };
                 using var p = System.Diagnostics.Process.Start(psi);
                 if (p == null) return false;
-                p.WaitForExit(10_000); // 10s safety ceiling
+                p.WaitForExit(10_000);
                 return p.ExitCode == 0;
             }
             catch
@@ -221,7 +214,6 @@ namespace kaliteConfig.Services
         {
             try
             {
-                // Native, extremely fast event log purge that bypasses cmd.exe/wevtutil CPU spikes
                 var session = new EventLogSession();
                 foreach (var logName in session.GetLogNames())
                 {
@@ -247,7 +239,6 @@ namespace kaliteConfig.Services
                                 {
                                     if (sk != null)
                                     {
-                                        // Increasing BufferSize to 1024KB (1MB) safely reduces disk I/O flush frequency
                                         sk.SetValue("BufferSize", 1024, RegistryValueKind.DWord);
                                     }
                                 }
@@ -277,7 +268,7 @@ namespace kaliteConfig.Services
                                     if (sk != null)
                                     {
                                         sk.DeleteValue("BufferSize", false);
-                                        sk.DeleteValue("MaximumBuffers", false); // Just in case a previous override set it
+                                        sk.DeleteValue("MaximumBuffers", false);
                                     }
                                 }
                             }

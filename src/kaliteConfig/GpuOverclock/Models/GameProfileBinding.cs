@@ -12,47 +12,26 @@ using System;
 
 namespace kaliteConfig.GpuOverclock.Models
 {
-    /// <summary>
-    /// Binds a saved <see cref="OverclockProfile"/> to a game/app executable
-    /// so the profile auto-applies when the process launches and the default
-    /// profile returns when it exits. Persisted by ProfileStorageService in
-    /// game-bindings.json (separate file - bindings reference profiles by Id,
-    /// so renaming a profile never breaks its bindings; deleting one does,
-    /// and stale bindings are skipped with a log entry).
-    /// </summary>
     public sealed class GameProfileBinding
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        /// <summary>
-        /// Executable file name, e.g. "Valorant.exe". Matched
-        /// case-insensitively against running process names. This is the
-        /// primary match key - portable across install locations.
-        /// </summary>
         public string ExecutableName { get; set; } = "";
 
-        /// <summary>
-        /// Optional full-path override to disambiguate generically-named
-        /// executables (e.g. two games both shipping "Game.exe"). When set,
-        /// the process's full path must match too.
-        /// </summary>
         public string? FullPath { get; set; }
 
-        /// <summary>Profile applied while the bound process runs.</summary>
         public Guid ProfileId { get; set; }
 
         public bool Enabled { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-        /// <summary>Normalized name used for process matching (no path, with .exe).</summary>
         public string NormalizedExecutableName
         {
             get
             {
                 var n = (ExecutableName ?? "").Trim();
                 if (n.Length == 0) return "";
-                // Tolerate a full path pasted into the name field.
                 try
                 {
                     var file = System.IO.Path.GetFileName(n);

@@ -11,111 +11,155 @@
     Background="Transparent"
     NavigationCacheMode="Enabled">
 
-    <Grid RowSpacing="12">
+    <Grid RowSpacing="14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="2">
-            <TextBlock Text="Discover Packages" Style="{StaticResource KaliteSectionTitle}" />
-            <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
-        </StackPanel>
+        <Border Grid.Row="0" Padding="22,18" CornerRadius="{ThemeResource OverlayCornerRadius}"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Grid ColumnSpacing="24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="Get Software" Style="{StaticResource TitleLargeTextBlockStyle}" />
+                    <TextBlock Text="{x:Bind Vm.StatusLine, Mode=OneWay}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" />
+                </StackPanel>
+                <AutoSuggestBox Grid.Column="1" PlaceholderText="What are you looking for?" QueryIcon="Find"
+                                MaxWidth="560" HorizontalAlignment="Right" Width="560"
+                                CornerRadius="{ThemeResource ControlCornerRadius}" VerticalAlignment="Center"
+                                Text="{x:Bind Vm.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                QuerySubmitted="SearchBox_QuerySubmitted" />
+            </Grid>
+        </Border>
 
-        <Grid Grid.Row="1" ColumnSpacing="12">
+        <Grid Grid.Row="1" ColumnSpacing="10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MaxWidth="420" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsRepeater ItemsSource="{x:Bind Vm.SourceChoices, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Horizontal" Spacing="6" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SourceChoice">
+                            <ToggleButton Content="{x:Bind Label}" IsChecked="{x:Bind IsChecked, Mode=TwoWay}"
+                                          CornerRadius="16" Padding="14,4" />
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <Button Content="All" Command="{x:Bind Vm.CheckAllSourcesCommand}" CornerRadius="16" />
+                <Button Content="None" Command="{x:Bind Vm.UncheckAllSourcesCommand}" CornerRadius="16" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <AutoSuggestBox Grid.Column="0" PlaceholderText="Search packages..." QueryIcon="Find"
-                            Text="{x:Bind Vm.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                            QuerySubmitted="SearchBox_QuerySubmitted" VerticalAlignment="Center" />
-            <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Vm.SearchModeIndex, Mode=TwoWay}"
-                      Header="Search mode" VerticalAlignment="Center">
+            <ComboBox Grid.Column="0" SelectedIndex="{x:Bind Vm.SearchModeIndex, Mode=TwoWay}" Header="Match by"
+                      CornerRadius="{ThemeResource ControlCornerRadius}">
                 <ComboBoxItem Content="Package name" />
                 <ComboBoxItem Content="Package ID" />
                 <ComboBoxItem Content="Both" />
                 <ComboBoxItem Content="Exact match" />
                 <ComboBoxItem Content="Similar" />
             </ComboBox>
-            <ComboBox Grid.Column="2" Header="Scope" VerticalAlignment="Center"
-                      SelectionChanged="ScopeBox_SelectionChanged">
+            <ComboBox Grid.Column="1" Header="Scope" SelectionChanged="ScopeBox_SelectionChanged"
+                      CornerRadius="{ThemeResource ControlCornerRadius}">
                 <ComboBoxItem Content="Default" IsSelected="True" />
                 <ComboBoxItem Content="Machine" />
                 <ComboBoxItem Content="User" />
             </ComboBox>
-            <Button Grid.Column="3" Content="Search" Style="{StaticResource AccentButtonStyle}"
-                    Command="{x:Bind Vm.SearchCommand}" VerticalAlignment="Bottom" />
+            <ComboBox Grid.Column="2" SelectedIndex="{x:Bind Vm.SortKeyIndex, Mode=TwoWay}" Header="Order by"
+                      CornerRadius="{ThemeResource ControlCornerRadius}">
+                <ComboBoxItem Content="Name" />
+                <ComboBoxItem Content="Source" />
+                <ComboBoxItem Content="Version" />
+            </ComboBox>
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom">
+                <ToggleButton Content="List" Tag="0" Click="ViewMode_Click"
+                              IsChecked="{x:Bind Vm.ViewMode.Equals(vm:PackageViewMode.List), Mode=OneWay}" />
+                <ToggleButton Content="Compact" Tag="1" Click="ViewMode_Click"
+                              IsChecked="{x:Bind Vm.ViewMode.Equals(vm:PackageViewMode.Compact), Mode=OneWay}" />
+                <ToggleButton Content="Grid" Tag="2" Click="ViewMode_Click"
+                              IsChecked="{x:Bind Vm.ViewMode.Equals(vm:PackageViewMode.Grid), Mode=OneWay}" />
+            </StackPanel>
+            <Button Grid.Column="4" Content="Search" Command="{x:Bind Vm.SearchCommand}" VerticalAlignment="Bottom" />
+            <Button Grid.Column="5" Content="Install selected" Style="{StaticResource AccentButtonStyle}"
+                    Command="{x:Bind Vm.InstallSelectedCommand}" VerticalAlignment="Bottom" />
         </Grid>
 
-        <Grid Grid.Row="2" ColumnSpacing="16">
+        <Grid Grid.Row="3" ColumnSpacing="14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="210" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="250" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Spacing="8">
-                <TextBlock Text="Sources" FontWeight="SemiBold" />
-                <ItemsRepeater ItemsSource="{x:Bind Vm.SourceChoices, Mode=OneWay}">
-                    <ItemsRepeater.Layout>
-                        <StackLayout Orientation="Vertical" Spacing="4" />
-                    </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SourceChoice">
-                            <CheckBox Content="{x:Bind Label}" IsChecked="{x:Bind IsChecked, Mode=TwoWay}" />
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="Select all" Command="{x:Bind Vm.CheckAllSourcesCommand}" />
-                    <Button Content="Clear" Command="{x:Bind Vm.UncheckAllSourcesCommand}" />
-                </StackPanel>
-                <TextBlock Text="View" FontWeight="SemiBold" Margin="0,8,0,0" />
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <ToggleButton Content="List" Tag="0" Click="ViewMode_Click"
-                                  IsChecked="{x:Bind Vm.ViewMode.Equals(vm:PackageViewMode.List), Mode=OneWay}" />
-                    <ToggleButton Content="Compact" Tag="1" Click="ViewMode_Click"
-                                  IsChecked="{x:Bind Vm.ViewMode.Equals(vm:PackageViewMode.Compact), Mode=OneWay}" />
-                    <ToggleButton Content="Grid" Tag="2" Click="ViewMode_Click"
-                                  IsChecked="{x:Bind Vm.ViewMode.Equals(vm:PackageViewMode.Grid), Mode=OneWay}" />
-                </StackPanel>
-                <ComboBox SelectedIndex="{x:Bind Vm.SortKeyIndex, Mode=TwoWay}" Header="Order by">
-                    <ComboBoxItem Content="Name" />
-                    <ComboBoxItem Content="Source" />
-                    <ComboBoxItem Content="Version" />
-                </ComboBox>
-            </StackPanel>
-
-            <Grid Grid.Column="1">
+            <Grid Grid.Column="0">
                 <local:PackageListView x:Name="ResultsList"
                                        Items="{x:Bind Vm.Filtered, Mode=OneWay}"
                                        ViewMode="{x:Bind Vm.ViewMode, Mode=OneWay}"
-                                       ActionLabel="Install"
-                                       ActionCommand="{x:Bind Vm.InstallOneCommand}"
+                                       ShowAction="False"
+                                       ShowInfo="False"
                                        CancelCommand="{x:Bind Vm.CancelActiveOperationCommand}"
-                                       InfoRequested="ResultsList_InfoRequested"
                                        SelectionToggled="ResultsList_SelectionToggled" />
                 <TextBlock Text="Search above to discover packages."
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Visibility="{x:Bind local:DiscoverPackagesPage.EmptyVis(Vm.Filtered.Count, Vm.IsBusy), Mode=OneWay}" />
             </Grid>
+
+            <Border Grid.Column="1" x:Name="DropBox" AllowDrop="True" Padding="18"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
+                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                    DragOver="DropBox_DragOver" Drop="DropBox_Drop" Tapped="DropBox_Tapped"
+                    ToolTipService.ToolTip="Click to choose files, or drag them here">
+                <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE896;" FontSize="36" HorizontalAlignment="Center"
+                              Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                    <TextBlock Text="Browser extensions" FontWeight="SemiBold" FontSize="16"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Drop .crx, .xpi, .exe or .msi files here, or click to browse."
+                               TextWrapping="Wrap" TextAlignment="Center" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
         </Grid>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="{x:Bind Vm.CountsLine, Mode=OneWay}" FontSize="12"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-            <Button Content="Select all" Command="{x:Bind Vm.SelectAllCommand}" />
-            <Button Content="Clear selection" Command="{x:Bind Vm.ClearSelectionCommand}" />
-            <Button Content="Install selection" Style="{StaticResource AccentButtonStyle}"
-                    Command="{x:Bind Vm.InstallSelectedCommand}" />
-            <Button Content="Add selection to bundle…" Click="AddToBundle_Click" />
-            <Button Content="Manual install…" Click="ManualInstall_Click" />
-        </StackPanel>
+        <Border Grid.Row="4" Padding="12,6" CornerRadius="{ThemeResource ControlCornerRadius}"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{x:Bind Vm.CountsLine, Mode=OneWay}" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Select all" Command="{x:Bind Vm.SelectAllCommand}" />
+                <Button Grid.Column="2" Content="Clear selection" Command="{x:Bind Vm.ClearSelectionCommand}" />
+            </Grid>
+        </Border>
     </Grid>
 </Page>

@@ -38,7 +38,6 @@ public sealed class SnapshotProcess
     internal List<SnapshotThread> Threads { get; } = new();
 }
 
-/// <summary>Best-effort wrappers for Windows native process/thread queries.</summary>
 public sealed partial class NativeSnapshotService
 {
     private const int ThreadStride = 80;
@@ -167,9 +166,6 @@ public sealed partial class NativeSnapshotService
 
     internal static long? TryGetWin32StartAddress(uint tid)
     {
-        // Class 9 requires THREAD_QUERY_INFORMATION. Do not silently prefer the
-        // limited handle: that was the reason all rows fell back to the common
-        // ntdll loader address on the affected machine.
         foreach (NativeMethods.ThreadAccess access in new[]
         {
             NativeMethods.ThreadAccess.QueryInformation,
@@ -192,14 +188,12 @@ public sealed partial class NativeSnapshotService
             }
             catch
             {
-                // Protected or exited thread.
             }
         }
 
         return null;
     }
 
-    /// <summary>Win32 start address for an already-open thread handle.</summary>
     internal static long? QueryWin32StartAddress(SafeThreadHandle thread)
     {
         if (thread.IsInvalid) return null;
@@ -243,24 +237,16 @@ public sealed partial class NativeSnapshotService
             }
             catch
             {
-                // Protected or already-exited thread; leave it unnamed.
             }
         }
 
         return null;
     }
 
-    /// <summary>Thread name for an already-open handle; avoids a second OpenThread per query.</summary>
     internal static string? QueryThreadDescription(SafeThreadHandle thread)
     {
         if (thread.IsInvalid) return null;
 
-        // This is the supported API and handles the allocation/freeing
-        // details for us. NOTE: check SUCCEEDED (hr >= 0), not == S_OK.
-        // Threads named via NtSetInformationThread (all seven DWM role
-        // threads) return success code 0x10000000 with a valid string
-        // pointer - verified live. An == 0 check silently discards
-        // every one of them and the Description column goes unnamed.
         if (NativeMethods.Threads.GetThreadDescription(thread, out IntPtr description) >= 0
             && description != IntPtr.Zero)
         {
@@ -278,10 +264,6 @@ public sealed partial class NativeSnapshotService
             }
         }
 
-        // System Informer uses a real output buffer for class 38. A zero
-        // length probe is not reliable here: Windows can return no useful
-        // returnLength even though a 0x100-byte query succeeds. The old
-        // probe therefore discarded valid DWM names before parsing them.
         const int InitialNameBufferSize = 0x100;
         int status;
         int bufferSize = InitialNameBufferSize;
@@ -320,11 +302,6 @@ public sealed partial class NativeSnapshotService
                 return null;
             }
 
-            // THREAD_NAME_INFORMATION contains a UNICODE_STRING. On
-            // x64 the Buffer pointer is at offset 8; on x86 it is at
-            // offset 4. Windows normally points it into the returned
-            // buffer, but accept an external pointer as System Informer
-            // does as well.
             ushort length = (ushort)Marshal.ReadInt16(info, 0);
             IntPtr nameBuffer = Marshal.ReadIntPtr(info, IntPtr.Size == 8 ? 8 : 4);
             if (length == 0 || length > 32768 || nameBuffer == IntPtr.Zero)

@@ -14,7 +14,7 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <Style x:Key="PowerCard" TargetType="Border" BasedOn="{StaticResource KaliteCard}" />
+        <Style x:Key="PowerCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
@@ -26,14 +26,12 @@
     </Page.DataContext>
 
     <Grid>
-        <!-- Main Layout -->
-        <Grid ColumnSpacing="18" Padding="28,0,28,24">
+        <Grid ColumnSpacing="12" Padding="28,8,28,16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320" /> <!-- Master -->
-                <ColumnDefinition Width="*" />   <!-- Details -->
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Loading overlay -->
             <Grid Grid.ColumnSpan="2" Canvas.ZIndex="10" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
                 <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.85" />
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="360">
@@ -43,14 +41,13 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Master List (Schemes) -->
-            <Border Grid.Column="0" Style="{StaticResource PowerCard}" Padding="14"><Grid>
+            <Border Grid.Column="0" Style="{StaticResource PowerCard}" Padding="12"><Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 
-                <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,12">
+                <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,8">
                     <TextBlock Text="Power Schemes" Style="{StaticResource BodyStrongTextBlockStyle}" />
                     <Button Content="New Plan" Click="NewPlan_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
                             ToolTipService.ToolTip="Create a new plan from a base, with your own name and description" />
@@ -74,7 +71,6 @@
                           Padding="6">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:PowerScheme">
-                            <!-- Leave the background transparent and let the native WinUI ListView handle the rounded hover/selection states! -->
                             <StackPanel Padding="8,4">
                                 <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="Currently applied" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -84,11 +80,9 @@
                 </ListView>
             </Grid></Border>
 
-            <!-- Details View (Subgroups & Settings) -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,16,0">
-                <StackPanel Spacing="16" Visibility="{Binding SelectedScheme, Converter={StaticResource NullToVisibilityConverter}}">
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+                <StackPanel Spacing="12" Visibility="{Binding SelectedScheme, Converter={StaticResource NullToVisibilityConverter}}">
 
-                    <!-- Settings search: filters the subgroup/setting tree below, not the plan list. -->
                     <Grid>
                         <TextBox Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  PlaceholderText="Search settings…"
@@ -102,13 +96,12 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap" HorizontalAlignment="Center"
                                Visibility="{Binding HasNoSettingMatches, Converter={StaticResource BoolToVisibilityConverter}}" />
-                    
-                    <!-- Selected Scheme Header -->
+
                     <Border Background="{ThemeResource LayerFillColorDefaultBrush}" 
                             BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" 
                             BorderThickness="1" 
                             CornerRadius="5"
-                            Padding="20">
+                            Padding="12">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -124,7 +117,6 @@
                                 <Button Content="Set as Active" 
                                         Command="{Binding SetActiveSchemeCommand}" 
                                         CommandParameter="{Binding SelectedScheme}" 
-                                        Style="{StaticResource AccentButtonStyle}"
                                         IsEnabled="{Binding SelectedScheme.IsActive, Converter={StaticResource InvertedBoolConverter}}" 
                                         HorizontalAlignment="Stretch" />
                                 <Button Content="Export Scheme (.pow)" 
@@ -143,8 +135,7 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-                    
-                    <!-- Settings Hierarchy -->
+
                     <ItemsRepeater ItemsSource="{Binding SelectedScheme.FilteredSubgroups}">
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="models:PowerSubgroup">
@@ -164,9 +155,6 @@
                                             <DataTemplate x:DataType="models:PowerSetting">
                                                 <toolkit:SettingsCard Header="{Binding Name}" Description="{Binding Description}" Margin="0,0,0,4">
 
-                                                    <!-- Type-aware editors: beginners never see raw numbers.
-                                                         Enum settings → friendly ComboBox; boolean → On/Off toggle;
-                                                         true range settings → NumberBox with the friendly unit caption. -->
                                                     <StackPanel Orientation="Horizontal" Spacing="16">
                                                         <StackPanel
                                                             Visibility="{Binding IsChoiceType, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -232,10 +220,6 @@
                                                             <TextBlock Text="{Binding DcValueText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
                                                         </StackPanel>
 
-                                                        <!-- Named presets for a continuous setting: the worded
-                                                             choice comes FIRST so nobody has to guess a
-                                                             number, and the raw box stays underneath for
-                                                             values the presets do not cover. -->
                                                         <StackPanel
                                                             Visibility="{Binding IsPresetList, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <TextBlock Text="Plugged in (AC)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,4" />

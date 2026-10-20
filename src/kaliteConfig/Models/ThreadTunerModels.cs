@@ -44,31 +44,14 @@ public partial class TunerProcessRow : ObservableObject
     [ObservableProperty] public partial string Name { get; set; } = string.Empty;
     [ObservableProperty] public partial string Path { get; set; } = string.Empty;
     
-    /// <summary>
-    /// Extracted executable icon, or the shared wininit.exe fallback for
-    /// pseudo-processes with no file. Null only when even the fallback can't
-    /// load - the UI then shows a generic document glyph.
-    /// </summary>
-    /// <remarks>
-    /// Both derived visibilities must be listed here. Icons load asynchronously
-    /// (extracted after the row is first shown), and with only AppIconVis listed
-    /// the fallback glyph kept its initial "visible" value, so rows briefly drew
-    /// the document glyph UNDER the real icon - two overlapping icons.
-    /// </remarks>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AppIconVis))]
     [NotifyPropertyChangedFor(nameof(GenericIconVis))]
     public partial Microsoft.UI.Xaml.Media.ImageSource? AppIcon { get; set; }
 
-    /// <summary>True when the extracted icon is present and should be drawn.</summary>
     public Microsoft.UI.Xaml.Visibility AppIconVis =>
         AppIcon == null ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
 
-    /// <summary>
-    /// True when there is no extracted icon, so the generic document glyph is
-    /// drawn in its place. The icon slot itself stays a fixed-size box either way,
-    /// so names keep the same alignment down the column.
-    /// </summary>
     public Microsoft.UI.Xaml.Visibility GenericIconVis =>
         AppIcon == null ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
@@ -82,12 +65,6 @@ public partial class TunerProcessRow : ObservableObject
     [ObservableProperty] public partial ulong AffinityMask { get; set; }
     [ObservableProperty] public partial string PriorityBoostText { get; set; } = "Unknown";
 
-    /// <summary>
-    /// Live process-wide Priority boost - true = enabled (Windows default),
-    /// false = disabled, null = not readable (protected/elevated). The Processes
-    /// list renders this as the tick box column; unticking it disables boost on
-    /// the live process and records a permanent preference.
-    /// </summary>
     [ObservableProperty] public partial bool? BoostAllowed { get; set; }
     [ObservableProperty] public partial string Memory { get; set; } = "0 MB";
     [ObservableProperty] public partial int Threads { get; set; }
@@ -96,21 +73,13 @@ public partial class TunerProcessRow : ObservableObject
     [ObservableProperty] public partial long CyclesDelta { get; set; }
     [ObservableProperty] public partial string Rule { get; set; } = "None";
 
-    // ── Process tree ────────────────────────────────────────────────
-    /// <summary>PID of the process that created this one, or 0 when unknown.</summary>
     [ObservableProperty] public partial int ParentPid { get; set; }
 
-    /// <summary>
-    /// Nesting level in the process tree (0 = no live parent). Drives the
-    /// row indent, so children sit under the process that spawned them.
-    /// </summary>
     [ObservableProperty] public partial int Depth { get; set; }
 
-    /// <summary>True when at least one live process lists this row as its parent.</summary>
     [NotifyPropertyChangedFor(nameof(HasChildrenVis))]
     [ObservableProperty] public partial bool HasChildren { get; set; }
 
-    /// <summary>The disclosure chevron only appears on rows that actually nest.</summary>
     public Microsoft.UI.Xaml.Visibility HasChildrenVis =>
         HasChildren ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
@@ -122,33 +91,18 @@ public partial class TunerProcessRow : ObservableObject
     [ObservableProperty] public partial bool IsProtected { get; set; }
     [ObservableProperty] public partial string Error { get; set; } = string.Empty;
 
-    /// <summary>
-    /// x:Bind helper: left indent that nests children under their parent.
-    /// Returns a Thickness because Margin can't be bound from a double directly.
-    /// </summary>
     public Microsoft.UI.Xaml.Thickness IndentMargin =>
         new Microsoft.UI.Xaml.Thickness(Depth * 14.0, 0, 0, 0);
 
-    /// <summary>Disclosure chevron glyph: points down when open, right when closed.</summary>
     public string ExpandGlyph => IsExpanded ? "\uE70D" : "\uE76C";
 
-    /// <summary>
-    /// Whether the Context switches / Cycles columns are on. Mirrored onto every
-    /// row by the view model so the template can bind per row; the authoritative
-    /// value and the sampling gate live on the view model / service.
-    /// </summary>
     [NotifyPropertyChangedFor(nameof(ShowCountersVis))]
     [ObservableProperty] public partial bool ShowCounters { get; set; }
 
-    /// <summary>Counter columns collapse to zero width when switched off.</summary>
     public Microsoft.UI.Xaml.Visibility ShowCountersVis =>
         ShowCounters ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 }
 
-/// <summary>
-/// One row in the Thread Tune tab: a single OS thread with a toggleable
-/// priority boost checkbox and the bold parent-process name.
-/// </summary>
 public partial class ThreadBoostRow : ObservableObject
 {
     [ObservableProperty] public partial int Tid { get; set; }
@@ -157,68 +111,41 @@ public partial class ThreadBoostRow : ObservableObject
     [ObservableProperty] public partial string Description { get; set; } = "(unnamed)";
     [ObservableProperty] public partial bool BoostEnabled { get; set; } = true;
     [ObservableProperty] public partial bool IsProtected { get; set; }
-    /// <summary>True while a SetBoostAsync call is in flight - suppresses re-entry.</summary>
     [ObservableProperty] public partial bool IsBusy { get; set; }
 }
 
-/// <summary>
-/// Affinity intent for preset installs. Resolved against the live topology
-/// at install time into a concrete mask - never persisted, never shipped
-/// as a static mask (core counts differ per machine).
-/// </summary>
 public enum AffinityScope
 {
     Unset,
     PerformanceCores,
     EfficiencyCores,
-    /// <summary>First hardware thread of each physical core (SMT off).</summary>
     SingleThreadPerCore,
-    /// <summary>First group sharing one last-level cache (one AMD CCD).</summary>
     SharedCacheGroup,
-    /// <summary>
-    /// Game default chain: P-cores → first shared-L3 group → single thread
-    /// per core → unset. First non-trivial mask wins.
-    /// </summary>
     GameDefault,
 }
 
 public sealed partial class TunerThreadRule : ObservableObject
 {
-    /// <summary>Thread description match (contains, case-insensitive). Empty = match any (requires MatchAllThreads or StartAddress).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TargetText))]
     [NotifyPropertyChangedFor(nameof(IsNamed))]
     [NotifyPropertyChangedFor(nameof(NamedVis))]
     public partial string Description { get; set; } = string.Empty;
-    /// <summary>Start address match ("module+offset", exact, case-insensitive). Empty = match any.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TargetText))]
     [NotifyPropertyChangedFor(nameof(RuleIdText))]
     public partial string StartAddress { get; set; } = string.Empty;
-    /// <summary>When true, matches every thread of the process (used by built-in
-    /// defaults for threads that carry no usable name). False for normal rules.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RuleIdText))]
     public partial bool MatchAllThreads { get; set; }
-    /// <summary>Win32 thread priority to enforce (e.g. 0 Normal, 15 TimeCritical, -4 custom).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     [NotifyPropertyChangedFor(nameof(PriorityText))]
     public partial int Priority { get; set; }
 
-    /// <summary>
-    /// Human-readable form of <see cref="Priority"/>, matching the live thread
-    /// list's "Normal (0)" / "Highest (+2)" wording so a saved rule row and a
-    /// live thread row read identically.
-    /// </summary>
     [JsonIgnore]
     public string PriorityText => DescribePriority(Priority);
 
-    /// <summary>
-    /// Same wording as the live thread list's second line ("Normal (0)",
-    /// "Highest (+2)") so a saved-rule row and a live-thread row are
-    /// indistinguishable apart from what they describe.
-    /// </summary>
     private static string DescribePriority(int level) => level switch
     {
         -15 => "Idle (-15)",
@@ -231,35 +158,27 @@ public sealed partial class TunerThreadRule : ObservableObject
         > 2 => $"High ({level})",
         _ => $"Level {level}",
     };
-    /// <summary>Per-thread Efficiency Mode (EcoQoS). Null = leave unchanged.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     public partial bool? EfficiencyMode { get; set; }
-    /// <summary>Per-thread dynamic priority boost. Null = leave unchanged.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     public partial bool? BoostEnabled { get; set; }
-    /// <summary>Thread affinity mask to enforce. Null = leave unchanged.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     [NotifyPropertyChangedFor(nameof(AffinitySummaryText))]
     public partial ulong? AffinityMask { get; set; }
-    /// <summary>Processor group for AffinityMask. Null = keep live group.</summary>
     [ObservableProperty]
     public partial ushort? AffinityGroup { get; set; }
-    /// <summary>Ideal processor group. Null = leave unchanged (requires IdealIndex).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     public partial ushort? IdealGroup { get; set; }
-    /// <summary>Ideal processor index. Null = leave unchanged (requires IdealGroup).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     public partial byte? IdealIndex { get; set; }
-    /// <summary>Thread memory priority 1-5 (MEMORY_PRIORITY_INFORMATION). Null = unchanged.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailText))]
     public partial uint? MemoryPriority { get; set; }
-    /// <summary>Live threads this rule matched the last time it was evaluated. Display only.</summary>
     [ObservableProperty]
     public partial int TargetCount { get; set; }
 
@@ -269,7 +188,6 @@ public sealed partial class TunerThreadRule : ObservableObject
             ? "(any thread)"
             : string.Join(" · ", new[] { Description, StartAddress }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
-    /// <summary>Mirrors the thread dialog's pin: named rules pin to top.</summary>
     [JsonIgnore]
     public bool IsNamed => !string.IsNullOrWhiteSpace(Description) && Description != "(unnamed)";
 
@@ -277,16 +195,12 @@ public sealed partial class TunerThreadRule : ObservableObject
     public Microsoft.UI.Xaml.Visibility NamedVis =>
         IsNamed ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    /// <summary>Third line of the thread-dialog-style row: mirrors the
-    /// live list's "TID xxx" line, but a saved rule has no TID.</summary>
     [JsonIgnore]
     public string RuleIdText =>
         !string.IsNullOrWhiteSpace(StartAddress) ? $"Start {StartAddress}"
         : MatchAllThreads ? "Matches all threads"
         : "(any thread)";
 
-    /// <summary>Rule editor row: human-readable affinity summary. Ticks every
-    /// logical CPU present in the mask, treating all-CPU as "All logical processors".</summary>
     [JsonIgnore]
     public string AffinitySummaryText
     {
@@ -343,21 +257,12 @@ public sealed partial class TunerProfile : ObservableObject
     [ObservableProperty] public partial bool? EfficiencyMode { get; set; }
     [ObservableProperty] public partial bool AutoApply { get; set; } = true;
     
-    /// <summary>
-    /// When true, this rule additionally triggers app-wide Gaming mode
-    /// (background lowering + target boost) whenever the process launches.
-    /// When the last matching process exits, Gaming mode restores everything.
-    /// </summary>
     [ObservableProperty] public partial bool GamingModeAuto { get; set; }
-    /// <summary>Prevents Global Optimize from stripping priority boosts off this process's threads.</summary>
     [ObservableProperty] public partial bool ProtectThreads { get; set; }
-    /// <summary>Master switch for the Enable / disable button. Matching requires Enabled.</summary>
     [ObservableProperty] public partial bool Enabled { get; set; } = true;
     [ObservableProperty] public partial ObservableCollection<TunerThreadRule> ThreadRules { get; set; } = new();
-    /// <summary>Last apply outcome, e.g. "3/3 actions applied · 14:02:11" or "Waiting for process".</summary>
     [ObservableProperty] public partial string LastResult { get; set; } = "Waiting for process";
 
-    /// <summary>Install-time affinity intent (presets only). Not persisted; resolved to <see cref="AffinityMask"/> on install.</summary>
     [JsonIgnore]
     public AffinityScope PresetAffinity { get; set; } = AffinityScope.Unset;
 
@@ -402,7 +307,6 @@ public sealed partial class TunerProfile : ObservableObject
     public Microsoft.UI.Xaml.Visibility DisabledPillVis =>
         Enabled ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
 
-    /// <summary>Waiting-for-process results read muted; applied results read normal.</summary>
     [JsonIgnore]
     public Microsoft.UI.Xaml.Visibility WaitingResultVis =>
         LastResult == "Waiting for process" || LastResult == "No actions defined"
@@ -440,7 +344,6 @@ public sealed partial class TunerProfile : ObservableObject
         }
     }
 
-    /// <summary>Refreshes all computed summary bindings after a batch edit.</summary>
     public void RefreshSummaries()
     {
         OnPropertyChanged(nameof(ProcessActionsSummary));
