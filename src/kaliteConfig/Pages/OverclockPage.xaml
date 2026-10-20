@@ -13,8 +13,6 @@
         <ScrollViewer Padding="36,8,36,24" VerticalScrollBarVisibility="Auto">
             <StackPanel HorizontalAlignment="Stretch" Spacing="12">
 
-                <!-- The hub above already names the page, so this tab only carries a
-                     one-line summary and the re-detect action. -->
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

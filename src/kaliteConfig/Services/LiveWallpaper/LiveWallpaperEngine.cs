@@ -243,9 +243,11 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
 
     public async Task<(bool Ok, string? Error)> TryResumeOnLaunchAsync()
     {
+        if (State is LiveState.Starting or LiveState.Playing or LiveState.Paused)
+            return (true, null);
         var settings = _store.LoadSettings();
         _settings = settings;
-        if (!settings.FeatureEnabled || string.IsNullOrEmpty(settings.LastItemId))
+        if (!settings.FeatureEnabled || !settings.ResumeOnLaunch || string.IsNullOrEmpty(settings.LastItemId))
             return (true, null);
         var item = _library.List().FirstOrDefault(i => i.Id == settings.LastItemId);
         if (item is null) return (true, null);
@@ -457,16 +459,33 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
 
     private void StopHosts()
     {
-        foreach (var host in _active)
+        LiveHost[] snapshot;
+        try
+        {
+            if (_active.Count == 0) return;
+            snapshot = _active.ToArray();
+            _active.Clear();
+        }
+        catch { return; }
+        foreach (var host in snapshot)
         {
             try
             {
-                if (host.IsAttached) _hosts.Detach(host.Hwnd);
+                try { host.Pause(); } catch { }
+                try { host.ShutdownMedia(); } catch { }
+                try { host.SetVisible(false); } catch { }
+                try
+                {
+                    if (host.IsAttached)
+                    {
+                        host.IsAttached = false;
+                        _hosts.Detach(host.Hwnd);
+                    }
+                }
+                catch { }
             }
             catch { }
-            try { host.Dispose(); } catch { }
         }
-        _active.Clear();
     }
 
     private void Notify()

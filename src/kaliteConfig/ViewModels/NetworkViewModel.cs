@@ -380,7 +380,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             foreach (var a in list) Adapters.Add(a);
             OnPropertyChanged(nameof(FilteredAdapters));
             SelectedAdapter = Adapters.FirstOrDefault(a => a.Guid == keepGuid) ?? FilteredAdapters.FirstOrDefault();
-            if (SelectedAdapter is null) StatusMessage = "No adapters found. If this machine truly has none, there is nothing to show.";
+            if (SelectedAdapter is null) StatusMessage = "No physical adapters found. WAN miniports, tunnels and filter drivers are hidden.";
             else await SelectAdapterAsync(SelectedAdapter).ConfigureAwait(true);
             await LoadTcpAsync().ConfigureAwait(true);
         }

@@ -17,13 +17,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\Services\NetAdapterModels.cs" LinkBase="Services" />
-    <Compile Include="..\..\Services\NetParsing.cs" LinkBase="Services" />
-    <Compile Include="..\..\Services\NetProcess.cs" LinkBase="Services" />
-    <Compile Include="..\..\Services\NetAdapterService.cs" LinkBase="Services" />
-    <Compile Include="..\..\Services\NetEditService.cs" LinkBase="Services" />
-    <Compile Include="..\..\Services\NetLatency.cs" LinkBase="Services" />
-    <Compile Include="..\..\Services\NetSpeedTest.cs" LinkBase="Services" />
+    <Compile Include="..\..\src\kaliteConfig.Core\Pure\NetAdapterModels.cs" LinkBase="Core" />
+    <Compile Include="..\..\src\kaliteConfig.Core\Pure\NetParsing.cs" LinkBase="Core" />
+    <Compile Include="..\..\src\kaliteConfig\Services\Network\NetProcess.cs" LinkBase="Services" />
+    <Compile Include="..\..\src\kaliteConfig\Services\Network\NetAdapterService.cs" LinkBase="Services" />
+    <Compile Include="..\..\src\kaliteConfig\Services\Network\NetEditService.cs" LinkBase="Services" />
+    <Compile Include="..\..\src\kaliteConfig\Services\Network\NetSpeedTest.cs" LinkBase="Services" />
   </ItemGroup>
 
 </Project>

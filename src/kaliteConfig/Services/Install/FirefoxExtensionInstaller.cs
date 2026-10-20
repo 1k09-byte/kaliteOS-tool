@@ -19,7 +19,23 @@ namespace kaliteConfig.Services
 {
     public class FirefoxExtensionInstaller
     {
-        public void AddInstallUrls(string distributionPath, IEnumerable<string> urls)
+        /// <summary>
+        /// Adds AMO install URLs to the browser's distribution/policies.json.
+        /// Returns false when the policy file could not be written, so callers can
+        /// tell the user that extensions were not applied.
+        /// </summary>
+        public bool AddInstallUrls(string distributionPath, IEnumerable<string> urls)
+            => WriteInstallUrls(distributionPath, urls, managedUrls: null);
+
+        /// <summary>
+        /// Makes the policy file match the current selection: managed URLs that are
+        /// no longer selected are removed, new ones are added. URLs that this app
+        /// does not manage are left untouched.
+        /// </summary>
+        public bool SetInstallUrls(string distributionPath, IEnumerable<string> managedUrls, IEnumerable<string> selectedUrls)
+            => WriteInstallUrls(distributionPath, selectedUrls, managedUrls);
+
+        private bool WriteInstallUrls(string distributionPath, IEnumerable<string> urls, IEnumerable<string>? managedUrls)
         {
             try
             {
@@ -64,6 +80,34 @@ namespace kaliteConfig.Services
                     extensions["Install"] = install;
                 }
 
+                var desired = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var url in urls)
+                {
+                    if (!string.IsNullOrWhiteSpace(url)) desired.Add(url.Trim());
+                }
+
+                var managed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (managedUrls is not null)
+                {
+                    foreach (var url in managedUrls)
+                    {
+                        if (!string.IsNullOrWhiteSpace(url)) managed.Add(url.Trim());
+                    }
+                }
+
+                bool changed = false;
+
+                if (managed.Count > 0)
+                {
+                    for (int i = install.Count - 1; i >= 0; i--)
+                    {
+                        string? value = install[i] is JsonValue v ? v.GetValue<string>()?.Trim() : null;
+                        if (value is null || !managed.Contains(value) || desired.Contains(value)) continue;
+                        install.RemoveAt(i);
+                        changed = true;
+                    }
+                }
+
                 var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var node in install)
                 {
@@ -72,19 +116,21 @@ namespace kaliteConfig.Services
                         existing.Add(s.Trim());
                 }
 
-                bool changed = false;
-                foreach (var url in urls)
+                foreach (var url in desired)
                 {
-                    if (string.IsNullOrWhiteSpace(url) || !existing.Add(url.Trim())) continue;
-                    install.Add(url.Trim());
+                    if (!existing.Add(url)) continue;
+                    install.Add(url);
                     changed = true;
                 }
 
                 if (changed)
                     File.WriteAllText(policyPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+                return true;
             }
             catch (Exception)
             {
+                return false;
             }
         }
 

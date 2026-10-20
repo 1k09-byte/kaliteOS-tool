@@ -99,8 +99,6 @@ namespace kaliteConfig.PackageManager.Views
                 string ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
                 try
                 {
-                    // Browser extensions open in their browser, which asks the user to confirm.
-                    // Installers run elevated, as before.
                     bool isExtension = ext is ".crx" or ".xpi";
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                     {

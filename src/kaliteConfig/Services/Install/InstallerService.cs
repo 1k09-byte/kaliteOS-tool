@@ -268,8 +268,26 @@ namespace kaliteConfig.Services
                     return Path.GetDirectoryName(expanded);
                 }
             }
+
+            // Mullvad Browser's installer layout depends on the chosen install mode,
+            // so fall back to locating the real application folder by its executable.
+            if (IsFirefoxFamily(item))
+            {
+                string[] executables = GetFirefoxExecutables(item);
+                foreach (string root in GetFirefoxSearchRoots(item))
+                {
+                    string? found = FindFirefoxAppDirectory(root, executables);
+                    if (found is not null) return found;
+                }
+            }
+
             return null;
         }
+
+        private static bool IsFirefoxFamily(BrowserInstallItem item)
+            => item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase)
+            || item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase)
+            || item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase);
 
         public bool IsBrowserInstalled(BrowserInstallItem item)
         {
@@ -798,44 +816,218 @@ namespace kaliteConfig.Services
             }
         }
 
-        private void DeployExtensions(BrowserInstallItem item)
+        /// <summary>
+        /// Deploys the selected extensions for an installed browser.
+        /// Returns null on success, otherwise a message describing why nothing was applied.
+        /// </summary>
+        private string? DeployExtensions(BrowserInstallItem item)
         {
-            if (item.Name.Contains("Brave", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                var chromeInstaller = new ChromiumExtensionInstaller();
-                chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist");
-            }
-            else if (item.Name.Contains("Vivaldi", StringComparison.OrdinalIgnoreCase))
-            {
-                var chromeInstaller = new ChromiumExtensionInstaller();
-                chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\Vivaldi\ExtensionInstallForcelist");
-            }
-            else if (item.Name.Contains("Helium", StringComparison.OrdinalIgnoreCase))
-            {
-                RemoveHeliumForcelist();
-                EnsureHeliumServicesEnabled();
-                SeedHeliumExtensionsFromStore(item);
-            }
-            else if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase)
-                || item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase)
-                || item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
-            {
-                string? installDir = GetBrowserInstallDirectory(item);
-                if (installDir != null)
+                if (item.Name.Contains("Brave", StringComparison.OrdinalIgnoreCase))
                 {
-                    var urls = new List<string>();
-                    foreach (var ext in item.Extensions)
-                    {
-                        if (ext.IsSelected && ext.IsAvailable && !string.IsNullOrWhiteSpace(ext.FirefoxAddonSlug))
-                            urls.Add($"https://addons.mozilla.org/firefox/downloads/latest/{ext.FirefoxAddonSlug.Trim()}");
-                    }
-                    if (urls.Count > 0)
-                    {
-                        var firefoxInstaller = new FirefoxExtensionInstaller();
-                        firefoxInstaller.AddInstallUrls(Path.Combine(installDir, "distribution"), urls);
-                    }
+                    var chromeInstaller = new ChromiumExtensionInstaller();
+                    chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist");
+                }
+                else if (item.Name.Contains("Vivaldi", StringComparison.OrdinalIgnoreCase))
+                {
+                    var chromeInstaller = new ChromiumExtensionInstaller();
+                    chromeInstaller.InstallExtensions(item.Extensions, @"SOFTWARE\Policies\Vivaldi\ExtensionInstallForcelist");
+                }
+                else if (item.Name.Contains("Helium", StringComparison.OrdinalIgnoreCase))
+                {
+                    RemoveHeliumForcelist();
+                    EnsureHeliumServicesEnabled();
+                    SeedHeliumExtensionsFromStore(item);
+                }
+                else if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase)
+                    || item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase)
+                    || item.Name.Contains("Firefox", StringComparison.OrdinalIgnoreCase))
+                {
+                    return DeployFirefoxExtensions(item);
                 }
             }
+            catch (Exception ex)
+            {
+                return $"Extensions were not applied: {ex.Message}";
+            }
+
+            return null;
+        }
+
+        private string? DeployFirefoxExtensions(BrowserInstallItem item)
+        {
+            var managed = new List<string>();
+            var selected = new List<string>();
+            foreach (var ext in item.Extensions)
+            {
+                if (!ext.IsAvailable || string.IsNullOrWhiteSpace(ext.FirefoxAddonSlug)) continue;
+                string url = $"https://addons.mozilla.org/firefox/downloads/latest/{ext.FirefoxAddonSlug.Trim()}";
+                managed.Add(url);
+                if (ext.IsSelected) selected.Add(url);
+            }
+
+            if (managed.Count == 0) return null;
+
+            string? appDir = ResolveFirefoxAppDirectory(item);
+            string policyDir = appDir is null ? string.Empty : Path.Combine(appDir, "distribution");
+            string policyPath = Path.Combine(policyDir, "policies.json");
+
+            if (appDir is null)
+            {
+                return selected.Count == 0
+                    ? null
+                    : $"Extensions were not applied: could not find the {item.Name} application folder.";
+            }
+
+            // Nothing selected and no policy on disk: nothing to clean up.
+            if (selected.Count == 0 && !File.Exists(policyPath)) return null;
+
+            var firefoxInstaller = new FirefoxExtensionInstaller();
+            return firefoxInstaller.SetInstallUrls(policyDir, managed, selected)
+                ? null
+                : $"Extensions were not applied: could not write {policyPath}.";
+        }
+
+        private static readonly string[] FirefoxAppExecutables =
+        {
+            "mullvadbrowser.exe",
+            "mullvad-browser.exe",
+            "firefox.exe",
+            "zen.exe",
+        };
+
+        private string? ResolveFirefoxAppDirectory(BrowserInstallItem item)
+        {
+            if (!IsFirefoxFamily(item)) return null;
+
+            string? detected = GetBrowserInstallDirectory(item);
+            if (detected is not null && IsFirefoxAppDirectory(detected)) return detected;
+
+            string[] executables = GetFirefoxExecutables(item);
+            foreach (string root in GetFirefoxSearchRoots(item))
+            {
+                string? found = FindFirefoxAppDirectory(root, executables);
+                if (found is not null) return found;
+            }
+
+            return detected;
+        }
+
+        private static string[] GetFirefoxExecutables(BrowserInstallItem item)
+        {
+            if (item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase))
+                return new[] { "mullvadbrowser.exe", "mullvad-browser.exe", "firefox.exe" };
+            if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase))
+                return new[] { "zen.exe", "firefox.exe" };
+            return new[] { "firefox.exe" };
+        }
+
+        private static IEnumerable<string> GetFirefoxSearchRoots(BrowserInstallItem item)
+        {
+            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var roots = new List<string>();
+
+            if (item.Name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase))
+            {
+                roots.Add(Path.Combine(local, "Mullvad", "MullvadBrowser"));
+                roots.Add(Path.Combine(programFiles, "Mullvad Browser"));
+                roots.Add(Path.Combine(programFilesX86, "Mullvad Browser"));
+                roots.Add(Path.Combine(desktop, "Mullvad Browser"));
+            }
+            else if (item.Name.Contains("Zen", StringComparison.OrdinalIgnoreCase))
+            {
+                roots.Add(Path.Combine(programFiles, "Zen Browser"));
+                roots.Add(Path.Combine(local, "Programs", "Zen Browser"));
+                roots.Add(Path.Combine(local, "zen"));
+                roots.Add(Path.Combine(desktop, "Zen Browser"));
+            }
+            else
+            {
+                roots.Add(programFiles);
+                roots.Add(programFilesX86);
+            }
+
+            return roots.Where(Directory.Exists);
+        }
+
+        private static bool IsFirefoxAppDirectory(string directory)
+        {
+            try
+            {
+                if (File.Exists(Path.Combine(directory, "application.ini"))) return true;
+                return FirefoxAppExecutables.Any(name => File.Exists(Path.Combine(directory, name)));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string? FindFirefoxAppDirectory(string root, string[] executables)
+        {
+            try
+            {
+                foreach (string exe in executables)
+                {
+                    string? fallback = null;
+                    foreach (string file in EnumerateFilesBounded(root, exe, 3))
+                    {
+                        string? dir = Path.GetDirectoryName(file);
+                        if (dir is null) continue;
+                        if (File.Exists(Path.Combine(dir, "application.ini"))) return dir;
+                        fallback ??= dir;
+                    }
+                    if (fallback is not null) return fallback;
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static IEnumerable<string> EnumerateFilesBounded(string root, string pattern, int maxDepth)
+        {
+            var pending = new Queue<(string Directory, int Depth)>();
+            pending.Enqueue((root, 0));
+
+            while (pending.Count > 0)
+            {
+                var (directory, depth) = pending.Dequeue();
+
+                string[] files;
+                try { files = Directory.GetFiles(directory, pattern); }
+                catch { files = Array.Empty<string>(); }
+                foreach (string file in files) yield return file;
+
+                if (depth >= maxDepth) continue;
+
+                string[] children;
+                try { children = Directory.GetDirectories(directory); }
+                catch { continue; }
+
+                foreach (string child in children)
+                {
+                    string name = Path.GetFileName(child);
+                    if (name.Equals("Profiles", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("cache", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("cache2", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("startupCache", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    pending.Enqueue((child, depth + 1));
+                }
+            }
+        }
+
+        public string? ApplyExtensions(BrowserInstallItem item)
+        {
+            if (item is null) return "No app selected.";
+            return DeployExtensions(item);
         }
 
         public async Task InstallBrowserAsync(BrowserInstallItem item, IProgress<BrowserInstallStatus> progress, IProgress<double> downloadProgress, IProgress<string> errorProgress, CancellationToken ct)
@@ -852,7 +1044,8 @@ namespace kaliteConfig.Services
         {
             if (IsBrowserInstalled(item) && !isUpdate)
             {
-                DeployExtensions(item);
+                string? warning = DeployExtensions(item);
+                if (warning is not null) errorProgress.Report(warning);
                 progress.Report(BrowserInstallStatus.AlreadyInstalled);
                 return;
             }
@@ -992,7 +1185,8 @@ namespace kaliteConfig.Services
                 return;
             }
 
-            DeployExtensions(item);
+            string? deployWarning = DeployExtensions(item);
+            if (deployWarning is not null) errorProgress?.Report(deployWarning);
 
             progress?.Report(BrowserInstallStatus.Installed);
 
@@ -1058,6 +1252,10 @@ namespace kaliteConfig.Services
                 progress.Report(BrowserInstallStatus.Failed);
                 return;
             }
+
+            string? deployWarning = DeployExtensions(item);
+            if (deployWarning is not null) errorProgress.Report(deployWarning);
+
             progress.Report(BrowserInstallStatus.Installed);
         }
 

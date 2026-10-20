@@ -46,9 +46,6 @@ namespace kaliteConfig.Pages
                 added.IsSelected = true;
         }
 
-        // Pressing the already-selected row again collapses the details card. The press is
-        // sampled before ListViewItem updates its selection, and the clear runs after the
-        // item's own release handling so it is not immediately re-selected.
         private UninstallerItem? _pressedApp;
         private bool _appPressWasSelected;
 
@@ -69,8 +66,6 @@ namespace kaliteConfig.Pages
             });
         }
 
-        // Closing the pane tears down the card that hosts the close button, so the
-        // change is deferred until the click has finished dispatching.
         private void DetailsClose_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             DispatcherQueue.TryEnqueue(() =>

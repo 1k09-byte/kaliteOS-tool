@@ -287,7 +287,7 @@ namespace kaliteConfig
                 catch { }
                 try
                 {
-                    var live = Services.GetService(typeof(Services.LiveWallpaper.ILiveWallpaperEngine)) as Services.LiveWallpaper.ILiveWallpaperEngine;
+                    var live = Services?.GetService(typeof(Services.LiveWallpaper.ILiveWallpaperEngine)) as Services.LiveWallpaper.ILiveWallpaperEngine;
                     live?.StopAndRestore();
                 }
                 catch { }

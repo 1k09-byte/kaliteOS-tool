@@ -58,7 +58,6 @@
                                            TextWrapping="Wrap" Visibility="{x:Bind ValidationVis, Mode=OneWay}"/>
                                 <StackPanel Grid.Row="4" Spacing="4" Margin="0,8,0,0">
                                     <TextBlock Text="{x:Bind PendingText, Mode=OneWay}" FontStyle="Italic" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                    <TextBlock Text="{x:Bind Prop.Explanation}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                                     <TextBlock Text="{x:Bind Prop.Default, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
                             </Grid>

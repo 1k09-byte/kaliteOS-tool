@@ -18,8 +18,6 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0,0,0,4" />
-            <!-- The card's own border shows selection; the stock rectangular focus
-                 visual would override the rounded shape. -->
             <Setter Property="UseSystemFocusVisuals" Value="False" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -28,9 +26,6 @@
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1" Padding="{TemplateBinding Padding}">
-                            <!-- ListViewItem folds selection into CommonStates, so the selected
-                                 variants have to be listed here or a selected+pointer-over row
-                                 falls back to the plain unselected look. -->
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup x:Name="CommonStates">
                                     <VisualState x:Name="Normal" />
@@ -44,9 +39,6 @@
                                             <Setter Target="Card.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
                                         </VisualState.Setters>
                                     </VisualState>
-                                    <!-- Selection is shown with a neutral emphasis: a brighter
-                                         edge and a filled surface. An accent-coloured outline
-                                         read as a warning against the tinted backdrop. -->
                                     <VisualState x:Name="Selected">
                                         <VisualState.Setters>
                                             <Setter Target="Card.BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
@@ -85,10 +77,6 @@
                BasedOn="{StaticResource CardListViewItemStyle}">
             <Setter Property="Padding" Value="12,10" />
         </Style>
-        <!-- Table rows draw their own rounded hover/press surface (the item template's
-             Border), so the container stays a bare presenter: no stock rectangular
-             ListViewItem highlight. The right margin keeps the last column clear of the
-             list's overlay scrollbar. -->
         <Style x:Key="TableRowListViewItemStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />

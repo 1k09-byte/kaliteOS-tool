@@ -166,13 +166,19 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         WheelLines = mouse.WheelLines;
         CaretWidth = _cursor.CurrentCaretWidth();
 
-        ReloadLibrary();
-        ReloadCursorPacks();
+        // Each section is independent: one failing service (for example a
+        // virtual display that rejects GetMonitorRECT) must not blank the page.
+        try { ReloadLibrary(); } catch { }
+        try { ReloadCursorPacks(); } catch { }
 
         Monitors.Clear();
         Monitors.Add(new MonitorChoice(null, "All monitors"));
-        foreach (var m in _wallpaper.GetMonitors())
-            Monitors.Add(new MonitorChoice(m.Id, $"Monitor {m.Index + 1} ({m.Width} x {m.Height})"));
+        try
+        {
+            foreach (var m in _wallpaper.GetMonitors())
+                Monitors.Add(new MonitorChoice(m.Id, $"Monitor {m.Index + 1} ({m.Width} x {m.Height})"));
+        }
+        catch { }
         SelectedMonitor ??= Monitors[0];
     }
 

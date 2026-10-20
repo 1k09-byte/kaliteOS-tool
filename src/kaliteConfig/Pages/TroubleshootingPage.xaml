@@ -34,23 +34,17 @@
 
             <Border Style="{StaticResource CardBorder}" Padding="12">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Safe mode, one time" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                    <TextBlock Text="Restart in safe mode just once. Normal startup is restored automatically on the next boot."
+                    <TextBlock Text="Safe mode" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="Restart Windows with only the essential drivers and services. Use it once to test — normal startup returns on the next boot — or keep it on every restart while you repair the PC."
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap" />
-                    <Button Content="Restart in safe mode once" Click="SafeOnce_Click" HorizontalAlignment="Left" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardBorder}" Padding="12">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Safe mode, every restart" Style="{StaticResource BodyStrongTextBlockStyle}" />
                     <TextBlock x:Name="SafeStateText"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Restart in safe mode once" Click="SafeOnce_Click" />
                         <Button Content="Use safe mode on every restart" Click="SafeAlways_Click" />
                         <Button Content="Restore normal startup" Click="NormalStartup_Click" />
                     </StackPanel>

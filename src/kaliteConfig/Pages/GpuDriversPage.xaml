@@ -44,7 +44,6 @@
                   HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16" HorizontalAlignment="Stretch">
 
-            <!-- Detection card: the controls that decide which adapters and channel are listed. -->
             <Border Style="{StaticResource GalleryCard}">
                 <Grid ColumnSpacing="24" RowSpacing="16">
                     <Grid.ColumnDefinitions>
@@ -89,7 +88,6 @@
                     <DataTemplate x:DataType="models:GpuDriverItem">
                         <StackPanel Spacing="16" HorizontalAlignment="Stretch">
 
-                            <!-- One adapter, one card: identity, driver state, facts, actions. -->
                             <Border Style="{StaticResource GalleryCard}" Padding="0">
                                 <StackPanel>
 

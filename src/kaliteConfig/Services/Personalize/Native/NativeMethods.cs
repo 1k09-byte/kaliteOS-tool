@@ -9,7 +9,6 @@ internal static class NativeMethods
     public const uint SPI_SETMOUSE = 0x0004;
     public const uint SPI_SETDESKWALLPAPER = 0x0014;
     public const uint SPI_SETCURSORS = 0x0057;
-    // Undocumented: applies CursorBaseSize live (pvParam = pixel size).
     public const uint SPI_SETCURSORSIZE = 0x2029;
     public const uint SPI_GETMOUSESPEED = 0x0070;
     public const uint SPI_SETMOUSESPEED = 0x0071;

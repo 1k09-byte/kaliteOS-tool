@@ -24,27 +24,65 @@ public sealed partial class PersonalizePage : Page
 
     private static readonly string[] WallpaperExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
 
-    public PersonalizeViewModel ViewModel { get; }
-    public LiveWallpaperViewModel LiveViewModel { get; }
+    public PersonalizeViewModel? ViewModel { get; }
+    public LiveWallpaperViewModel? LiveViewModel { get; }
 
     private static readonly string[] LiveVideoExtensions = { ".mp4", ".m4v", ".mov", ".wmv", ".webm", ".mkv" };
 
     public PersonalizePage()
     {
         InitializeComponent();
-        ViewModel = App.Services.Get<PersonalizeViewModel>();
-        DataContext = ViewModel;
-        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
-        LiveViewModel = App.Services.Get<LiveWallpaperViewModel>();
-        LiveSection.DataContext = LiveViewModel;
+        try
+        {
+            ViewModel = App.Services.Get<PersonalizeViewModel>();
+            if (ViewModel is not null)
+            {
+                DataContext = ViewModel;
+                ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogInitFailure("PersonalizeViewModel", ex);
+        }
+
+        try
+        {
+            LiveViewModel = App.Services.Get<LiveWallpaperViewModel>();
+        }
+        catch (Exception ex)
+        {
+            LogInitFailure("LiveWallpaperViewModel", ex);
+        }
+    }
+
+    private static void LogInitFailure(string component, Exception ex)
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "logs");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "personalize.log"),
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {component} init failed: {ex}\n" + new string('-', 80) + "\n");
+        }
+        catch { }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        RefreshFromSystem();
-        _ = LiveViewModel.ReloadLibraryAsync();
-        _ = LiveViewModel.ResumeOnLaunchAsync();
-        if (App.MainWindow is { } window) window.Activated += OnWindowActivated;
+        try
+        {
+            RefreshFromSystem();
+            if (LiveViewModel is not null)
+            {
+                _ = LiveViewModel.ReloadLibraryAsync();
+                _ = LiveViewModel.ResumeOnLaunchAsync();
+            }
+            if (App.MainWindow is { } window) window.Activated += OnWindowActivated;
+        }
+        catch
+        {
+        }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -63,7 +101,7 @@ public sealed partial class PersonalizePage : Page
     {
         try
         {
-            ViewModel.Reload();
+            if (ViewModel is not null) ViewModel.Reload();
         }
         catch
         {
@@ -74,6 +112,7 @@ public sealed partial class PersonalizePage : Page
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (ViewModel is null) return;
         switch (e.PropertyName)
         {
             case nameof(PersonalizeViewModel.SelectedWallpaper):
@@ -85,6 +124,7 @@ public sealed partial class PersonalizePage : Page
 
     private void UpdatePreview()
     {
+        if (ViewModel is null) return;
         var item = ViewModel.SelectedWallpaper;
         if (item is null || string.IsNullOrEmpty(item.FullPath) || !File.Exists(item.FullPath))
         {
@@ -105,7 +145,7 @@ public sealed partial class PersonalizePage : Page
     private void SectionBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
         var tag = (sender.SelectedItem as SelectorBarItem)?.Tag as string;
-        WallpaperSection.Visibility = tag == "cursor" ? Visibility.Collapsed : Visibility.Visible;
+        WallpaperSection.Visibility = tag == "wallpaper" ? Visibility.Visible : Visibility.Collapsed;
         CursorSection.Visibility = tag == "cursor" ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -135,8 +175,11 @@ public sealed partial class PersonalizePage : Page
                 var file = await picker.PickSingleFileAsync();
                 if (file is not null)
                 {
-                    await ViewModel.AddWallpaperAsync(file.Path);
-                    UpdatePreview();
+                    if (ViewModel is not null)
+                    {
+                        await ViewModel.AddWallpaperAsync(file.Path);
+                        UpdatePreview();
+                    }
                 }
             }
             catch
@@ -151,17 +194,20 @@ public sealed partial class PersonalizePage : Page
 
     private async void ApplyCursor_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel is null) return;
         var results = ViewModel.ApplyCursorOptions();
         if (results.Any(r => r.Ok)) await ConfirmKeepAsync(ViewModel.RevertCursorSection);
     }
 
     private void PreviewAccent_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel is null) return;
         ViewModel.PreviewAccentCommand.Execute(null);
     }
 
     private async void ApplyCursorPack_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel is null) return;
         try
         {
             await ViewModel.SelectCursorPackAsync(ViewModel.SelectedCursorPack);
@@ -171,7 +217,11 @@ public sealed partial class PersonalizePage : Page
         }
     }
 
-    private void RevertCursor_Click(object sender, RoutedEventArgs e) => ViewModel.RevertCursorSection();
+    private void RevertCursor_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is null) return;
+        ViewModel.RevertCursorSection();
+    }
 
     private async void PickCursorFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -197,11 +247,15 @@ public sealed partial class PersonalizePage : Page
 
         if (folder is null) return;
 
-        await ViewModel.ImportCursorPackAsync(folder.Path);
+        if (ViewModel is not null)
+        {
+            await ViewModel.ImportCursorPackAsync(folder.Path);
+        }
     }
 
     private async void ApplyScheme_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel is null) return;
         var results = ViewModel.ApplyCursorScheme();
         if (results.Any(r => r.Ok)) await ConfirmKeepAsync(ViewModel.RevertCursorSection);
     }
@@ -244,7 +298,7 @@ public sealed partial class PersonalizePage : Page
         timer.Stop();
 
         if (result != ContentDialogResult.Primary) revert();
-        ViewModel.Reload();
+        if (ViewModel is not null) ViewModel.Reload();
     }
 
     private static string CountdownText(int seconds) =>
@@ -252,6 +306,7 @@ public sealed partial class PersonalizePage : Page
 
     private void LiveLibrary_ItemClick(object sender, ItemClickEventArgs e)
     {
+        if (LiveViewModel is null) return;
         if (e.ClickedItem is LiveWallpaperItem item) LiveViewModel.SelectedItem = item;
     }
 
@@ -262,6 +317,7 @@ public sealed partial class PersonalizePage : Page
 
     private async void LiveLibrary_Drop(object sender, DragEventArgs e)
     {
+        if (LiveViewModel is null) return;
         try
         {
             if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
@@ -284,7 +340,7 @@ public sealed partial class PersonalizePage : Page
 
     private async void LiveAddVideo_Click(object sender, RoutedEventArgs e)
     {
-        if (App.MainWindow is null) return;
+        if (App.MainWindow is null || LiveViewModel is null) return;
         var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.VideosLibrary };
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
         foreach (var ext in LiveVideoExtensions) picker.FileTypeFilter.Add(ext);
@@ -300,7 +356,7 @@ public sealed partial class PersonalizePage : Page
 
     private async void LiveAddFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (App.MainWindow is null) return;
+        if (App.MainWindow is null || LiveViewModel is null) return;
         var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.ComputerFolder };
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
         picker.FileTypeFilter.Add("*");
@@ -316,7 +372,7 @@ public sealed partial class PersonalizePage : Page
 
     private async void LiveAddPackage_Click(object sender, RoutedEventArgs e)
     {
-        if (App.MainWindow is null) return;
+        if (App.MainWindow is null || LiveViewModel is null) return;
         var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.Downloads };
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
         picker.FileTypeFilter.Add(".zip");
@@ -332,6 +388,7 @@ public sealed partial class PersonalizePage : Page
 
     private void LiveSetAll_Click(object sender, RoutedEventArgs e)
     {
+        if (LiveViewModel is null) return;
         if ((sender as FrameworkElement)?.DataContext is LiveWallpaperItem item)
         {
             LiveViewModel.SameItem = item;
@@ -341,6 +398,7 @@ public sealed partial class PersonalizePage : Page
 
     private void LiveRemove_Click(object sender, RoutedEventArgs e)
     {
+        if (LiveViewModel is null) return;
         if ((sender as FrameworkElement)?.DataContext is LiveWallpaperItem item)
         {
             LiveViewModel.SelectedItem = item;
@@ -350,6 +408,7 @@ public sealed partial class PersonalizePage : Page
 
     private async void LiveRename_Click(object sender, RoutedEventArgs e)
     {
+        if (LiveViewModel is null) return;
         if ((sender as FrameworkElement)?.DataContext is not LiveWallpaperItem item) return;
         LiveViewModel.SelectedItem = item;
         var box = new TextBox { Text = item.Name };
@@ -368,6 +427,7 @@ public sealed partial class PersonalizePage : Page
 
     private async void RevertEverything_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel is null) return;
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,

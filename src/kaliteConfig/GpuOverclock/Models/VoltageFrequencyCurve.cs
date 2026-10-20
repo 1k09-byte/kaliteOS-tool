@@ -66,6 +66,10 @@ namespace kaliteConfig.GpuOverclock.Models
         {
             for (int i = 1; i < Points.Count; i++)
             {
+                int stockPrev = Points[i - 1].BaseFrequencyMHz + Points[i - 1].OffsetMHz;
+                int stockCur = Points[i].BaseFrequencyMHz + Points[i].OffsetMHz;
+                if (stockCur + 1 < stockPrev) continue;
+
                 int prev = Points[i - 1].BaseFrequencyMHz + (i - 1 < edited.Count ? edited[i - 1] : 0);
                 int cur = Points[i].BaseFrequencyMHz + (i < edited.Count ? edited[i] : 0);
                 if (cur + 1 < prev)

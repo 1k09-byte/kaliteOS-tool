@@ -6,8 +6,6 @@
     Title="New rule"
     PrimaryButtonText="Apply"
     CloseButtonText="Cancel"
-    PrimaryButtonStyle="{StaticResource RuleDialogButtonStyle}"
-    CloseButtonStyle="{StaticResource RuleDialogButtonStyle}"
     DefaultButton="Primary"
     CornerRadius="12"
     PrimaryButtonClick="Dialog_PrimaryClick">
@@ -40,7 +38,7 @@
                 <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Text="Target process" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <AutoSuggestBox x:Name="TargetBox" PlaceholderText=""
-                                    Text="{x:Bind Draft.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    Text="{x:Bind Draft.Pattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                     TextChanged="TargetBox_TextChanged"
                                     SuggestionChosen="TargetBox_SuggestionChosen" />
                 </StackPanel>

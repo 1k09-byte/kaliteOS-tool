@@ -109,8 +109,9 @@ public sealed partial class ThreadListDialog : ContentDialog
         _processName = processName;
         Title = $"Threads - {processName} ({pid})";
         XamlRoot = root;
-        _ = ShowAsync();
+        var shown = ShowAsync().AsTask();
         await LoadThreadsAsync();
+        await shown;
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)

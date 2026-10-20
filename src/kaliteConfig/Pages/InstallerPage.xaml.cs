@@ -9,9 +9,9 @@
 // without the express written permission of the copyright holder.
 // ==============================================================================
 using System;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
 
@@ -34,59 +34,27 @@ namespace kaliteConfig.Pages
             InstallPanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        private async void BrowserCard_Click(object sender, RoutedEventArgs e)
+        private void AppSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
-            if (sender is Button btn && btn.Tag is BrowserInstallItem browser)
-            {
-                await ShowBrowserDetailsDialogAsync(browser);
-            }
+            ViewModel.SearchQuery = sender.Text ?? string.Empty;
         }
 
-        private async Task ShowBrowserDetailsDialogAsync(BrowserInstallItem browser)
-        {
-            ViewModel.SelectedBrowser = browser;
-            DialogStatusText.Visibility = Visibility.Collapsed;
-            DialogStatusText.Text = string.Empty;
-            BrowserDetailsDialog.XamlRoot = this.XamlRoot;
-            using var centerLock = Services.DialogCenterLock.Attach(BrowserDetailsDialog);
-            await BrowserDetailsDialog.ShowAsync();
-        }
-
-        private async void DialogProgressBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.SelectedBrowser == null) return;
-            try
-            {
-                if (ViewModel.SelectedBrowser.Status == BrowserInstallStatus.UpdateAvailable)
-                    await ViewModel.UpdateBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
-                else
-                    await ViewModel.InstallBrowserCommand.ExecuteAsync(ViewModel.SelectedBrowser);
-            }
-            catch (Exception ex) { ShowStatus("Install failed", ex.Message); }
-        }
-
-        public static string RowActionLabel(BrowserInstallStatus status)
-            => status == BrowserInstallStatus.UpdateAvailable ? "Update" : "Install";
-
-        public static Visibility RowActionVisibility(BrowserInstallStatus status)
-            => status is BrowserInstallStatus.NotInstalled
-                      or BrowserInstallStatus.UpdateAvailable
-                      or BrowserInstallStatus.Failed
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-
-        public static bool IsBusyStatus(BrowserInstallStatus status)
-            => status == BrowserInstallStatus.Downloading || status == BrowserInstallStatus.Installing;
-
-        public static Visibility BusyVisibility(BrowserInstallStatus status)
-            => IsBusyStatus(status) ? Visibility.Visible : Visibility.Collapsed;
-
-        private async void RowAction_Click(object sender, RoutedEventArgs e)
+        private async void ApplyExtensions_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.Tag is not BrowserInstallItem item) return;
+            try
+            {
+                await ViewModel.ApplyExtensionsCommand.ExecuteAsync(item);
+            }
+            catch (Exception ex)
+            {
+                item.ErrorMessage = ex.Message;
+            }
+        }
 
-            ViewModel.SelectedBrowser = item;
-            btn.IsEnabled = false;
+        private async void CardAction_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not BrowserInstallItem item) return;
             try
             {
                 if (item.Status == BrowserInstallStatus.UpdateAvailable)
@@ -96,68 +64,41 @@ namespace kaliteConfig.Pages
             }
             catch (Exception ex)
             {
-                ShowStatus("Install failed", ex.Message);
-            }
-            finally
-            {
-                btn.IsEnabled = !IsBusyStatus(item.Status);
+                item.ErrorMessage = ex.Message;
+                item.Status = BrowserInstallStatus.Failed;
             }
         }
 
-        private void ShowStatus(string title, string message)
-        {
-            try
-            {
-                DialogStatusText.Text = $"{title}: {message}";
-                DialogStatusText.Visibility = Visibility.Visible;
-            }
-            catch
-            {
-            }
-        }
+        public static bool IsBusyStatus(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.Downloading || status == BrowserInstallStatus.Installing;
 
-        public static Visibility IsInstalledToVisibility(BrowserInstallStatus status)
+        public static Visibility BusyVisibility(BrowserInstallStatus status)
+            => IsBusyStatus(status) ? Visibility.Visible : Visibility.Collapsed;
+
+        public static Brush StatusTextBrush(BrowserInstallStatus status) => status switch
         {
-            return status == BrowserInstallStatus.Installed
-                || status == BrowserInstallStatus.AlreadyInstalled
+            BrowserInstallStatus.Failed => Services.Theming.ThemeHelper.Brush("SystemFillColorCriticalBrush", Microsoft.UI.Colors.OrangeRed),
+            BrowserInstallStatus.NotInstalled or BrowserInstallStatus.UpdateAvailable
+                => Services.Theming.ThemeHelper.Brush("AccentTextFillColorPrimaryBrush", Microsoft.UI.Colors.DodgerBlue),
+            _ => Services.Theming.ThemeHelper.Brush("TextFillColorSecondaryBrush", Microsoft.UI.Colors.Gray),
+        };
+
+        public static string ActionLabel(BrowserInstallStatus status) => status switch
+        {
+            BrowserInstallStatus.NotInstalled => "Install",
+            BrowserInstallStatus.UpdateAvailable => "Update",
+            BrowserInstallStatus.Failed => "Retry",
+            BrowserInstallStatus.Downloading => "Downloading",
+            BrowserInstallStatus.Installing => "Installing",
+            _ => "Installed"
+        };
+
+        public static bool ActionEnabled(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.NotInstalled
                 || status == BrowserInstallStatus.UpdateAvailable
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
+                || status == BrowserInstallStatus.Failed;
 
-        public static Visibility BoolToVis(bool isVisible)
-        {
-            return isVisible ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        public static Visibility StatusToNotInstalledVisibility(BrowserInstallStatus status)
-        {
-            return status == BrowserInstallStatus.Installed || status == BrowserInstallStatus.AlreadyInstalled
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-        }
-
-        public static string StatusToActionLabel(BrowserInstallStatus status)
-            => status == BrowserInstallStatus.UpdateAvailable ? "Update" : "Install";
-
-        public static Visibility StatusShowsTickVisibility(BrowserInstallStatus status)
-            => status == BrowserInstallStatus.UpdateAvailable ? Visibility.Collapsed : Visibility.Visible;
-
-        public static Visibility StatusToActiveVisibility(BrowserInstallStatus status)
-        {
-            return status == BrowserInstallStatus.Downloading
-                || status == BrowserInstallStatus.Installing
-                || status == BrowserInstallStatus.Failed
-                || status == BrowserInstallStatus.Installed
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
-
-        public static bool Not(bool val) => !val;
-
-        public static string GetCloseButtonText(BrowserInstallStatus status) 
-        {
-            return status == BrowserInstallStatus.Installed || status == BrowserInstallStatus.AlreadyInstalled ? "Close" : "Cancel";
-        }
+        public static Visibility StateTextVisibility(BrowserInstallStatus status)
+            => status == BrowserInstallStatus.NotInstalled ? Visibility.Collapsed : Visibility.Visible;
     }
 }

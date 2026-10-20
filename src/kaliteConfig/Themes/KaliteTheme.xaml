@@ -16,8 +16,6 @@
         <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
     </Style>
 
-    <!-- Shared page language (WinUI Gallery layout): a page title + one-line caption,
-         then flat cards with a neutral hairline and 8px corners. -->
     <Style x:Key="GalleryPageTitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="28" />
         <Setter Property="FontWeight" Value="SemiBold" />

@@ -52,8 +52,10 @@ internal static class Win32FilePicker
         [PreserveSig] int SetTitle([MarshalAs(UnmanagedType.LPWStr)] string pszTitle);
         [PreserveSig] int SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string pszText);
         [PreserveSig] int SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string pszLabel);
-        [PreserveSig] int SetResult(nint psi);
-        [PreserveSig] int GetResult(out IShellItem ppsi);
+        // Keep the vtable in native order: GetResult immediately follows
+        // SetFileNameLabel. Any extra slot here makes GetResult call the wrong
+        // native method and crashes with an access violation.
+        [PreserveSig] int GetResult([MarshalAs(UnmanagedType.Interface)] out IShellItem ppsi);
         [PreserveSig] int AddPlace(nint psi, int fdap);
         [PreserveSig] int SetDefaultExtension([MarshalAs(UnmanagedType.LPWStr)] string pszDefaultExtension);
         [PreserveSig] int Close(int hr);
@@ -150,10 +152,16 @@ internal static class Win32FilePicker
             var hr = dialog.Show(owner != 0 ? owner : GetForegroundWindow());
             if (hr < 0 || hr == HR_CANCELLED) return null;
 
-            dialog.GetResult(out var item);
+            int resultHr = dialog.GetResult(out var item);
+            if (resultHr < 0 || item is null) return null;
             try
             {
-                item.GetDisplayName(SIGDN_FILESYSPATH, out var pathPtr);
+                int nameHr = item.GetDisplayName(SIGDN_FILESYSPATH, out var pathPtr);
+                if (nameHr < 0 || pathPtr == nint.Zero)
+                {
+                    if (pathPtr != nint.Zero) Marshal.FreeCoTaskMem(pathPtr);
+                    return null;
+                }
                 var path = Marshal.PtrToStringUni(pathPtr);
                 Marshal.FreeCoTaskMem(pathPtr);
                 return path;
