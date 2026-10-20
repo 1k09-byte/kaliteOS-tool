@@ -207,7 +207,7 @@
                                                 <TextBlock Text="{x:Bind Name}" />
                                                 <TextBlock Text="{x:Bind Path}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
-                                            <Button Grid.Column="1" Content="Remove" Click="GameModeRemoveGame_Click" Tag="{x:Bind Name}" />
+                                            <Button Grid.Column="1" Content="Remove" Click="GameModeRemoveGame_Click" Tag="{x:Bind}" AutomationProperties.Name="Remove game" />
                                         </Grid>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>

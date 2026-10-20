@@ -67,7 +67,7 @@ namespace kaliteConfig.Pages
 
         private void GameModeRemoveGame_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button { Tag: string name }) GameMode.RemoveGame(name);
+            if (sender is Button { Tag: Gaming.GameMode.GameModeGameEntry entry }) GameMode.RemoveGame(entry.Name, entry.Path);
         }
 
         private void GameModeRemoveNeverTouch_Click(object sender, RoutedEventArgs e)

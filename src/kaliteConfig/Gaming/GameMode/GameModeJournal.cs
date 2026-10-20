@@ -40,6 +40,8 @@ public sealed class GameModeJournal
 
     public string Path => _path;
 
+    public bool LoadFailed { get; private set; }
+
     public int Count
     {
         get { lock (_gate) return _entries.Count; }
@@ -91,13 +93,18 @@ public sealed class GameModeJournal
     {
         try
         {
-            if (!File.Exists(_path)) return new List<GameModeJournalEntry>();
-            var text = File.ReadAllText(_path);
-            return JsonSerializer.Deserialize<List<GameModeJournalEntry>>(text, Options)
-                   ?? new List<GameModeJournalEntry>();
+            bool exists = File.Exists(_path);
+            string text = exists ? File.ReadAllText(_path) : string.Empty;
+            if (text.Length > 0 && text[0] == '\uFEFF') text = text[1..];
+            var list = exists
+                ? JsonSerializer.Deserialize<List<GameModeJournalEntry>>(text, Options) ?? new List<GameModeJournalEntry>()
+                : new List<GameModeJournalEntry>();
+            return list;
         }
         catch
         {
+            LoadFailed = true;
+            try { File.Copy(_path, _path + ".unreadable", true); } catch { }
             return new List<GameModeJournalEntry>();
         }
     }
