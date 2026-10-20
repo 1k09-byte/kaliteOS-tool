@@ -1,8 +1,4 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-// ==============================================================================
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -84,6 +80,7 @@ namespace kaliteConfig.GpuOverclock.Services
 
         internal static AdlxIntRange FanRange => new() { MinValue = 0, MaxValue = 100, Step = 1 };
 
+        internal static int CoreBaselineMhz => Kind == SimKind.PreNavi4 ? 2500 : 2400;
         internal static int VramBaselineMhz => 20000;
         internal static int PowerBaselinePercent => 100;
 

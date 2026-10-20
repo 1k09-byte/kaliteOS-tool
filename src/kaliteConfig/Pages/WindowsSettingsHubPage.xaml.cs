@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
@@ -30,7 +20,6 @@ namespace kaliteConfig.Pages
             this.ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
         }
 
-
         private void LoadKernelToggles()
         {
             _loadingKernelToggles = true;
@@ -39,7 +28,7 @@ namespace kaliteConfig.Pages
                 LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard,
                     "Serializes timer expiration (active scheme).");
                 LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
-                    "Boosts multimedia thread priorities (needs restart). OFF stops the MMCSS service and sets System Responsiveness to 100; ON sets it to 30.");
+                    "Boosts multimedia thread priorities (needs restart). OFF stops the MMCSS service and sets System Responsiveness to 100; ON sets it to 20.");
             }
             finally { _loadingKernelToggles = false; }
         }

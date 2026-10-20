@@ -1,13 +1,3 @@
-﻿// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using kaliteConfig.Models;
 using kaliteConfig.Native;
 using System;
@@ -570,11 +560,6 @@ namespace kaliteConfig.Services
 
         public sealed record RssApplyResult(bool Changed, bool Supported, string Message);
 
-        /// <summary>
-        /// Reads the NDIS RSS configuration Windows exposes in the driver class key.
-        /// Network packet steering goes through RSS, not through the IRQ affinity mask,
-        /// so this is what actually decides which CPUs process received packets.
-        /// </summary>
         public RssInfo GetRssInfo(string deviceInstanceId)
         {
             try
@@ -590,11 +575,6 @@ namespace kaliteConfig.Services
             }
         }
 
-        /// <summary>
-        /// Applies a processor mask to NDIS RSS. RSS can only express a contiguous run
-        /// starting at a base processor, so the mask is translated to base + count and
-        /// clamped to the queue count the driver actually supports.
-        /// </summary>
         public RssApplyResult ConfigureRssForAffinity(string deviceInstanceId, ulong mask)
         {
             try

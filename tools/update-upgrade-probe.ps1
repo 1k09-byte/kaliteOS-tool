@@ -1,23 +1,3 @@
-<#
-.SYNOPSIS
-  Reproduces the in-app silent upgrade the way the updater does it, and proves
-  whether it took: starts the INSTALLED app, runs the setup exe with the exact
-  argument set UpdateCheckService.BuildSilentInstallerArguments produces, then
-  reports the resulting versions plus Setup's own log.
-
-  This is the test that was missing when "Update now" silently did nothing:
-  a /VERYSILENT Inno run with /SUPPRESSMSGBOXES defaults to Abort for every
-  message it cannot show, so without /LOG a failed upgrade leaves no trace.
-
-.PARAMETER SetupPath
-  Setup exe to install (default: the newest dist\kaliteConfig-Setup-*.exe).
-
-.PARAMETER Version
-  Version the setup carries, used for the log name (default: parsed from name).
-
-.PARAMETER TimeoutSeconds
-  How long to wait for Setup before giving up.
-#>
 param(
     [string]$SetupPath,
     [string]$Version,
@@ -63,8 +43,6 @@ if (-not $SkipAppStart) {
     Write-Host "--> running instances: $($running.Count) (pid $(($running | Select-Object -ExpandProperty Id) -join ','))"
 }
 
-# The exact argument set the updater builds:
-#   /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCLOSEAPPLICATIONS /LOG="…" /DIR="…"
 $arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCLOSEAPPLICATIONS " +
              "/LOG=`"$logPath`" /DIR=`"C:\Program Files\kaliteConfig`""
 Write-Host "--> setup $arguments"

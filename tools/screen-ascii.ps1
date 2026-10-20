@@ -1,18 +1,9 @@
-# Renders the live kaliteConfig window as coarse ASCII art.
-# Why: a screenshot cannot be read back by a terminal agent, but a downsampled
-# luminance map can -- blank regions read as uniform characters, painted
-# thumbnails/previews read as textured ones. That is how we tell "laid out but
-# never painted" apart from "collapsed / zero-size" without human eyes.
-#
-# Usage:
-#   powershell -ExecutionPolicy Bypass -File tools/screen-ascii.ps1 [-Cols 120] [-Rows 46]
-#   powershell -ExecutionPolicy Bypass -File tools/screen-ascii.ps1 -Region 93,453,300,160
 param(
     [int]$Cols = 120,
     [int]$Rows = 46,
-    [string]$Region = "",      # x,y,w,h in screen coordinates; default = whole window
-    [switch]$Stats,            # also print per-row statistics for the region
-    [string]$Scanline = ""     # x,y0,y1: print raw pixel colours down one column (exact paints)
+    [string]$Region = "",
+    [switch]$Stats,
+    [string]$Scanline = ""
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -28,8 +19,6 @@ $proc = Get-Process kaliteConfig -ErrorAction SilentlyContinue |
     Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $proc) { Write-Error "kaliteConfig has no window"; exit 1 }
 
-# CopyFromScreen sees the composited desktop, so anything floating above the app
-# would be sampled instead of the app. Raise it first.
 if ([W.R]::IsIconic($proc.MainWindowHandle)) { [void][W.R]::ShowWindow($proc.MainWindowHandle, 9) }
 [void][W.R]::SetForegroundWindow($proc.MainWindowHandle)
 Start-Sleep -Milliseconds 400
@@ -70,9 +59,6 @@ $ramp = " .:-=+*#%@"
 $cellW = [Math]::Max(1, [int]($w / $Cols))
 $cellH = [Math]::Max(1, [int]($h / $Rows))
 
-# Two passes: measure every cell, then stretch contrast across the *window's own*
-# range. The app is a dark theme, so raw luminance squashes into the first two
-# ramp characters and nothing is legible.
 $means = New-Object 'double[,]' $Rows, $Cols
 $contrast = New-Object 'double[,]' $Rows, $Cols
 for ($cy = 0; $cy -lt $Rows; $cy++) {
@@ -106,8 +92,6 @@ for ($cy = 0; $cy -lt $Rows; $cy++) {
         $t = [Math]::Max(0, [Math]::Min(1, $t))
         $idx = [Math]::Min($ramp.Length - 1, [int]($t * ($ramp.Length - 1)))
         $ch = [string]$ramp[$idx]
-        # Local contrast = real content (image pixels, text, glyphs). Flat fills stay
-        # as their brightness character, so a never-painted card is unmistakable.
         if ($contrast[$cy, $cx] -gt 90) { $ch = "@" }
         elseif ($contrast[$cy, $cx] -gt 45) { $ch = "#" }
         elseif ($contrast[$cy, $cx] -gt 20) { $ch = "+" }

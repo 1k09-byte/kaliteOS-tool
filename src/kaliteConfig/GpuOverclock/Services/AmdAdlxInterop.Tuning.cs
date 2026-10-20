@@ -1,14 +1,5 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace kaliteConfig.GpuOverclock.Services
@@ -30,6 +21,7 @@ namespace kaliteConfig.GpuOverclock.Services
         private IntPtr _gfx2;
         private IntPtr _vram2;
         private IntPtr _fan;
+        private IntPtr _fan1;
         private IntPtr _power;
         private bool _disposed;
 
@@ -43,6 +35,8 @@ namespace kaliteConfig.GpuOverclock.Services
         internal AmdGpuTuningSupport Support { get; }
 
         internal bool IsUsable => !_disposed && _gpu != IntPtr.Zero;
+
+        internal IntPtr GpuHandle => _gpu;
 
         private const int TuningGetManualGfx = 14;
         private const int TuningGetManualVram = 15;
@@ -66,22 +60,29 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private const int FanGetTuningRanges = 3;
         private const int FanGetTuningStates = 4;
+        private const int FanSetTuningStates = 7;
         private const int FanIsSupportedZeroRpm = 8;
         private const int FanGetZeroRpmState = 9;
         private const int FanSetZeroRpmState = 10;
 
+        private const int FanGetDefaultTuningStates = 23;
+        private const int FanGetDefaultZeroRpm = 27;
+
         private const int FanStateGetSpeed = 3;
         private const int FanStateSetSpeed = 4;
+        private const int FanStateGetTemperature = 5;
+        private const int FanStateSetTemperature = 6;
         private const int FanStateListSize = 3;
         private const int FanStateListAt = 11;
 
         private const string IidGraphicsTuning2 = "IADLXManualGraphicsTuning2";
         private const string IidVramTuning2 = "IADLXManualVRAMTuning2";
         private const string IidFanTuning = "IADLXManualFanTuning";
+        private const string IidFanTuning1 = "IADLXManualFanTuning1";
         private const string IidPowerTuning = "IADLXManualPowerTuning";
 
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate long AcquireFn(IntPtr self);
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate long ReleaseFn(IntPtr self);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int AcquireFn(IntPtr self);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int ReleaseFn(IntPtr self);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int QueryInterfaceFn(IntPtr self, IntPtr interfaceId, out IntPtr ppInterface);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int GetDomainFn(IntPtr self, IntPtr gpu, out IntPtr ppDomain);
 
@@ -92,6 +93,7 @@ namespace kaliteConfig.GpuOverclock.Services
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int GetBoolFn(IntPtr self, out byte value);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int SetBoolFn(IntPtr self, byte value);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int GetObjectFn(IntPtr self, out IntPtr value);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int SetObjectFn(IntPtr self, IntPtr value);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int ListAtStateFn(IntPtr self, uint location, out IntPtr ppState);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate uint ListCountFn(IntPtr self);
 
@@ -131,7 +133,29 @@ namespace kaliteConfig.GpuOverclock.Services
         private IntPtr Gfx2 => _gfx2 != IntPtr.Zero ? _gfx2 : (_gfx2 = Domain(TuningGetManualGfx, IidGraphicsTuning2));
         private IntPtr Vram2 => _vram2 != IntPtr.Zero ? _vram2 : (_vram2 = Domain(TuningGetManualVram, IidVramTuning2));
         private IntPtr Fan => _fan != IntPtr.Zero ? _fan : (_fan = Domain(TuningGetManualFan, IidFanTuning));
+        private IntPtr Fan1 => _fan1 != IntPtr.Zero ? _fan1 : (_fan1 = QueryInterface(Fan, IidFanTuning1));
         private IntPtr Power => _power != IntPtr.Zero ? _power : (_power = Domain(TuningGetManualPower, IidPowerTuning));
+
+        private IntPtr QueryInterface(IntPtr iface, string iid)
+        {
+            if (iface == IntPtr.Zero) return IntPtr.Zero;
+            IntPtr iidPtr = Marshal.StringToHGlobalUni(iid);
+            try
+            {
+                return AmdAdlxInterop.Fn<QueryInterfaceFn>(iface, IfaceQueryInterface)(
+                    iface, iidPtr, out IntPtr versioned) == 0
+                    ? versioned
+                    : IntPtr.Zero;
+            }
+            catch (Exception)
+            {
+                return IntPtr.Zero;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(iidPtr);
+            }
+        }
 
         internal AdlxIntRange? ReadCoreMaxFrequencyRange()
         {
@@ -220,11 +244,14 @@ namespace kaliteConfig.GpuOverclock.Services
             catch (Exception) { return null; }
         }
 
-        internal bool TrySetFanSpeed(int percent)
+        internal bool TrySetFanSpeed(int percent) => TrySetFanSpeeds(new[] { percent });
+
+        internal bool TrySetFanSpeeds(IReadOnlyList<int> percents)
         {
             IntPtr fan = Fan;
-            if (fan == IntPtr.Zero) return false;
-            IntPtr list = IntPtr.Zero, state = IntPtr.Zero;
+            if (fan == IntPtr.Zero || percents.Count == 0) return false;
+
+            IntPtr list = IntPtr.Zero;
             try
             {
                 if (AmdAdlxInterop.Fn<GetObjectFn>(fan, FanGetTuningStates)(fan, out list) != 0 || list == IntPtr.Zero)
@@ -233,10 +260,24 @@ namespace kaliteConfig.GpuOverclock.Services
                 uint count = AmdAdlxInterop.Fn<ListCountFn>(list, FanStateListSize)(list);
                 if (count == 0) return false;
 
-                if (AmdAdlxInterop.Fn<ListAtStateFn>(list, FanStateListAt)(list, 0, out state) != 0 || state == IntPtr.Zero)
-                    return false;
+                for (uint i = 0; i < count; i++)
+                {
+                    if (AmdAdlxInterop.Fn<ListAtStateFn>(list, FanStateListAt)(list, i, out IntPtr state) != 0
+                        || state == IntPtr.Zero)
+                        return false;
+                    try
+                    {
+                        int value = percents[Math.Min((int)i, percents.Count - 1)];
+                        if (AmdAdlxInterop.Fn<SetIntFn>(state, FanStateSetSpeed)(state, value) != 0)
+                            return false;
+                    }
+                    finally
+                    {
+                        SafeRelease(state);
+                    }
+                }
 
-                return AmdAdlxInterop.Fn<SetIntFn>(state, FanStateSetSpeed)(state, percent) == 0;
+                return AmdAdlxInterop.Fn<SetObjectFn>(fan, FanSetTuningStates)(fan, list) == 0;
             }
             catch (Exception)
             {
@@ -244,7 +285,149 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             finally
             {
-                if (state != IntPtr.Zero) SafeRelease(state);
+                if (list != IntPtr.Zero) SafeRelease(list);
+            }
+        }
+
+        internal int[]? ReadFanSpeedStates()
+        {
+            var curve = ReadFanCurve();
+            if (curve is null) return null;
+            var speeds = new int[curve.Length];
+            for (int i = 0; i < curve.Length; i++) speeds[i] = curve[i].SpeedPercent;
+            return speeds;
+        }
+
+        internal (int TempC, int SpeedPercent)[]? ReadFanCurve()
+        {
+            IntPtr fan = Fan;
+            if (fan == IntPtr.Zero) return null;
+
+            IntPtr list = IntPtr.Zero;
+            try
+            {
+                if (AmdAdlxInterop.Fn<GetObjectFn>(fan, FanGetTuningStates)(fan, out list) != 0 || list == IntPtr.Zero)
+                    return null;
+                return ReadStateCurve(list);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+            finally
+            {
+                if (list != IntPtr.Zero) SafeRelease(list);
+            }
+        }
+
+        internal (int TempC, int SpeedPercent)[]? ReadDefaultFanCurve()
+        {
+            IntPtr fan1 = Fan1;
+            if (fan1 == IntPtr.Zero) return null;
+
+            IntPtr list = IntPtr.Zero;
+            try
+            {
+                if (AmdAdlxInterop.Fn<GetObjectFn>(fan1, FanGetDefaultTuningStates)(fan1, out list) != 0
+                    || list == IntPtr.Zero)
+                    return null;
+                return ReadStateCurve(list);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+            finally
+            {
+                if (list != IntPtr.Zero) SafeRelease(list);
+            }
+        }
+
+        internal bool? ReadDefaultZeroRpm()
+        {
+            IntPtr fan1 = Fan1;
+            if (fan1 == IntPtr.Zero) return null;
+            try
+            {
+                return AmdAdlxInterop.Fn<GetBoolFn>(fan1, FanGetDefaultZeroRpm)(fan1, out byte on) == 0
+                    ? on != 0
+                    : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static (int TempC, int SpeedPercent)[]? ReadStateCurve(IntPtr list)
+        {
+            uint count = AmdAdlxInterop.Fn<ListCountFn>(list, FanStateListSize)(list);
+            if (count == 0) return null;
+
+            var curve = new (int TempC, int SpeedPercent)[count];
+            for (uint i = 0; i < count; i++)
+            {
+                if (AmdAdlxInterop.Fn<ListAtStateFn>(list, FanStateListAt)(list, i, out IntPtr state) != 0
+                    || state == IntPtr.Zero)
+                    return null;
+                try
+                {
+                    if (AmdAdlxInterop.Fn<GetIntFn>(state, FanStateGetSpeed)(state, out int speed) != 0)
+                        return null;
+                    AmdAdlxInterop.Fn<GetIntFn>(state, FanStateGetTemperature)(state, out int temp);
+                    curve[i] = (temp, speed);
+                }
+                finally
+                {
+                    SafeRelease(state);
+                }
+            }
+
+            return curve;
+        }
+
+        internal bool TrySetFanCurve(IReadOnlyList<(int TempC, int SpeedPercent)> curve)
+        {
+            IntPtr fan = Fan;
+            if (fan == IntPtr.Zero || curve.Count == 0) return false;
+
+            IntPtr list = IntPtr.Zero;
+            try
+            {
+                if (AmdAdlxInterop.Fn<GetObjectFn>(fan, FanGetTuningStates)(fan, out list) != 0 || list == IntPtr.Zero)
+                    return false;
+
+                uint count = AmdAdlxInterop.Fn<ListCountFn>(list, FanStateListSize)(list);
+                if (count == 0) return false;
+
+                for (uint i = 0; i < count; i++)
+                {
+                    if (AmdAdlxInterop.Fn<ListAtStateFn>(list, FanStateListAt)(list, i, out IntPtr state) != 0
+                        || state == IntPtr.Zero)
+                        return false;
+                    try
+                    {
+                        var point = curve[Math.Min((int)i, curve.Count - 1)];
+                        if (point.TempC > 0 &&
+                            AmdAdlxInterop.Fn<SetIntFn>(state, FanStateSetTemperature)(state, point.TempC) != 0)
+                            return false;
+                        if (AmdAdlxInterop.Fn<SetIntFn>(state, FanStateSetSpeed)(state, point.SpeedPercent) != 0)
+                            return false;
+                    }
+                    finally
+                    {
+                        SafeRelease(state);
+                    }
+                }
+
+                return AmdAdlxInterop.Fn<SetObjectFn>(fan, FanSetTuningStates)(fan, list) == 0;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            finally
+            {
                 if (list != IntPtr.Zero) SafeRelease(list);
             }
         }
@@ -325,9 +508,10 @@ namespace kaliteConfig.GpuOverclock.Services
         {
             if (_disposed) return;
             _disposed = true;
-            foreach (IntPtr iface in new[] { _gfx2, _vram2, _fan, _power })
+            foreach (IntPtr iface in new[] { _gfx2, _vram2, _fan, _fan1, _power })
                 if (iface != IntPtr.Zero) SafeRelease(iface);
-            _gfx2 = _vram2 = _fan = _power = IntPtr.Zero;
+            _gfx2 = _vram2 = _fan = _fan1 = _power = IntPtr.Zero;
+            if (_gpu != IntPtr.Zero) SafeRelease(_gpu);
         }
     }
 }

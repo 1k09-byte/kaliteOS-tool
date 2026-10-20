@@ -8,7 +8,6 @@ using kaliteConfig.Models;
 using kaliteConfig.Services;
 using Microsoft.UI.Dispatching;
 
-
 namespace kaliteConfig.ViewModels
 {
     public partial class EtwManagerViewModel : ObservableObject

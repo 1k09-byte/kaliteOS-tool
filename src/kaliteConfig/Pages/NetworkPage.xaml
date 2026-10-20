@@ -6,7 +6,7 @@
     xmlns:vm="using:kaliteConfig.ViewModels"
     xmlns:svc="using:kaliteConfig.Services"
     xmlns:local="using:kaliteConfig.Pages"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.DataContext>
         <vm:NetworkViewModel />
@@ -496,4 +496,3 @@
         </Border>
     </Grid>
 </Page>
-

@@ -64,9 +64,6 @@ internal sealed class DesktopWallpaperApi : IDisposable
         var list = new List<(string, DesktopMonitorRect)>();
         for (uint i = 0; i < count; i++)
         {
-            // Some drivers/virtual displays expose a monitor path that GetMonitorRECT
-            // rejects with E_FAIL. Skip only that monitor instead of failing the
-            // whole enumeration (which used to take the Personalize page down).
             string id = string.Empty;
             try { _wp.GetMonitorDevicePathAt(i, out id); }
             catch (COMException) { continue; }

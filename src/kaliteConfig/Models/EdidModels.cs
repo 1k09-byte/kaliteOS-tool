@@ -1,7 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-// ==============================================================================
 using System;
 using System.Collections.Generic;
 
@@ -29,4 +25,3 @@ public class EdidBlock
         Data[127] = (byte)(256 - (sum % 256));
     }
 }
-

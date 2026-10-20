@@ -109,6 +109,18 @@
                         <ComboBoxItem Content="Time critical (+15)" Tag="15" />
                     </ComboBox>
 
+                    <TextBlock Text="Memory priority" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock x:Name="MemoryCurrent" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ComboBox x:Name="MemoryCombo" Width="220" HorizontalAlignment="Left" PlaceholderText="Select memory priority…"
+                              SelectionChanged="MemoryCombo_SelectionChanged"
+                              ToolTipService.ToolTip="Windows memory priority for this thread (1 = very low, 5 = normal)">
+                        <ComboBoxItem Content="Very low (1)" Tag="1" />
+                        <ComboBoxItem Content="Low (2)" Tag="2" />
+                        <ComboBoxItem Content="Medium (3)" Tag="3" />
+                        <ComboBoxItem Content="Below normal (4)" Tag="4" />
+                        <ComboBoxItem Content="Normal (5)" Tag="5" />
+                    </ComboBox>
+
                     <ToggleSwitch x:Name="BoostToggle" Header="Priority boost" Toggled="BoostToggle_Toggled" ToolTipService.ToolTip="Priority boost - ON = allowed, OFF = off (persists across restarts)" />
                     <ToggleSwitch x:Name="EcoToggle" Header="Efficiency mode (EcoQoS)" Toggled="EcoToggle_Toggled" />
 
@@ -123,7 +135,7 @@
                     <Button Content="Apply ideal processor" Click="IdealApply_Click" HorizontalAlignment="Left" />
 
                     <Button Content="Make permanent (save as rule)" HorizontalAlignment="Left" Click="PermanentButton_Click"
-                            ToolTipService.ToolTip="Saves priority, Eco, the ticked affinity CPUs and the picked ideal CPU as an auto-apply rule - no need to press Apply first; the rule also takes effect immediately" />
+                            ToolTipService.ToolTip="Saves priority, memory priority, Eco, the ticked affinity CPUs and the picked ideal CPU as an auto-apply rule - no need to press Apply first; the rule also takes effect immediately" />
 
                     <TextBlock Text="Danger zone" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -133,7 +145,7 @@
 
                     <TextBlock x:Name="EditorStatusBox" FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}" Visibility="Collapsed" />
-                    <TextBlock Text="Every control above maps to a documented Win32 thread API (SetThreadPriority, SetThreadPriorityBoost, SetThreadGroupAffinity, SetThreadIdealProcessorEx, SuspendThread, TerminateThread)." FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="Every control above maps to a documented Win32 thread API (SetThreadPriority, SetThreadPriorityBoost, SetThreadInformation/ThreadMemoryPriority, SetThreadGroupAffinity, SetThreadIdealProcessorEx, SuspendThread, TerminateThread)." FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" TextWrapping="Wrap" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

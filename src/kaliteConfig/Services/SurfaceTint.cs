@@ -1,7 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-// ==============================================================================
 using System;
 using System.Collections.Generic;
 using Microsoft.UI.Xaml;

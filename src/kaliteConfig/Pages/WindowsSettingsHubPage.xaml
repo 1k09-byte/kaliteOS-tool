@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Enabled">
+    mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Disabled">
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <TextBlock Grid.Row="0" Margin="28,16,28,0" Text="Windows Settings" Style="{StaticResource TitleTextBlockStyle}" />
@@ -26,7 +26,7 @@
                 </Border>
 
                 <Border Style="{StaticResource CardBorder}" Padding="12">
-                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True">
+                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" CacheSize="0" UseLayoutRounding="True">
                     <Frame.ContentTransitions>
                         <TransitionCollection>
                             <NavigationThemeTransition>

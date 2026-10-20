@@ -9,7 +9,7 @@
     xmlns:local="using:kaliteConfig.PackageManager.Views"
     mc:Ignorable="d"
     Background="Transparent"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Grid RowSpacing="14">
         <Grid.RowDefinitions>

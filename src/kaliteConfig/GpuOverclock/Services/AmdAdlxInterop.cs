@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -33,8 +23,30 @@ namespace kaliteConfig.GpuOverclock.Services
 
         private const ulong RequestedVersion = (2UL << 48) | (0UL << 32) | (0UL << 16) | 125UL;
 
+        private static ulong MakeVersion(int major, int minor, int build, int patch) =>
+            ((ulong)(uint)major << 48)
+            | ((ulong)(uint)minor << 32)
+            | ((ulong)(uint)build << 16)
+            | (uint)patch;
+
+        private static readonly ulong[] CandidateVersions =
+        {
+            RequestedVersion,
+            MakeVersion(2, 0, 0, 0),
+            MakeVersion(1, 4, 0, 0),
+            MakeVersion(1, 3, 0, 0),
+            MakeVersion(1, 2, 0, 0),
+            MakeVersion(1, 1, 0, 0),
+            MakeVersion(1, 0, 0, 0),
+        };
+
+        public static string? LastInitializationError { get; private set; }
+
         [DllImport(Dll, EntryPoint = "ADLXInitialize", CallingConvention = CallingConvention.Cdecl)]
         private static extern int AdlxInitialize(ulong version, out IntPtr ppSystem);
+
+        [DllImport(Dll, EntryPoint = "ADLXInitializeWithIncompatibleDriver", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int AdlxInitializeWithIncompatibleDriver(ulong version, out IntPtr ppSystem);
 
         [DllImport(Dll, EntryPoint = "ADLXTerminate", CallingConvention = CallingConvention.Cdecl)]
         private static extern int AdlxTerminate();
@@ -87,7 +99,7 @@ namespace kaliteConfig.GpuOverclock.Services
         private delegate int IsSupportedFn(IntPtr self, IntPtr gpu, out byte supported);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate long AcquireFn(IntPtr self);
+        private delegate int AcquireFn(IntPtr self);
 
         private const int IfaceAcquire = 0;
 
@@ -106,7 +118,6 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 lock (Gate)
                 {
-                    if (!EnsureInitialized()) return null;
                     try
                     {
                         return AdlxQueryVersion(out IntPtr version) == 0 && version != IntPtr.Zero
@@ -128,20 +139,56 @@ namespace kaliteConfig.GpuOverclock.Services
 
             try
             {
-                if (AdlxInitialize(RequestedVersion, out IntPtr system) == 0 && system != IntPtr.Zero)
+                int lastResult = 0;
+                foreach (ulong version in CandidateVersions)
                 {
-                    _system = system;
-                    _initialized = true;
+                    lastResult = AdlxInitialize(version, out IntPtr system);
+                    if (lastResult == 0 && system != IntPtr.Zero)
+                    {
+                        _system = system;
+                        _initialized = true;
+                        LastInitializationError = null;
+                        return true;
+                    }
                 }
+
+                try
+                {
+                    if (AdlxInitializeWithIncompatibleDriver(RequestedVersion, out IntPtr legacy) == 0
+                        && legacy != IntPtr.Zero)
+                    {
+                        _system = legacy;
+                        _initialized = true;
+                        LastInitializationError = null;
+                        return true;
+                    }
+                }
+                catch (EntryPointNotFoundException) { }
+
+                string runtime = DriverVersion ?? "unknown";
+                LastInitializationError =
+                    $"ADLXInitialize failed for every supported version (last result 0x{lastResult:X}). " +
+                    $"The installed ADLX runtime reports version {runtime}.";
             }
             catch (DllNotFoundException)
             {
+                LastInitializationError =
+                    "amdadlx64.dll is not installed on this system. Install or repair the AMD display driver.";
             }
             catch (EntryPointNotFoundException)
             {
+                LastInitializationError =
+                    "amdadlx64.dll is present but does not export the ADLX initialization functions. " +
+                    "The installed AMD display driver is too old or damaged.";
             }
             catch (BadImageFormatException)
             {
+                LastInitializationError =
+                    "amdadlx64.dll has the wrong architecture (a 32-bit build was loaded).";
+            }
+            catch (Exception ex)
+            {
+                LastInitializationError = $"ADLX initialization threw {ex.GetType().Name}: {ex.Message}";
             }
 
             return _initialized;
@@ -201,8 +248,15 @@ namespace kaliteConfig.GpuOverclock.Services
         {
             string name = ReadString(gpu, GpuName);
             string pnp = ReadString(gpu, GpuPnpString);
-            Fn<GpuTypeFn>(gpu, GpuType)(gpu, out _);
-            Fn<GpuIsExternalFn>(gpu, GpuIsExternal)(gpu, out byte external);
+
+            int gpuType = 0;
+            try { if (Fn<GpuTypeFn>(gpu, GpuType)(gpu, out int type) == 0) gpuType = type; }
+            catch { gpuType = 0; }
+
+            bool external = false;
+            try { if (Fn<GpuIsExternalFn>(gpu, GpuIsExternal)(gpu, out byte ext) == 0) external = ext != 0; }
+            catch { external = false; }
+
             uint vramMb = 0;
             try
             {
@@ -213,10 +267,14 @@ namespace kaliteConfig.GpuOverclock.Services
             if (vramMb == 0)
                 vramMb = ReadRegistryVramMb(pnp);
 
+            bool isDiscrete = gpuType == 2
+                              || external
+                              || (gpuType == 0 && vramMb >= 4096);
+
             return new AmdGpuTuningSupport(
                 Name: name,
                 PnpString: pnp,
-                IsDiscrete: external != 0,
+                IsDiscrete: isDiscrete,
                 VramMb: vramMb,
                 ManualGfx: IsSupported(tuning, gpu, TuningIsSupportedManualGfx),
                 ManualVram: IsSupported(tuning, gpu, TuningIsSupportedManualVram),
@@ -300,6 +358,7 @@ namespace kaliteConfig.GpuOverclock.Services
             lock (Gate)
             {
                 if (!_initialized) return;
+                ReleasePerformanceServices();
                 try { AdlxTerminate(); } catch { }
                 _initialized = false;
                 _system = IntPtr.Zero;

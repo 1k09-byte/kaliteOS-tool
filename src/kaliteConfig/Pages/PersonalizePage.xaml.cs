@@ -88,6 +88,8 @@ public sealed partial class PersonalizePage : Page
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         if (App.MainWindow is { } window) window.Activated -= OnWindowActivated;
+        if (ViewModel is not null) ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        LiveViewModel?.Shutdown();
     }
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)

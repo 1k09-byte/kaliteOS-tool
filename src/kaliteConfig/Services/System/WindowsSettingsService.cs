@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using Microsoft.Win32;
 using kaliteConfig.Native;
 using System;
@@ -44,7 +34,7 @@ public sealed class WindowsSettingsService
         new TweakDef(
             "MmcssStatus",
             "Multimedia Class Scheduler (MMCSS)",
-            "MMCSS boosts the scheduling priority of audio and video threads. Turning it OFF stops the service, which can reduce scheduling noise and DPC latency but may break some audio drivers. Turning it back ON restores the Windows default. The matching System Responsiveness value is set to 30 when ON and 100 when OFF. Takes effect after a restart.",
+            "MMCSS boosts the scheduling priority of audio and video threads. Turning it OFF stops the service, which can reduce scheduling noise and DPC latency but may break some audio drivers. Turning it back ON restores the Windows default. The matching System Responsiveness value is set to 20 when ON and 100 when OFF. Takes effect after a restart.",
             @"SYSTEM\CurrentControlSet\Services\MMCSS",
             "Start", 2, 4, false, true),
     };
@@ -54,7 +44,7 @@ public sealed class WindowsSettingsService
         @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile";
     public const string SystemResponsivenessValueName = "SystemResponsiveness";
 
-    public const uint SystemResponsivenessWhenEnabled = 30;
+    public const uint SystemResponsivenessWhenEnabled = 20;
     public const uint SystemResponsivenessWhenDisabled = 100;
 
     private static readonly TweakDef SystemResponsivenessDef = new(

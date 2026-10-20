@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using kaliteConfig.Models;
@@ -71,6 +61,17 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
     public ObservableCollection<ThreadBoostRow> DisplayedThreadBoostRows { get; } = new();
     [ObservableProperty]
     public partial bool IsThreadTuneTabActive { get; set; }
+
+    private void Profiles_RulesChanged(object? sender, EventArgs e) => SyncProfiles();
+
+    public void Shutdown()
+    {
+        try { _timer.Stop(); } catch { }
+        try { _searchTimer?.Stop(); } catch { }
+        _searchTimer = null;
+        try { _profiles.RulesChanged -= Profiles_RulesChanged; } catch { }
+        try { Optimizer.Shutdown(); } catch { }
+    }
 
     public bool IsPageVisible { get; set; } = true;
 
@@ -205,7 +206,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
         }
         RefreshDisplayedProfiles();
 
-        _profiles.RulesChanged += (_, _) => SyncProfiles();
+        _profiles.RulesChanged += Profiles_RulesChanged;
+        
         
         _ = LoadSettingsAsync();
     }

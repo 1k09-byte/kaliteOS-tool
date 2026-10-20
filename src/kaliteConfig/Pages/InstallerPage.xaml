@@ -7,14 +7,12 @@
     xmlns:models="using:kaliteConfig.Models"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
     xmlns:converters="using:kaliteConfig.Converters"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.Resources>
         <converters:AssetPathToImageSourceConverter x:Key="AssetPathConverter" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
-        <!-- UniformGridLayout sizes every cell from MinItemHeight, so the card
-             root must use the same minimum or taller content gets clipped. -->
         <x:Double x:Key="InstallerCardHeight">232</x:Double>
 
         <Style x:Key="AppSectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
