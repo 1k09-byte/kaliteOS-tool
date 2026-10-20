@@ -73,10 +73,19 @@ public sealed class WallpaperService : IWallpaperService
 
     public IReadOnlyList<MonitorInfo> GetMonitors()
     {
-        using var api = new DesktopWallpaperApi();
-        return api.Monitors()
-            .Select((m, i) => new MonitorInfo(m.Id, i, m.Rect.Right - m.Rect.Left, m.Rect.Bottom - m.Rect.Top))
-            .ToList();
+        try
+        {
+            using var api = new DesktopWallpaperApi();
+            return api.Monitors()
+                .Select((m, i) => new MonitorInfo(m.Id, i, m.Rect.Right - m.Rect.Left, m.Rect.Bottom - m.Rect.Top))
+                .ToList();
+        }
+        catch (Exception)
+        {
+            // Monitor enumeration is a convenience for the per-monitor picker; a
+            // broken display COM path must not take the whole Personalize page down.
+            return Array.Empty<MonitorInfo>();
+        }
     }
 
     public IReadOnlyList<WallpaperLibraryItem> Library()
@@ -119,10 +128,12 @@ public sealed class WallpaperService : IWallpaperService
 
             foreach (var file in Directory.EnumerateFiles(source).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
             {
+                string name = Path.GetFileName(file);
+                if (name.Equals("kalite-config.png", StringComparison.OrdinalIgnoreCase)) continue;
+                
                 string ext = Path.GetExtension(file).ToLowerInvariant();
                 if (!AllowedExtensions.Contains(ext)) continue;
 
-                string name = Path.GetFileName(file);
                 if (!known.Add(name)) continue;
 
                 Directory.CreateDirectory(_root);

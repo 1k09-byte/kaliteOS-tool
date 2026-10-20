@@ -179,9 +179,6 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             Add("PCIe bus", PcieText);
             if (s.PcieTxKBs is not null && s.PcieRxKBs is not null) Add("PCIe TX/RX", PcieTputText);
 
-            // The tile set is stable between ticks, so reuse the existing rows and
-            // only write changed values instead of clearing and recreating the whole
-            // collection (which churns the UI on every poll).
             bool shapeMatches = TelemetryTiles.Count == desired.Count;
             if (shapeMatches)
             {
@@ -592,6 +589,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             SyncVfSimpleFromPoints();
             QueueVfCurveWrite(offsets, "per-point edits");
         }
+
+        public void ClearVfCurveError() => VfCurveError = "";
 
         public void ResetVfCurve()
         {

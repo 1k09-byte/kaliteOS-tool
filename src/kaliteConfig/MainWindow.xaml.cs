@@ -194,8 +194,9 @@ namespace kaliteConfig
             {
                 try
                 {
-                    var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
-                    bool active = live is not null && (live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Playing || live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Paused);
+                    var live = App.Services?.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                    if (live is null) return (false, false);
+                    bool active = live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Playing || live.State == kaliteConfig.Services.LiveWallpaper.LiveState.Paused;
                     return (active, active);
                 }
                 catch { return (false, false); }
@@ -206,7 +207,7 @@ namespace kaliteConfig
                 {
                     try
                     {
-                        var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                        var live = App.Services?.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
                         if (live?.State == kaliteConfig.Services.LiveWallpaper.LiveState.Playing) live.Pause();
                         else if (live?.State == kaliteConfig.Services.LiveWallpaper.LiveState.Paused) live.Resume();
                     }
@@ -219,7 +220,7 @@ namespace kaliteConfig
                 {
                     try
                     {
-                        var live = App.Services.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                        var live = App.Services?.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
                         live?.StopAndRestore();
                     }
                     catch { }
@@ -242,6 +243,28 @@ namespace kaliteConfig
                     App.ShutdownTrace("tray-exit.close-returned");
                 });
             };
+            int liveResumeAttempts = 0;
+            var liveResumeTimer = DispatcherQueue.CreateTimer();
+            liveResumeTimer.Interval = TimeSpan.FromSeconds(2);
+            liveResumeTimer.IsRepeating = false;
+            liveResumeTimer.Tick += async (_, _) =>
+            {
+                liveResumeTimer.Stop();
+                try
+                {
+                    var live = App.Services?.GetService(typeof(kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine)) as kaliteConfig.Services.LiveWallpaper.ILiveWallpaperEngine;
+                    if (live is null) return;
+                    var (ok, _) = await live.TryResumeOnLaunchAsync();
+                    if (ok || ++liveResumeAttempts >= 4) return;
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        liveResumeTimer.Interval = TimeSpan.FromSeconds(3);
+                        liveResumeTimer.Start();
+                    });
+                }
+                catch { }
+            };
+            liveResumeTimer.Start();
             _tray.OnTakeScreenshot += (mode) =>
             {
                 DispatcherQueue.TryEnqueue(async () =>

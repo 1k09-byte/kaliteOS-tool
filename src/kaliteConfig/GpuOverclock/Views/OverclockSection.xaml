@@ -355,6 +355,7 @@
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                             <Canvas x:Name="FanCurveCanvas" Height="150"
+                                    Background="Transparent"
                                     PointerPressed="FanCurveCanvas_PointerPressed"
                                     PointerMoved="FanCurveCanvas_PointerMoved"
                                     PointerReleased="FanCurveCanvas_PointerReleased"
@@ -407,26 +408,36 @@
                         </Expander.Header>
                         <StackPanel Spacing="8" Margin="0,8,0,0">
                             <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Drag points to set per-point clock offsets. Frequency must not decrease as voltage rises - invalid curves are blocked before anything is written. Every commit runs through the same confirmation countdown as the other controls (slightly longer for curve edits)." />
-                            <Border CornerRadius="8" Padding="4"
+                                       Text="Drag a node to shape the curve. The dashed line is the stock curve and the shaded band shows how far your curve sits above or below it. Nodes stay inside the band, and frequency can never fall as voltage rises - a bad curve is refused before anything is written. Each commit runs through the same confirmation countdown as the other controls (slightly longer for curve edits)." />
+                            <Border CornerRadius="10" Padding="2"
                                     Background="{ThemeResource LayerFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                                <Canvas x:Name="VfCurveCanvas" Height="240"
+                                <local:VfEditorCanvas x:Name="VfCurveCanvas" Height="300"
+                                        Background="Transparent"
                                         PointerPressed="VfCurveCanvas_PointerPressed"
                                         PointerMoved="VfCurveCanvas_PointerMoved"
                                         PointerReleased="VfCurveCanvas_PointerReleased"
                                         PointerCanceled="VfCurveCanvas_PointerCanceled"
+                                        PointerExited="VfCurveCanvas_PointerExited"
                                         SizeChanged="VfCurveCanvas_SizeChanged" />
                             </Border>
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="VfAxisLeft" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="VfAxisCenter" Grid.Column="1" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="VfAxisRight" Grid.Column="2" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <StackPanel Orientation="Horizontal" Spacing="18">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Rectangle Width="20" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
+                                                   Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Stock curve" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Rectangle Width="20" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
+                                                   Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                                        <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Your curve" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock x:Name="VfAxisCenter" HorizontalAlignment="Right" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </Grid>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Reset to stock curve" Click="ResetVfCurve_Click" />

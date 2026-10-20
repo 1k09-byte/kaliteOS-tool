@@ -815,6 +815,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     if (valid.Count > 0)
                     {
                         valid.Sort((a, b) => a.V.CompareTo(b.V));
+                        MakeVfBaseMonotonic(valid);
                         voltsMv = valid.Select(p => p.V).ToArray();
                         baseMhz = valid.Select(p => p.F).ToArray();
                         return true;
@@ -839,6 +840,7 @@ namespace kaliteConfig.GpuOverclock.Services
                     if (valid.Count > 0)
                     {
                         valid.Sort((a, b) => a.V.CompareTo(b.V));
+                        MakeVfBaseMonotonic(valid);
                         voltsMv = valid.Select(p => p.V).ToArray();
                         baseMhz = valid.Select(p => p.F).ToArray();
                         return true;
@@ -847,6 +849,12 @@ namespace kaliteConfig.GpuOverclock.Services
             }
             catch (NVIDIAApiException) { }
             return false;
+        }
+
+        private static void MakeVfBaseMonotonic(List<(int V, int F)> pts)
+        {
+            for (int i = 1; i < pts.Count; i++)
+                if (pts[i].F < pts[i - 1].F) pts[i] = (pts[i].V, pts[i - 1].F);
         }
 
         private List<(int MinMhz, int MaxMhz)>? QueryPointRangesMhz(PublicClockDomain domain, int first, int last)

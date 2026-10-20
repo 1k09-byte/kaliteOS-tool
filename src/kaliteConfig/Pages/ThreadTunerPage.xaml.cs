@@ -527,7 +527,7 @@ namespace kaliteConfig.Pages
         {
             var dlg = new RuleEditorDialog { XamlRoot = this.XamlRoot };
             dlg.LoadFrom(target, isNew);
-            if (await dlg.ShowAsync() == ContentDialogResult.Primary || dlg.ShortcutAccepted)
+            if (await dlg.ShowRuleEditorAsync() == ContentDialogResult.Primary || dlg.ShortcutAccepted)
             {
                 target.CopyFrom(dlg.Draft);
                 await App.Current.ProfileWatcher.AddOrUpdate(target);

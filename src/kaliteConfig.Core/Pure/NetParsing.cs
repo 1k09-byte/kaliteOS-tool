@@ -33,6 +33,37 @@ public static class NetParsing
     public static bool IsHiddenByDefault(NetAdapterKind kind, string status) =>
         kind == NetAdapterKind.Virtual || kind == NetAdapterKind.Vpn;
 
+    private static readonly string[] PseudoAdapterHints =
+    {
+        "wan miniport", "teredo", "6to4", "isatap", "ip-https",
+        "software loopback", "loopback pseudo", "kernel debug", "ras async",
+        "lightweight filter", "wfp native", "wfp 802.3", "native wifi filter", "filter driver"
+    };
+
+    /// <summary>
+    /// OS pseudo-adapters (WAN miniports, tunnels, loopback) are not hardware and
+    /// expose nothing worth tuning. They should never appear in the adapter list.
+    /// </summary>
+    public static bool IsPseudoAdapter(string description, string name)
+    {
+        string hay = ((description ?? "") + " " + (name ?? "")).Trim().ToLowerInvariant();
+        if (hay.Length == 0) return true;
+        return PseudoAdapterHints.Any(hint => hay.Contains(hint));
+    }
+
+    /// <summary>
+    /// Windows exposes the same physical NIC several times ("...#2", "...#3" virtual
+    /// ports). The identity strips that suffix so only one entry per NIC is listed.
+    /// </summary>
+    public static string AdapterIdentity(string description)
+    {
+        string text = (description ?? "").Trim();
+        int hash = text.LastIndexOf(" #", StringComparison.Ordinal);
+        if (hash >= 0 && int.TryParse(text[(hash + 2)..], out _))
+            text = text[..hash].Trim();
+        return text.ToLowerInvariant();
+    }
+
     public static bool IsListVisible(NetAdapterKind kind, bool isUp, bool showHidden, bool showDisconnected)
     {
         if ((kind == NetAdapterKind.Virtual || kind == NetAdapterKind.Vpn) && !showHidden) return false;

@@ -17,6 +17,47 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
+        <SolidColorBrush x:Key="AffinityRowHoverBrush" Color="#1EFFFFFF" />
+        <SolidColorBrush x:Key="AffinityRowPressedBrush" Color="#19FFFFFF" />
+        <Style x:Key="AffinityCardRowContainerStyle" TargetType="ListViewItem"
+               BasedOn="{StaticResource AffinityRowContainerStyle}">
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Card"
+                                Control.IsTemplateFocusTarget="True"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Background" Value="{StaticResource AffinityRowHoverBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Card.Background" Value="{StaticResource AffinityRowPressedBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <GridLength x:Key="AffinityDeviceColumn">3.2*</GridLength>
         <GridLength x:Key="AffinityMsiColumn">0.85*</GridLength>
         <GridLength x:Key="AffinityLimitColumn">0.85*</GridLength>
@@ -27,11 +68,6 @@
         <GridLength x:Key="AffinityChevronColumn">16</GridLength>
 
         <DataTemplate x:Key="AffinityDeviceRowTemplate" x:DataType="models:AffinityDeviceItem">
-            <Border CornerRadius="8"
-                    Padding="12,10"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{StaticResource AffinityDeviceColumn}" />
@@ -86,15 +122,9 @@
                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                           VerticalAlignment="Center" />
             </Grid>
-            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="AffinityDeviceRowNarrowTemplate" x:DataType="models:AffinityDeviceItem">
-            <Border CornerRadius="8"
-                    Padding="12,10"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1">
             <StackPanel Spacing="4">
                 <StackPanel>
                     <TextBlock Text="{x:Bind Name}"
@@ -180,7 +210,6 @@
                                TextWrapping="Wrap" />
                 </Grid>
             </StackPanel>
-            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="ChangeRowTemplate">
@@ -300,6 +329,18 @@
                                   SelectedValue="{x:Bind ViewModel.SelectedDevice.SelectedPolicy, Mode=TwoWay}"
                                   ToolTipService.ToolTip="{x:Bind ViewModel.SelectedDevice.SelectedPolicy, Mode=OneWay}" />
                         <TextBlock Text="Controls which processors are eligible to receive this device's interrupts."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8"
+                                Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.SelectedDevice.IsNetwork), Mode=OneWay}">
+                        <TextBlock Text="Receive Side Scaling (NDIS)" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="{x:Bind ViewModel.SelectedDevice.RssText, Mode=OneWay, FallbackValue=''}"
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Network packet processing is steered by RSS, not by the IRQ mask alone. Applying a processor mask sets the RSS base processor and queue count, then restarts the adapter."
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" />
@@ -509,7 +550,7 @@
                                   IsItemClickEnabled="True"
                                   ItemClick="DeviceRow_ItemClick"
                                   ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
-                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
                                   ScrollViewer.VerticalScrollMode="Disabled"
                                   ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                   ScrollViewer.HorizontalScrollMode="Disabled"
@@ -571,7 +612,7 @@
                                   IsItemClickEnabled="True"
                                   ItemClick="DeviceRow_ItemClick"
                                   ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
-                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
                                   ScrollViewer.VerticalScrollMode="Disabled"
                                   ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                   ScrollViewer.HorizontalScrollMode="Disabled"
@@ -633,7 +674,7 @@
                                   IsItemClickEnabled="True"
                                   ItemClick="DeviceRow_ItemClick"
                                   ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
-                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
                                   ScrollViewer.VerticalScrollMode="Disabled"
                                   ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                   ScrollViewer.HorizontalScrollMode="Disabled"
@@ -695,7 +736,7 @@
                                   IsItemClickEnabled="True"
                                   ItemClick="DeviceRow_ItemClick"
                                   ItemTemplate="{StaticResource AffinityDeviceRowTemplate}"
-                                  ItemContainerStyle="{StaticResource AffinityRowContainerStyle}"
+                                  ItemContainerStyle="{StaticResource AffinityCardRowContainerStyle}"
                                   ScrollViewer.VerticalScrollMode="Disabled"
                                   ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                   ScrollViewer.HorizontalScrollMode="Disabled"
@@ -703,11 +744,6 @@
                     </StackPanel>
                 </Expander>
 
-                <InfoBar IsOpen="True"
-                         IsClosable="False"
-                         Severity="Informational"
-                         Title="What these settings do"
-                         Message="MSI replaces line-based interrupts with messages, which avoids shared IRQ contention. The limit caps in-flight messages; automatic lets Windows pick. The processor mask pins this device's interrupts to specific logical processors. Changes apply the next time the device restarts." />
             </StackPanel>
         </ScrollViewer>
     </Grid>

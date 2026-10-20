@@ -19,6 +19,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace kaliteConfig.Controls;
 
@@ -117,9 +118,18 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
     private int _ruleIdealCpu = -1;
     private const int RuleCpuBoxColumns = 8;
 
+    private TaskCompletionSource<ContentDialogResult>? _sessionResult;
+    private bool _resumeAfterThreads;
+
     public RuleEditorDialog()
     {
         this.InitializeComponent();
+        if (Resources.TryGetValue("RuleDialogButtonStyle", out var ruleStyle)
+            && ruleStyle is Microsoft.UI.Xaml.Style ruleButtonStyle)
+        {
+            PrimaryButtonStyle = ruleButtonStyle;
+            CloseButtonStyle = ruleButtonStyle;
+        }
         try
         {
             _cpuCount = App.Current.ProcessTuning.LogicalProcessorCount();
@@ -136,6 +146,75 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             RefreshThreadRulesView();
         };
         UpdateSummary();
+
+        // The ContentDialog template resets the command columns every time it is
+        // applied, so re-apply the compact layout when the template changes.
+        Opened += (_, _) => ApplyCompactCommandButtons();
+    }
+
+    /// <summary>
+    /// Shows the editor and completes only when the user really closes it. The
+    /// live-thread list has to dismiss this dialog first (WinUI allows one
+    /// ContentDialog per XamlRoot), so this keeps the caller's await alive while
+    /// the editor is temporarily hidden and re-shown.
+    /// </summary>
+    public Task<ContentDialogResult> ShowRuleEditorAsync()
+    {
+        if (_sessionResult != null)
+            return _sessionResult.Task;
+
+        _sessionResult = new TaskCompletionSource<ContentDialogResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _ = ShowSessionAsync();
+        return _sessionResult.Task;
+    }
+
+    private async Task ShowSessionAsync()
+    {
+        ContentDialogResult result;
+        try
+        {
+            result = await ShowAsync();
+        }
+        catch
+        {
+            result = ContentDialogResult.None;
+        }
+        if (_resumeAfterThreads)
+        {
+            // ViewLiveThreads_Click owns the session now: it re-shows the editor
+            // once the thread list closes and posts the final result itself.
+            _resumeAfterThreads = false;
+            return;
+        }
+        _sessionResult?.TrySetResult(result);
+        _sessionResult = null;
+    }
+
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        ApplyCompactCommandButtons();
+    }
+
+    private void ApplyCompactCommandButtons()
+    {
+        // ContentDialog stretches the primary and close buttons across two star
+        // columns, which turns a 1200px dialog into two ~530px bars. Size them
+        // like normal dialog buttons and right-align the pair instead.
+        if (GetTemplateChild("CommandSpace") is not Grid commandSpace)
+            return;
+
+        commandSpace.HorizontalAlignment = HorizontalAlignment.Right;
+        if (commandSpace.ColumnDefinitions.Count >= 5)
+        {
+            commandSpace.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Auto);
+            commandSpace.ColumnDefinitions[4].Width = new GridLength(1, GridUnitType.Auto);
+        }
+        if (GetTemplateChild("PrimaryButton") is Button primary)
+            primary.Width = 140;
+        if (GetTemplateChild("CloseButton") is Button close)
+            close.Width = 140;
     }
 
     public void LoadFrom(TunerProfile source, bool isNew)
@@ -499,6 +578,12 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             RuleEditorStatus($"'{name}' is not running right now.", true);
             return;
         }
+
+        // WinUI allows only one ContentDialog per XamlRoot, so a second dialog
+        // while this one is open is silently rejected. Step aside for the thread
+        // list, then bring the editor back with everything the user typed intact.
+        _resumeAfterThreads = true;
+        Hide();
         try
         {
             var dlg = new ThreadListDialog();
@@ -509,6 +594,27 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             RuleEditorStatus("Could not open live threads: " + ex.Message, true);
         }
         finally { try { target.Dispose(); } catch { } }
+
+        await ReopenAfterThreadsAsync();
+    }
+
+    private async Task ReopenAfterThreadsAsync()
+    {
+        var session = _sessionResult;
+        ContentDialogResult result;
+        try
+        {
+            result = await ShowAsync();
+        }
+        catch
+        {
+            result = ContentDialogResult.None;
+        }
+        if (session != null)
+        {
+            session.TrySetResult(result);
+            _sessionResult = null;
+        }
     }
 
     private void ThreadRule_DeleteButton_Click(object sender, RoutedEventArgs e)
@@ -677,9 +783,17 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             return false;
         }
 
-        Draft.Name = target.Trim('*');
-        if (string.IsNullOrEmpty(Draft.Name)) Draft.Name = target;
+        // The target box edits the match pattern, not the friendly rule name.
+        // Only rename the rule when the pattern actually changes; otherwise an
+        // unchanged "Apply" would overwrite e.g. "kaliteConfig.exe" with the
+        // display name "kaliteConfig (this app)" and the rule would match nothing.
+        string previousPattern = Draft.Pattern ?? string.Empty;
         Draft.Pattern = target;
+        if (!string.Equals(target, previousPattern, StringComparison.OrdinalIgnoreCase))
+        {
+            Draft.Name = target.Trim('*');
+            if (string.IsNullOrEmpty(Draft.Name)) Draft.Name = target;
+        }
         Draft.PriorityClass = PriorityEnabled ? PriorityNameToValue(PriorityName) : null;
         Draft.BoostEnabled = BoostEnabled ? BoostName == "Enabled" : null;
         Draft.EfficiencyMode = EfficiencyEnabled ? EfficiencyName == "Enabled" : null;

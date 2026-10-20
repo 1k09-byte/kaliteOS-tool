@@ -105,9 +105,11 @@ public sealed class DesktopHostService : IDesktopHostService
                 failReason = "The host window could not be placed behind the desktop icons.";
                 return false;
             }
-            const uint frameChanged = 0x0020;
-            DesktopHostNative.SetWindowPos(host, IntPtr.Zero, x, y, area.Width, area.Height,
-                DesktopHostNative.SWP_NOACTIVATE | DesktopHostNative.SWP_SHOWWINDOW | frameChanged);
+            IntPtr defView = DesktopHostNative.FindWindowExW(parent, IntPtr.Zero, "SHELLDLL_DefView", null);
+            uint flags = DesktopHostNative.SWP_NOACTIVATE | DesktopHostNative.SWP_SHOWWINDOW | DesktopHostNative.SWP_FRAMECHANGED;
+            if (defView == IntPtr.Zero)
+                flags |= DesktopHostNative.SWP_NOZORDER;
+            DesktopHostNative.SetWindowPos(host, defView, x, y, area.Width, area.Height, flags);
         }
         catch
         {
@@ -154,21 +156,35 @@ public sealed class DesktopHostService : IDesktopHostService
             if (host == IntPtr.Zero) return;
             if (!DesktopHostNative.IsWindow(host)) return;
             try { DesktopHostNative.ShowWindow(host, DesktopHostNative.SW_HIDE); } catch { }
-            IntPtr parent = DesktopHostNative.GetParent(host);
-            if (parent != IntPtr.Zero)
+            try
             {
-                try { DesktopHostNative.SetParent(host, IntPtr.Zero); } catch { }
+                IntPtr parent = DesktopHostNative.GetParent(host);
+                if (parent != IntPtr.Zero)
+                {
+                    try { DesktopHostNative.SetParent(host, IntPtr.Zero); } catch { }
+                }
             }
-        }
-        catch { }
-        try
-        {
-            if (!DesktopHostNative.IsWindow(host)) return;
-            long style = DesktopHostNative.GetWindowStyle(host).ToInt64();
-            if ((style & DesktopHostNative.WS_CHILD) == 0) return;
-            style &= ~DesktopHostNative.WS_CHILD;
-            style |= DesktopHostNative.WS_POPUP;
-            DesktopHostNative.SetWindowStyle(host, new IntPtr(style));
+            catch { }
+            try
+            {
+                if (!DesktopHostNative.IsWindow(host)) return;
+                long style = DesktopHostNative.GetWindowStyle(host).ToInt64();
+                if ((style & DesktopHostNative.WS_CHILD) != 0)
+                {
+                    style &= ~DesktopHostNative.WS_CHILD;
+                    style |= DesktopHostNative.WS_POPUP;
+                    try { DesktopHostNative.SetWindowStyle(host, new IntPtr(style)); } catch { }
+                    try
+                    {
+                        DesktopHostNative.SetWindowPos(host, IntPtr.Zero, 0, 0, 0, 0,
+                            DesktopHostNative.SWP_NOZORDER | DesktopHostNative.SWP_NOMOVE |
+                            DesktopHostNative.SWP_NOSIZE | DesktopHostNative.SWP_NOACTIVATE |
+                            DesktopHostNative.SWP_HIDEWINDOW | DesktopHostNative.SWP_FRAMECHANGED);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
         }
         catch { }
     }

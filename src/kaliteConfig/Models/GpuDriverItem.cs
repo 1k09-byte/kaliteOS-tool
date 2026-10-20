@@ -135,7 +135,6 @@ namespace kaliteConfig.Models
         public bool IsCheckEnabled => Status is not (
             GpuDriverStatus.UpToDate or GpuDriverStatus.Downloading or GpuDriverStatus.Installing);
 
-        /// <summary>Short, colour-free state word for the status pill beside the version.</summary>
         public string StateLabel => Status switch
         {
             GpuDriverStatus.UpToDate => "Up to date",

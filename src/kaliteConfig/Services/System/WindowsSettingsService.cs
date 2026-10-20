@@ -44,10 +44,27 @@ public sealed class WindowsSettingsService
         new TweakDef(
             "MmcssStatus",
             "Multimedia Class Scheduler (MMCSS)",
-            "MMCSS boosts the scheduling priority of audio and video threads. Turning it OFF stops the service, which can reduce scheduling noise and DPC latency but may break some audio drivers. Turning it back ON restores the Windows default. Takes effect after a restart.",
+            "MMCSS boosts the scheduling priority of audio and video threads. Turning it OFF stops the service, which can reduce scheduling noise and DPC latency but may break some audio drivers. Turning it back ON restores the Windows default. The matching System Responsiveness value is set to 30 when ON and 100 when OFF. Takes effect after a restart.",
             @"SYSTEM\CurrentControlSet\Services\MMCSS",
             "Start", 2, 4, false, true),
     };
+
+    public const string MmcssTweakId = "MmcssStatus";
+    public const string SystemResponsivenessKey =
+        @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile";
+    public const string SystemResponsivenessValueName = "SystemResponsiveness";
+
+    public const uint SystemResponsivenessWhenEnabled = 30;
+    public const uint SystemResponsivenessWhenDisabled = 100;
+
+    private static readonly TweakDef SystemResponsivenessDef = new(
+        "SystemResponsiveness",
+        "System responsiveness",
+        "Percentage of the CPU reserved for MMCSS multimedia work.",
+        SystemResponsivenessKey,
+        SystemResponsivenessValueName,
+        SystemResponsivenessWhenEnabled, SystemResponsivenessWhenDisabled,
+        false, false);
 
     public static TweakDef? Find(string id)
     {
@@ -203,6 +220,14 @@ public sealed class WindowsSettingsService
 
     public bool ResetToOriginal(TweakDef def)
     {
+        bool ok = ResetToOriginalCore(def);
+        if (def.Id.Equals(MmcssTweakId, StringComparison.OrdinalIgnoreCase))
+            ResetToOriginalCore(SystemResponsivenessDef);
+        return ok;
+    }
+
+    private bool ResetToOriginalCore(TweakDef def)
+    {
         try
         {
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
@@ -277,6 +302,36 @@ public sealed class WindowsSettingsService
         {
             throw Denied(def, ex);
         }
+
+        if (def.Id.Equals(MmcssTweakId, StringComparison.OrdinalIgnoreCase))
+            ApplySystemResponsivenessForMmcss(enable);
+    }
+
+    public uint? ReadSystemResponsiveness() => ReadRaw(SystemResponsivenessDef);
+
+    public void WriteSystemResponsiveness(uint value)
+    {
+        try
+        {
+            EnsureBackup(SystemResponsivenessDef);
+            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using var key = baseKey.CreateSubKey(SystemResponsivenessKey, true);
+            if (key == null) throw new InvalidOperationException("Could not open the registry key.");
+            key.SetValue(SystemResponsivenessValueName, value, RegistryValueKind.DWord);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw Denied(SystemResponsivenessDef, ex);
+        }
+    }
+
+    private void ApplySystemResponsivenessForMmcss(bool enable) =>
+        WriteSystemResponsiveness(enable ? SystemResponsivenessWhenEnabled : SystemResponsivenessWhenDisabled);
+
+    private void ResetSystemResponsivenessForMmcss()
+    {
+        if (HasBackup(SystemResponsivenessDef))
+            ResetToOriginalCore(SystemResponsivenessDef);
     }
 
     private void WritePowerSetting(TweakDef def, bool enable)
@@ -336,6 +391,9 @@ public sealed class WindowsSettingsService
         {
             throw Denied(def, ex);
         }
+
+        if (def.Id.Equals(MmcssTweakId, StringComparison.OrdinalIgnoreCase))
+            ResetSystemResponsivenessForMmcss();
     }
 
     public const string SvcSplitKey = @"SYSTEM\CurrentControlSet\Control";

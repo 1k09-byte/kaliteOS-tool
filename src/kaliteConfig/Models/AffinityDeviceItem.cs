@@ -33,6 +33,11 @@ namespace kaliteConfig.Models
         public partial string AffinityText { get; set; } = "-";
 
         [ObservableProperty]
+        public partial string RssText { get; set; } = string.Empty;
+
+        public bool IsNetwork => Category == "Network";
+
+        [ObservableProperty]
         public partial bool IsVisible { get; set; } = true;
 
         [ObservableProperty]
@@ -67,7 +72,6 @@ namespace kaliteConfig.Models
         public partial string SelectedThreadCountText { get; set; } = string.Empty;
 
         [ObservableProperty]
-        // Starts collapsed so the dialog's Apply/Cancel row stays visible without scrolling.
         public partial bool IsProcessorMaskExpanded { get; set; }
 
         public System.Collections.ObjectModel.ObservableCollection<ProcessorCoreGroup> CoreGroups { get; } = new();

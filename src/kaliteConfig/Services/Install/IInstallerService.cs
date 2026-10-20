@@ -24,5 +24,6 @@ namespace kaliteConfig.Services
         Task UninstallBrowserAsync(BrowserInstallItem item, CancellationToken ct);
         void DetectUpdate(BrowserInstallItem item);
         Task<HashSet<string>> GetUpgradableWingetIdsAsync(CancellationToken ct);
+        string? ApplyExtensions(BrowserInstallItem item);
     }
 }

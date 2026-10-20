@@ -45,6 +45,16 @@ internal sealed class Program
         Check(NetParsing.ClassifyAdapter("TAP-Windows Adapter V9", "Ethernet 4") == NetAdapterKind.Vpn, "classify TAP VPN");
         Check(NetParsing.ClassifyAdapter("Bluetooth Device (Personal Area Network)", "Bluetooth") == NetAdapterKind.Virtual, "classify Bluetooth virtual");
         Check(NetParsing.ClassifyAdapter("Microsoft Wi-Fi Direct Virtual Adapter", "Local Area Connection* 2") == NetAdapterKind.Virtual, "classify Wi-Fi Direct virtual");
+        Check(NetParsing.IsPseudoAdapter("WAN Miniport (SSTP)", "Local Area Connection* 1"), "pseudo WAN miniport");
+        Check(NetParsing.IsPseudoAdapter("Teredo Tunneling Pseudo-Interface", ""), "pseudo Teredo");
+        Check(NetParsing.IsPseudoAdapter("Software Loopback Interface 1", "Loopback Pseudo-Interface 1"), "pseudo loopback");
+        Check(NetParsing.IsPseudoAdapter("Microsoft IP-HTTPS Platform Interface", ""), "pseudo IP-HTTPS");
+        Check(!NetParsing.IsPseudoAdapter("Realtek PCIe 2.5GbE Family Controller", "Ethernet"), "real NIC is not pseudo");
+        Check(!NetParsing.IsPseudoAdapter("MediaTek Wi-Fi 7 MT7925 Wireless LAN Card", "Wi-Fi"), "real Wi-Fi is not pseudo");
+        Check(NetParsing.IsPseudoAdapter("Realtek(R) PCI(e) Ethernet Controller-WFP Native MAC Layer LightWeight Filter-0000", "Ethernet-WFP Native MAC Layer LightWeight Filter-0000"), "pseudo WFP filter");
+        Check(NetParsing.IsPseudoAdapter("MediaTek Wi-Fi 7 MT7925 Wireless LAN Card-Native WiFi Filter Driver-0000", "Wi-Fi-Native WiFi Filter Driver-0000"), "pseudo Native WiFi filter");
+        Check(NetParsing.AdapterIdentity("MediaTek Wi-Fi 7 MT7925 Wireless LAN Card #2") == "mediatek wi-fi 7 mt7925 wireless lan card", "adapter identity strips #2");
+        Check(NetParsing.AdapterIdentity("Realtek PCIe 2.5GbE Family Controller") == "realtek pcie 2.5gbe family controller", "adapter identity keeps plain description");
         Check(NetParsing.IsHiddenByDefault(NetAdapterKind.Virtual, "Up"), "hide virtual by default");
         Check(NetParsing.IsHiddenByDefault(NetAdapterKind.Vpn, "Up"), "hide VPN by default");
         Check(!NetParsing.IsHiddenByDefault(NetAdapterKind.Ethernet, "Up"), "show Ethernet by default");

@@ -11,6 +11,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Linq;
 
 namespace kaliteConfig.Models
 {
@@ -46,6 +49,7 @@ namespace kaliteConfig.Models
         public partial string Description { get; set; } = string.Empty;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusDetail))]
         public partial string ErrorMessage { get; set; } = string.Empty;
 
         [ObservableProperty]
@@ -56,6 +60,7 @@ namespace kaliteConfig.Models
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusText))]
+        [NotifyPropertyChangedFor(nameof(StatusDetail))]
         public partial BrowserInstallStatus Status { get; set; } = BrowserInstallStatus.NotInstalled;
 
         [ObservableProperty]
@@ -88,6 +93,35 @@ namespace kaliteConfig.Models
         };
 
         public ObservableCollection<ExtensionItem> Extensions { get; set; } = new();
+
+        public string StatusDetail => !string.IsNullOrWhiteSpace(ErrorMessage)
+            ? Status == BrowserInstallStatus.Failed ? ErrorMessage : $"{StatusText} - {ErrorMessage}"
+            : StatusText;
+
+        public bool HasExtensions => Extensions.Count > 0;
+
+        public string ExtensionsLabel => $"Extensions ({Extensions.Count(e => e.IsSelected)})";
+
+        public BrowserInstallItem()
+        {
+            Extensions.CollectionChanged += OnExtensionsChanged;
+        }
+
+        private void OnExtensionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems is not null)
+                foreach (ExtensionItem ext in e.NewItems) ext.PropertyChanged += OnExtensionPropertyChanged;
+            if (e.OldItems is not null)
+                foreach (ExtensionItem ext in e.OldItems) ext.PropertyChanged -= OnExtensionPropertyChanged;
+            OnPropertyChanged(nameof(HasExtensions));
+            OnPropertyChanged(nameof(ExtensionsLabel));
+        }
+
+        private void OnExtensionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ExtensionItem.IsSelected))
+                OnPropertyChanged(nameof(ExtensionsLabel));
+        }
     }
 
 

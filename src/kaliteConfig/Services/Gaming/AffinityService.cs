@@ -566,63 +566,168 @@ namespace kaliteConfig.Services
             }
         }
 
-        public bool SetRSS(string deviceInstanceId, ulong mask)
+        public sealed record RssInfo(bool Supported, bool Enabled, int Queues, int BaseProcessor, int MaxProcessors, string Summary);
+
+        public sealed record RssApplyResult(bool Changed, bool Supported, string Message);
+
+        /// <summary>
+        /// Reads the NDIS RSS configuration Windows exposes in the driver class key.
+        /// Network packet steering goes through RSS, not through the IRQ affinity mask,
+        /// so this is what actually decides which CPUs process received packets.
+        /// </summary>
+        public RssInfo GetRssInfo(string deviceInstanceId)
         {
             try
             {
-                string fullId = ResolveFullInstanceId(deviceInstanceId) ?? deviceInstanceId;
-                using var enumKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Enum\{fullId}");
-                string? driver = enumKey?.GetValue("Driver") as string;
-                if (string.IsNullOrWhiteSpace(driver)) return false;
-                using var classKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Control\Class\{driver}", writable: true);
-                if (classKey is null) return false;
-                if (!string.Equals(classKey.GetValue("*PhysicalMediaType")?.ToString(), "14", StringComparison.Ordinal)) return true;
-                if (IsNetAdapterCx(classKey)) return true;
-
-                if (mask == 0)
-                {
-                    foreach (var v in new[] { "*RssBaseProcGroup", "*RssBaseProcNumber", "*MaxProcessors" })
-                        classKey.DeleteValue(v, throwOnMissingValue: false);
-                    return true;
-                }
-
-                var threads = new List<int>();
-                for (int i = 0; i < 64; i++)
-                    if ((mask & (1UL << i)) != 0) threads.Add(i);
-                if (threads.Count == 0) return false;
-
-                classKey.SetValue("*RSS", "1", Microsoft.Win32.RegistryValueKind.String);
-                classKey.SetValue("*RssBaseProcGroup", "0", Microsoft.Win32.RegistryValueKind.String);
-                classKey.SetValue("*RssBaseProcNumber", threads.Min().ToString(), Microsoft.Win32.RegistryValueKind.String);
-                classKey.SetValue("*MaxProcessors", threads.Count.ToString(), Microsoft.Win32.RegistryValueKind.String);
-                return true;
+                using var classKey = OpenDriverClassKey(deviceInstanceId, writable: false);
+                if (classKey is null)
+                    return new RssInfo(false, false, 0, 0, 0, "RSS settings are not readable for this device.");
+                return ReadRssInfo(classKey);
             }
-            catch (Exception)
+            catch
             {
-                return false;
+                return new RssInfo(false, false, 0, 0, 0, "RSS settings are not readable for this device.");
             }
         }
 
-        private static bool IsNetAdapterCx(Microsoft.Win32.RegistryKey classKey)
+        /// <summary>
+        /// Applies a processor mask to NDIS RSS. RSS can only express a contiguous run
+        /// starting at a base processor, so the mask is translated to base + count and
+        /// clamped to the queue count the driver actually supports.
+        /// </summary>
+        public RssApplyResult ConfigureRssForAffinity(string deviceInstanceId, ulong mask)
         {
             try
             {
-                using var ndi = classKey.OpenSubKey("Ndi");
-                string? service = ndi?.GetValue("Service")?.ToString()?.TrimEnd('.');
-                if (string.IsNullOrEmpty(service)) return false;
-                using var svc = Microsoft.Win32.Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{service}");
-                if (svc?.GetValue("ImagePath") is not string imagePath) return false;
-                string resolved = Environment.ExpandEnvironmentVariables(imagePath.StartsWith(@"\??\") ? imagePath[4..] : imagePath);
-                string root = Environment.GetEnvironmentVariable("SystemRoot") ?? @"C:\Windows";
-                if (resolved.StartsWith(@"\SystemRoot", StringComparison.OrdinalIgnoreCase))
-                    resolved = root + resolved[11..];
-                if (!File.Exists(resolved)) return false;
-                return Encoding.ASCII.GetString(File.ReadAllBytes(resolved)).Contains("NetAdapter", StringComparison.OrdinalIgnoreCase);
+                using var classKey = OpenDriverClassKey(deviceInstanceId, writable: true);
+                if (classKey is null)
+                    return new RssApplyResult(false, false, "RSS settings could not be opened for this device.");
+
+                if (!HasRssSupport(classKey))
+                    return new RssApplyResult(false, false,
+                        "This adapter's driver exposes no NDIS RSS settings; only the IRQ mask was applied.");
+
+                var before = ReadRssInfo(classKey);
+
+                if (mask == 0)
+                {
+                    bool cleared = false;
+                    foreach (var value in new[] { "*RssBaseProcGroup", "*RssBaseProcNumber", "*MaxProcessors" })
+                    {
+                        if (classKey.GetValue(value) is null) continue;
+                        classKey.DeleteValue(value, throwOnMissingValue: false);
+                        cleared = true;
+                    }
+                    return new RssApplyResult(cleared, true,
+                        cleared ? "RSS override cleared - Windows picks the processors again." : before.Summary);
+                }
+
+                var threads = new List<int>();
+                int addressable = Math.Min(64, Environment.ProcessorCount);
+                for (int i = 0; i < addressable; i++)
+                    if ((mask & (1UL << i)) != 0) threads.Add(i);
+                if (threads.Count == 0)
+                    return new RssApplyResult(false, true,
+                        "RSS: the selected processors are outside processor group 0, so no RSS mask was written.");
+
+                int queues = before.Queues > 0 ? before.Queues : addressable;
+                int maxProcessors = Math.Clamp(threads.Count, 1, Math.Min(queues, addressable));
+                int baseProcessor = threads.Min();
+
+                bool changed = !before.Enabled
+                    || before.BaseProcessor != baseProcessor
+                    || before.MaxProcessors != maxProcessors;
+
+                if (changed)
+                {
+                    classKey.SetValue("*RSS", "1", Microsoft.Win32.RegistryValueKind.String);
+                    classKey.SetValue("*RssBaseProcGroup", "0", Microsoft.Win32.RegistryValueKind.String);
+                    classKey.SetValue("*RssBaseProcNumber", baseProcessor.ToString(), Microsoft.Win32.RegistryValueKind.String);
+                    classKey.SetValue("*MaxProcessors", maxProcessors.ToString(), Microsoft.Win32.RegistryValueKind.String);
+                }
+
+                return new RssApplyResult(changed, true,
+                    $"RSS on - queues start at CPU {baseProcessor}, up to {maxProcessors} processor(s) across {queues} queue(s).");
+            }
+            catch (Exception ex)
+            {
+                return new RssApplyResult(false, true, $"RSS could not be written: {ex.Message}");
+            }
+        }
+
+        public bool ClearRssOverride(string deviceInstanceId)
+        {
+            try
+            {
+                using var classKey = OpenDriverClassKey(deviceInstanceId, writable: true);
+                if (classKey is null) return false;
+                foreach (var value in new[] { "*RssBaseProcGroup", "*RssBaseProcNumber", "*MaxProcessors" })
+                    classKey.DeleteValue(value, throwOnMissingValue: false);
+                return true;
             }
             catch
             {
                 return false;
             }
+        }
+
+        private static Microsoft.Win32.RegistryKey? OpenDriverClassKey(string deviceInstanceId, bool writable)
+        {
+            string fullId = ResolveFullInstanceId(deviceInstanceId) ?? deviceInstanceId;
+            using var enumKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Enum\{fullId}");
+            string? driver = enumKey?.GetValue("Driver") as string;
+            if (string.IsNullOrWhiteSpace(driver)) return null;
+            return Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                $@"SYSTEM\CurrentControlSet\Control\Class\{driver}", writable);
+        }
+
+        private static bool HasRssSupport(Microsoft.Win32.RegistryKey classKey)
+        {
+            if (classKey.GetValue("*NumRssQueues") is not null) return true;
+            if (classKey.GetValue("*RSS") is not null) return true;
+            if (classKey.GetValue("*RssBaseProcNumber") is not null) return true;
+            using var rss = classKey.OpenSubKey(@"Ndi\Params\*RSS");
+            using var queues = classKey.OpenSubKey(@"Ndi\Params\*NumRssQueues");
+            using var baseProcessor = classKey.OpenSubKey(@"Ndi\Params\*RssBaseProcNumber");
+            return rss is not null || queues is not null || baseProcessor is not null;
+        }
+
+        private static RssInfo ReadRssInfo(Microsoft.Win32.RegistryKey classKey)
+        {
+            if (!HasRssSupport(classKey))
+                return new RssInfo(false, false, 0, 0, 0,
+                    "This adapter's driver exposes no NDIS RSS settings, so packet steering cannot be pinned.");
+
+            int queues = ReadIntValue(classKey, "*NumRssQueues")
+                ?? ReadParamDefault(classKey, "*NumRssQueues")
+                ?? Math.Min(Environment.ProcessorCount, 16);
+            if (queues <= 0) queues = 1;
+
+            bool enabled = !string.Equals(
+                classKey.GetValue("*RSS")?.ToString(), "0", StringComparison.Ordinal);
+            int baseProcessor = ReadIntValue(classKey, "*RssBaseProcNumber")
+                ?? ReadParamDefault(classKey, "*RssBaseProcNumber") ?? 0;
+            int maxProcessors = ReadIntValue(classKey, "*MaxProcessors") ?? queues;
+
+            string summary = enabled
+                ? $"RSS on - base CPU {baseProcessor}, up to {maxProcessors} processor(s) across {queues} queue(s)."
+                : "RSS is disabled for this adapter.";
+            return new RssInfo(true, enabled, queues, baseProcessor, maxProcessors, summary);
+        }
+
+        private static int? ReadIntValue(Microsoft.Win32.RegistryKey classKey, string name)
+        {
+            object? value = classKey.GetValue(name);
+            if (value is null) return null;
+            if (value is int i) return i;
+            return int.TryParse(value.ToString(), out int parsed) ? parsed : null;
+        }
+
+        private static int? ReadParamDefault(Microsoft.Win32.RegistryKey classKey, string keyword)
+        {
+            using var param = classKey.OpenSubKey($@"Ndi\Params\{keyword}");
+            string? text = param?.GetValue("Default")?.ToString();
+            return int.TryParse(text, out int parsed) ? parsed : null;
         }
 
         internal static string? ResolveFullInstanceId(string deviceInstanceId)

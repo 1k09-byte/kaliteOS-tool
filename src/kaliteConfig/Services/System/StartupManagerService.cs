@@ -358,9 +358,6 @@ public sealed class StartupManagerService
         try { csv = await RunSchtasksAsync("/query /fo csv /v", 30_000, ct).ConfigureAwait(false); }
         catch { return list; }
         var rows = ParseTaskListCsv(csv);
-        // Tasks in the \Microsoft subtree are kept (the list can show or hide them), but
-        // their trigger XML is not worth a schtasks round-trip each, so they are built
-        // straight from the CSV row instead of the per-task query below.
         var result = new List<StartupEntry>();
         var detailed = new List<(string Name, string State, string Command)>();
         foreach (var row in rows)

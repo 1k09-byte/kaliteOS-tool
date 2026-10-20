@@ -43,15 +43,51 @@ namespace kaliteConfig.ViewModels
         [ObservableProperty]
         public partial bool NothingToInstall { get; set; } = false;
 
+        [ObservableProperty]
+        public partial bool NoSearchMatches { get; set; } = false;
+
+        [ObservableProperty]
+        public partial string SearchQuery { get; set; } = string.Empty;
+
+        [ObservableProperty]
+        public partial bool HasBrowsers { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool HasLaunchers { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool HasSocials { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool HasUtilities { get; set; } = false;
+
+        [ObservableProperty]
+        public partial string FilterSummary { get; set; } = string.Empty;
+
         partial void OnShowInstalledChanged(bool value)
+        {
+            UpdateVisibilityFilters();
+        }
+
+        partial void OnSearchQueryChanged(string value)
         {
             UpdateVisibilityFilters();
         }
 
         private bool ShouldShow(BrowserInstallItem item)
         {
+            if (!MatchesSearch(item)) return false;
             if (item.Status == BrowserInstallStatus.UpdateAvailable) return true;
             return ShowInstalled || (item.Status != BrowserInstallStatus.AlreadyInstalled && item.Status != BrowserInstallStatus.Installed);
+        }
+
+        private bool MatchesSearch(BrowserInstallItem item)
+        {
+            var query = SearchQuery.Trim();
+            if (query.Length == 0) return true;
+            return item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || item.Description.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || item.ProductId.Contains(query, StringComparison.OrdinalIgnoreCase);
         }
 
         private void UpdateVisibilityFilters()
@@ -84,8 +120,24 @@ namespace kaliteConfig.ViewModels
                 if (util.IsVisible) VisibleUtilities.Add(util);
             }
 
-            NothingToInstall = VisibleBrowsers.Count == 0 && VisibleGameLaunchers.Count == 0
-                && VisibleSocialApps.Count == 0 && VisibleUtilities.Count == 0;
+            HasBrowsers = VisibleBrowsers.Count > 0;
+            HasLaunchers = VisibleGameLaunchers.Count > 0;
+            HasSocials = VisibleSocialApps.Count > 0;
+            HasUtilities = VisibleUtilities.Count > 0;
+
+            int total = VisibleBrowsers.Count + VisibleGameLaunchers.Count
+                + VisibleSocialApps.Count + VisibleUtilities.Count;
+            var query = SearchQuery.Trim();
+            bool searching = query.Length > 0;
+            NothingToInstall = total == 0 && !searching;
+            NoSearchMatches = total == 0 && searching;
+            FilterSummary = total == 0
+                ? (searching ? $"No apps match \"{query}\"" : "Everything is installed")
+                : searching
+                    ? $"{total} {(total == 1 ? "match" : "matches")} for \"{query}\""
+                    : ShowInstalled
+                        ? $"{total} {(total == 1 ? "app" : "apps")}"
+                        : $"{total} {(total == 1 ? "app" : "apps")} ready to install";
         }
 
         [ObservableProperty]
@@ -440,7 +492,10 @@ namespace kaliteConfig.ViewModels
                 Name = "Mullvad Browser",
                 ImagePath = "ms-appx:///Assets/mullvad-logo.png",
                 WingetId = "MullvadVPN.MullvadBrowser",
-                InstalledCheckPath = @"%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvad-browser.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvadbrowser.exe;%PROGRAMFILES%\Mullvad Browser\mullvad-browser.exe;%PROGRAMFILES%\Mullvad Browser\mullvadbrowser.exe",
+                DownloadUrl = "https://github.com/mullvad/mullvad-browser/releases/latest/download/mullvad-browser-windows-x86_64.exe",
+                SilentInstallArgs = "/S",
+                InstallerFileName = "mullvad-browser.exe",
+                InstalledCheckPath = @"%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvadbrowser.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\mullvad-browser.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Release\firefox.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Browser\mullvadbrowser.exe;%LOCALAPPDATA%\Mullvad\MullvadBrowser\Browser\firefox.exe;%PROGRAMFILES%\Mullvad Browser\mullvadbrowser.exe;%PROGRAMFILES%\Mullvad Browser\mullvad-browser.exe;%PROGRAMFILES%\Mullvad Browser\Browser\mullvadbrowser.exe;%USERPROFILE%\Desktop\Mullvad Browser\Browser\mullvadbrowser.exe;%USERPROFILE%\Desktop\Mullvad Browser\Start Mullvad Browser.exe",
                 Description = "Privacy-focused browser from Mullvad and the Tor Project, built to resist fingerprinting."
             };
 
@@ -448,7 +503,9 @@ namespace kaliteConfig.ViewModels
             {
                 Name = "uBlock Origin",
                 FirefoxAddonSlug = "ublock-origin",
-                Description = "Blocks ads and trackers across every site you visit."
+                Description = "Already bundled with Mullvad Browser (preconfigured for fingerprint resistance).",
+                IsAvailable = false,
+                IsSelected = false
             });
             mullvadBrowser.Extensions.Add(new ExtensionItem
             {
@@ -736,6 +793,7 @@ namespace kaliteConfig.ViewModels
 
             _cts = new CancellationTokenSource();
 
+            item.ErrorMessage = string.Empty;
             IsInstalling = true;
             InstallStatusText = "Initializing...";
 
@@ -780,6 +838,7 @@ namespace kaliteConfig.ViewModels
             SelectedBrowser = item;
 
             _cts = new CancellationTokenSource();
+            item.ErrorMessage = string.Empty;
             IsInstalling = true;
             InstallStatusText = "Updating...";
 
@@ -849,6 +908,27 @@ namespace kaliteConfig.ViewModels
                 IsInstalling = false;
                 _cts.Dispose();
                 _cts = null;
+            }
+        }
+
+        [RelayCommand]
+        private async Task ApplyExtensionsAsync(BrowserInstallItem? item)
+        {
+            if (item is null || !IsBrowserInstalledSafe(item)) return;
+
+            item.ErrorMessage = string.Empty;
+            InstallStatusText = $"Applying extensions to {item.Name}...";
+
+            string? warning = await Task.Run(() => _installerService.ApplyExtensions(item));
+
+            if (warning is not null)
+            {
+                item.ErrorMessage = warning;
+                InstallStatusText = warning;
+            }
+            else
+            {
+                InstallStatusText = $"Extensions applied to {item.Name}";
             }
         }
 

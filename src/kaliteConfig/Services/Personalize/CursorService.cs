@@ -301,8 +301,6 @@ public sealed class CursorService : ICursorService
     private static bool ReloadCursors() =>
         NativeMethods.SystemParametersInfoPtr(NativeMethods.SPI_SETCURSORS, 0, IntPtr.Zero, NativeMethods.SPIF_SENDCHANGE);
 
-    // SPI_SETCURSORS alone does not resize the pointer; Windows only picks up CursorBaseSize
-    // when the undocumented 0x2029 action is called with the pixel size. Reload cursors after it.
     private static bool SyncPointerSize()
     {
         int size = ReadInt(CursorsKey, "CursorBaseSize", 32);

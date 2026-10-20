@@ -15,6 +15,8 @@ namespace kaliteConfig.Services.LiveWallpaper;
 
 public abstract class LiveHost : IDisposable
 {
+    private bool _disposed;
+
     protected LiveHost(MonitorRect area)
     {
         Area = area;
@@ -49,16 +51,64 @@ public abstract class LiveHost : IDisposable
         catch { }
     }
 
-    public virtual void Dispose()
+    public virtual void ShutdownMedia()
     {
         try
         {
             if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
             {
-                queue.TryEnqueue(() => { try { View.Close(); } catch { } });
+                try { queue.TryEnqueue(ShutdownMedia); } catch { }
                 return;
             }
-            View.Close();
+            try { View.Content = null; } catch { }
+        }
+        catch { }
+    }
+
+    public void CloseWindowSoon(int delayMs = 400)
+    {
+        if (_disposed) return;
+        try
+        {
+            var queue = View.DispatcherQueue;
+            if (queue is null) { try { Dispose(); } catch { } return; }
+            if (queue.HasThreadAccess)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try { await Task.Delay(delayMs).ConfigureAwait(false); } catch { }
+                    try { queue.TryEnqueue(() => { try { Dispose(); } catch { } }); } catch { }
+                });
+                return;
+            }
+            try
+            {
+                queue.TryEnqueue(() =>
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try { await Task.Delay(delayMs).ConfigureAwait(false); } catch { }
+                        try { queue.TryEnqueue(() => { try { Dispose(); } catch { } }); } catch { }
+                    });
+                });
+            }
+            catch { }
+        }
+        catch { try { Dispose(); } catch { } }
+    }
+
+    public virtual void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        try
+        {
+            if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
+            {
+                try { queue.TryEnqueue(() => { try { View.Close(); } catch { } }); } catch { }
+                return;
+            }
+            try { View.Close(); } catch { }
         }
         catch { }
     }
@@ -69,6 +119,8 @@ public sealed class LiveVideoHost : LiveHost
     private MediaPlayerElement? _element;
     private MediaPlayer? _player;
     private bool _heavyReleased;
+    private StorageFile? _file;
+    private LiveSettings? _lastSettings;
 
     public LiveVideoHost(MonitorRect area) : base(area)
     {
@@ -89,27 +141,17 @@ public sealed class LiveVideoHost : LiveHost
 
     private Task<(bool Ok, string? Error)> ShowOnUiAsync(StorageFile file, LiveSettings settings)
     {
+        _file = file;
+        _lastSettings = settings;
         var tcs = new TaskCompletionSource<(bool Ok, string? Error)>();
         View.DispatcherQueue.TryEnqueue(() =>
         {
             try
             {
-                _player = new MediaPlayer
-                {
-                    IsLoopingEnabled = true,
-                    IsMuted = settings.Muted,
-                    Volume = settings.Volume,
-                    AutoPlay = true
-                };
-                _player.PlaybackSession.PlaybackRate = settings.Rate <= 0 ? 1.0 : settings.Rate;
-                _player.Source = MediaSource.CreateFromStorageFile(file);
-                _player.MediaFailed += (_, _) => { };
-                _element = new MediaPlayerElement();
-                ApplyScale(settings.Scale);
-                _element.SetMediaPlayer(_player);
+                CreatePlayer(file, settings);
                 View.Content = _element;
                 View.Activate();
-                _player.Play();
+                _player?.Play();
                 _heavyReleased = false;
                 tcs.SetResult((true, null));
             }
@@ -121,8 +163,57 @@ public sealed class LiveVideoHost : LiveHost
         return tcs.Task;
     }
 
+    private void CreatePlayer(StorageFile file, LiveSettings settings)
+    {
+        ReleasePlayer();
+        _player = new MediaPlayer
+        {
+            IsLoopingEnabled = true,
+            IsMuted = settings.Muted,
+            Volume = settings.Volume,
+            AutoPlay = true
+        };
+        _player.PlaybackSession.PlaybackRate = settings.Rate <= 0 ? 1.0 : settings.Rate;
+        _player.Source = MediaSource.CreateFromStorageFile(file);
+        _player.MediaFailed += (_, _) => { };
+        _element = new MediaPlayerElement();
+        ApplyScale(settings.Scale);
+        _element.SetMediaPlayer(_player);
+    }
+
+    private void ReleasePlayer()
+    {
+        try { View.Content = null; } catch { }
+        try { _element?.SetMediaPlayer(null); } catch { }
+        _element = null;
+        var player = _player;
+        _player = null;
+        if (player is not null)
+        {
+            try { player.Pause(); } catch { }
+            try { player.Source = null; } catch { }
+            try { player.Dispose(); } catch { }
+        }
+    }
+
+    public override void ShutdownMedia()
+    {
+        try
+        {
+            if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
+            {
+                try { queue.TryEnqueue(ShutdownMedia); } catch { }
+                return;
+            }
+            try { ReleasePlayer(); } catch { }
+            _heavyReleased = false;
+        }
+        catch { }
+    }
+
     public override void ApplyPlayback(LiveSettings settings)
     {
+        _lastSettings = settings;
         try
         {
             View.DispatcherQueue.TryEnqueue(() =>
@@ -190,13 +281,7 @@ public sealed class LiveVideoHost : LiveHost
             {
                 try
                 {
-                    if (_player is not null)
-                    {
-                        _player.Pause();
-                        _player.Source = null;
-                        _player.Dispose();
-                        _player = null;
-                    }
+                    ReleasePlayer();
                     _heavyReleased = true;
                 }
                 catch { }
@@ -207,20 +292,47 @@ public sealed class LiveVideoHost : LiveHost
 
     public override void Reacquire()
     {
+        try
+        {
+            View.DispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    if (!_heavyReleased) return;
+                    var file = _file;
+                    var settings = _lastSettings;
+                    if (file is null || settings is null) return;
+                    _heavyReleased = false;
+                    CreatePlayer(file, settings);
+                    View.Content = _element;
+                    try { _player?.Play(); } catch { }
+                }
+                catch { }
+            });
+        }
+        catch { }
     }
 
     public override void Dispose()
     {
         try
         {
-            var player = _player;
-            _player = null;
-            if (player is not null)
+            if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
             {
-                try { player.Pause(); } catch { }
-                try { player.Source = null; } catch { }
-                try { player.Dispose(); } catch { }
+                try
+                {
+                    queue.TryEnqueue(() =>
+                    {
+                        try { ReleasePlayer(); } catch { }
+                        try { View.Content = null; } catch { }
+                        try { base.Dispose(); } catch { }
+                    });
+                }
+                catch { }
+                return;
             }
+            try { ReleasePlayer(); } catch { }
+            try { View.Content = null; } catch { }
         }
         catch { }
         base.Dispose();
@@ -355,15 +467,78 @@ public sealed class LiveHtmlHost : LiveHost
         Resume();
     }
 
+    public override void ShutdownMedia()
+    {
+        try
+        {
+            var viewLocal = _view;
+            _view = null;
+            _ready = false;
+            if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
+            {
+                try
+                {
+                    queue.TryEnqueue(() =>
+                    {                            try
+                            {
+                                if (viewLocal is not null)
+                                {
+                                    try { viewLocal.Close(); } catch { }
+                                }
+                            }
+                            catch { }
+                            try { View.Content = null; } catch { }
+                    });
+                }
+                catch { }
+                return;
+            }
+            try
+            {
+                if (viewLocal is not null)
+                {
+                    try { viewLocal.Close(); } catch { }
+                }
+            }
+            catch { }
+            try { View.Content = null; } catch { }
+        }
+        catch { }
+    }
+
     public override void Dispose()
     {
         try
         {
             var view = _view;
             _view = null;
+            _ready = false;
             if (view is not null)
             {
-                try { view.Close(); } catch { }
+                try
+                {
+                    if (View.DispatcherQueue is { } queue && !queue.HasThreadAccess)
+                    {
+                        try
+                        {
+                            queue.TryEnqueue(() =>
+                            {
+                                try { view.Close(); } catch { }
+                                try { View.Content = null; } catch { }
+                                try { base.Dispose(); } catch { }
+                            });
+                        }
+                        catch { }
+                        return;
+                    }
+                    try { view.Close(); } catch { }
+                    try { View.Content = null; } catch { }
+                }
+                catch { }
+            }
+            else
+            {
+                try { View.Content = null; } catch { }
             }
         }
         catch { }

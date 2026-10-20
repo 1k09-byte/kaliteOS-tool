@@ -34,6 +34,9 @@ public static class NetAdapterService
         catch (Exception ex) { throw new InvalidOperationException("Could not enumerate adapters: " + ex.Message, ex); }
         foreach (var nic in nics)
         {
+            // WAN miniports, tunnels and the loopback pseudo-interface are OS
+            // plumbing, not hardware, and only clutter the tuning page.
+            if (NetParsing.IsPseudoAdapter(nic.Description, nic.Name)) continue;
             try { list.Add(ReadOne(nic)); }
             catch (Exception ex)
             {
@@ -47,7 +50,12 @@ public static class NetAdapterService
                 });
             }
         }
-        return list.OrderBy(a => a.Kind).ThenBy(a => a.Name).ToList();
+        return list
+            .GroupBy(a => NetParsing.AdapterIdentity(a.Description), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(a => a.IsUp).ThenBy(a => a.Name).First())
+            .OrderBy(a => a.Kind)
+            .ThenBy(a => a.Name)
+            .ToList();
     });
 
     private static NetAdapterInfo ReadOne(NetworkInterface nic)

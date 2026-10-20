@@ -73,8 +73,6 @@ namespace kaliteConfig.ViewModels
 
         public string ChangeCountNumberText => ChangeCount.ToString();
 
-        // Headline numbers for the summary strip. Recomputed on every rescan so the
-        // page can show what was found without a second pass over the device list.
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(DeviceCountText))]
         public partial int DeviceCount { get; set; }
@@ -323,6 +321,8 @@ namespace kaliteConfig.ViewModels
                     device.DevicePriorityShort = AffinityService.DevicePriorityName(info.DevicePriority);
                     device.AffinityText = AffinityService.AffinityMaskText(info.AffinityMask);
                     device.IrqText = info.MsiSupported == true ? "MSI" : info.MsiSupported == false ? "Line" : "-";
+                    if (device.Category == "Network")
+                        device.RssText = _affinityService.GetRssInfo(device.DeviceInstanceId).Summary;
 
                     switch (device.Category)
                     {
@@ -429,7 +429,14 @@ namespace kaliteConfig.ViewModels
             }
 
             if ((maskTouched || policyTouched) && item.Category == "Network")
-                _affinityService.SetRSS(item.DeviceInstanceId, newPolicy == 4 ? newMask : 0);
+            {
+                // NDIS steers packets with RSS, so pin the receive queues to the chosen
+                // processors instead of relying on the IRQ mask alone.
+                var rss = _affinityService.ConfigureRssForAffinity(item.DeviceInstanceId, newMask);
+                item.RssText = rss.Message;
+                if (rss.Changed)
+                    PushChange(new AffinityChange(item.DeviceInstanceId, item.Name, "RSS", OldValue: null, rss.Message, DateTime.Now));
+            }
 
             var refreshed = _affinityService.GetInterruptInfo(item.DeviceInstanceId);
             item.DevicePolicyShort = AffinityService.DevicePolicyShort(refreshed.DevicePolicy);
@@ -623,6 +630,7 @@ namespace kaliteConfig.ViewModels
                 if (!_affinityService.SetDevicePolicy(deviceInstanceId, 0)) return false;
                 if (!_affinityService.ClearAffinityPolicy(deviceInstanceId, "DevicePriority")) return false;
                 if (!_affinityService.ClearAffinityPolicy(deviceInstanceId, "AssignmentSetOverride")) return false;
+                _affinityService.ClearRssOverride(deviceInstanceId);
                 return true;
             }
             catch
@@ -684,6 +692,11 @@ namespace kaliteConfig.ViewModels
                 case "AffinityMask":
                     ulong oldMask = change.OldValue is ulong m ? m : 0;
                     _affinityService.SetAffinityMask(change.DeviceId, oldMask);
+                    _affinityService.ConfigureRssForAffinity(change.DeviceId, oldMask);
+                    break;
+                case "RSS":
+                    // RSS is derived from the processor mask; reverting the mask above
+                    // restores the matching RSS override as well.
                     break;
             }
         }
@@ -717,6 +730,7 @@ namespace kaliteConfig.ViewModels
                 case "AffinityMask":
                     ulong newMask = change.NewValue is ulong m ? m : 0;
                     _affinityService.SetAffinityMask(change.DeviceId, newMask);
+                    _affinityService.ConfigureRssForAffinity(change.DeviceId, newMask);
                     break;
             }
         }
