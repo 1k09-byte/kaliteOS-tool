@@ -11,10 +11,12 @@ public sealed class ForegroundWatcher : IDisposable
     private Thread? _thread;
     private uint _threadId;
     private IntPtr _hook;
-    private bool _running;
+    private IntPtr _window;
+    private volatile bool _running;
     private NativeMethods.GameMode.WinEventProc? _callback;
 
     public event Action<IntPtr>? ForegroundChanged;
+    public event Action<string>? Diagnostic;
 
     public void Start()
     {
@@ -29,9 +31,7 @@ public sealed class ForegroundWatcher : IDisposable
     {
         _running = false;
         if (_threadId != 0)
-        {
             NativeMethods.GameMode.PostThreadMessage(_threadId, 0x0012, IntPtr.Zero, IntPtr.Zero);
-        }
         try { _thread?.Join(2000); } catch { }
         _thread = null;
     }
@@ -39,12 +39,24 @@ public sealed class ForegroundWatcher : IDisposable
     private void Loop()
     {
         _threadId = NativeMethods.GameMode.GetCurrentThreadId();
+        _window = NativeMethods.GameMode.CreateWindowEx(0, "STATIC", "kaliteConfigGameMode", 0,
+            0, 0, 0, 0, NativeMethods.GameMode.HwndMessage, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        NativeMethods.GameMode.PeekMessage(out _, IntPtr.Zero, 0, 0, 0);
+
         _callback = OnWinEvent;
         _hook = NativeMethods.GameMode.SetWinEventHook(
             NativeMethods.GameMode.EventSystemForeground,
             NativeMethods.GameMode.EventSystemForeground,
             IntPtr.Zero, _callback, 0, 0,
             NativeMethods.GameMode.WineventOutofcontext | NativeMethods.GameMode.WineventSkipownprocess);
+
+        try
+        {
+            Diagnostic?.Invoke(_hook == IntPtr.Zero
+                ? "Foreground hook was not installed"
+                : "Foreground hook installed (window " + _window + ")");
+        }
+        catch { }
 
         while (_running)
         {
@@ -59,6 +71,12 @@ public sealed class ForegroundWatcher : IDisposable
             NativeMethods.GameMode.UnhookWinEvent(_hook);
             _hook = IntPtr.Zero;
         }
+        if (_window != IntPtr.Zero)
+        {
+            NativeMethods.GameMode.DestroyWindow(_window);
+            _window = IntPtr.Zero;
+        }
+        try { Diagnostic?.Invoke("Foreground message loop exited"); } catch { }
         _threadId = 0;
     }
 
@@ -94,18 +112,18 @@ public sealed class ForegroundWatcher : IDisposable
             IntPtr target = hwnd;
             if (windowClass.Equals("ApplicationFrameWindow", StringComparison.OrdinalIgnoreCase))
             {
-                IntPtr childPidHolder = IntPtr.Zero;
+                IntPtr childHolder = IntPtr.Zero;
                 NativeMethods.GameMode.EnumChildWindows(hwnd, (child, _) =>
                 {
                     NativeMethods.GameMode.GetWindowThreadProcessId(child, out uint childPid);
                     if (childPid != 0 && childPid != owner)
                     {
-                        childPidHolder = child;
+                        childHolder = child;
                         return false;
                     }
                     return true;
                 }, IntPtr.Zero);
-                if (childPidHolder != IntPtr.Zero) target = childPidHolder;
+                if (childHolder != IntPtr.Zero) target = childHolder;
             }
 
             NativeMethods.GameMode.GetWindowThreadProcessId(target, out uint resolved);

@@ -78,6 +78,7 @@ public sealed class GameModeSettings
     public List<string> NeverTouch { get; set; } = new();
     public Dictionary<string, BackgroundAction> Actions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    [JsonIgnore]
     public int ClampedDebounce => Math.Clamp(DebounceMs, 250, 5000);
 }
 

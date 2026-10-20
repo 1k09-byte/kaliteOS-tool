@@ -12,7 +12,7 @@ internal static partial class NativeMethods
         internal const uint WineventSkipownprocess = 0x0002;
         internal const int ProcessPowerThrottling = 4;
         internal const uint PowerThrottlingExecutionSpeed = 0x1;
-        internal const int ProcessProtectionLevelInfo = 8;
+        internal const int ProcessProtectionLevelInfo = 7;
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         internal delegate void WinEventProc(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
@@ -50,6 +50,18 @@ internal static partial class NativeMethods
 
         [DllImport("kernel32.dll")]
         internal static extern uint GetCurrentThreadId();
+
+        internal static readonly IntPtr HwndMessage = new(-3);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern IntPtr CreateWindowEx(uint exStyle, string className, string windowName, uint style,
+            int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+
+        [DllImport("user32.dll")]
+        internal static extern bool DestroyWindow(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        internal static extern bool PeekMessage(out Msg message, IntPtr hwnd, uint min, uint max, uint remove);
 
         [DllImport("user32.dll")]
         internal static extern IntPtr GetForegroundWindow();

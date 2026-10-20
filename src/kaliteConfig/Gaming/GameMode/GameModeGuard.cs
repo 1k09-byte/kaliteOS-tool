@@ -110,7 +110,8 @@ public sealed class GameModeGuard
             var protection = new NativeMethods.GameMode.ProtectionLevelInfo();
             if (!NativeMethods.GameMode.GetProcessInformation(raw, NativeMethods.GameMode.ProcessProtectionLevelInfo, ref protection, Marshal.SizeOf<NativeMethods.GameMode.ProtectionLevelInfo>()))
                 return "Protection state unknown";
-            if (protection.ProtectionLevel != 0) return "Protected process (PPL)";
+            if (protection.ProtectionLevel != 0 && protection.ProtectionLevel != 0xFFFFFFFE)
+                return "Protected process (PPL)";
 
             if (NativeMethods.GameMode.IsProcessCritical(raw, out bool critical) && critical)
                 return "Critical system process";
