@@ -1,6 +1,7 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
@@ -27,6 +28,13 @@ namespace kaliteConfig.Pages
         private void AppSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
             ViewModel.SearchQuery = sender.Text ?? string.Empty;
+        }
+
+        private void ExtensionsFlyout_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            // The extension list is the only thing the wheel should move while this flyout is open.
+            // Without this the app list behind the flyout scrolls at the same time once the list hits an end.
+            e.Handled = true;
         }
 
         private async void ApplyExtensions_Click(object sender, RoutedEventArgs e)

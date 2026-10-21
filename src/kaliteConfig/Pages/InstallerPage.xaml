@@ -62,37 +62,47 @@
                                     Visibility="{x:Bind HasExtensions, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                         <DropDownButton.Flyout>
                             <Flyout>
-                                <ScrollViewer Width="320" MaxHeight="360"
-                                              VerticalScrollBarVisibility="Auto"
-                                              VerticalScrollMode="Auto"
-                                              HorizontalScrollMode="Disabled"
-                                              HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel Spacing="8">
-                                        <ItemsRepeater ItemsSource="{x:Bind Extensions}">
-                                            <ItemsRepeater.ItemTemplate>
-                                                <DataTemplate x:DataType="models:ExtensionItem">
-                                                    <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
-                                                              IsEnabled="{x:Bind IsAvailable, Mode=OneWay}"
-                                                              Margin="0,2">
-                                                        <StackPanel Spacing="2">
-                                                            <TextBlock Text="{x:Bind Name}"
-                                                                       Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                                       TextWrapping="Wrap" />
-                                                            <TextBlock Text="{x:Bind Description}"
-                                                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                        </StackPanel>
-                                                    </CheckBox>
-                                                </DataTemplate>
-                                            </ItemsRepeater.ItemTemplate>
-                                        </ItemsRepeater>
-                                        <Button Content="Apply selected extensions"
-                                                HorizontalAlignment="Stretch"
-                                                Click="ApplyExtensions_Click"
-                                                Tag="{x:Bind}" />
-                                    </StackPanel>
-                                </ScrollViewer>
+                                <!-- The row grid lets the list shrink when the flyout is squeezed near the window edge,
+                                     so the apply button and the last item are never clipped, and the wheel only ever
+                                     scrolls one region. -->
+                                <Grid Width="340" RowSpacing="8" MaxHeight="420"
+                                      PointerWheelChanged="ExtensionsFlyout_PointerWheelChanged">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ScrollViewer MaxHeight="360" MinHeight="96"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  HorizontalScrollMode="Disabled"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel Spacing="4" Padding="0,0,12,0">
+                                            <ItemsRepeater ItemsSource="{x:Bind Extensions}">
+                                                <ItemsRepeater.ItemTemplate>
+                                                    <DataTemplate x:DataType="models:ExtensionItem">
+                                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                  IsEnabled="{x:Bind IsAvailable, Mode=OneWay}"
+                                                                  Margin="0,2">
+                                                            <StackPanel Spacing="2">
+                                                                <TextBlock Text="{x:Bind Name}"
+                                                                           Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                                           TextWrapping="Wrap" />
+                                                                <TextBlock Text="{x:Bind Description}"
+                                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                        </CheckBox>
+                                                    </DataTemplate>
+                                                </ItemsRepeater.ItemTemplate>
+                                            </ItemsRepeater>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                    <Button Grid.Row="1" Content="Apply selected extensions"
+                                            HorizontalAlignment="Stretch"
+                                            Click="ApplyExtensions_Click"
+                                            Tag="{x:Bind}" />
+                                </Grid>
                             </Flyout>
                         </DropDownButton.Flyout>
                     </DropDownButton>

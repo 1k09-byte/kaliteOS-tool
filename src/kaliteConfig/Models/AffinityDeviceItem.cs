@@ -62,7 +62,7 @@ namespace kaliteConfig.Models
         public partial string SelectedThreadCountText { get; set; } = string.Empty;
 
         [ObservableProperty]
-        public partial bool IsProcessorMaskExpanded { get; set; }
+        public partial bool IsProcessorMaskExpanded { get; set; } = true;
 
         public System.Collections.ObjectModel.ObservableCollection<ProcessorCoreGroup> CoreGroups { get; } = new();
 
