@@ -1,14 +1,3 @@
-<#
-.SYNOPSIS
-  Answers two questions the thread tuner's "Apply ideal processor" depends on,
-  using the real kernel32 exports:
-    1. What does GetThreadIdealProcessorEx actually RETURN (the app declares it
-       as "previous ideal processor number, (DWORD)-1 on failure")?
-    2. Does SetThreadIdealProcessorEx report failure through its BOOL, and does
-       a valid processor number round-trip?
-
-  Prints the outcome of each call so the findings are evidence, not folklore.
-#>
 [CmdletBinding()]
 param([int[]]$Targets = @(7, 0, 255))
 
@@ -31,11 +20,9 @@ public static class IdealProbe
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetThreadIdealProcessorEx(IntPtr h, ref PN ideal, IntPtr prev);
 
-    // Variant A: what the app currently declares (DWORD return).
     [DllImport("kernel32.dll", EntryPoint = "GetThreadIdealProcessorEx", SetLastError = true)]
     public static extern uint GetA(IntPtr h, out PN cur);
 
-    // Variant B: BOOL return.
     [DllImport("kernel32.dll", EntryPoint = "GetThreadIdealProcessorEx", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetB(IntPtr h, out PN cur);
@@ -87,13 +74,10 @@ foreach ($t in $Targets) {
     Write-Host "  after : $after"
 }
 
-# Realistic failure the tuner hits: the thread's affinity mask is narrower than
-# the box the user ticked. Does an ideal processor outside the mask fail, or is
-# it accepted and simply never honoured?
 Write-Host ""
 Write-Host "=== ideal processor outside the thread's affinity mask ===" -ForegroundColor Cyan
 $last = [Environment]::ProcessorCount - 1
-$saved = [IdealProbe]::SetThreadAffinityMask($h, [IntPtr]0x0F)   # CPUs 0-3 only
+$saved = [IdealProbe]::SetThreadAffinityMask($h, [IntPtr]0x0F)
 Write-Host "  affinity narrowed to CPUs 0-3 (previous mask 0x$('{0:X}' -f $saved.ToInt64()))"
 $ok = $false; $err = 0
 Write-Host ("  inside  (CPU 2): " + [IdealProbe]::Set($h, 0, 2, [ref]$ok, [ref]$err))

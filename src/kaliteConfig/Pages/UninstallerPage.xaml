@@ -6,7 +6,7 @@
     xmlns:vm="using:kaliteConfig.ViewModels"
     xmlns:models="using:kaliteConfig.Models"
     xmlns:converters="using:kaliteConfig.Converters"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />

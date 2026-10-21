@@ -93,9 +93,9 @@
         <Border Style="{StaticResource AmdCard}" Padding="24"
                 Visibility="{Binding HasCards, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
             <StackPanel Spacing="6">
-                <TextBlock Text="No AMD adapter reported" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           Text="ADLX initialized, but the installed AMD driver did not report any adapters. If this machine has an AMD card, install its display driver from the Drivers tab." />
+                           Text="{Binding EmptyDetail}" />
             </StackPanel>
         </Border>
     </StackPanel>

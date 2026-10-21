@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -212,6 +202,17 @@ namespace kaliteConfig
                         else if (live?.State == kaliteConfig.Services.LiveWallpaper.LiveState.Paused) live.Resume();
                     }
                     catch { }
+                });
+            };
+            _tray.GameModeHeldQuery = () =>
+            {
+                try { return (Application.Current as App)?.GameMode.PendingJournalCount > 0; } catch { return false; }
+            };
+            _tray.OnResumeGame += () =>
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    try { (Application.Current as App)?.GameMode.ResumeEverything(); } catch { }
                 });
             };
             _tray.OnStopLive += () =>

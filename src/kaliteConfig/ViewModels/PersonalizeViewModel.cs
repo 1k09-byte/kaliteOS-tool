@@ -166,8 +166,6 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         WheelLines = mouse.WheelLines;
         CaretWidth = _cursor.CurrentCaretWidth();
 
-        // Each section is independent: one failing service (for example a
-        // virtual display that rejects GetMonitorRECT) must not blank the page.
         try { ReloadLibrary(); } catch { }
         try { ReloadCursorPacks(); } catch { }
 

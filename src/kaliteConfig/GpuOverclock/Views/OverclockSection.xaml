@@ -402,6 +402,7 @@
                                Text="{x:Bind Vm.VfCurveError, Mode=OneWay}"
                                Visibility="{x:Bind local:OverclockSection.TextToVis(Vm.VfCurveError), Mode=OneWay}" />
                     <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              IsExpanded="True"
                               Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasVfCurve), Mode=OneWay}">
                         <Expander.Header>
                             <TextBlock Text="Advanced curve editor" />

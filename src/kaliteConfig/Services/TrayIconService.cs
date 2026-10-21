@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using System.Runtime.InteropServices;
 
@@ -19,7 +9,9 @@ public sealed class TrayIconService : IDisposable
     public Action? OnExit;
     public Action? OnPauseLive;
     public Action? OnStopLive;
+    public Action? OnResumeGame;
     public Func<(bool CanPause, bool CanStop)>? LiveStateQuery;
+    public Func<bool>? GameModeHeldQuery;
     public event Action<SnipMode>? OnTakeScreenshot;
 
     public enum SnipMode
@@ -55,6 +47,7 @@ public sealed class TrayIconService : IDisposable
     private const uint ID_TAKE_SNIP = 101;
     private const uint ID_PAUSE_LIVE = 102;
     private const uint ID_STOP_LIVE = 103;
+    private const uint ID_RESUME_GAME = 104;
     private const uint ID_SEPARATOR1 = 107;
     private const uint ID_EXIT = 108;
 
@@ -336,6 +329,14 @@ public sealed class TrayIconService : IDisposable
             AppendMenuW(menu, canPause ? MF_STRING : MF_STRING | MF_GRAYED, ID_PAUSE_LIVE, "Pause live wallpaper");
             AppendMenuW(menu, canStop ? MF_STRING : MF_STRING | MF_GRAYED, ID_STOP_LIVE, "Stop live wallpaper");
 
+            bool gameModeHeld = false;
+            try
+            {
+                if (GameModeHeldQuery is { } held) gameModeHeld = held();
+            }
+            catch { }
+            AppendMenuW(menu, gameModeHeld ? MF_STRING : MF_STRING | MF_GRAYED, ID_RESUME_GAME, "Resume Game Mode changes");
+
             AppendMenuW(menu, MF_SEPARATOR, ID_SEPARATOR1, null);
 
             AppendMenuW(menu, MF_STRING, ID_EXIT, "Exit");
@@ -377,6 +378,9 @@ public sealed class TrayIconService : IDisposable
                 break;
             case ID_STOP_LIVE:
                 OnStopLive?.Invoke();
+                break;
+            case ID_RESUME_GAME:
+                OnResumeGame?.Invoke();
                 break;
             case ID_EXIT:
                 OnExit?.Invoke();

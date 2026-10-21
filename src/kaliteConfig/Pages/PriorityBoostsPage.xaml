@@ -5,7 +5,7 @@
     xmlns:local="using:kaliteConfig.Pages"
     xmlns:models="using:kaliteConfig.Models"
     Background="Transparent"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.Resources>
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">

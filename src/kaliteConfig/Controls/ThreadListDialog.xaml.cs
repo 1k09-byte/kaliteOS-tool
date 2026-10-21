@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -64,6 +54,8 @@ public sealed partial class ThreadListDialog : ContentDialog
 {
     public ObservableCollection<ThreadRow> Rows { get; } = new();
 
+    private readonly List<ThreadRow> _allRows = new();
+
     private int _pid;
     private string _processName = string.Empty;
     private ThreadRow? _selected;
@@ -75,6 +67,7 @@ public sealed partial class ThreadListDialog : ContentDialog
     private volatile bool _busy;
     private bool _boostReadable = true;
     private bool _ecoReadable = true;
+    private bool _memoryReadable = true;
     private bool _idealUserPicked;
     private int _idealCpu = -1;
     private const int CpuBoxColumns = 8;
@@ -92,7 +85,7 @@ public sealed partial class ThreadListDialog : ContentDialog
         _cpuTimer.Tick += (_, _) =>
         {
             if (_busy) return;
-            foreach (var r in Rows)
+            foreach (var r in _allRows)
                 try { r.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(r.Tid); } catch { }
         };
         _cpuTimer.Start();
@@ -138,6 +131,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             try
             {
                 Rows.Clear();
+                _allRows.Clear();
                 SelectRow(null);
 
                 var details = await Services.ThreadQueryService.ListThreadsDetailedAsync(_pid);
@@ -187,19 +181,18 @@ public sealed partial class ThreadListDialog : ContentDialog
                         row.CpuShare = Math.Round(100.0 * t.CpuSeconds / parentCpuSeconds, 1);
 
                     try { row.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(row.Tid); } catch { }
-                    Rows.Add(row);
+                    _allRows.Add(row);
                 }
 
-                if (Rows.Count == 0)
+                ApplyThreadFilter();
+
+                if (_allRows.Count == 0)
                 {
-                    HeaderText.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-                    HeaderText.Text = "No threads readable (process may have exited or access was denied).";
                     Title = $"Threads - {_processName} ({_pid}) — 0 threads";
                 }
                 else
                 {
-                    HeaderText.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    Title = $"Threads - {_processName} ({_pid})  —  {Rows.Count} threads - select one to tune it";
+                    Title = $"Threads - {_processName} ({_pid})  —  {_allRows.Count} threads - select one to tune it";
                 }
             }
             catch (Exception ex)
@@ -238,6 +231,52 @@ public sealed partial class ThreadListDialog : ContentDialog
             RefreshButton.IsEnabled = !on;
         }
         catch {  }
+    }
+
+    private void ThreadSearch_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+        => ApplyThreadFilter();
+
+    private void ApplyThreadFilter()
+    {
+        string query = (ThreadSearchBox.Text ?? string.Empty).Trim();
+        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var keep = ThreadList.SelectedItem as ThreadRow;
+
+        _loadingList = true;
+        try
+        {
+            Rows.Clear();
+            foreach (var row in _allRows)
+                if (MatchesFilter(row, tokens)) Rows.Add(row);
+
+            var next = keep != null && Rows.Contains(keep) ? keep : (Rows.Count > 0 ? Rows[0] : null);
+            if (!ReferenceEquals(next, keep)) ThreadList.SelectedItem = next;
+            else if (next == null) SelectRow(null);
+        }
+        finally { _loadingList = false; }
+
+        HeaderText.Visibility = Visibility.Visible;
+        if (_allRows.Count == 0)
+            HeaderText.Text = "No threads readable (process may have exited or access was denied).";
+        else if (Rows.Count == 0)
+            HeaderText.Text = $"No threads match \"{query}\" - search checks TID, thread name and start address.";
+        else if (tokens.Length > 0)
+            HeaderText.Text = $"{Rows.Count} of {_allRows.Count} threads match \"{query}\".";
+        else
+            HeaderText.Visibility = Visibility.Collapsed;
+    }
+
+    private static bool MatchesFilter(ThreadRow row, string[] tokens)
+    {
+        foreach (var token in tokens)
+        {
+            bool hit = row.Description.Contains(token, StringComparison.OrdinalIgnoreCase)
+                || row.Tid.ToString().Contains(token, StringComparison.OrdinalIgnoreCase)
+                || row.StartAddress.Contains(token, StringComparison.OrdinalIgnoreCase)
+                || row.CurrentText.Contains(token, StringComparison.OrdinalIgnoreCase);
+            if (!hit) return false;
+        }
+        return true;
     }
 
     private static string FormatCpuSeconds(double secs) =>
@@ -298,6 +337,19 @@ public sealed partial class ThreadListDialog : ContentDialog
             EditorSub.Text = $"{row.Description} - {row.StartAddress}";
             PriorityCurrent.Text = "Current: " + row.CurrentText;
             SelectComboByTag(PriorityCombo, row.CurrentLevel);
+            _memoryReadable = true;
+            try
+            {
+                uint memory = await Tuner.GetMemoryPriorityAsync((uint)row.Tid);
+                SelectComboByTag(MemoryCombo, (int)memory);
+                MemoryCurrent.Text = "Current: " + DescribeMemoryPriority(memory);
+            }
+            catch (Exception ex)
+            {
+                _memoryReadable = false;
+                MemoryCombo.SelectedItem = null;
+                MemoryCurrent.Text = "Current: unreadable (" + Short(ex) + ")";
+            }
             _boostReadable = true;
             _ecoReadable = true;
             try { row.BoostAllowed = await Tuner.GetBoostAsync((uint)row.Tid); }
@@ -344,6 +396,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             SuspendButton.Content = row.Suspended ? "Resume" : "Suspend";
             bool editable = row.CanEdit;
             PriorityCombo.IsEnabled = editable;
+            MemoryCombo.IsEnabled = editable && _memoryReadable;
             EcoToggle.IsEnabled = editable && _ecoReadable;
             AffinityCpuGrid.Opacity = editable ? 1 : 0.5;
             IdealCpuGrid.Opacity = editable ? 1 : 0.5;
@@ -452,6 +505,36 @@ public sealed partial class ThreadListDialog : ContentDialog
         return null;
     }
 
+    private uint? ComboMemoryLevel()
+    {
+        int? level = ComboLevel(MemoryCombo);
+        return level is >= 1 and <= 5 ? (uint)level.Value : null;
+    }
+
+    private static string DescribeMemoryPriority(uint level) => level switch
+    {
+        1 => "Very low (1)",
+        2 => "Low (2)",
+        3 => "Medium (3)",
+        4 => "Below normal (4)",
+        5 => "Normal (5)",
+        _ => $"Level {level}",
+    };
+
+    private async void MemoryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingEditor || _selected == null) return;
+        int? level = ComboLevel(MemoryCombo);
+        if (level is not (>= 1 and <= 5)) return;
+        try
+        {
+            await Tuner.SetMemoryPriorityAsync((uint)_selected.Tid, (uint)level!.Value);
+            MemoryCurrent.Text = "Current: " + DescribeMemoryPriority((uint)level.Value);
+            EditorStatus(null, false);
+        }
+        catch (Exception ex) { EditorStatus($"Memory priority: {Short(ex)}", true); }
+    }
+
     private async void PriorityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loadingEditor || _selected == null) return;
@@ -487,6 +570,7 @@ public sealed partial class ThreadListDialog : ContentDialog
                 Priority = prio.Value,
                 BoostEnabled = _boostReadable ? row.BoostAllowed : null,
                 EfficiencyMode = _ecoReadable ? EcoToggle.IsOn : null,
+                MemoryPriority = _memoryReadable ? ComboMemoryLevel() : null,
             };
             ulong uiMask = ReadAffinityMask();
             if (uiMask != 0)

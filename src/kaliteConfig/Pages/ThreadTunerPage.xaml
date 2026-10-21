@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="kaliteConfig.Pages.ThreadTunerPage"
     x:Name="RootPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -6,8 +6,9 @@
     xmlns:local="using:kaliteConfig.Pages"
     xmlns:models="using:kaliteConfig.Models"
     xmlns:converters="using:kaliteConfig.Converters"
+    xmlns:gamemode="using:kaliteConfig.Gaming.GameMode"
     xmlns:animations="using:Microsoft.UI.Xaml.Media.Animation"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -102,10 +103,174 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <Grid Grid.Row="0" Margin="28,0,28,10" ColumnSpacing="8">
+
+            <Expander Grid.Row="0" Margin="28,0,28,8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="False">
+                <Expander.Header>
+                    <Grid ColumnSpacing="12" Padding="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Game Mode" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind GameMode.StatusText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" MinWidth="132" VerticalAlignment="Center" AutomationProperties.Name="Game Mode preset"
+                                  SelectedIndex="{x:Bind GameMode.PresetIndex, Mode=TwoWay}" ToolTipService.ToolTip="How much the background set is reduced">
+                            <ComboBoxItem Content="Light" />
+                            <ComboBoxItem Content="Balanced" />
+                            <ComboBoxItem Content="Aggressive" />
+                            <ComboBoxItem Content="Custom" />
+                        </ComboBox>
+                        <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" OnContent="On" OffContent="Off"
+                                      AutomationProperties.Name="Game Mode" IsOn="{x:Bind GameMode.Enabled, Mode=OneWay}" Toggled="GameModeToggle_Toggled" />
+                    </Grid>
+                </Expander.Header>
+
+                <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
+                <StackPanel Spacing="12">
+                    <InfoBar IsOpen="True" IsClosable="False" Severity="{x:Bind GameMode.StatusSeverity, Mode=OneWay}"
+                             Message="{x:Bind GameMode.StatusText, Mode=OneWay}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Preview" Click="GameModePreview_Click" AutomationProperties.Name="Preview planned actions" />
+                        <Button Content="Resume everything now" Click="GameModeResume_Click" AutomationProperties.Name="Resume everything now" />
+                        <NumberBox Value="{x:Bind GameMode.DebounceMs, Mode=TwoWay}" Minimum="250" Maximum="5000" SmallChange="50"
+                                   SpinButtonPlacementMode="Inline" Header="Activation delay (ms)" Width="200" />
+                        <TextBlock Text="{x:Bind GameMode.JournalText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Bottom" />
+                    </StackPanel>
+
+                    <TextBlock Text="{x:Bind GameMode.PreviewSummary, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="1.6*" />
+                            <ColumnDefinition Width="2.4*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Process" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        <TextBlock Grid.Column="1" Text="Category" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        <TextBlock Grid.Column="2" Text="Action" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        <TextBlock Grid.Column="3" Text="State" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        <TextBlock Grid.Column="4" Text="Detail" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    </Grid>
+                    <ListView ItemsSource="{x:Bind GameMode.Affected, Mode=OneWay}" SelectionMode="None" MaxHeight="180"
+                              Background="Transparent" BorderThickness="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="gamemode:GameModeAffectedRow">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="1.2*" />
+                                        <ColumnDefinition Width="1.4*" />
+                                        <ColumnDefinition Width="1.6*" />
+                                        <ColumnDefinition Width="2.4*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Category}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Action}" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind State}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind Message}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="Game list and Never touch">
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Add focused app" Click="GameModeAddFocused_Click" />
+                                <TextBox Text="{x:Bind GameMode.GamePathInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="360"
+                                         PlaceholderText="Full path to a game executable" AutomationProperties.Name="Game executable path" />
+                                <Button Content="Add by path" Click="GameModeAddPath_Click" />
+                            </StackPanel>
+                            <ListView ItemsSource="{x:Bind GameMode.Games, Mode=OneWay}" SelectionMode="None" MaxHeight="140"
+                                      Background="Transparent" BorderThickness="0">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="gamemode:GameModeGameEntry">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Name}" />
+                                                <TextBlock Text="{x:Bind Path}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Remove" Click="GameModeRemoveGame_Click" Tag="{x:Bind}" AutomationProperties.Name="Remove game" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Text="{x:Bind GameMode.NeverTouchInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="280"
+                                         PlaceholderText="Image name or pattern" AutomationProperties.Name="Never touch entry" />
+                                <Button Content="Add to Never touch" Click="GameModeAddNeverTouch_Click" />
+                            </StackPanel>
+                            <ListView ItemsSource="{x:Bind GameMode.NeverTouch, Mode=OneWay}" SelectionMode="None" MaxHeight="120"
+                                      Background="Transparent" BorderThickness="0">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{x:Bind}" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="Remove" Click="GameModeRemoveNeverTouch_Click" Tag="{x:Bind}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="Activity log">
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ComboBox MinWidth="180" ItemsSource="{x:Bind GameMode.LogFilters}" SelectedIndex="{x:Bind GameMode.LogFilterIndex, Mode=TwoWay}" AutomationProperties.Name="Log filter" />
+                                <Button Content="Copy" Click="GameModeCopyLog_Click" />
+                                <Button Content="Export" Click="GameModeExportLog_Click" />
+                                <Button Content="Clear" Click="GameModeClearLog_Click" />
+                            </StackPanel>
+                            <ListView ItemsSource="{x:Bind GameMode.LogRows, Mode=OneWay}" SelectionMode="None" MaxHeight="200"
+                                      Background="Transparent" BorderThickness="0">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="gamemode:GameModeLogRow">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="64" />
+                                                <ColumnDefinition Width="1.4*" />
+                                                <ColumnDefinition Width="1.2*" />
+                                                <ColumnDefinition Width="1.6*" />
+                                                <ColumnDefinition Width="2.6*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{x:Bind Time}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind Process}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind Action}" />
+                                            <TextBlock Grid.Column="3" Text="{x:Bind Result}" />
+                                            <TextBlock Grid.Column="4" Text="{x:Bind Message}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+                </ScrollViewer>
+            </Expander>
+
+            <Grid Grid.Row="1" Margin="28,0,28,10" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -146,7 +311,7 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="1" Margin="28,0,28,0" ColumnSpacing="12" Padding="14,0,32,6"
+            <Grid Grid.Row="2" Margin="28,0,28,0" ColumnSpacing="12" Padding="14,0,32,6"
                       BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2.5*" />
@@ -176,7 +341,7 @@
                                ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it - the choice is saved and re-applied to this process every time it starts." />
             </Grid>
 
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="3">
             <ListView x:Name="ProcessesGrid" Margin="28,0,28,0" ItemsSource="{x:Bind ViewModel.DisplayedProcesses, Mode=OneWay}" SelectionMode="Single" SelectionChanged="ProcessesGrid_SelectionChanged" ShowsScrollingPlaceholders="False"
                       Background="Transparent" BorderThickness="0" Padding="0,0,18,0">
                 <ListView.ItemTemplate>
@@ -298,7 +463,7 @@
             </Grid>
             </Grid>
 
-            <Grid Grid.Row="3" Margin="28,12,28,12">
+            <Grid Grid.Row="4" Margin="28,12,28,12">
                 <StackPanel Orientation="Horizontal" Spacing="24">
                     <TextBlock Text="Updated 2 s" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                 </StackPanel>

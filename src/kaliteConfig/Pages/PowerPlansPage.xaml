@@ -11,7 +11,7 @@
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d"
     Background="Transparent"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Page.Resources>
         <Style x:Key="PowerCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
@@ -259,4 +259,3 @@
         </Grid>
     </Grid>
 </Page>
-

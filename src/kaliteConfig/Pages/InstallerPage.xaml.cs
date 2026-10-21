@@ -1,16 +1,7 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
@@ -37,6 +28,13 @@ namespace kaliteConfig.Pages
         private void AppSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
             ViewModel.SearchQuery = sender.Text ?? string.Empty;
+        }
+
+        private void ExtensionsFlyout_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            // The extension list is the only thing the wheel should move while this flyout is open.
+            // Without this the app list behind the flyout scrolls at the same time once the list hits an end.
+            e.Handled = true;
         }
 
         private async void ApplyExtensions_Click(object sender, RoutedEventArgs e)

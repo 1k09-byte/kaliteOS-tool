@@ -1,13 +1,9 @@
-# Dumps the live kaliteConfig window's UI Automation tree.
-# Usage: powershell -ExecutionPolicy Bypass -File tools/uia-dump.ps1 [-MaxDepth 8] [-Filter ""]
-# Rectangles tell us whether something is laid out but unpainted (real rect, blank pixels)
-# versus collapsed/zero-size (no rect) -- the distinction a screenshot cannot make for us.
 param(
     [int]$MaxDepth = 8,
     [string]$Filter = "",
-    [string]$Invoke = "",       # navigate: pick the first element whose Name/Class matches and run its default pattern
-    [switch]$Click,            # navigate with a real mouse click at the element's clickable point
-    [switch]$Probe,            # hit-test the window: who is actually at each point on screen?
+    [string]$Invoke = "",
+    [switch]$Click,
+    [switch]$Probe,
     [switch]$Raw,
     [int]$SettleMs = 700
 )
@@ -27,8 +23,6 @@ if (-not $root) { Write-Error "AutomationElement.FromHandle failed (elevation mi
 $walker = if ($Raw) { [System.Windows.Automation.TreeWalker]::RawViewWalker }
           else { [System.Windows.Automation.TreeWalker]::ControlViewWalker }
 
-# Elements that exist in the tree but were never laid out report an empty (all-NaN)
-# BoundingRectangle. That is the difference between "unpainted" and "not there".
 function Format-Rect($r) {
     if ([double]::IsNaN($r.X) -or [double]::IsNaN($r.Width)) { return "<NO LAYOUT>" }
     return ("{0,5:F0},{1,5:F0} {2,4:F0}x{3,4:F0}" -f $r.X, $r.Y, $r.Width, $r.Height)
@@ -86,8 +80,6 @@ if ($Invoke) {
     Write-Output "INVOKE '$($target.Current.Name)' ($($target.Current.ControlType.ProgrammaticName))"
 
     if ($Click) {
-        # Real input, because programmatic selection of NavigationView top tabs does
-        # not land on the item you asked for.
         $sig = '[DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);' +
                '[DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, System.IntPtr e);' +
                '[DllImport("user32.dll")] public static extern bool GetCursorPos(out System.Drawing.Point p);' +
@@ -96,8 +88,6 @@ if ($Invoke) {
         $pt = $null
         try { $pt = $target.GetClickablePoint() } catch { }
         if (-not $pt) {
-            # Fall back to the centre of the bounding rectangle (some NavigationView
-            # tabs report no clickable point).
             $r = $target.Current.BoundingRectangle
             $pt = New-Object System.Windows.Point ($r.X + $r.Width / 2), ($r.Y + $r.Height / 2)
         }
@@ -105,15 +95,13 @@ if ($Invoke) {
         [void][W.U]::GetCursorPos([ref]$save)
         [void][W.U]::SetCursorPos([int]$pt.X, [int]$pt.Y)
         Start-Sleep -Milliseconds 150
-        # XAML's pointer pipeline needs a move to place the pointer before the press: without it
-        # the click can be routed to whatever element was under the cursor before.
         $absX = [int]([int]$pt.X * 65535 / [W.U]::GetSystemMetrics(0))
         $absY = [int]([int]$pt.Y * 65535 / [W.U]::GetSystemMetrics(1))
-        [W.U]::mouse_event(([uint32]0x0001 -bor 0x8000), [uint32]$absX, [uint32]$absY, 0, [System.IntPtr]::Zero)  # MOVE|ABSOLUTE
+        [W.U]::mouse_event(([uint32]0x0001 -bor 0x8000), [uint32]$absX, [uint32]$absY, 0, [System.IntPtr]::Zero)
         Start-Sleep -Milliseconds 120
-        [W.U]::mouse_event(0x0002, 0, 0, 0, [System.IntPtr]::Zero)   # LEFTDOWN
+        [W.U]::mouse_event(0x0002, 0, 0, 0, [System.IntPtr]::Zero)
         Start-Sleep -Milliseconds 60
-        [W.U]::mouse_event(0x0004, 0, 0, 0, [System.IntPtr]::Zero)   # LEFTUP
+        [W.U]::mouse_event(0x0004, 0, 0, 0, [System.IntPtr]::Zero)
         Start-Sleep -Milliseconds 150
         [void][W.U]::SetCursorPos($save.X, $save.Y)
         Write-Output "CLICKED at $([int]$pt.X),$([int]$pt.Y)"

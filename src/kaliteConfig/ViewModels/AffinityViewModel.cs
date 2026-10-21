@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using kaliteConfig.GpuOverclock;
@@ -430,8 +420,6 @@ namespace kaliteConfig.ViewModels
 
             if ((maskTouched || policyTouched) && item.Category == "Network")
             {
-                // NDIS steers packets with RSS, so pin the receive queues to the chosen
-                // processors instead of relying on the IRQ mask alone.
                 var rss = _affinityService.ConfigureRssForAffinity(item.DeviceInstanceId, newMask);
                 item.RssText = rss.Message;
                 if (rss.Changed)
@@ -695,8 +683,6 @@ namespace kaliteConfig.ViewModels
                     _affinityService.ConfigureRssForAffinity(change.DeviceId, oldMask);
                     break;
                 case "RSS":
-                    // RSS is derived from the processor mask; reverting the mask above
-                    // restores the matching RSS override as well.
                     break;
             }
         }
@@ -755,4 +741,3 @@ namespace kaliteConfig.ViewModels
         };
     }
 }
-

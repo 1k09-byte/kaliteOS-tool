@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using kaliteConfig.GpuOverclock.Models;
 
@@ -15,13 +5,28 @@ namespace kaliteConfig.GpuOverclock.Services
 {
     internal static class AmdTuningMapping
     {
-        internal static bool ReportsOffsetSemantics(AdlxIntRange range) => range.MinValue <= 0;
+        internal static bool ReportsOffsetSemantics(AdlxIntRange range) =>
+            range.MinValue <= 0 && range.MaxValue <= 1000;
 
         internal static OverclockControlRange ToControlRange(AdlxIntRange range) =>
             new(range.MinValue, range.MaxValue, Math.Max(1, range.Step));
 
         internal static OverclockControlRange ToOffsetControlRange(AdlxIntRange absolute, int baseline) =>
             new(absolute.MinValue - baseline, absolute.MaxValue - baseline, Math.Max(1, absolute.Step));
+
+        internal static AdlxIntRange ToOffsetRange(AdlxIntRange absolute, int baseline) => new()
+        {
+            MinValue = absolute.MinValue - baseline,
+            MaxValue = absolute.MaxValue - baseline,
+            Step = absolute.Step,
+        };
+
+        internal static AdlxIntRange ClampOffsetRange(AdlxIntRange range, int limitMhz) => new()
+        {
+            MinValue = Math.Max(range.MinValue, -limitMhz),
+            MaxValue = Math.Min(range.MaxValue, limitMhz),
+            Step = range.Step,
+        };
 
         internal static int ToAbsolute(int baseline, int offset) => baseline + offset;
 

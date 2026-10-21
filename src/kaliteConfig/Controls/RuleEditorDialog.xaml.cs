@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -147,17 +137,9 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         };
         UpdateSummary();
 
-        // The ContentDialog template resets the command columns every time it is
-        // applied, so re-apply the compact layout when the template changes.
         Opened += (_, _) => ApplyCompactCommandButtons();
     }
 
-    /// <summary>
-    /// Shows the editor and completes only when the user really closes it. The
-    /// live-thread list has to dismiss this dialog first (WinUI allows one
-    /// ContentDialog per XamlRoot), so this keeps the caller's await alive while
-    /// the editor is temporarily hidden and re-shown.
-    /// </summary>
     public Task<ContentDialogResult> ShowRuleEditorAsync()
     {
         if (_sessionResult != null)
@@ -182,8 +164,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         }
         if (_resumeAfterThreads)
         {
-            // ViewLiveThreads_Click owns the session now: it re-shows the editor
-            // once the thread list closes and posts the final result itself.
             _resumeAfterThreads = false;
             return;
         }
@@ -199,9 +179,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
 
     private void ApplyCompactCommandButtons()
     {
-        // ContentDialog stretches the primary and close buttons across two star
-        // columns, which turns a 1200px dialog into two ~530px bars. Size them
-        // like normal dialog buttons and right-align the pair instead.
         if (GetTemplateChild("CommandSpace") is not Grid commandSpace)
             return;
 
@@ -315,6 +292,10 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
                 : rule.StartAddress;
             RulePriorityCurrent.Text = "Current: " + rule.PriorityText;
             SelectComboByTag(RulePriorityCombo, rule.Priority);
+            SelectMemoryCombo(RuleMemoryCombo, rule.MemoryPriority);
+            RuleMemoryCurrent.Text = rule.MemoryPriority is uint memLevel
+                ? "Current: " + DescribeMemoryPriority(memLevel)
+                : "Current: system default";
             RuleBoostToggle.IsOn = rule.BoostEnabled ?? false;
             RuleEcoToggle.IsOn = rule.EfficiencyMode ?? false;
             RuleAffinityCurrent.Text = "Current: " + DescribeRuleAffinity(rule.AffinityMask);
@@ -453,6 +434,46 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
         return null;
     }
 
+    private static void SelectMemoryCombo(ComboBox box, uint? level)
+    {
+        box.SelectedItem = null;
+        string wanted = level.HasValue ? level.Value.ToString() : "default";
+        foreach (var item in box.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && tag == wanted)
+            {
+                box.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private static string DescribeMemoryPriority(uint level) => level switch
+    {
+        1 => "Very low (1)",
+        2 => "Low (2)",
+        3 => "Medium (3)",
+        4 => "Below normal (4)",
+        5 => "Normal (5)",
+        _ => $"Level {level}",
+    };
+
+    private void RuleMemoryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingRuleEditor || _selectedRule == null) return;
+        string? tag = (RuleMemoryCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        uint? level = tag is not null && uint.TryParse(tag, out uint parsed) && parsed is >= 1 and <= 5
+            ? parsed
+            : null;
+        _selectedRule.MemoryPriority = level;
+        RuleMemoryCurrent.Text = level is uint m
+            ? "Current: " + DescribeMemoryPriority(m)
+            : "Current: system default";
+        Draft.RefreshSummaries();
+        UpdateSummary();
+        RuleEditorStatus(null);
+    }
+
     private string DescribeRuleAffinity(ulong? mask)
     {
         if (!mask.HasValue) return "All logical processors";
@@ -579,9 +600,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             return;
         }
 
-        // WinUI allows only one ContentDialog per XamlRoot, so a second dialog
-        // while this one is open is silently rejected. Step aside for the thread
-        // list, then bring the editor back with everything the user typed intact.
         _resumeAfterThreads = true;
         Hide();
         try
@@ -783,10 +801,6 @@ public sealed partial class RuleEditorDialog : ContentDialog, INotifyPropertyCha
             return false;
         }
 
-        // The target box edits the match pattern, not the friendly rule name.
-        // Only rename the rule when the pattern actually changes; otherwise an
-        // unchanged "Apply" would overwrite e.g. "kaliteConfig.exe" with the
-        // display name "kaliteConfig (this app)" and the rule would match nothing.
         string previousPattern = Draft.Pattern ?? string.Empty;
         Draft.Pattern = target;
         if (!string.Equals(target, previousPattern, StringComparison.OrdinalIgnoreCase))

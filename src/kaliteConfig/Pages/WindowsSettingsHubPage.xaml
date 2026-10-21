@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Enabled">
+    mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Disabled">
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <TextBlock Grid.Row="0" Margin="28,16,28,0" Text="Windows Settings" Style="{StaticResource TitleTextBlockStyle}" />
@@ -21,12 +21,27 @@
                 </Border>
                 <Border Style="{StaticResource CardBorder}" Padding="12">
                     <StackPanel Spacing="8">
+                        <TextBlock Text="Security and virtualization" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="14,4,0,0" />
+                        <toolkit:SettingsCard x:Name="VbsCard" Header="Virtualization-Based Security (VBS)" Description="Reading…"><ToggleSwitch x:Name="VbsToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="Vbs"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="HvciCard" Header="Memory integrity (HVCI)" Description="Reading…"><ToggleSwitch x:Name="HvciToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="Hvci"/></toolkit:SettingsCard>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardBorder}" Padding="12">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="GPU scheduling" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="14,4,0,0" />
+                        <toolkit:SettingsCard x:Name="HagsCard" Header="Hardware-accelerated GPU scheduling (HAGS)" Description="Reading…"><ToggleSwitch x:Name="HagsToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="HwSchMode"/></toolkit:SettingsCard>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardBorder}" Padding="12">
+                    <StackPanel Spacing="8">
                         <toolkit:SettingsCard x:Name="SvcSplitCard" Header="Service host splitting threshold" Description="Reading…"><StackPanel Orientation="Horizontal" Spacing="8"><ComboBox x:Name="SvcSplitBox" PlaceholderText="Select RAM size" SelectionChanged="SvcSplitBox_SelectionChanged" MinWidth="220"/><Button Content="Reset" Click="SvcSplitReset_Click"/></StackPanel></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource CardBorder}" Padding="12">
-                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" UseLayoutRounding="True">
+                    <StackPanel Spacing="8"><TextBlock Text="Reserved CPU sets and processor placement are managed in their dedicated control surface." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/><Frame x:Name="ReservedCpuSetsFrame" CacheSize="0" UseLayoutRounding="True">
                     <Frame.ContentTransitions>
                         <TransitionCollection>
                             <NavigationThemeTransition>

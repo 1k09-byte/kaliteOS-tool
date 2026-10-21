@@ -1,13 +1,3 @@
-﻿// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using System;
 using System.Linq;
 using System.Security.Principal;
@@ -18,7 +8,6 @@ using Microsoft.UI.Xaml;
 using kaliteConfig.Native;
 using kaliteConfig.Services;
 using kaliteConfig.Services.DependencyInjection;
-
 
 namespace kaliteConfig
 {
@@ -63,6 +52,7 @@ namespace kaliteConfig
         public NativeSnapshotService NativeSnapshot { get; } = new NativeSnapshotService();
 
         public GamingModeService GamingMode => Services.GetRequiredService<GamingModeService>();
+        public Gaming.GameMode.GameModeEngine GameMode => Services.GetRequiredService<Gaming.GameMode.GameModeEngine>();
         public ForegroundSuspendService ForegroundSuspend => Services.GetRequiredService<ForegroundSuspendService>();
         public ProfileWatcherService ProfileWatcher => Services.GetRequiredService<ProfileWatcherService>();
         public SnipService Sniper => Services.GetRequiredService<SnipService>();
@@ -75,6 +65,21 @@ namespace kaliteConfig
             {
                 IsDryRun = true;
             }
+
+            if (Gaming.GameMode.GameModeEngine.TryRunGuard(args))
+            {
+                Environment.Exit(0);
+                return;
+            }
+
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                try { GameMode.ResumeEverything(); } catch { }
+            };
+            AppDomain.CurrentDomain.UnhandledException += (_, _) =>
+            {
+                try { GameMode.ResumeEverything(); } catch { }
+            };
 
             using (var identity = WindowsIdentity.GetCurrent())
             {
@@ -285,6 +290,8 @@ namespace kaliteConfig
 
                 try { GamingMode.ReleaseAll(); }
                 catch { }
+                try { GameMode.Dispose(); }
+                catch { }
                 try
                 {
                     var live = Services?.GetService(typeof(Services.LiveWallpaper.ILiveWallpaperEngine)) as Services.LiveWallpaper.ILiveWallpaperEngine;
@@ -298,6 +305,9 @@ namespace kaliteConfig
                 .ConfigureElementTheme(ElementTheme.Dark)
                 .ConfigureBackdrop(DevWinUI.BackdropType.None, true)
                 .Initialize(_window);
+            try { GameMode.Start(); }
+            catch { }
+
             StartedToTray = StartupService.IsTrayLaunch(args.Arguments);
             if (StartedToTray)
             {

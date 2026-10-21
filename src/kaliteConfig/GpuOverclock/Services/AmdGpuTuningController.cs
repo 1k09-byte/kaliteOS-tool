@@ -1,14 +1,4 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using kaliteConfig.GpuOverclock.Models;
@@ -17,6 +7,7 @@ namespace kaliteConfig.GpuOverclock.Services
 {
     public sealed class AmdGpuTuningController : IGpuTuningController
     {
+        private const int MaxCoreOffsetMHz = 500;
         private readonly object _gate = new();
         private List<AmdGpuTuningSession> _sessions = new();
         private AmdGpuTuningSession? _session;
@@ -30,6 +21,8 @@ namespace kaliteConfig.GpuOverclock.Services
         private int? _vramBaseline;
         private int? _powerBaseline;
         private int? _fanBaseline;
+        private (int TempC, int SpeedPercent)[]? _fanDefaultCurve;
+        private bool? _zeroRpmDefault;
 
         private bool _coreIsOffsetSemantics;
         private bool _fanSupported;
@@ -51,10 +44,22 @@ namespace kaliteConfig.GpuOverclock.Services
             {
                 AdlxIntRange core = AmdGpuSimulation.CoreRange;
                 _coreIsOffsetSemantics = AmdTuningMapping.ReportsOffsetSemantics(core);
-                if (_coreIsOffsetSemantics) _coreRange = core;
-                else CoreClockUnavailableReason = SimulatedAbsoluteCoreReason;
+                if (_coreIsOffsetSemantics)
+                {
+                    _coreRange = core;
+                    _coreBaseline = 0;
+                }
+                else
+                {
+                    _coreBaseline = AmdGpuSimulation.CoreBaselineMhz;
+                    _coreRange = AmdTuningMapping.ClampOffsetRange(
+                        AmdTuningMapping.ToOffsetRange(core, _coreBaseline.Value), MaxCoreOffsetMHz);
+                }
             }
-            _coreBaseline = 0;
+            else
+            {
+                _coreBaseline = 0;
+            }
 
             _vramRange = any ? AmdGpuSimulation.VramRange : null;
             _vramBaseline = any ? AmdGpuSimulation.VramBaselineMhz : null;
@@ -65,14 +70,11 @@ namespace kaliteConfig.GpuOverclock.Services
             _fanSupported = any;
             _fanRange = any ? AmdGpuSimulation.FanRange : null;
             _fanBaseline = any ? AmdGpuSimulation.FanPercent : null;
+            _fanDefaultCurve = null;
 
             _zeroRpmSupported = any;
+            _zeroRpmDefault = AmdGpuSimulation.ZeroRpm;
         }
-
-        private const string SimulatedAbsoluteCoreReason =
-            "This card's driver reports core frequency as an absolute value, not an offset, and ADLX " +
-            "does not expose the GPU generation needed to tell the two apart. Tuning it blind could " +
-            "leave the card at the wrong clock, so the control stays hidden.";
 
         public AmdGpuTuningSupport? Primary => _primary;
 
@@ -87,7 +89,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (AmdGpuSimulation.IsActive)
                 {
                     IsSimulated = true;
-                    DriverVersion = "ADLX 1.4 (simulated)";
+                    DriverVersion = "ADLX 2.0 (simulated)";
                     _primary = AmdGpuSimulation.Support;
                     ReadSimulatedAnchors();
                     IsInitialized = true;
@@ -98,6 +100,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 {
                     return GpuResult.Fail(
                         OverclockErrorKind.NvApiInitFailed,
+                        AmdAdlxInterop.LastInitializationError ??
                         "The AMD driver did not provide ADLX (amdadlx64.dll). Reinstall the AMD display driver.");
                 }
 
@@ -126,12 +129,20 @@ namespace kaliteConfig.GpuOverclock.Services
                 _coreIsOffsetSemantics = AmdTuningMapping.ReportsOffsetSemantics(c);
                 if (_coreIsOffsetSemantics)
                 {
-                    _coreRange = c;
-                    _coreBaseline = _session.ReadCoreMaxFrequency();
+                    _coreRange = AmdTuningMapping.ClampOffsetRange(c, MaxCoreOffsetMHz);
+                    _coreBaseline = 0;
+                }
+                else if (_session.ReadCoreMaxFrequency() is { } baseline && baseline > 0)
+                {
+                    _coreBaseline = baseline;
+                    _coreRange = AmdTuningMapping.ClampOffsetRange(
+                        AmdTuningMapping.ToOffsetRange(c, baseline), MaxCoreOffsetMHz);
                 }
                 else
                 {
-                    CoreClockUnavailableReason = SimulatedAbsoluteCoreReason;
+                    CoreClockUnavailableReason =
+                        "The driver reported a maximum-clock range but not the current maximum clock, " +
+                        "so a safe offset cannot be calculated.";
                 }
             }
 
@@ -152,9 +163,14 @@ namespace kaliteConfig.GpuOverclock.Services
             AdlxIntRange? fan = _session.ReadFanSpeedRange();
             _fanRange = fan;
             _fanSupported = fan is not null;
-            if (fan is not null) _fanBaseline = _session.ReadFanSpeed();
+            if (fan is not null)
+            {
+                _fanBaseline = _session.ReadFanSpeed();
+                _fanDefaultCurve = _session.ReadFanCurve();
+            }
 
             _zeroRpmSupported = _session.IsZeroRpmSupported() ?? false;
+            _zeroRpmDefault = _zeroRpmSupported ? _session.ReadZeroRpm() : null;
         }
 
         public void InvalidateGpu()
@@ -173,6 +189,8 @@ namespace kaliteConfig.GpuOverclock.Services
                 _vramBaseline = null;
                 _powerBaseline = null;
                 _fanBaseline = null;
+                _fanDefaultCurve = null;
+                _zeroRpmDefault = null;
                 _coreIsOffsetSemantics = false;
                 _fanSupported = false;
                 _zeroRpmSupported = false;
@@ -212,9 +230,64 @@ namespace kaliteConfig.GpuOverclock.Services
         }
 
         public GpuResult<GpuTelemetrySnapshot> ReadTelemetry()
-            => GpuResult<GpuTelemetrySnapshot>.Fail(
-                OverclockErrorKind.ControlUnsupported,
-                "AMD telemetry is not wired up yet.");
+        {
+            lock (_gate)
+            {
+                if (!Usable)
+                    return GpuResult<GpuTelemetrySnapshot>.Fail(OverclockErrorKind.GpuNotDetected);
+
+                if (IsSimulated)
+                    return GpuResult<GpuTelemetrySnapshot>.Ok(BuildSimulatedTelemetry());
+
+                if (!AmdAdlxInterop.TryReadGpuMetrics(_session!.GpuHandle, out AmdGpuMetrics m))
+                {
+                    return GpuResult<GpuTelemetrySnapshot>.Fail(
+                        OverclockErrorKind.ControlUnsupported,
+                        "The AMD driver did not return performance metrics for this adapter.");
+                }
+
+                double? boardPower = m.BoardPowerW is > 0 ? m.BoardPowerW : m.PowerW;
+                return GpuResult<GpuTelemetrySnapshot>.Ok(new GpuTelemetrySnapshot
+                {
+                    Timestamp = DateTime.Now,
+                    CoreClockMHz = m.CoreClockMHz,
+                    MemClockMHz = m.MemClockMHz,
+                    GpuTempC = m.GpuTempC,
+                    HotspotTempC = m.HotspotTempC,
+                    VoltageMv = m.VoltageMv,
+                    PowerDrawW = boardPower,
+                    FanRpm = m.FanRpm,
+                    FanPercent = m.FanPercent,
+                    GpuUsagePercent = m.GpuUsagePercent,
+                    VramUsageMb = m.VramUsedMb,
+                });
+            }
+        }
+
+        private static GpuTelemetrySnapshot BuildSimulatedTelemetry()
+        {
+            int core = AmdGpuSimulation.CoreBaselineMhz + AmdGpuSimulation.CoreOffsetMhz;
+            int mem = AmdGpuSimulation.VramBaselineMhz + AmdGpuSimulation.MemOffsetMhz;
+            int temp = 58 + Math.Clamp(AmdGpuSimulation.CoreOffsetMhz / 40, 0, 18);
+            double power = 300.0 * AmdGpuSimulation.PowerLimitPercent / 100.0;
+
+            return new GpuTelemetrySnapshot
+            {
+                Timestamp = DateTime.Now,
+                CoreClockMHz = core,
+                MemClockMHz = mem,
+                GpuTempC = temp,
+                HotspotTempC = temp + 12,
+                MemTempC = 54,
+                VoltageMv = 1050,
+                PowerDrawW = power,
+                FanPercent = AmdGpuSimulation.FanPercent ?? 33,
+                GpuUsagePercent = 42,
+                VramUsageMb = 8192,
+                PcieGen = 4,
+                PcieWidth = 16,
+            };
+        }
 
         public GpuResult<GpuCapabilities> ReadCapabilities()
         {
@@ -257,9 +330,14 @@ namespace kaliteConfig.GpuOverclock.Services
                     return GpuResult<(int, int)>.Fail(OverclockErrorKind.GpuNotDetected);
 
                 AmdGpuTuningSession? session = _session;
+                int? coreRaw = IsSimulated ? null : session?.ReadCoreMaxFrequency();
                 int? coreNow = IsSimulated
                     ? AmdGpuSimulation.CoreOffsetMhz
-                    : _coreIsOffsetSemantics ? session?.ReadCoreMaxFrequency() : null;
+                    : coreRaw is null || _coreRange is null
+                        ? null
+                        : _coreIsOffsetSemantics
+                            ? coreRaw
+                            : coreRaw - (_coreBaseline ?? coreRaw.Value);
                 int? vramNow = IsSimulated
                     ? AmdGpuSimulation.VramBaselineMhz + AmdGpuSimulation.MemOffsetMhz
                     : session?.ReadMaxVramFrequency();
@@ -302,8 +380,10 @@ namespace kaliteConfig.GpuOverclock.Services
                 if (!AmdTuningMapping.WithinRange(range, offsetMhz))
                     return WriteRejected($"Core offset {offsetMhz} MHz is outside the driver's range ({range}).");
 
-                int value = AmdTuningMapping.ClampToRange(range, offsetMhz);
-                if (IsSimulated) return Simulated($"core clock {value:+#;-#;0} MHz", () => AmdGpuSimulation.CoreOffsetMhz = value);
+                int offset = AmdTuningMapping.ClampToRange(range, offsetMhz);
+                int value = AmdTuningMapping.ToAbsolute(_coreBaseline ?? 0, offset);
+                if (IsSimulated) return Simulated($"core clock {value} MHz ({offset:+#;-#;0} MHz)",
+                    () => AmdGpuSimulation.CoreOffsetMhz = offset);
 
                 return _session!.TrySetCoreMaxFrequency(value)
                     ? GpuResult.Ok()
@@ -372,7 +452,14 @@ namespace kaliteConfig.GpuOverclock.Services
                     return WriteRejected($"Fan speed {percent}% is outside the driver's range ({range}).");
 
                 int value = AmdTuningMapping.ClampToRange(range, percent);
-                if (IsSimulated) return Simulated($"fan speed {value}%", () => AmdGpuSimulation.FanPercent = value);
+                if (IsSimulated)
+                {
+                    if (value > 0) AmdGpuSimulation.ZeroRpm = false;
+                    return Simulated($"fan speed {value}%", () => AmdGpuSimulation.FanPercent = value);
+                }
+
+                if (value > 0 && _zeroRpmSupported && _session!.ReadZeroRpm() == true)
+                    _session.TrySetZeroRpm(false);
 
                 return _session!.TrySetFanSpeed(value)
                     ? GpuResult.Ok()
@@ -381,9 +468,37 @@ namespace kaliteConfig.GpuOverclock.Services
         }
 
         public GpuResult RestoreFanAuto()
-            => Unsupported(
-                "ADLX has no documented way to return the fan to automatic. " +
-                "Restore it in Radeon Software, or use Reset to factory on the Drivers page.");
+        {
+            lock (_gate)
+            {
+                if (!Ready(out GpuResult failure)) return failure;
+
+                if (IsSimulated)
+                {
+                    AmdGpuSimulation.FanPercent = null;
+                    AmdGpuSimulation.ZeroRpm = _zeroRpmDefault ?? false;
+                    AmdGpuSimulation.Record("fan restored to the driver curve");
+                    return GpuResult.Ok();
+                }
+
+                var curve = _session!.ReadDefaultFanCurve() ?? _fanDefaultCurve;
+                if (curve is null || curve.Length == 0)
+                {
+                    return Unsupported(
+                        "The driver did not expose a default fan curve, so the original curve cannot " +
+                        "be restored. Restore the fan in Radeon Software.");
+                }
+
+                if (!_session.TrySetFanCurve(curve))
+                    return WriteRejected("The AMD driver refused the restore of the fan curve.");
+
+                bool? zeroRpm = _session.ReadDefaultZeroRpm() ?? _zeroRpmDefault;
+                if (_zeroRpmSupported && zeroRpm.HasValue)
+                    _session.TrySetZeroRpm(zeroRpm.Value);
+
+                return GpuResult.Ok();
+            }
+        }
 
         public GpuResult<bool> IsZeroRpmEnabled()
         {

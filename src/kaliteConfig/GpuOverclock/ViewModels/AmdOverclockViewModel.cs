@@ -1,13 +1,3 @@
-// ==============================================================================
-// Copyright (c) 2026 kaliteConfig
-// All rights reserved.
-//
-// This software and associated documentation files are provided freely for end-users
-// to download and use. However, the source code remains strictly proprietary. 
-// You may not copy, reproduce, modify, merge, reverse-engineer, publish, distribute, 
-// sublicense, or sell copies of the source code in any form, in whole or in part,
-// without the express written permission of the copyright holder.
-// ==============================================================================
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using kaliteConfig.GpuOverclock.Models;
@@ -34,9 +24,9 @@ namespace kaliteConfig.GpuOverclock.ViewModels
 
         public string KindText => IsDiscrete ? "Discrete" : "Integrated";
 
-        public string DeviceKindText => $"{KindText} · {VramText}";
+        public string DeviceKindText => $"{KindText} Â· {VramText}";
 
-        public string SubtitleText => $"{DeviceKindText}  ·  {DeviceIdText}";
+        public string SubtitleText => $"{DeviceKindText}  Â·  {DeviceIdText}";
 
         public string CapabilityText
         {
@@ -59,12 +49,25 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public ObservableCollection<AmdGpuCardItem> Cards { get; } = new();
 
         [ObservableProperty] public partial bool IsLoading { get; set; }
-        [ObservableProperty] public partial string StatusText { get; set; } = "Detecting AMD GPUs…";
+        [ObservableProperty] public partial string StatusText { get; set; } = "Detecting AMD GPUsâ€¦";
         [ObservableProperty] public partial bool AdlxAvailable { get; set; }
         [ObservableProperty] public partial string DriverVersionText { get; set; } = string.Empty;
         [ObservableProperty] public partial bool HasCards { get; set; }
         [ObservableProperty] public partial bool HasTunableCard { get; set; }
+        [ObservableProperty] public partial bool ShouldShow { get; set; }
         [ObservableProperty] public partial string? ErrorMessage { get; set; }
+
+        public string EmptyTitle => AdlxAvailable ? "No AMD adapter reported" : "AMD overclocking is unavailable";
+
+        public string EmptyDetail => AdlxAvailable
+            ? "ADLX initialized, but the installed AMD driver did not report any adapters. If this machine has " +
+              "an AMD card, install its display driver from the Drivers tab."
+            : ErrorMessage ??
+              "The AMD display driver did not provide ADLX (amdadlx64.dll). Install or repair the driver, then refresh.";
+
+        partial void OnAdlxAvailableChanged(bool value) => OnPropertyChanged(nameof(EmptyTitle));
+
+        partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(EmptyDetail));
 
         [ObservableProperty] public partial string? InfoNote { get; set; }
 
@@ -88,12 +91,17 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 IsLoading = true;
                 ErrorMessage = null;
-                StatusText = "Detecting AMD GPUs…";
+                StatusText = "Detecting AMD GPUsâ€¦";
+
+                ShouldShow = AmdGpuSimulation.IsActive
+                    || AmdAdlxInterop.IsAvailable
+                    || GpuVendorPresenceService.Detect().HasAmd
+                    || GpuOverclockModule.Instance.IsAmdController;
 
                 if (AmdGpuSimulation.IsActive)
                 {
                     AdlxAvailable = true;
-                    DriverVersionText = "1.4 (simulated)";
+                    DriverVersionText = "2.0 (simulated)";
                     StatusText = "Simulation mode - no real adapter is being queried";
                     InfoNote = AmdGpuSimulation.Label +
                         ". Every value here is fabricated so the page can be reviewed without the hardware.";
@@ -114,8 +122,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     WriteNote = null;
                     AdlxAvailable = false;
                     DriverVersionText = string.Empty;
-                    StatusText = "No AMD device library";
-                    ErrorMessage =
+                    StatusText = "ADLX unavailable";
+                    ErrorMessage = AmdAdlxInterop.LastInitializationError ??
                         "The AMD display driver did not provide ADLX (amdadlx64.dll). " +
                         "Install or repair the AMD display driver, then refresh.";
                     return Task.CompletedTask;
@@ -140,9 +148,9 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                         : "No AMD adapters reported";
 
                 WriteNote = HasTunableCard
-                    ? "Detection is live for this card. Applying values is not enabled in this build yet - " +
-                      "the read side is wired up, the writes are held back until they can be validated on a " +
-                      "discrete Radeon card."
+                    ? "This adapter is tunable. The Overclocking panel above drives the same ADLX " +
+                      "session: core and memory offsets, power limit, fan speed / curve, Zero RPM " +
+                      "and profiles all apply live."
                     : null;
 
                 InfoNote = !HasCards

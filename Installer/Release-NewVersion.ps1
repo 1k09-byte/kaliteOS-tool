@@ -1,16 +1,3 @@
-<#
-.SYNOPSIS
-  One-command release: bumps <Version>, commits, tags, and pushes.
-  Pushing the tag triggers .github/workflows/release.yml, which builds the
-  installer and publishes the GitHub Release (setup exe + generated notes)
-  that the in-app updater picks up.
-.EXAMPLE
-  .\Release-NewVersion.ps1 -Version 0.3.0.2
-.NOTES
-  Version must be 4-part numeric and NEWER than the current csproj version.
-  The CI workflow refuses tags that don't match the csproj, so this script
-  is the only sane way to cut a release (no more "Release v{...}" commits).
-#>
 param(
     [Parameter(Mandatory = $true)]
     [string]$Version
@@ -51,8 +38,6 @@ if ($status) {
     Write-Warning ($status -join "`n")
 }
 
-# Bump the real <Version> element (anchored to line start so the comment
-# mentioning <Version> elsewhere in the file can never match).
 $text = Get-Content -LiteralPath $csproj -Raw
 $newText = $text -replace '(?m)^(\s*)<Version>\d+\.\d+\.\d+\.\d+</Version>', "`$1<Version>$Version</Version>"
 if ($newText -eq $text) { throw "Version element not found — csproj layout changed?" }
