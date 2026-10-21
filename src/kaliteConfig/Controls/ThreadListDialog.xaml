@@ -22,12 +22,17 @@
         <Grid Grid.Column="0" RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <TextBlock x:Name="HeaderText" Grid.Row="0" Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-            <Grid Grid.Row="1">
+            <AutoSuggestBox x:Name="ThreadSearchBox" Grid.Row="1" QueryIcon="Find"
+                            PlaceholderText="Search threads - TID, name or start address"
+                            TextChanged="ThreadSearch_TextChanged"
+                            AutomationProperties.Name="Search threads" />
+            <Grid Grid.Row="2">
                 <ListView x:Name="ThreadList" MaxHeight="2000" SelectionMode="Single"
                       SelectionChanged="ThreadList_SelectionChanged">
                 <ListView.ItemContainerStyle>
@@ -85,7 +90,7 @@
                     </StackPanel>
                 </Grid>
             </Grid>
-            <Button Grid.Row="2" x:Name="RefreshButton" Content="Refresh list" Click="RefreshButton_Click" HorizontalAlignment="Left" />
+            <Button Grid.Row="3" x:Name="RefreshButton" Content="Refresh list" Click="RefreshButton_Click" HorizontalAlignment="Left" />
         </Grid>
 
         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" MaxHeight="2000">

@@ -54,6 +54,8 @@ public sealed partial class ThreadListDialog : ContentDialog
 {
     public ObservableCollection<ThreadRow> Rows { get; } = new();
 
+    private readonly List<ThreadRow> _allRows = new();
+
     private int _pid;
     private string _processName = string.Empty;
     private ThreadRow? _selected;
@@ -83,7 +85,7 @@ public sealed partial class ThreadListDialog : ContentDialog
         _cpuTimer.Tick += (_, _) =>
         {
             if (_busy) return;
-            foreach (var r in Rows)
+            foreach (var r in _allRows)
                 try { r.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(r.Tid); } catch { }
         };
         _cpuTimer.Start();
@@ -129,6 +131,7 @@ public sealed partial class ThreadListDialog : ContentDialog
             try
             {
                 Rows.Clear();
+                _allRows.Clear();
                 SelectRow(null);
 
                 var details = await Services.ThreadQueryService.ListThreadsDetailedAsync(_pid);
@@ -178,19 +181,18 @@ public sealed partial class ThreadListDialog : ContentDialog
                         row.CpuShare = Math.Round(100.0 * t.CpuSeconds / parentCpuSeconds, 1);
 
                     try { row.RunningCpuText = Services.CpuObservationService.DescribeThreadCpu(row.Tid); } catch { }
-                    Rows.Add(row);
+                    _allRows.Add(row);
                 }
 
-                if (Rows.Count == 0)
+                ApplyThreadFilter();
+
+                if (_allRows.Count == 0)
                 {
-                    HeaderText.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-                    HeaderText.Text = "No threads readable (process may have exited or access was denied).";
                     Title = $"Threads - {_processName} ({_pid}) — 0 threads";
                 }
                 else
                 {
-                    HeaderText.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    Title = $"Threads - {_processName} ({_pid})  —  {Rows.Count} threads - select one to tune it";
+                    Title = $"Threads - {_processName} ({_pid})  —  {_allRows.Count} threads - select one to tune it";
                 }
             }
             catch (Exception ex)
@@ -229,6 +231,52 @@ public sealed partial class ThreadListDialog : ContentDialog
             RefreshButton.IsEnabled = !on;
         }
         catch {  }
+    }
+
+    private void ThreadSearch_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+        => ApplyThreadFilter();
+
+    private void ApplyThreadFilter()
+    {
+        string query = (ThreadSearchBox.Text ?? string.Empty).Trim();
+        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var keep = ThreadList.SelectedItem as ThreadRow;
+
+        _loadingList = true;
+        try
+        {
+            Rows.Clear();
+            foreach (var row in _allRows)
+                if (MatchesFilter(row, tokens)) Rows.Add(row);
+
+            var next = keep != null && Rows.Contains(keep) ? keep : (Rows.Count > 0 ? Rows[0] : null);
+            if (!ReferenceEquals(next, keep)) ThreadList.SelectedItem = next;
+            else if (next == null) SelectRow(null);
+        }
+        finally { _loadingList = false; }
+
+        HeaderText.Visibility = Visibility.Visible;
+        if (_allRows.Count == 0)
+            HeaderText.Text = "No threads readable (process may have exited or access was denied).";
+        else if (Rows.Count == 0)
+            HeaderText.Text = $"No threads match \"{query}\" - search checks TID, thread name and start address.";
+        else if (tokens.Length > 0)
+            HeaderText.Text = $"{Rows.Count} of {_allRows.Count} threads match \"{query}\".";
+        else
+            HeaderText.Visibility = Visibility.Collapsed;
+    }
+
+    private static bool MatchesFilter(ThreadRow row, string[] tokens)
+    {
+        foreach (var token in tokens)
+        {
+            bool hit = row.Description.Contains(token, StringComparison.OrdinalIgnoreCase)
+                || row.Tid.ToString().Contains(token, StringComparison.OrdinalIgnoreCase)
+                || row.StartAddress.Contains(token, StringComparison.OrdinalIgnoreCase)
+                || row.CurrentText.Contains(token, StringComparison.OrdinalIgnoreCase);
+            if (!hit) return false;
+        }
+        return true;
     }
 
     private static string FormatCpuSeconds(double secs) =>

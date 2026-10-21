@@ -8,6 +8,7 @@
     "hideTrayIcon": true,
     "alwaysCompileModsLocally": false,
     "dontAutoShowToolkit": false,
+    "disableToolkitHotkey": false,
     "modTasksDialogDelay": 2000,
     "loggingVerbosity": 0,
     "engine": {
@@ -20,6 +21,20 @@
     }
   },
   "mods": [
+    {
+      "modId": "control-panel-color-fix",
+      "version": "1.0.1",
+      "name": "Control Panel Color Fix",
+      "settings": {
+        "contrastEnabled": 1,
+        "contrastOffset": 22,
+        "useManualRGB": 0,
+        "manualRGB": "54,54,54"
+      },
+      "config": {
+        "disabled": true
+      }
+    },
     {
       "modId": "explorer-context-menu-classic",
       "version": "1.0.2",
@@ -90,7 +105,7 @@
         "WeekdayFormat": "dddd",
         "WeekdayFormatCustom": "Sun, Mon, Tue, Wed, Thu, Fri, Sat",
         "TopLine": "%date% | %time%",
-        "BottomLine": "%cpu% CPU | %gpu% GPU | %ram% RAM",
+        "BottomLine": "%cpu% CPU | %gpu% DGPU | %ram% RAM",
         "MiddleLine": "%weekday%",
         "TooltipLine": "%web1_full%",
         "TooltipLineMode": "append",
@@ -158,9 +173,19 @@
     {
       "modId": "taskbar-restart-explorer",
       "version": "1.0",
-      "name": "Taskbar Restart Explorer",
-      "config": {
-        "disabled": true
+      "name": "Taskbar Restart Explorer"
+    },
+    {
+      "modId": "taskbar-start-button-colorizer",
+      "version": "1.1",
+      "name": "Start button colorizer",
+      "settings": {
+        "color": "blue",
+        "effects.hue": 0,
+        "effects.saturation": 100,
+        "effects.brightness": 100,
+        "effects.opacity": 100,
+        "size": 100
       }
     },
     {

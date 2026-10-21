@@ -19,7 +19,8 @@ public sealed class WindowsSettingsService
         bool PerActiveScheme,
         bool NeedsReboot,
         Guid PowerSubgroup = default,
-        Guid PowerSetting = default)
+        Guid PowerSetting = default,
+        bool DefaultOnWhenAbsent = false)
     {
         public bool IsPowerSetting => PowerSubgroup != Guid.Empty && PowerSetting != Guid.Empty;
     }
@@ -37,6 +38,24 @@ public sealed class WindowsSettingsService
             "MMCSS boosts the scheduling priority of audio and video threads. Turning it OFF stops the service, which can reduce scheduling noise and DPC latency but may break some audio drivers. Turning it back ON restores the Windows default. The matching System Responsiveness value is set to 20 when ON and 100 when OFF. Takes effect after a restart.",
             @"SYSTEM\CurrentControlSet\Services\MMCSS",
             "Start", 2, 4, false, true),
+        new TweakDef(
+            "Vbs",
+            "Virtualization-Based Security (VBS)",
+            "Runs Windows security services inside a hypervisor-isolated virtual machine. Turning it OFF frees the hypervisor for the games themselves and can recover a few percent of CPU performance, but it removes that isolation and can break features that need virtualization (Memory integrity, Credential Guard, WSL2, Hyper-V, Android emulators, Windows Sandbox). Turn Memory integrity OFF too when you disable VBS. Takes effect after a restart.",
+            @"SYSTEM\CurrentControlSet\Control\DeviceGuard",
+            "EnableVirtualizationBasedSecurity", 1, 0, false, true),
+        new TweakDef(
+            "Hvci",
+            "Memory integrity (HVCI)",
+            "Checks every kernel-mode driver against a Microsoft-signed allow list before it is allowed to run. Turning it OFF helps with older or unsigned drivers and removes a small amount of virtualization overhead, but weakens kernel protection. Requires VBS to be on to mean anything. Takes effect after a restart.",
+            @"SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity",
+            "Enabled", 1, 0, false, true),
+        new TweakDef(
+            "HwSchMode",
+            "Hardware-accelerated GPU scheduling (HAGS)",
+            "Lets the GPU schedule and manage its own command queues instead of the CPU-side scheduler. ON usually lowers input-to-display latency and can help frame pacing on modern GPUs; OFF restores the classic scheduling path, which some older drivers and capture tools prefer. Both modes are supported by the driver - switching is safe and reversible. Takes effect after a restart.",
+            @"SYSTEM\CurrentControlSet\Control\GraphicsDrivers",
+            "HwSchMode", 2, 1, false, true, DefaultOnWhenAbsent: true),
     };
 
     public const string MmcssTweakId = "MmcssStatus";

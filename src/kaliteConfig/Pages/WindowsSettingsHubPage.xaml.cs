@@ -29,6 +29,12 @@ namespace kaliteConfig.Pages
                     "Serializes timer expiration (active scheme).");
                 LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
                     "Boosts multimedia thread priorities (needs restart). OFF stops the MMCSS service and sets System Responsiveness to 100; ON sets it to 20.");
+                LoadOneKernelToggle("Vbs", VbsToggle, VbsCard,
+                    "Hypervisor-based isolation for security services (needs restart). OFF frees the hypervisor and can lift game performance, but breaks Memory integrity, Credential Guard, WSL2, Hyper-V and Windows Sandbox.");
+                LoadOneKernelToggle("Hvci", HvciToggle, HvciCard,
+                    "Kernel driver allow list (needs restart). OFF helps with older or unsigned drivers; ON is the hardened Windows 11 default. Only meaningful while VBS is on.");
+                LoadOneKernelToggle("HwSchMode", HagsToggle, HagsCard,
+                    "Lets the GPU manage its own command queues (needs restart). ON usually lowers input-to-display latency; OFF restores classic GPU scheduling. Both modes are driver-supported and reversible.");
             }
             finally { _loadingKernelToggles = false; }
         }
@@ -40,14 +46,30 @@ namespace kaliteConfig.Pages
             try
             {
                 var det = _kernel.Detect(def);
-                toggle.IsOn = det.State == Services.WindowsSettingsService.TweakState.On;
-                card.Description = det.Describe(caption);
+                bool unset = det.State == Services.WindowsSettingsService.TweakState.WindowsDefault;
+                toggle.IsOn = det.State == Services.WindowsSettingsService.TweakState.On
+                    || (unset && def.DefaultOnWhenAbsent);
+                card.Description = unset
+                    ? caption + (def.DefaultOnWhenAbsent
+                        ? " Not set explicitly - Windows default is ON."
+                        : " Not set explicitly - Windows default is OFF.")
+                    : det.Describe(caption);
             }
             catch (Exception ex)
             {
                 card.Description = caption + $" Unreadable: {ex.Message}";
             }
         }
+
+        private CommunityToolkit.WinUI.Controls.SettingsCard? CardFor(string id) => id switch
+        {
+            "TimerExpiration" => TimerExpCard,
+            "MmcssStatus" => MmcssCard,
+            "Vbs" => VbsCard,
+            "Hvci" => HvciCard,
+            "HwSchMode" => HagsCard,
+            _ => null,
+        };
 
         private void KernelToggle_Toggled(object sender, RoutedEventArgs e)
         {
@@ -62,13 +84,7 @@ namespace kaliteConfig.Pages
             catch (Exception ex)
             {
                 LoadKernelToggles();
-                var card = id switch
-                {
-                    "TimerExpiration" => TimerExpCard,
-                    "MmcssStatus" => MmcssCard,
-                    _ => null,
-                };
-                if (card != null) card.Description += $" Write denied: {ex.Message}";
+                if (CardFor(id) is { } card) card.Description += $" Write denied: {ex.Message}";
             }
         }
 
