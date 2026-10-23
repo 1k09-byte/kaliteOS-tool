@@ -1,4 +1,4 @@
-param([string[]]$Pages = @('Process Tuning', 'Process Affinity'), [string]$OutDir = 'Docs/design-backup')
+param([string[]]$Pages = @('Process Tuning', 'Process Affinity'), [string]$OutDir = 'Docs/design-backup', [string]$Prefix = 'before')
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -76,7 +76,7 @@ foreach ($name in $Pages) {
     Write-Output "WARN occluded, PrintWindow fallback used: $name"
   }
   $safe = ($name -replace '[^A-Za-z0-9]+', '-').ToLower()
-  $path = Join-Path $OutDir "before-$safe.png"
+  $path = Join-Path $OutDir "$Prefix-$safe.png"
   $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
   $gfx.Dispose(); $bmp.Dispose()
   Write-Output "SAVED $path ($w x $h)"
