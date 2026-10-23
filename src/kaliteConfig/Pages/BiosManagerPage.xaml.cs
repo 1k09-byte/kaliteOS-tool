@@ -1,12 +1,11 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Navigation;
 using kaliteConfig.Models;
 using kaliteConfig.ViewModels;
 using System;
-using System.Linq;
+using System.ComponentModel;
 using System.Threading.Tasks;
 
 namespace kaliteConfig.Pages
@@ -15,11 +14,38 @@ namespace kaliteConfig.Pages
     {
         public BiosManagerViewModel ViewModel { get; }
 
+        private bool _syncingSelection;
+        private BiosSettingRow? _optionsRow;
+        private bool _syncingOptions;
+
         public BiosManagerPage()
         {
             ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<BiosManagerViewModel>(App.Services) ?? new();
             this.InitializeComponent();
             this.DataContext = ViewModel;
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            Unloaded += OnPageUnloaded;
+        }
+
+        private void OnPageUnloaded(object sender, RoutedEventArgs e)
+        {
+            ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            if (_optionsRow is not null) _optionsRow.PropertyChanged -= OnOptionsRowPropertyChanged;
+            _optionsRow = null;
+            Unloaded -= OnPageUnloaded;
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BiosManagerViewModel.SelectedRow))
+            {
+                RebuildValueOptions();
+            }
+            else if (e.PropertyName == nameof(BiosManagerViewModel.ModifiedCount) &&
+                     StagedList.Visibility == Visibility.Visible)
+            {
+                RefreshStagedList();
+            }
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -28,10 +54,167 @@ namespace kaliteConfig.Pages
             _ = ViewModel.AutoLoadAsync();
         }
 
+        // ---------------------------------------------------------------- header actions
+
         private void LoadDump_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.LoadFileCommand.Execute(null);
         }
+
+        private void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            ViewModel.ExportAndLoadCommand.Execute(null);
+        }
+
+        private void Export_Click(object sender, RoutedEventArgs e)
+        {
+            ViewModel.SaveFileCommand.Execute(null);
+        }
+
+        // ---------------------------------------------------------------- tile grid
+
+        private void SettingsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // The panel width only settles after this layout pass.
+            _ = DispatcherQueue.TryEnqueue(UpdateTileWidth);
+        }
+
+        private void UpdateTileWidth()
+        {
+            if (SettingsGrid.ItemsPanelRoot is not ItemsWrapGrid panel) return;
+
+            const double gap = 6;      // horizontal gap between tiles (their right margin)
+            const double minTile = 200;
+            const double maxTile = 340;
+
+            double width = panel.ActualWidth;
+            if (width < minTile) return;
+
+            int columns = (int)((width + gap) / (minTile + gap));
+            if (columns < 1) columns = 1;
+
+            double tile = Math.Floor((width - gap * (columns - 1)) / columns);
+            if (tile > maxTile) tile = maxTile;
+            if (tile < minTile) tile = minTile;
+            if (Math.Abs(panel.ItemWidth - tile) < 0.5) return;
+
+            panel.ItemWidth = tile;
+        }
+
+        private void ErrorDismiss_Click(object sender, RoutedEventArgs e)
+        {
+            ViewModel.HasError = false;
+        }
+
+        // ---------------------------------------------------------------- filters
+
+        private void SearchField_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox box)
+                ViewModel.FilterCommand.Execute(box.Text);
+        }
+
+        // ---------------------------------------------------------------- settings grid
+
+        private void SettingsGrid_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (_syncingSelection) return;
+            if (e.ClickedItem is not BiosSettingRow row) return;
+
+            // Narrow layout: the inspector column is collapsed, so edit in a dialog instead.
+            // The selection is cleared so tapping the same tile again raises another click.
+            if (InspectorCard.Visibility == Visibility.Collapsed)
+            {
+                _syncingSelection = true;
+                ((GridView)sender).SelectedItem = null;
+                _syncingSelection = false;
+                _ = ShowQuickEditAsync(row);
+                return;
+            }
+
+            ViewModel.SelectedRow = row;
+            DetailScroll.ChangeView(0, 0, null, true);
+        }
+
+        // ---------------------------------------------------------------- value options
+
+        private void RebuildValueOptions()
+        {
+            if (_optionsRow is not null) _optionsRow.PropertyChanged -= OnOptionsRowPropertyChanged;
+            _optionsRow = ViewModel.SelectedRow;
+            if (_optionsRow is not null) _optionsRow.PropertyChanged += OnOptionsRowPropertyChanged;
+            BuildValueOptions();
+        }
+
+        private void OnOptionsRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BiosSettingRow.ValueText) ||
+                e.PropertyName == nameof(BiosSettingRow.IsModified))
+            {
+                SyncValueOptionSelection();
+            }
+        }
+
+        private void BuildValueOptions()
+        {
+            ValueOptions.Items.Clear();
+            if (_optionsRow is not { IsEnumerated: true } row) return;
+
+            foreach (var option in row.Options)
+            {
+                ValueOptions.Items.Add(new RadioButton
+                {
+                    Content = option.FriendlyDisplay,
+                    Tag = option.RawToken,
+                });
+            }
+
+            SyncValueOptionSelection();
+        }
+
+        private void ValueOptions_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncingOptions) return;
+            if (_optionsRow is not { IsEnumerated: true }) return;
+            if (ValueOptions.SelectedItem is not RadioButton { Tag: string token }) return;
+
+            _optionsRow.SelectedToken = token;
+        }
+
+        private void SyncValueOptionSelection()
+        {
+            if (_optionsRow is not { IsEnumerated: true } row) return;
+
+            _syncingOptions = true;
+            ValueOptions.SelectedIndex = -1;
+            for (int i = 0; i < ValueOptions.Items.Count; i++)
+            {
+                if (ValueOptions.Items[i] is RadioButton { Tag: string token } &&
+                    string.Equals(token, row.Item.Value, StringComparison.OrdinalIgnoreCase))
+                {
+                    ValueOptions.SelectedIndex = i;
+                    break;
+                }
+            }
+            _syncingOptions = false;
+        }
+
+        // ---------------------------------------------------------------- staged tray
+
+        private void TrayToggle_Click(object sender, RoutedEventArgs e)
+        {
+            bool opening = StagedList.Visibility != Visibility.Visible;
+            if (opening) RefreshStagedList();
+            StagedList.Visibility = opening ? Visibility.Visible : Visibility.Collapsed;
+            TrayChevron.Glyph = opening ? "\uE70C" : "\uE70E";
+        }
+
+        private void RefreshStagedList()
+        {
+            StagedList.ItemsSource = ViewModel.GetChanges();
+        }
+
+        // ---------------------------------------------------------------- apply
 
         private async void ApplyToBios_Click(object sender, RoutedEventArgs e)
         {
@@ -86,39 +269,7 @@ namespace kaliteConfig.Pages
             if (result == ContentDialogResult.Primary)
             {
                 await ViewModel.ApplyToBiosCommand.ExecuteAsync(null);
-            }
-        }
-
-        private void Export_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SaveFileCommand.Execute(null);
-        }
-
-        private void SettingsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            ViewModel.SelectedRow = e.AddedItems?.OfType<BiosSettingRow>().FirstOrDefault();
-            if (ViewModel.SelectedRow is { } row && row.IsEnumerated)
-                ValueCombo.SelectedValue = row.SelectedToken;
-        }
-
-        private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
-        {
-            ViewModel.FilterCommand.Execute(sender.Text);
-        }
-
-        private void ValueCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ViewModel.SelectedRow is not { } row || !row.IsEnumerated) return;
-            if (ValueCombo.SelectedItem is BiosOption option)
-                row.SelectedToken = option.RawToken;
-        }
-
-        private void ValuePill_Click(object sender, RoutedEventArgs e)
-        {
-            if (this.ActualWidth < 1000 &&
-                ((FrameworkElement)sender).DataContext is BiosSettingRow row)
-            {
-                _ = ShowQuickEditAsync(row);
+                if (StagedList.Visibility == Visibility.Visible) RefreshStagedList();
             }
         }
 

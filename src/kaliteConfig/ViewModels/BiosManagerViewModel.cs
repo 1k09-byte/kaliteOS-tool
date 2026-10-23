@@ -52,12 +52,6 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     public partial bool HasDocument { get; set; }
 
     [ObservableProperty]
-    public partial string FileNameText { get; set; } = "";
-
-    [ObservableProperty]
-    public partial string SummaryText { get; set; } = "";
-
-    [ObservableProperty]
     public partial string StatusText { get; set; } = "";
 
     [ObservableProperty]
@@ -354,20 +348,18 @@ public sealed partial class BiosManagerViewModel : ObservableObject
         Sections.Add(doc.RootSection);
 
         HasDocument = true;
-        FileNameText = doc.SourceName;
-        SummaryText = $"{doc.Items.Count:N0} settings in {CountSections(doc.RootSection):N0} menu sections";
         SelectedRow = null;
         _selectedSection = doc.RootSection;
 
         Rows = new ObservableCollection<BiosSettingRow>(_allRows);
         RebuildCategories();
+        // Force a notification even when "All" was already selected, so the chip strip
+        // re-selects it after its item collection was rebuilt.
+        SelectedCategoryItem = null;
         SelectedCategoryItem = BiosCategory.All;
         _selectedSection = null;
         UpdateModifiedCount();
     }
-
-    private static int CountSections(BiosMenuSection root) =>
-        root.SelfAndDescendants().Count(s => !s.IsRoot);
 
     private void OnRowStateChanged() => UpdateModifiedCount();
 

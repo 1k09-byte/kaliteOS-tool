@@ -65,6 +65,22 @@ namespace kaliteConfig.Pages
 
         private void GameModeAddNeverTouch_Click(object sender, RoutedEventArgs e) => GameMode.AddNeverTouch();
 
+        private void GameModePathBox_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            e.Handled = true;
+            GameMode.AddGamePath();
+        }
+
+        private void GameModeNeverTouchBox_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            e.Handled = true;
+            GameMode.AddNeverTouch();
+        }
+
+        private void GameModeListFeedback_Close(InfoBar sender, object args) => GameMode.ClearListFeedback();
+
         private void GameModeRemoveGame_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button { Tag: Gaming.GameMode.GameModeGameEntry entry }) GameMode.RemoveGame(entry.Name, entry.Path);
