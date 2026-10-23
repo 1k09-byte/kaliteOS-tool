@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using Microsoft.Win32;
 using kaliteConfig.Native;
 
 namespace kaliteConfig.Gaming.GameMode;
@@ -149,7 +150,7 @@ public sealed class GameModeEngine : IDisposable
         Raise();
     }
 
-    public void AddGame(int pid)
+    public GameModeEditResult AddGame(int pid)
     {
         try
         {
@@ -162,27 +163,29 @@ public sealed class GameModeEngine : IDisposable
                 MatchByPath = !string.IsNullOrEmpty(path),
                 Preset = Settings.Preset,
             };
-            if (Settings.Games.Any(g => string.Equals(g.Path, entry.Path, StringComparison.OrdinalIgnoreCase)
-                                        || string.Equals(g.Name, entry.Name, StringComparison.OrdinalIgnoreCase))) return;
+            if (AlreadyListed(entry))
+            {
+                _log.Add(entry.Name, "Game list", "Add", "Already in that state", "Already in the game list");
+                return GameModeEditResult.Fail($"{entry.Name} is already in the game list.");
+            }
             Settings.Games.Add(entry);
             _store.Save(Settings);
             _log.Add(entry.Name, "Game list", "Add", "Applied and verified", "Added to the game list");
             Raise();
+            return GameModeEditResult.Ok($"Added {entry.Name} to the game list.");
         }
         catch (Exception ex)
         {
             _log.Add(pid.ToString(), "Game list", "Add", "Refused", ex.Message);
+            return GameModeEditResult.Fail($"Could not add that app: {ex.Message}");
         }
     }
 
-    public void AddFocusedApp()
+    public GameModeEditResult AddFocusedApp()
     {
         var hwnd = NativeMethods.GameMode.GetForegroundWindow();
         if (ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out _, out _) && pid != Environment.ProcessId)
-        {
-            AddGame(pid);
-            return;
-        }
+            return AddGame(pid);
 
         int last;
         long ticks;
@@ -191,24 +194,160 @@ public sealed class GameModeEngine : IDisposable
             last = _lastForeignPid;
             ticks = _lastForeignTicks;
         }
-        if (last != 0 && GameModeExecutor.SameInstance(last, ticks)) AddGame(last);
+        if (last != 0 && GameModeExecutor.SameInstance(last, ticks)) return AddGame(last);
+
+        _log.Add("-", "Game list", "Add focused app", "Skipped (safety check failed)", "No other app was in the foreground");
+        return GameModeEditResult.Fail("No other app was in the foreground. Switch to the app first, then click Add focused app.");
     }
 
-    public void AddGamePath(string path)
+    public GameModeEditResult AddGamePath(string input)
     {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+        var text = NormalizeInput(input);
+        if (text.Length == 0) return GameModeEditResult.Fail("Type a game executable path or image name first.");
+
+        bool looksLikePath = text.Contains('\\') || text.Contains('/') || Path.IsPathRooted(text);
+        var resolved = ResolveExecutable(text);
+        if (looksLikePath && resolved is null)
+        {
+            _log.Add(text, "Game list", "Add", "Refused", "No executable at that path");
+            return GameModeEditResult.Fail($"No executable at {text}. Check the path, or type just the image name (for example notepad.exe) to match by name.");
+        }
+
         var entry = new GameModeGameEntry
         {
-            Name = System.IO.Path.GetFileName(path),
-            Path = path,
-            MatchByPath = true,
+            Name = resolved is not null ? Path.GetFileName(resolved) : ImageName(text),
+            Path = resolved ?? string.Empty,
+            MatchByPath = resolved is not null,
             Preset = Settings.Preset,
         };
-        if (Settings.Games.Any(g => string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase))) return;
+        if (AlreadyListed(entry))
+        {
+            _log.Add(entry.Name, "Game list", "Add", "Already in that state", "Already in the game list");
+            return GameModeEditResult.Fail($"{entry.Name} is already in the game list.");
+        }
+
         Settings.Games.Add(entry);
         _store.Save(Settings);
-        _log.Add(entry.Name, "Game list", "Add", "Applied and verified", "Added to the game list by path");
+        _log.Add(entry.Name, "Game list", "Add", "Applied and verified",
+            resolved is not null ? $"Added {resolved} to the game list" : "Added to the game list by image name");
         Raise();
+        return resolved is not null
+            ? GameModeEditResult.Ok($"Added {entry.Name} to the game list.")
+            : GameModeEditResult.Ok($"Added {entry.Name}. No file with that name was found, so Game Mode matches it by image name.");
+    }
+
+    private bool AlreadyListed(GameModeGameEntry entry)
+    {
+        foreach (var game in Settings.Games)
+        {
+            if (string.Equals(game.Name, entry.Name, StringComparison.OrdinalIgnoreCase)) return true;
+            if (!string.IsNullOrEmpty(entry.Path) && !string.IsNullOrEmpty(game.Path)
+                && string.Equals(game.Path, entry.Path, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    private static string NormalizeInput(string? input)
+        => Environment.ExpandEnvironmentVariables((input ?? string.Empty).Trim().Trim('"').Trim());
+
+    private static string ImageName(string text)
+    {
+        var name = Path.GetFileName(text);
+        if (name.Length == 0) name = text;
+        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name : name + ".exe";
+    }
+
+    /// <summary>
+    /// Turns what people actually type (a full path, a quoted path, an image name such as
+    /// notepad.exe) into a real executable path, or null when nothing matches.
+    /// </summary>
+    private static string? ResolveExecutable(string text)
+    {
+        if (File.Exists(text)) return Path.GetFullPath(text);
+        if (!text.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(text + ".exe"))
+            return Path.GetFullPath(text + ".exe");
+
+        if (text.Contains('\\') || text.Contains('/') || Path.IsPathRooted(text)) return null;
+
+        var imageName = ImageName(text);
+        var stem = Path.GetFileNameWithoutExtension(imageName);
+
+        try
+        {
+            foreach (var process in Process.GetProcessesByName(stem))
+            {
+                try
+                {
+                    var path = ProcessPath(process.Id);
+                    if (!string.IsNullOrEmpty(path) && File.Exists(path)) return path;
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        foreach (var root in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+        {
+            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            {
+                try
+                {
+                    using var baseKey = RegistryKey.OpenBaseKey(root, view);
+                    using var key = baseKey.OpenSubKey($@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{imageName}");
+                    if (key?.GetValue(null) is string registered)
+                    {
+                        var cleaned = registered.Trim().Trim('"');
+                        if (File.Exists(cleaned)) return Path.GetFullPath(cleaned);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        var directories = new List<string>();
+        var searchPath = Environment.GetEnvironmentVariable("PATH");
+        if (!string.IsNullOrEmpty(searchPath))
+            directories.AddRange(searchPath.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        foreach (var folder in new[]
+                 {
+                     Environment.SpecialFolder.System,
+                     Environment.SpecialFolder.SystemX86,
+                     Environment.SpecialFolder.Windows,
+                     Environment.SpecialFolder.ProgramFiles,
+                     Environment.SpecialFolder.ProgramFilesX86,
+                     Environment.SpecialFolder.LocalApplicationData,
+                 })
+        {
+            try
+            {
+                var path = Environment.GetFolderPath(folder);
+                if (!string.IsNullOrEmpty(path)) directories.Add(path);
+            }
+            catch
+            {
+            }
+        }
+
+        foreach (var directory in directories)
+        {
+            try
+            {
+                var candidate = Path.Combine(directory.Trim('"'), imageName);
+                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            }
+            catch
+            {
+            }
+        }
+
+        return null;
     }
 
     public void RemoveGame(string name, string path)
@@ -226,19 +365,34 @@ public sealed class GameModeEngine : IDisposable
         Raise();
     }
 
-    public void AddNeverTouch(string pattern)
+    public GameModeEditResult AddNeverTouch(string input)
     {
-        if (string.IsNullOrWhiteSpace(pattern)) return;
-        if (Settings.NeverTouch.Any(n => n.Equals(pattern, StringComparison.OrdinalIgnoreCase))) return;
-        Settings.NeverTouch.Add(pattern.Trim());
+        var text = NormalizeInput(input);
+        if (text.Length == 0) return GameModeEditResult.Fail("Type an image name or pattern first.");
+
+        if (text.Contains('\\') || text.Contains('/')) text = Path.GetFileName(text);
+        bool isPattern = text.Contains('*') || text.Contains('?');
+        if (!isPattern && !text.Contains('.')) text += ".exe";
+        if (text.Length == 0) return GameModeEditResult.Fail("Type an image name or pattern first.");
+
+        if (Settings.NeverTouch.Any(n => n.Equals(text, StringComparison.OrdinalIgnoreCase)))
+        {
+            _log.Add(text, "Never touch", "Add", "Already in that state", "Already on the Never touch list");
+            return GameModeEditResult.Fail($"{text} is already on the Never touch list.");
+        }
+
+        Settings.NeverTouch.Add(text);
         _store.Save(Settings);
+        _log.Add(text, "Never touch", "Add", "Applied and verified", "Added to the Never touch list");
         Raise();
+        return GameModeEditResult.Ok($"Added {text} to Never touch.");
     }
 
     public void RemoveNeverTouch(string pattern)
     {
         if (Settings.NeverTouch.RemoveAll(n => n.Equals(pattern, StringComparison.OrdinalIgnoreCase)) == 0) return;
         _store.Save(Settings);
+        _log.Add(pattern, "Never touch", "Remove", "Applied and verified", "Removed from the Never touch list");
         Raise();
     }
 

@@ -49,6 +49,11 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 [Run]
 Filename: "{app}\{#MyAppExe}"; Parameters: "--tray"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall shellexec
 
+[UninstallRun]
+; Autostart is a Task Scheduler logon task (elevation), not an HKCU Run value;
+; remove it so uninstalling doesn't leave a task pointing at a deleted exe.
+Filename: "{sys}\schtasks.exe"; Parameters: "/delete /tn ""kaliteConfig"" /f"; Flags: runhidden; RunOnceId: "RemoveStartupTask"
+
 [Code]
 const
   BM_CLICK = $00F5;

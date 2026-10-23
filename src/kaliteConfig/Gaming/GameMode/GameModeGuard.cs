@@ -182,7 +182,10 @@ public sealed class GameModeGuard
                 .Replace("\\*", ".*").Replace("\\?", ".") + "$";
             return System.Text.RegularExpressions.Regex.IsMatch(imageName, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
-        return imageName.Equals(trimmed, StringComparison.OrdinalIgnoreCase);
+        if (imageName.Equals(trimmed, StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Entries saved before names were normalized may omit the .exe suffix.
+        return !trimmed.Contains('.') && imageName.Equals(trimmed + ".exe", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsAntiCheat(string image)
