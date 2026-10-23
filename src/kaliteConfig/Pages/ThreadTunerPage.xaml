@@ -188,11 +188,14 @@
 
                     <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="Game list and Never touch">
                         <StackPanel Spacing="8">
+                            <InfoBar IsOpen="{x:Bind GameMode.HasListFeedback, Mode=OneWay}" Severity="{x:Bind GameMode.ListFeedbackSeverity, Mode=OneWay}"
+                                     Message="{x:Bind GameMode.ListFeedback, Mode=OneWay}" CloseButtonClick="GameModeListFeedback_Close" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="Add focused app" Click="GameModeAddFocused_Click" />
+                                <Button Content="Add focused app" Click="GameModeAddFocused_Click" ToolTipService.ToolTip="Adds the app you used just before kaliteConfig" />
                                 <TextBox Text="{x:Bind GameMode.GamePathInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="360"
-                                         PlaceholderText="Full path to a game executable" AutomationProperties.Name="Game executable path" />
-                                <Button Content="Add by path" Click="GameModeAddPath_Click" />
+                                         PlaceholderText="Full path, or an image name such as notepad.exe" AutomationProperties.Name="Game executable path"
+                                         KeyDown="GameModePathBox_KeyDown" />
+                                <Button Content="Add by path" Click="GameModeAddPath_Click" ToolTipService.ToolTip="Accepts a full path or an image name; Enter works too" />
                             </StackPanel>
                             <ListView ItemsSource="{x:Bind GameMode.Games, Mode=OneWay}" SelectionMode="None" MaxHeight="140"
                                       Background="Transparent" BorderThickness="0">
@@ -214,7 +217,8 @@
                             </ListView>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBox Text="{x:Bind GameMode.NeverTouchInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="280"
-                                         PlaceholderText="Image name or pattern" AutomationProperties.Name="Never touch entry" />
+                                         PlaceholderText="Image name or pattern" AutomationProperties.Name="Never touch entry"
+                                         KeyDown="GameModeNeverTouchBox_KeyDown" />
                                 <Button Content="Add to Never touch" Click="GameModeAddNeverTouch_Click" />
                             </StackPanel>
                             <ListView ItemsSource="{x:Bind GameMode.NeverTouch, Mode=OneWay}" SelectionMode="None" MaxHeight="120"

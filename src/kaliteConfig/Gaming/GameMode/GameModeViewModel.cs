@@ -28,6 +28,8 @@ public sealed partial class GameModeViewModel : ObservableObject
         NeverTouchInput = string.Empty;
         JournalText = string.Empty;
         PreviewSummary = string.Empty;
+        ListFeedback = string.Empty;
+        ListFeedbackSeverity = InfoBarSeverity.Informational;
         PresetIndex = 1;
         DebounceMs = 750;
         Refresh();
@@ -71,6 +73,14 @@ public sealed partial class GameModeViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string PreviewSummary { get; set; }
+
+    [ObservableProperty]
+    public partial string ListFeedback { get; set; }
+
+    [ObservableProperty]
+    public partial InfoBarSeverity ListFeedbackSeverity { get; set; }
+
+    public bool HasListFeedback => !string.IsNullOrEmpty(ListFeedback);
 
     public string EngineState => _engine.State.ToString();
 
@@ -192,23 +202,35 @@ public sealed partial class GameModeViewModel : ObservableObject
 
     public void AddGamePath()
     {
-        _engine.AddGamePath(GamePathInput.Trim());
-        GamePathInput = string.Empty;
+        var result = _engine.AddGamePath(GamePathInput);
+        if (result.Success) GamePathInput = string.Empty;
+        ShowListFeedback(result);
         Refresh();
     }
 
     public void AddFocusedApp()
     {
-        _engine.AddFocusedApp();
+        ShowListFeedback(_engine.AddFocusedApp());
         Refresh();
     }
 
     public void AddNeverTouch()
     {
-        _engine.AddNeverTouch(NeverTouchInput);
-        NeverTouchInput = string.Empty;
+        var result = _engine.AddNeverTouch(NeverTouchInput);
+        if (result.Success) NeverTouchInput = string.Empty;
+        ShowListFeedback(result);
         Refresh();
     }
+
+    public void ClearListFeedback() => ListFeedback = string.Empty;
+
+    private void ShowListFeedback(GameModeEditResult result)
+    {
+        ListFeedbackSeverity = result.Success ? InfoBarSeverity.Success : InfoBarSeverity.Warning;
+        ListFeedback = result.Message;
+    }
+
+    partial void OnListFeedbackChanged(string value) => OnPropertyChanged(nameof(HasListFeedback));
 
     public void RemoveNeverTouch(string pattern)
     {

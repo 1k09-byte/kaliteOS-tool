@@ -26,6 +26,22 @@ public sealed partial class BiosSettingRow : ObservableObject
     public string HelpText => Item.HelpString ?? string.Empty;
     private readonly string _sectionText;
     public string SectionText => _sectionText;
+
+    /// <summary>
+    /// Second line of a settings tile: the menu path when there is one, otherwise the
+    /// firmware token (or offset). Dump files where nothing is sectioned make
+    /// "(unsectioned)" repeat on every tile, so the token carries more signal.
+    /// </summary>
+    public string TileMetaText
+    {
+        get
+        {
+            if (Item.MenuPath.Length > 0) return string.Join(" › ", Item.MenuPath);
+            if (!string.IsNullOrEmpty(Item.Token)) return $"Token {Item.Token}";
+            if (!string.IsNullOrEmpty(Item.Offset)) return $"Offset {Item.Offset}";
+            return string.Empty;
+        }
+    }
     public string TokenLineText => string.IsNullOrEmpty(Item.Token) ? "-" : $"Token {Item.Token}";
     public string TokenValueText => string.IsNullOrEmpty(Item.Token) ? "-" : Item.Token;
     public string OffsetValueText => string.IsNullOrEmpty(Item.Offset) ? "-" : Item.Offset;

@@ -61,6 +61,12 @@ public sealed record GameModeAffectedRow(
 
 public sealed record GameModeRestoreSummary(int Restored, int Failed);
 
+public sealed record GameModeEditResult(bool Success, string Message)
+{
+    public static GameModeEditResult Ok(string message) => new(true, message);
+    public static GameModeEditResult Fail(string message) => new(false, message);
+}
+
 public sealed record GameModeLogRow(string Time, string Process, string Action, string Result, string Message);
 
 public sealed record GameModeGameEntry
