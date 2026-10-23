@@ -28,6 +28,12 @@ msbuild.binlog
 
 # Test/scratch files
 test.cs
+
+# Perf investigation traces (large binaries, regenerable) and local tool installs
+perf/*.nettrace
+perf/*.nettrace.etlx
+perf/*.speedscope.json
+perf/tools/
 test.png
 
 # IDE files

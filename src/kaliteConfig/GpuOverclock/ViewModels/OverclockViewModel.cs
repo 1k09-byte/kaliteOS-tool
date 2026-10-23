@@ -1348,6 +1348,12 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             _module.FanCurve.Stopped -= OnFanCurveStopped;
             _module.GameAutoApply.StatusChanged -= OnAutoApplyStatus;
             _debounceTimer?.Stop();
+            // The 1 Hz GPU polling loop is only useful while this page is on
+            // screen (Telemetry.Update has no other subscriber). Without this
+            // stop, one visit to the Graphics page left the loop querying the
+            // driver every second for the rest of the app's life, including
+            // while minimized. Loaded -> InitializeAsync starts it again.
+            _ = _module.Telemetry.StopAsync();
         }
     }
 

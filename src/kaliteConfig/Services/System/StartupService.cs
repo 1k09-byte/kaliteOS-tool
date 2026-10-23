@@ -1,6 +1,7 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
@@ -8,9 +9,22 @@ namespace kaliteConfig.Services;
 
 public sealed class StartupService
 {
+    // Packaged builds register the OS startup-task extension declared in
+    // Package.appxmanifest; the OS resolves it by package family, so the
+    // versioned WindowsApps path never has to be written anywhere.
+    private const string StartupTaskId = "KaliteConfigStartup";
+
+    // Unpackaged builds use Task Scheduler instead of an HKCU Run value: the exe
+    // requires administrator, and a Run value cannot elevate at logon - Windows
+    // either shows a UAC prompt nobody answers or starts nothing at all.
+    // A task registered with "run with highest privileges" starts silently.
+    public const string ScheduledTaskName = "kaliteConfig";
+
+    // Leftovers from earlier builds. Removed as soon as we see them so the app
+    // never launches twice at logon (or burns a UAC prompt that can't succeed).
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValueName = "kaliteConfig";
-    private const string StartupTaskId = "KaliteConfigStartup";
+
     private const int ErrorInsufficientBuffer = 122;
 
     public const string TrayArg = "--tray";
@@ -38,24 +52,12 @@ public sealed class StartupService
             return await IsStartupTaskEnabledAsync();
         }
 
-        string? current = ReadRunValue(RunValueName);
-        if (current == null)
+        bool current = IsScheduledTaskCurrent();
+        if (current && ReadRunValue(RunValueName) != null)
         {
-            return false;
+            DeleteRunValue(RunValueName);
         }
-
-        string want = TrayCommandLine();
-        string bare = QuotedExePath();
-        if (!string.Equals(current, want, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(current, bare, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-        if (!string.Equals(current, want, StringComparison.OrdinalIgnoreCase))
-        {
-            WriteRunValue(RunValueName, want);
-        }
-        return true;
+        return current;
     }
 
     public async Task<bool> SetEnabledAsync(bool enabled)
@@ -67,20 +69,67 @@ public sealed class StartupService
 
         try
         {
-            if (enabled)
-            {
-                WriteRunValue(RunValueName, TrayCommandLine());
-            }
-            else
-            {
-                DeleteRunValue(RunValueName);
-            }
-            return true;
+            DeleteRunValue(RunValueName);
+            return enabled ? RegisterScheduledTask() : DeleteScheduledTask();
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// True when the logon task exists and still points at this exe with the tray
+    /// argument (a stale path after a reinstall counts as not enabled).
+    /// </summary>
+    internal static bool IsScheduledTaskCurrent()
+    {
+        try
+        {
+            if (!RunSchtasks($"/query /tn \"{ScheduledTaskName}\" /xml ONE", out string xml))
+            {
+                return false;
+            }
+
+            string exe = ExecutablePath();
+            if (string.IsNullOrEmpty(exe))
+            {
+                return false;
+            }
+            return xml.Contains(exe, StringComparison.OrdinalIgnoreCase)
+                && xml.Contains(TrayArg, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    internal static bool RegisterScheduledTask()
+    {
+        string exe = ExecutablePath();
+        if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+        {
+            return false;
+        }
+
+        // /sc onlogon + /rl highest: starts silently at logon with the elevation
+        // the app requires. The short delay lets Explorer finish bringing up the
+        // shell so the tray icon has somewhere to land.
+        string args = $"/create /tn \"{ScheduledTaskName}\" " +
+                      $"/tr \"\\\"{exe}\\\" {TrayArg}\" " +
+                      "/sc onlogon /delay 0000:15 /rl highest /f";
+        if (!RunSchtasks(args, out _))
+        {
+            return false;
+        }
+        return IsScheduledTaskCurrent();
+    }
+
+    internal static bool DeleteScheduledTask()
+    {
+        RunSchtasks($"/delete /tn \"{ScheduledTaskName}\" /f", out _);
+        return !RunSchtasks($"/query /tn \"{ScheduledTaskName}\"", out _);
     }
 
     internal static string? ReadRunValue(string name)
@@ -96,14 +145,6 @@ public sealed class StartupService
         }
     }
 
-    internal static void WriteRunValue(string name, string command)
-    {
-        using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true)
-            ?? Registry.CurrentUser.CreateSubKey(RunKeyPath)
-            ?? throw new InvalidOperationException("Could not open the Run registry key.");
-        key.SetValue(name, command, RegistryValueKind.String);
-    }
-
     internal static void DeleteRunValue(string name)
     {
         try
@@ -116,7 +157,7 @@ public sealed class StartupService
         }
     }
 
-    internal static string QuotedExePath()
+    internal static string ExecutablePath()
     {
         string? path = Environment.ProcessPath;
         if (string.IsNullOrEmpty(path))
@@ -130,10 +171,8 @@ public sealed class StartupService
             {
             }
         }
-        return $"\"{path}\"";
+        return path ?? string.Empty;
     }
-
-    internal static string TrayCommandLine() => $"{QuotedExePath()} {TrayArg}";
 
     public static bool IsTrayLaunch(string? launchArguments)
     {
@@ -142,6 +181,39 @@ public sealed class StartupService
             return true;
         return !string.IsNullOrEmpty(launchArguments)
             && launchArguments.Contains(StartupTaskId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool RunSchtasks(string args, out string output)
+    {
+        output = string.Empty;
+        try
+        {
+            var psi = new ProcessStartInfo("schtasks.exe", args)
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var p = Process.Start(psi);
+            if (p is null)
+            {
+                return false;
+            }
+            string stdout = p.StandardOutput.ReadToEnd();
+            string stderr = p.StandardError.ReadToEnd();
+            if (!p.WaitForExit(15000))
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                return false;
+            }
+            output = stdout + stderr;
+            return p.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static async Task<bool> IsStartupTaskEnabledAsync()

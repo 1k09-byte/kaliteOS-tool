@@ -191,57 +191,168 @@ namespace kaliteConfig.Services
             }, ct);
         }
 
-        private const string Expected7zrSha256 = "AD4C82FADCBDF93C03B4FC440F300509C7D60C5C2F4D183E35D9D70D6957037D";
+        // 7-Zip ships 7zr.exe unsigned, so a pinned SHA-256 is the only thing we can check before
+        // running it. But 7-zip.org replaces that file in place at every release, which used to make
+        // the whole NVIDIA install fail with "failed hash verification" the day a new 7-Zip shipped.
+        // Keep every build we have verified, and fall back to the extractor bundled with Windows
+        // (bsdtar, which reads .7z and .exe self-extractors) when an unknown build shows up.
+        private static readonly string[] Known7zrSha256 =
+        {
+            "AD4C82FADCBDF93C03B4FC440F300509C7D60C5C2F4D183E35D9D70D6957037D", // 7-Zip 25.x
+            "256FECA8E274E5DA655E2A284FABAFD9F554365EB164862089DACD4E8276D282", // 7-Zip 26.04 (2026-10-05)
+        };
 
-        private async Task<string> Ensure7zrAsync(CancellationToken ct)
+        private const string SevenZrUrl = "https://www.7-zip.org/a/7zr.exe";
+
+        private static bool IsKnown7zr(string sha256) =>
+            Known7zrSha256.Any(h => string.Equals(h, sha256, StringComparison.OrdinalIgnoreCase));
+
+        private static string HashFile(string path)
+        {
+            using var fs = File.OpenRead(path);
+            return Convert.ToHexString(SHA256.HashData(fs));
+        }
+
+        /// <summary>
+        /// Returns the path of a hash-verified 7zr.exe, or <c>null</c> when no trusted copy can be
+        /// obtained. Never throws for download/hash problems - the caller falls back to Windows' tar.
+        /// </summary>
+        private async Task<string?> TryEnsure7zrAsync(Action<string> log, CancellationToken ct)
         {
             string toolsDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "Tools");
-            Directory.CreateDirectory(toolsDir);
             string path = Path.Combine(toolsDir, "7zr.exe");
 
-            bool valid = false;
-            if (File.Exists(path) && new FileInfo(path).Length > 100_000)
+            if (File.Exists(path))
             {
-                using var fs = File.OpenRead(path);
-                valid = Convert.ToHexString(SHA256.HashData(fs)) == Expected7zrSha256;
+                string cached;
+                try
+                {
+                    cached = new FileInfo(path).Length > 100_000 ? HashFile(path) : "";
+                }
+                catch (Exception ex)
+                {
+                    log($"Could not read the cached 7zr.exe ({ex.Message}).");
+                    cached = "";
+                }
+
+                if (IsKnown7zr(cached)) return path;
+
+                log($"Cached 7zr.exe is not a build this app has verified ({cached}) - discarding it.");
+                try { File.Delete(path); } catch (Exception) { }
             }
-            if (!valid)
+
+            for (int attempt = 1; attempt <= 2; attempt++)
             {
-                byte[] bytes = await _http.GetByteArrayAsync("https://www.7-zip.org/a/7zr.exe", ct);
-                using var payload = new MemoryStream(bytes);
-                string hash = Convert.ToHexString(SHA256.HashData(payload));
-                if (hash != Expected7zrSha256)
-                    throw new InvalidOperationException(
-                        $"Downloaded 7zr.exe failed hash verification ({hash}). Refusing to execute it.");
-                await File.WriteAllBytesAsync(path, bytes, ct);
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    byte[] bytes = await _http.GetByteArrayAsync(SevenZrUrl, ct);
+                    string hash = Convert.ToHexString(SHA256.HashData(bytes));
+                    if (!IsKnown7zr(hash))
+                    {
+                        // A retry would return the same bytes, so stop and let the caller fall back.
+                        log($"Downloaded 7zr.exe failed hash verification ({hash}) - refusing to run it " +
+                            "(7-Zip likely published a newer build; this app only runs builds it has verified).");
+                        return null;
+                    }
+
+                    Directory.CreateDirectory(toolsDir);
+                    await File.WriteAllBytesAsync(path, bytes, ct);
+                    log($"7zr.exe verified (sha256 {hash[..16]}…) and cached in {toolsDir}.");
+                    return path;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    log(attempt == 1
+                        ? $"7zr.exe download failed ({ex.Message}) - retrying…"
+                        : $"7zr.exe download failed ({ex.Message}).");
+                    if (attempt == 1) await Task.Delay(500, ct);
+                }
             }
-            return path;
+            return null;
         }
 
-        public async Task<string> ExtractAsync(string packagePath, Action<string> log, CancellationToken ct)
+        private static string SystemTarPath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System), "tar.exe");
+
+        private static async Task<(int ExitCode, string Output)> RunToolAsync(
+            string fileName, string arguments, CancellationToken ct)
         {
-            string extractDir = Path.Combine(Path.GetTempPath(), "kaliteConfig", "nvidia", "extract");
-            if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
-            Directory.CreateDirectory(extractDir);
-
-            string z7 = await Ensure7zrAsync(ct);
-            log($"Extracting with {z7} …");
-
             var psi = new ProcessStartInfo
             {
-                FileName = z7,
-                Arguments = $"x \"{packagePath}\" -o\"{extractDir}\" -y -bso0 -bsp0",
+                FileName = fileName,
+                Arguments = arguments,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            using var proc = Process.Start(psi) ?? throw new InvalidOperationException("7zr.exe failed to start.");
-            string output = await proc.StandardOutput.ReadToEndAsync(ct);
+            using var proc = Process.Start(psi) ?? throw new InvalidOperationException($"{Path.GetFileName(fileName)} failed to start.");
+            var stdout = proc.StandardOutput.ReadToEndAsync(ct);
+            var stderr = proc.StandardError.ReadToEndAsync(ct);
             await proc.WaitForExitAsync(ct);
-            if (proc.ExitCode != 0)
-                throw new InvalidOperationException($"7z extraction failed (exit {proc.ExitCode}): {output}");
+            string output = (await stdout + await stderr).Trim();
+            return (proc.ExitCode, output);
+        }
+
+        private static void ResetExtractDir(string extractDir)
+        {
+            try
+            {
+                if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
+            }
+            catch (Exception) { }
+            Directory.CreateDirectory(extractDir);
+        }
+
+        public async Task<string> ExtractAsync(string packagePath, Action<string> log, CancellationToken ct)
+        {
+            string extractDir = Path.Combine(Path.GetTempPath(), "kaliteConfig", "nvidia", "extract");
+            ResetExtractDir(extractDir);
+
+            string? z7 = await TryEnsure7zrAsync(log, ct);
+            string? z7Error = null;
+
+            if (z7 is not null)
+            {
+                log($"Extracting with {z7} …");
+                var (exit, output) = await RunToolAsync(
+                    z7, $"x \"{packagePath}\" -o\"{extractDir}\" -y -bso0 -bsp0", ct);
+                if (exit == 0)
+                {
+                    log($"Extracted to {extractDir}");
+                    return extractDir;
+                }
+
+                z7Error = $"7z extraction failed (exit {exit}): {output}";
+                log($"{z7Error} - trying the extractor bundled with Windows.");
+                ResetExtractDir(extractDir);
+            }
+            else
+            {
+                log("No verified 7zr.exe available - using the extractor bundled with Windows.");
+            }
+
+            string tar = SystemTarPath;
+            if (!File.Exists(tar))
+                throw new InvalidOperationException(
+                    z7Error is null
+                        ? "Could not obtain a verified 7zr.exe and Windows' tar.exe is missing. " +
+                          "Install 7-Zip from https://www.7-zip.org/ and press Retry."
+                        : $"{z7Error} Windows' tar.exe is also missing (7-Zip 26.04+ is unsigned, so it " +
+                          "is not accepted automatically). Install 7-Zip from https://www.7-zip.org/ and press Retry.");
+
+            log($"Extracting with {tar} …");
+            var (tarExit, tarOutput) = await RunToolAsync(tar, $"-xf \"{packagePath}\" -C \"{extractDir}\"", ct);
+            if (tarExit != 0)
+                throw new InvalidOperationException(
+                    $"Extraction failed with both extractors. tar.exe (exit {tarExit}): {tarOutput}" +
+                    (z7Error is null ? "" : $" | {z7Error}"));
 
             log($"Extracted to {extractDir}");
             return extractDir;
