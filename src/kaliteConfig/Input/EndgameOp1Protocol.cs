@@ -289,6 +289,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             throw new IOException(LastError, unchecked((int)0x80070002));
         }
         Exception? last = null;
+        var failures = new List<string>();
         foreach (string path in paths)
         {
             try
@@ -298,10 +299,23 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             catch (Exception ex)
             {
                 last = ex;
+                failures.Add(ShortPath(path) + ": " + ex.Message);
             }
         }
-        LastError = last?.Message ?? "The mouse did not answer the probe.";
+        LastError = failures.Count == 0
+            ? "The mouse did not answer the probe."
+            : "Tried " + failures.Count + (failures.Count == 1 ? " interface: " : " interfaces: ") + string.Join("; ", failures);
         throw last ?? new IOException(LastError, unchecked((int)0x8007001F));
+    }
+
+    private static string ShortPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return "(none)";
+        int index = path.IndexOf("col", StringComparison.OrdinalIgnoreCase);
+        if (index > 0 && index + 5 <= path.Length) return path.Substring(index, 5);
+        int hid = path.IndexOf("hid#", StringComparison.OrdinalIgnoreCase);
+        if (hid >= 0 && hid + 24 <= path.Length) return path.Substring(hid, 24);
+        return path.Length <= 24 ? path : path.Substring(0, 24);
     }
 
     private async Task<bool> StoreConfigAsync(MouseDevice device, byte[] config)
