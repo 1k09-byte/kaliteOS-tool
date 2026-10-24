@@ -270,7 +270,6 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         public ushort UsagePage;
         public ushort Usage;
         public bool VendorDefined;
-        public uint Buttons;
     }
 
     private static RawInterface? ReadInterface(IntPtr handle, uint kind, ref string? firstError)
@@ -307,53 +306,120 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 firstError ??= "Reads failed: the device name came back empty.";
                 return null;
             }
-            IntPtr infoBuffer = Marshal.AllocHGlobal(128);
-            try
-            {
-                byte[] blank = new byte[128];
-                Marshal.Copy(blank, 0, infoBuffer, 128);
-                Marshal.WriteInt32(infoBuffer, 0, 32);
-                uint infoSize = 128;
-                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) == unchecked((uint)-1))
-                {
-                    int code = Marshal.GetLastWin32Error();
-                    firstError ??= "Reads failed at the device-info call (code " + code + ").";
-                    return null;
-                }
-                uint type = (uint)Marshal.ReadInt32(infoBuffer, 4);
-                if (type == NativeInput.RimTypeMouse)
-                {
-                    result.Buttons = (uint)Marshal.ReadInt32(infoBuffer, 12);
-                }
-                else if (type == NativeInput.RimTypeKeyboard)
-                {
-                    result.VendorDefined = false;
-                }
-                else if (type == NativeInput.RimTypeHid)
-                {
-                    result.UsagePage = (ushort)Marshal.ReadInt16(infoBuffer, 20);
-                    result.Usage = (ushort)Marshal.ReadInt16(infoBuffer, 22);
-                    result.VendorDefined = result.UsagePage >= 0xFF00;
-                    result.VendorId = (ushort)Marshal.ReadInt16(infoBuffer, 8);
-                    result.ProductId = (ushort)Marshal.ReadInt16(infoBuffer, 12);
-                }
-                else
-                {
-                    firstError ??= "Reads failed: unknown device type " + type + ".";
-                    return null;
-                }
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(infoBuffer);
-            }
             ReadHidStrings(result);
-            return result;
+            if (ReadCapsKind(result, ref firstError)) return result;
+            if (ReadInfoKind(handle, result, ref firstError)) return result;
+            return null;
         }
         catch (Exception ex)
         {
             firstError ??= "Reads failed: " + ex.GetType().Name + " " + ex.Message;
             return null;
+        }
+    }
+
+    private static bool ReadCapsKind(RawInterface result, ref string? firstError)
+    {
+        const uint share = 3;
+        const uint open = 3;
+        IntPtr handle = NativeInput.CreateFileW(result.Path, 0, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+        {
+            int code = Marshal.GetLastWin32Error();
+            firstError ??= "Reads failed at the descriptor open (code " + code + ").";
+            return false;
+        }
+        try
+        {
+            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero)
+            {
+                int code = Marshal.GetLastWin32Error();
+                firstError ??= "Reads failed at the descriptor read (code " + code + ").";
+                return false;
+            }
+            try
+            {
+                IntPtr caps = Marshal.AllocHGlobal(64);
+                try
+                {
+                    for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
+                    if (NativeInput.HidP_GetCaps(preparsed, caps) != 0)
+                    {
+                        firstError ??= "Reads failed at the descriptor parse.";
+                        return false;
+                    }
+                    ushort usage = (ushort)Marshal.ReadInt16(caps, 0);
+                    ushort page = (ushort)Marshal.ReadInt16(caps, 2);
+                    result.Usage = usage;
+                    result.UsagePage = page;
+                    if (page == 1 && usage == 2) result.Kind = NativeInput.RimTypeMouse;
+                    else if (page == 1 && usage == 6) result.Kind = NativeInput.RimTypeKeyboard;
+                    else result.Kind = NativeInput.RimTypeHid;
+                    result.VendorDefined = page >= 0xFF00 || usage >= 0xFF00;
+                    return result.Kind == NativeInput.RimTypeMouse
+                        || result.Kind == NativeInput.RimTypeKeyboard
+                        || result.VendorDefined;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(caps);
+                }
+            }
+            finally
+            {
+                try { NativeInput.HidD_FreePreparsedData(preparsed); } catch { }
+            }
+        }
+        finally
+        {
+            try { NativeInput.CloseHandle(handle); } catch { }
+        }
+    }
+
+    private static bool ReadInfoKind(IntPtr handle, RawInterface result, ref string? firstError)
+    {
+        IntPtr infoBuffer = Marshal.AllocHGlobal(128);
+        try
+        {
+            byte[] blank = new byte[128];
+            Marshal.Copy(blank, 0, infoBuffer, 128);
+            Marshal.WriteInt32(infoBuffer, 0, 32);
+            uint infoSize = 128;
+            if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) == unchecked((uint)-1))
+            {
+                int code = Marshal.GetLastWin32Error();
+                firstError ??= "Reads failed at the device-info call (code " + code + ").";
+                return false;
+            }
+            uint type = (uint)Marshal.ReadInt32(infoBuffer, 4);
+            if (type == NativeInput.RimTypeMouse)
+            {
+                result.Kind = NativeInput.RimTypeMouse;
+                result.VendorDefined = false;
+                return true;
+            }
+            if (type == NativeInput.RimTypeKeyboard)
+            {
+                result.Kind = NativeInput.RimTypeKeyboard;
+                result.VendorDefined = false;
+                return true;
+            }
+            if (type == NativeInput.RimTypeHid)
+            {
+                result.Kind = NativeInput.RimTypeHid;
+                result.UsagePage = (ushort)Marshal.ReadInt16(infoBuffer, 20);
+                result.Usage = (ushort)Marshal.ReadInt16(infoBuffer, 22);
+                result.VendorDefined = result.UsagePage >= 0xFF00;
+                result.VendorId = (ushort)Marshal.ReadInt16(infoBuffer, 8);
+                result.ProductId = (ushort)Marshal.ReadInt16(infoBuffer, 12);
+                return true;
+            }
+            firstError ??= "Reads failed: unknown device type " + type + ".";
+            return false;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(infoBuffer);
         }
     }
 

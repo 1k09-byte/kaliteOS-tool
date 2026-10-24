@@ -189,6 +189,17 @@ internal static partial class NativeInput
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool HidD_GetFeature(IntPtr hidDeviceObject, IntPtr reportBuffer, uint reportBufferLength);
 
+    [LibraryImport("hid.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool HidD_GetPreparsedData(IntPtr hidDeviceObject, out IntPtr preparsedData);
+
+    [LibraryImport("hid.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool HidD_FreePreparsedData(IntPtr preparsedData);
+
+    [LibraryImport("hid.dll", SetLastError = true)]
+    internal static partial int HidP_GetCaps(IntPtr preparsedData, IntPtr capabilities);
+
     [DllImport("setupapi.dll", SetLastError = true)]
     internal static extern IntPtr SetupDiGetClassDevsW(
         ref Guid classGuid,
