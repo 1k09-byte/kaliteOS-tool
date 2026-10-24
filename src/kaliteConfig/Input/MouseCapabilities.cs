@@ -81,6 +81,13 @@ public sealed class MouseCapabilityProvider : IMouseCapabilityProvider
             return list;
         list.Add(new MouseCapability(CapabilityKind.DeviceInfo, CapabilityState.Available, string.Empty));
         list.Add(new MouseCapability(CapabilityKind.WindowsSettings, CapabilityState.Available, "Applies to all mice."));
+        if (device.WindowsOnly)
+        {
+            list.Add(new MouseCapability(CapabilityKind.ReportRate, CapabilityState.Available, "Setting: can't read from this mouse. No verified module."));
+            list.Add(new MouseCapability(CapabilityKind.Test, CapabilityState.Available, string.Empty));
+            list.Add(new MouseCapability(CapabilityKind.Log, CapabilityState.Available, string.Empty));
+            return list;
+        }
         bool vendorControlled = device.VendorSoftwarePresent;
         var vendorState = vendorControlled ? CapabilityState.ControlledByVendor : CapabilityState.NotImplemented;
         string vendorDetail = vendorControlled

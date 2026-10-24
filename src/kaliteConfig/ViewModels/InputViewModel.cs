@@ -285,7 +285,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         SelectedCapability = null;
         if (row is null) return;
         Nickname = row.Device.Nickname;
-        InfoBrand = row.Device.BrandText.Length > 0 ? row.Device.BrandText : "Unknown brand";
+        InfoBrand = row.Device.WindowsOnly
+            ? "Brand couldn't be identified"
+            : row.Device.BrandText.Length > 0 ? row.Device.BrandText : "Unknown brand";
         InfoModel = row.Device.Product.Length > 0 ? row.Device.Product : "Unknown model";
         InfoVidPid = "VID " + row.Device.VendorId.ToString("X4") + ", PID " + row.Device.ProductId.ToString("X4");
         InfoSerial = row.Device.Serial.Length > 0 ? row.Device.Serial : "Not exposed";
@@ -313,7 +315,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         VendorBanner = row.Device.VendorSoftwarePresent
             ? row.Device.VendorSoftwareName + " is running and may overwrite changes made here"
             : string.Empty;
-        InfoBrand = row.Device.BrandText.Length > 0 ? row.Device.BrandText : "Unknown brand";
+        InfoBrand = row.Device.WindowsOnly
+            ? "Brand couldn't be identified"
+            : row.Device.BrandText.Length > 0 ? row.Device.BrandText : "Unknown brand";
         InfoModel = row.Device.Product.Length > 0 ? row.Device.Product : "Unknown model";
         InfoVidPid = "VID " + row.Device.VendorId.ToString("X4") + ", PID " + row.Device.ProductId.ToString("X4");
         InfoSerial = row.Device.Serial.Length > 0 ? row.Device.Serial : "Not exposed";
