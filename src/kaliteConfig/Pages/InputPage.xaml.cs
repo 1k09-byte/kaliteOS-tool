@@ -25,7 +25,9 @@ namespace kaliteConfig.Pages
                 Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IWindowsMouseSettingsService>(App.Services),
                 Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IMouseTestService>(App.Services),
                 Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IMouseLog>(App.Services),
-                Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IMousePrefStore>(App.Services));
+                Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IMousePrefStore>(App.Services),
+                Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.EndgameOp1Protocol>(App.Services),
+                Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IMouseWriteTransaction>(App.Services));
             this.DataContext = ViewModel;
             _panels[Input.CapabilityKind.DeviceInfo] = InfoPanel;
             _panels[Input.CapabilityKind.WindowsSettings] = WindowsPanel;
@@ -170,7 +172,7 @@ namespace kaliteConfig.Pages
 
         private async void WindowsRevert_Click(object sender, RoutedEventArgs e) => await ViewModel.RevertWindowsAsync();
 
-        private async void ReportApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyReportRateAsync(this.XamlRoot, string.Empty);
+        private async void DeviceApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyDeviceAsync();
 
         private void TestStart_Click(object sender, RoutedEventArgs e) => ViewModel.StartTest();
 
