@@ -53,14 +53,17 @@ public sealed class MouseClassifier : IMouseClassifier
         string maker = IsUnknownMaker(device.Manufacturer) ? string.Empty : device.Manufacturer;
         bool makerBranded = maker.Length > 0 && !catalog.IsGenericMaker(maker);
         bool tokenBranded = catalog.MatchesKnownBrand(maker, device.Product);
-        if (makerBranded || tokenBranded)
+        bool idBranded = !makerBranded && !tokenBranded && catalog.MatchesVerifiedId(device.VendorId, device.ProductId);
+        if (makerBranded || tokenBranded || idBranded)
         {
             device.Class = MouseClass.Supported;
             device.WindowsOnly = false;
             device.Branded = true;
             device.ClassReason = makerBranded
                 ? "Brand identified from the device manufacturer string."
-                : "Brand identified from the device product string.";
+                : tokenBranded
+                ? "Brand identified from the device product string."
+                : "Brand identified from the device USB identity.";
             return;
         }
         bool makerGeneric = maker.Length > 0 && catalog.IsGenericMaker(maker);

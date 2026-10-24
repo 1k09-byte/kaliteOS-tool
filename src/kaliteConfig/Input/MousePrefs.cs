@@ -10,6 +10,7 @@ public sealed class MousePrefsData
     public Dictionary<string, string> Nicknames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> ForceShow { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool ReapplyOnConnect { get; set; }
+    public bool CommunityProtocols { get; set; }
     public Dictionary<string, Dictionary<string, string>> Applied { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
