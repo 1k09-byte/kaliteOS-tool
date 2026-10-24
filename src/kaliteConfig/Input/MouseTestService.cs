@@ -44,6 +44,9 @@ public sealed class CaptureLive
 {
     public int Reports;
     public double Seconds;
+    public int Buttons;
+    public long Wheel;
+    public long HWheel;
 }
 
 public interface IMouseTestService
@@ -65,13 +68,15 @@ public sealed class MouseTestService : IMouseTestService
     private readonly List<long> _leftDowns = new();
     private long _wheelTotal;
     private long _hwheelTotal;
+    private int _liveButtons;
     private ulong _target;
     private string _connection = string.Empty;
     private bool _deviceGone;
     private long _qpcFrequency;
     private int _maxDrain;
     private int _lastProgressCount;
-    private long _progressTicks;
+    private IntPtr _captureHwnd;
+    private NativeInput.WndProc? _wndProc;
     private static readonly IntPtr HwndMessage = new(-3);
 
     public bool Running
@@ -112,9 +117,10 @@ public sealed class MouseTestService : IMouseTestService
 
     public ReportRateResult Stop()
     {
+        _stopRequested = true;
+        WakeCapture();
         Thread? thread;
         lock (_gate) thread = _thread;
-        _stopRequested = true;
         try { thread?.Join(3000); }
         catch { }
         lock (_gate) _thread = null;
@@ -123,12 +129,23 @@ public sealed class MouseTestService : IMouseTestService
 
     public void Abort()
     {
+        _stopRequested = true;
+        WakeCapture();
         Thread? thread;
         lock (_gate) thread = _thread;
-        _stopRequested = true;
         try { thread?.Join(1500); }
         catch { }
         lock (_gate) _thread = null;
+    }
+
+    private void WakeCapture()
+    {
+        try
+        {
+            IntPtr hwnd = _captureHwnd;
+            if (hwnd != IntPtr.Zero) NativeInput.PostMessageW(hwnd, 0, IntPtr.Zero, IntPtr.Zero);
+        }
+        catch { }
     }
 
     private void CaptureLoop()
@@ -136,12 +153,14 @@ public sealed class MouseTestService : IMouseTestService
         IntPtr hwnd = IntPtr.Zero;
         try
         {
+            _wndProc = WndProc;
             ushort atom = RegisterCaptureClass();
             if (atom == 0) return;
             IntPtr instance = NativeInput.GetModuleHandleW(null);
             hwnd = NativeInput.CreateWindowExW(0, "KaliteMouseCapture", string.Empty, 0,
                 0, 0, 0, 0, HwndMessage, IntPtr.Zero, instance, IntPtr.Zero);
             if (hwnd == IntPtr.Zero) return;
+            _captureHwnd = hwnd;
             var devices = new NativeInput.RawInputDevice[1];
             devices[0] = new NativeInput.RawInputDevice
             {
@@ -152,7 +171,6 @@ public sealed class MouseTestService : IMouseTestService
             };
             if (!NativeInput.RegisterRawInputDevices(devices, 1, (uint)Marshal.SizeOf<NativeInput.RawInputDevice>()))
                 return;
-            _progressTicks = NowQpc();
             while (!_stopRequested)
             {
                 int got = NativeInput.GetMessageW(out NativeInput.Msg msg, hwnd, 0, 0);
@@ -178,6 +196,7 @@ public sealed class MouseTestService : IMouseTestService
         catch { }
         finally
         {
+            _captureHwnd = IntPtr.Zero;
             if (hwnd != IntPtr.Zero)
             {
                 try { NativeInput.DestroyWindow(hwnd); }
@@ -195,7 +214,7 @@ public sealed class MouseTestService : IMouseTestService
             {
                 Size = (uint)Marshal.SizeOf<NativeInput.WndClassEx>(),
                 Style = 0,
-                Proc = WndProc,
+                Proc = _wndProc ?? WndProc,
                 ClsExtra = 0,
                 WndExtra = 0,
                 Instance = instance,
@@ -285,7 +304,7 @@ public sealed class MouseTestService : IMouseTestService
     private void RecordMouse(IntPtr entry, long stamp)
     {
         ushort flags = (ushort)Marshal.ReadInt16(entry, 24);
-        if ((flags & 0x01) != 0) return;
+        bool absolute = (flags & 0x01) != 0;
         uint buttons = (uint)Marshal.ReadInt32(entry, 28);
         int wheel = 0;
         int hwheel = 0;
@@ -293,13 +312,23 @@ public sealed class MouseTestService : IMouseTestService
         short buttonData = (short)((buttons >> 16) & 0xFFFF);
         if ((buttonFlags & 0x0400) != 0) wheel = buttonData;
         if ((buttonFlags & 0x0800) != 0) hwheel = buttonData;
-        int dx = Marshal.ReadInt32(entry, 36);
-        int dy = Marshal.ReadInt32(entry, 40);
+        int dx = absolute ? 0 : Marshal.ReadInt32(entry, 36);
+        int dy = absolute ? 0 : Marshal.ReadInt32(entry, 40);
         if ((buttonFlags & 0x0001) != 0)
         {
             _leftDowns.Add(stamp);
             if (_leftDowns.Count > 64) _leftDowns.RemoveAt(0);
+            _liveButtons |= 1;
         }
+        if ((buttonFlags & 0x0002) != 0) _liveButtons &= ~1;
+        if ((buttonFlags & 0x0004) != 0) _liveButtons |= 2;
+        if ((buttonFlags & 0x0008) != 0) _liveButtons &= ~2;
+        if ((buttonFlags & 0x0010) != 0) _liveButtons |= 4;
+        if ((buttonFlags & 0x0020) != 0) _liveButtons &= ~4;
+        if ((buttonFlags & 0x0040) != 0) _liveButtons |= 8;
+        if ((buttonFlags & 0x0080) != 0) _liveButtons &= ~8;
+        if ((buttonFlags & 0x0100) != 0) _liveButtons |= 16;
+        if ((buttonFlags & 0x0200) != 0) _liveButtons &= ~16;
         _wheelTotal += wheel;
         _hwheelTotal += hwheel;
         bool moved = dx != 0 || dy != 0;
@@ -313,7 +342,7 @@ public sealed class MouseTestService : IMouseTestService
             _lastProgressCount = total;
             long now = stamp;
             double seconds = _qpcFrequency > 0 ? (now - FirstStamp()) / (double)_qpcFrequency : 0;
-            try { Progress?.Invoke(new CaptureLive { Reports = total, Seconds = seconds }); } catch { }
+            try { Progress?.Invoke(new CaptureLive { Reports = total, Seconds = seconds, Buttons = _liveButtons, Wheel = _wheelTotal, HWheel = _hwheelTotal }); } catch { }
         }
     }
 

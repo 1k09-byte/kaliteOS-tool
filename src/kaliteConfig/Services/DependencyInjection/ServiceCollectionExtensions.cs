@@ -72,6 +72,9 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<Input.IMouseWriteTransaction, Input.MouseWriteTransaction>();
         s.AddSingleton<Input.IWindowsMouseSettingsService, Input.WindowsMouseSettingsService>();
         s.AddSingleton<Input.IMouseTestService, Input.MouseTestService>();
+        s.AddSingleton<Input.IMousePrefStore, Input.MousePrefStore>();
+
+        s.AddTransient<InputViewModel>();
 
         s.AddSingleton<BiosManagerViewModel>();
         s.AddTransient<GpuDriversViewModel>();

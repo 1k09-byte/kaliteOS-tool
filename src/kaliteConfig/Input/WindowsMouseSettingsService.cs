@@ -31,6 +31,8 @@ public interface IWindowsMouseSettingsService
     Task<MouseWriteOutcome> ApplySnapAsync(string deviceId, string deviceName, bool original, bool requested);
     Task<MouseWriteOutcome> ApplyClickLockAsync(string deviceId, string deviceName, bool original, bool requested);
     Task<MouseWriteOutcome> ApplyClickLockTimeAsync(string deviceId, string deviceName, uint original, uint requested);
+    Task<MouseWriteOutcome> ApplyPrecisionAsync(string deviceId, string deviceName, bool original, bool requested);
+    Task<MouseWriteOutcome> ApplyTrailsAsync(string deviceId, string deviceName, bool original, bool requested);
     Task<MouseWriteOutcome> RestoreAllAsync(string deviceId, string deviceName);
 }
 
@@ -196,6 +198,36 @@ public sealed class WindowsMouseSettingsService : IWindowsMouseSettingsService
         });
     }
 
+    public Task<MouseWriteOutcome> ApplyPrecisionAsync(string deviceId, string deviceName, bool original, bool requested)
+    {
+        var current = Read();
+        return _tx.RunAsync(new MouseWritePlan
+        {
+            DeviceId = deviceId,
+            DeviceName = deviceName,
+            Setting = "Pointer precision",
+            Original = OnOff(original),
+            Requested = OnOff(requested),
+            Write = () => Task.FromResult(ApplyMouseOptions(current.PointerSpeed, requested, current.Trails ? 7 : 0, current.WheelLines)),
+            ReadBack = () => Task.FromResult<string?>(OnOff(Read().Precision)),
+        });
+    }
+
+    public Task<MouseWriteOutcome> ApplyTrailsAsync(string deviceId, string deviceName, bool original, bool requested)
+    {
+        var current = Read();
+        return _tx.RunAsync(new MouseWritePlan
+        {
+            DeviceId = deviceId,
+            DeviceName = deviceName,
+            Setting = "Pointer trails",
+            Original = OnOff(original),
+            Requested = OnOff(requested),
+            Write = () => Task.FromResult(ApplyMouseOptions(current.PointerSpeed, current.Precision, requested ? 7 : 0, current.WheelLines)),
+            ReadBack = () => Task.FromResult<string?>(OnOff(Read().Trails)),
+        });
+    }
+
     public Task<MouseWriteOutcome> RestoreAllAsync(string deviceId, string deviceName)
     {
         var current = Read();
@@ -239,6 +271,10 @@ public sealed class WindowsMouseSettingsService : IWindowsMouseSettingsService
                 return SetBool(MouseSystemInterop.SpiSetClickLock, string.Equals(original, "On", StringComparison.OrdinalIgnoreCase));
             if (setting == "ClickLock time" && uint.TryParse(original, out uint lockMs))
                 return SetDword(MouseSystemInterop.SpiSetClickLockTime, lockMs);
+            if (setting == "Pointer precision")
+                return ApplyMouseOptions(current.PointerSpeed, string.Equals(original, "On", StringComparison.OrdinalIgnoreCase), current.Trails ? 7 : 0, current.WheelLines);
+            if (setting == "Pointer trails")
+                return ApplyMouseOptions(current.PointerSpeed, current.Precision, string.Equals(original, "On", StringComparison.OrdinalIgnoreCase) ? 7 : 0, current.WheelLines);
         }
         catch { }
         return false;

@@ -159,6 +159,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                     var list = Marshal.PtrToStructure<NativeInput.RawInputDeviceList>(item);
                     var info = ReadInterface(list.Handle, list.Type);
                     if (info is null) continue;
+                    info.Handle = (ulong)list.Handle.ToInt64();
                     if (list.Type == NativeInput.RimTypeMouse) mouseInfos.Add(info);
                     else if (list.Type == NativeInput.RimTypeKeyboard) auxInfos.Add(info);
                     else if (list.Type == NativeInput.RimTypeHid && info.VendorDefined) auxInfos.Add(info);
@@ -212,6 +213,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
 
     private sealed class RawInterface
     {
+        public ulong Handle;
         public string Path = string.Empty;
         public string ManufacturerText = string.Empty;
         public string ProductText = string.Empty;
@@ -480,6 +482,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             device.Connection = ClassifyConnection(info.Path, instance);
             device.Interfaces.Add(new MouseInterfaceInfo
             {
+                Handle = info.Handle,
                 DevicePath = info.Path,
                 InstanceId = instance,
                 Kind = info.Kind,
