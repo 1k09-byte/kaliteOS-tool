@@ -9,6 +9,7 @@ public interface IMouseDiscoveryService
 {
     IReadOnlyList<MouseDevice> Devices { get; }
     int DroppedInterfaces { get; }
+    string LastScanError { get; }
     event Action? Changed;
     void Refresh();
     void StartNotifications();
@@ -45,7 +46,13 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         get { lock (_gate) return _dropped; }
     }
 
+    public string LastScanError
+    {
+        get { lock (_gate) return _scanError; }
+    }
+
     private int _dropped;
+    private string _scanError = string.Empty;
 
     public event Action? Changed;
 
@@ -173,6 +180,8 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
     private List<MouseDevice> Enumerate()
     {
         _dropped = 0;
+        string? firstError = null;
+        _scanError = string.Empty;
         var devices = new List<MouseDevice>();
         var mouseInfos = new List<RawInterface>();
         var auxInfos = new List<RawInterface>();
@@ -191,7 +200,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 {
                     IntPtr item = IntPtr.Add(buffer, i * entrySize);
                     var list = Marshal.PtrToStructure<NativeInput.RawInputDeviceList>(item);
-                    var info = ReadInterface(list.Handle, list.Type);
+                    var info = ReadInterface(list.Handle, list.Type, ref firstError);
                     if (info is null) { _dropped++; continue; }
                     info.Handle = (ulong)list.Handle.ToInt64();
                     if (list.Type == NativeInput.RimTypeMouse) mouseInfos.Add(info);
@@ -242,6 +251,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             devices.Add(device);
         }
         MarkReceivers(devices);
+        _scanError = firstError ?? string.Empty;
         return devices;
     }
 
@@ -263,31 +273,50 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         public uint Buttons;
     }
 
-    private static RawInterface? ReadInterface(IntPtr handle, uint kind)
+    private static RawInterface? ReadInterface(IntPtr handle, uint kind, ref string? firstError)
     {
         var result = new RawInterface { Kind = kind };
         try
         {
             uint nameSize = 0;
-            NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDevicename, IntPtr.Zero, ref nameSize);
-            if (nameSize < 2) return null;
+            uint sizeResult = NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDevicename, IntPtr.Zero, ref nameSize);
+            if (nameSize < 2)
+            {
+                int code = Marshal.GetLastWin32Error();
+                firstError ??= "Reads failed at the device-name size call (result " + sizeResult + ", code " + code + ").";
+                return null;
+            }
             IntPtr nameBuffer = Marshal.AllocHGlobal(checked((int)nameSize * 2));
             try
             {
                 uint nameLen = nameSize;
-                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDevicename, nameBuffer, ref nameLen) == unchecked((uint)-1)) return null;
+                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDevicename, nameBuffer, ref nameLen) == unchecked((uint)-1))
+                {
+                    int code = Marshal.GetLastWin32Error();
+                    firstError ??= "Reads failed at the device-name call (code " + code + ").";
+                    return null;
+                }
                 result.Path = Marshal.PtrToStringUni(nameBuffer) ?? string.Empty;
             }
             finally
             {
                 Marshal.FreeHGlobal(nameBuffer);
             }
-            if (result.Path.Length == 0) return null;
+            if (result.Path.Length == 0)
+            {
+                firstError ??= "Reads failed: the device name came back empty.";
+                return null;
+            }
             IntPtr infoBuffer = Marshal.AllocHGlobal(128);
             try
             {
                 uint infoSize = 128;
-                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) == unchecked((uint)-1)) return null;
+                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) == unchecked((uint)-1))
+                {
+                    int code = Marshal.GetLastWin32Error();
+                    firstError ??= "Reads failed at the device-info call (code " + code + ").";
+                    return null;
+                }
                 uint type = (uint)Marshal.ReadInt32(infoBuffer, 4);
                 if (type == NativeInput.RimTypeMouse)
                 {
@@ -307,6 +336,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 }
                 else
                 {
+                    firstError ??= "Reads failed: unknown device type " + type + ".";
                     return null;
                 }
             }
@@ -317,8 +347,9 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             ReadHidStrings(result);
             return result;
         }
-        catch
+        catch (Exception ex)
         {
+            firstError ??= "Reads failed: " + ex.GetType().Name + " " + ex.Message;
             return null;
         }
     }
