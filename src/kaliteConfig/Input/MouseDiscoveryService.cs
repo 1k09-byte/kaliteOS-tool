@@ -220,6 +220,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             return devices;
         }
         var setupPaths = MapSetupPaths();
+        if (setupPaths.Count == 0) firstError ??= "The device tree could not be enumerated.";
         var pathsById = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var known in setupPaths.Values)
         {
@@ -568,10 +569,12 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 try
                 {
                     Marshal.WriteInt32(detail, IntPtr.Size == 8 ? 8 : 6);
-                    IntPtr devinfo = Marshal.AllocHGlobal(28);
+                    int devinfoSize = IntPtr.Size == 8 ? 32 : 28;
+                    IntPtr devinfo = Marshal.AllocHGlobal(devinfoSize);
                     try
                     {
-                        Marshal.WriteInt32(devinfo, 28);
+                        for (int i = 0; i < devinfoSize; i++) Marshal.WriteByte(devinfo, i, 0);
+                        Marshal.WriteInt32(devinfo, devinfoSize);
                         uint got = 0;
                         if (!NativeInput.SetupDiGetDeviceInterfaceDetailW(set, ref iface, detail, required, out got, devinfo)) continue;
                         string path = Marshal.PtrToStringUni(IntPtr.Add(detail, IntPtr.Size == 8 ? 8 : 4)) ?? string.Empty;
