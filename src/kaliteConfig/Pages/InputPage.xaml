@@ -78,6 +78,7 @@
                     <toolkit:SettingsCard Header="Receiver" Description="{x:Bind ViewModel.InfoReceiver, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Vendor software" Description="{x:Bind ViewModel.InfoVendor, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Why shown" Description="{x:Bind ViewModel.InfoReason, Mode=OneWay}" />
+                    <toolkit:SettingsCard Header="Onboard memory" Description="{x:Bind ViewModel.InfoMemory, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Nickname">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBox Text="{x:Bind ViewModel.Nickname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="200" PlaceholderText="Nickname" />

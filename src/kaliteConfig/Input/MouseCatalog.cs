@@ -74,6 +74,23 @@ public sealed class MouseCatalog
         new("MSI Center", new[] { "MSI Center.exe", "MSICenter.exe" }, new[] { "MSI" }, new[] { "MSI" }),
     };
 
+    public IReadOnlyList<string> KnownBrands { get; } = new List<string>
+    {
+        "Endgame Gear",
+        "Endgamegear",
+        "Endgame",
+        "XM2",
+    };
+
+    public bool MatchesKnownBrand(string manufacturer, string product)
+    {
+        string haystack = ((manufacturer ?? string.Empty) + " " + (product ?? string.Empty)).Trim();
+        if (haystack.Length == 0) return false;
+        foreach (string brand in KnownBrands)
+            if (haystack.IndexOf(brand, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        return false;
+    }
+
     public bool IsGenericMaker(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return true;
