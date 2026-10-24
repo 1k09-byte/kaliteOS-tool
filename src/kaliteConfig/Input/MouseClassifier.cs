@@ -33,31 +33,55 @@ public sealed class MouseClassifier : IMouseClassifier
         if (device.IsVirtual)
         {
             device.Class = MouseClass.Ignored;
+            device.WindowsOnly = false;
+            device.Branded = false;
             device.ClassReason = "Virtual or remote device, not a physical mouse.";
             return;
         }
         device.VendorSoftwarePresent = vendorSoftwarePresent;
         device.VendorSoftwareName = vendorSoftwareName ?? string.Empty;
-        bool makerBranded = !catalog.IsGenericMaker(device.Manufacturer);
-        bool tokenBranded = !makerBranded && catalog.MatchesKnownBrand(device.Manufacturer, device.Product);
-        device.Branded = makerBranded || tokenBranded;
         if (vendorSoftwarePresent || hasVendorInterface)
         {
             device.Class = MouseClass.Supported;
+            device.WindowsOnly = false;
+            device.Branded = true;
             device.ClassReason = vendorSoftwarePresent
                 ? "Vendor software found: " + vendorSoftwareName + "."
                 : "Vendor-defined interface handled by this app.";
             return;
         }
+        string maker = IsUnknownMaker(device.Manufacturer) ? string.Empty : device.Manufacturer;
+        bool makerBranded = maker.Length > 0 && !catalog.IsGenericMaker(maker);
+        bool tokenBranded = catalog.MatchesKnownBrand(maker, device.Product);
         if (makerBranded || tokenBranded)
         {
             device.Class = MouseClass.Supported;
+            device.WindowsOnly = false;
+            device.Branded = true;
             device.ClassReason = makerBranded
                 ? "Brand identified from the device manufacturer string."
                 : "Brand identified from the device product string.";
             return;
         }
-        device.Class = MouseClass.Ignored;
-        device.ClassReason = "Generic mouse: no brand and no vendor software found.";
+        bool makerGeneric = maker.Length > 0 && catalog.IsGenericMaker(maker);
+        bool productGeneric = device.Product.Length == 0 || catalog.IsGenericProduct(device.Product);
+        if (makerGeneric && productGeneric)
+        {
+            device.Class = MouseClass.Ignored;
+            device.WindowsOnly = false;
+            device.Branded = false;
+            device.ClassReason = "Generic device: brand strings say generic and no vendor software found.";
+            return;
+        }
+        device.Class = MouseClass.Supported;
+        device.WindowsOnly = true;
+        device.Branded = false;
+        device.ClassReason = "Brand couldn't be identified. Windows settings only.";
+    }
+
+    private static bool IsUnknownMaker(string maker)
+    {
+        return maker.Equals("Microsoft", StringComparison.OrdinalIgnoreCase)
+            || maker.Equals("(Standard mouse types)", StringComparison.OrdinalIgnoreCase);
     }
 }
