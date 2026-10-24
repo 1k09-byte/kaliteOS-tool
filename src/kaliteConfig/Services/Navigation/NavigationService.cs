@@ -6,7 +6,7 @@ namespace kaliteConfig.Services.Navigation;
 public enum PageKey
 {
     Apps, Graphics, Gaming, PriorityBoosts, ThreadTuner, Snip,
-    Network, WindowsSettings, BiosManager, PowerPlans, Personalize, Troubleshooting, Settings
+    Network, WindowsSettings, BiosManager, PowerPlans, Personalize, Troubleshooting, Settings, Input
 }
 
 public interface INavigationService
@@ -30,6 +30,7 @@ public sealed class NavigationService : INavigationService
         PageKey.ThreadTuner => typeof(Pages.ThreadTunerPage),
         PageKey.Snip => typeof(Pages.SnipPage),
         PageKey.Network => typeof(Pages.NetworkPage),
+        PageKey.Input => typeof(Pages.InputPage),
         PageKey.WindowsSettings => typeof(Pages.WindowsSettingsHubPage),
         PageKey.BiosManager => typeof(Pages.BiosManagerPage),
         PageKey.PowerPlans => typeof(Pages.PowerPlansPage),
@@ -47,6 +48,7 @@ public sealed class NavigationService : INavigationService
         "ThreadTunerPage" => PageKey.ThreadTuner,
         "SnipPage" => PageKey.Snip,
         "NetworkPage" => PageKey.Network,
+        "InputPage" => PageKey.Input,
         "WindowsSettingsPage" => PageKey.WindowsSettings,
         "BiosManagerPage" => PageKey.BiosManager,
         "PowerPlansPage" => PageKey.PowerPlans,

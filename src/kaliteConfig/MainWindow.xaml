@@ -160,6 +160,14 @@
                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE839;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Input" Tag="InputPage" AutomationProperties.Name="Mouse Input" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE962;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
             </NavigationView.MenuItems>
 

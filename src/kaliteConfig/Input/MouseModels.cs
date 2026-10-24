@@ -37,6 +37,7 @@ public enum MouseResult
 
 public sealed class MouseInterfaceInfo
 {
+    public ulong Handle { get; set; }
     public string DevicePath { get; set; } = string.Empty;
     public string InstanceId { get; set; } = string.Empty;
     public uint Kind { get; set; }
