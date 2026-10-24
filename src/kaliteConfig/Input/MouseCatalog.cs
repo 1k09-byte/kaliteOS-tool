@@ -111,9 +111,14 @@ public sealed class MouseCatalog
 
     public bool LooksVirtual(string instanceId, string parentId, string devicePath)
     {
-        string haystack = ((instanceId ?? string.Empty) + "|" + (parentId ?? string.Empty) + "|" + (devicePath ?? string.Empty)).ToUpperInvariant();
-        foreach (string signal in VirtualSignals)
-            if (haystack.Contains(signal.ToUpperInvariant())) return true;
+        string joined = (instanceId ?? string.Empty) + "#" + (parentId ?? string.Empty) + "#" + (devicePath ?? string.Empty);
+        string[] tokens = joined.Split('#', '\\', '&', '_');
+        foreach (string token in tokens)
+        {
+            if (token.Length == 0) continue;
+            foreach (string signal in VirtualSignals)
+                if (token.Equals(signal.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return true;
+        }
         return false;
     }
 }

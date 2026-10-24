@@ -8,6 +8,7 @@ namespace kaliteConfig.Input;
 public interface IMouseDiscoveryService
 {
     IReadOnlyList<MouseDevice> Devices { get; }
+    int DroppedInterfaces { get; }
     event Action? Changed;
     void Refresh();
     void StartNotifications();
@@ -39,6 +40,13 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         get { lock (_gate) return _devices.ToArray(); }
     }
 
+    public int DroppedInterfaces
+    {
+        get { lock (_gate) return _dropped; }
+    }
+
+    private int _dropped;
+
     public event Action? Changed;
 
     public void Refresh()
@@ -46,13 +54,38 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         var found = Enumerate();
         var (present, name) = _vendor.Detect(_catalog);
         foreach (var device in found)
+        {
             _classifier.Classify(device, _catalog, present && MakerMatches(device, name), present ? name : string.Empty, HasHandledVendorInterface(device));
+            device.DiscoveryText = DescribeDiscovery(device);
+        }
         lock (_gate)
         {
             _devices.Clear();
             _devices.AddRange(found);
         }
         try { Changed?.Invoke(); } catch { }
+    }
+
+    private static string ConnectionText(MouseConnection connection) => connection switch
+    {
+        MouseConnection.Usb => "USB",
+        MouseConnection.Receiver24Ghz => "2.4 GHz receiver",
+        MouseConnection.Bluetooth => "Bluetooth",
+        MouseConnection.Other => "Other",
+        _ => "Unknown",
+    };
+
+    private static string DescribeDiscovery(MouseDevice device)
+    {
+        return "VID " + device.VendorId.ToString("X4") + ", PID " + device.ProductId.ToString("X4") + "\n"
+            + "Maker: " + (device.Manufacturer.Length > 0 ? device.Manufacturer : "not reported") + " (" + device.MakerSource + ")\n"
+            + "Product: " + (device.Product.Length > 0 ? device.Product : "not reported") + "\n"
+            + "Serial: " + (device.Serial.Length > 0 ? device.Serial : "not exposed") + "\n"
+            + "Container: " + (device.ContainerId.Length > 0 ? device.ContainerId : "none") + "\n"
+            + "Path: " + device.InterfacePath + "\n"
+            + "Connection: " + ConnectionText(device.Connection) + "\n"
+            + "Open: " + device.OpenResult + "\n"
+            + "Rule: " + device.ClassReason;
     }
 
     private static bool MakerMatches(MouseDevice device, string softwareName)
@@ -139,6 +172,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
 
     private List<MouseDevice> Enumerate()
     {
+        _dropped = 0;
         var devices = new List<MouseDevice>();
         var mouseInfos = new List<RawInterface>();
         var auxInfos = new List<RawInterface>();
@@ -158,7 +192,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                     IntPtr item = IntPtr.Add(buffer, i * entrySize);
                     var list = Marshal.PtrToStructure<NativeInput.RawInputDeviceList>(item);
                     var info = ReadInterface(list.Handle, list.Type);
-                    if (info is null) continue;
+                    if (info is null) { _dropped++; continue; }
                     info.Handle = (ulong)list.Handle.ToInt64();
                     if (list.Type == NativeInput.RimTypeMouse) mouseInfos.Add(info);
                     else if (list.Type == NativeInput.RimTypeKeyboard) auxInfos.Add(info);
@@ -214,6 +248,8 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
     private sealed class RawInterface
     {
         public ulong Handle;
+        public bool Opened;
+        public int OpenError;
         public string Path = string.Empty;
         public string ManufacturerText = string.Empty;
         public string ProductText = string.Empty;
@@ -289,11 +325,17 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
 
     private static void ReadHidStrings(RawInterface result)
     {
-        const uint read = 0x80000000;
         const uint share = 3;
         const uint open = 3;
-        IntPtr handle = NativeInput.CreateFileW(result.Path, read, share, IntPtr.Zero, open, 0, IntPtr.Zero);
-        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return;
+        IntPtr handle = NativeInput.CreateFileW(result.Path, 0, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+        {
+            result.Opened = false;
+            try { result.OpenError = Marshal.GetLastWin32Error(); }
+            catch { result.OpenError = -1; }
+            return;
+        }
+        result.Opened = true;
         try
         {
             var attributes = new NativeInput.HidAttributes { Size = (uint)Marshal.SizeOf<NativeInput.HidAttributes>() };
@@ -458,11 +500,16 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             if (info.VendorId != 0) vid = info.VendorId;
             if (info.ProductId != 0) pid = info.ProductId;
             string maker = info.ManufacturerText;
+            string source = maker.Length > 0 ? "HID string descriptor" : "unknown";
             string container = string.Empty;
             if (setupPaths.TryGetValue(NormPath(info.Path), out var setup))
             {
                 container = setup.ContainerId;
-                if (maker.Length == 0) maker = setup.Maker;
+                if (maker.Length == 0 && setup.Maker.Length > 0)
+                {
+                    maker = setup.Maker;
+                    source = "device node";
+                }
             }
             var device = new MouseDevice
             {
@@ -479,6 +526,11 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             device.DisplayName = device.Product.Length > 0 && !_catalog.IsGenericProduct(device.Product)
                 ? device.Product : "Mouse " + vid.ToString("X4") + ":" + pid.ToString("X4");
             device.BrandText = device.Manufacturer;
+            device.InterfacePath = info.Path;
+            device.MakerSource = source;
+            device.OpenResult = info.Opened
+                ? "Interface opened for string reads."
+                : "Interface could not be opened (code " + info.OpenError + "). Device-node values used.";
             device.Connection = ClassifyConnection(info.Path, instance);
             device.Interfaces.Add(new MouseInterfaceInfo
             {
