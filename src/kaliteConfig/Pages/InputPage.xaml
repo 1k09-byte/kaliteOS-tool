@@ -160,6 +160,15 @@
                     <toolkit:SettingsCard Header="Slam-click filter">
                         <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedSlamclick, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
                     </toolkit:SettingsCard>
+                    <toolkit:SettingsCard Header="Angle snapping">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedAngleSnapping, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                    </toolkit:SettingsCard>
+                    <toolkit:SettingsCard Header="Ripple control">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedRipple, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                    </toolkit:SettingsCard>
+                    <toolkit:SettingsCard Header="Motion jitter filter">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedJitter, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                    </toolkit:SettingsCard>
                     <toolkit:SettingsCard Header="Lift-off distance">
                         <ComboBox ItemsSource="{x:Bind ViewModel.LodOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.RequestedLodIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" MinWidth="200" />
                     </toolkit:SettingsCard>
