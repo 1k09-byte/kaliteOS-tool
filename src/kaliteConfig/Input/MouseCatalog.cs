@@ -74,6 +74,8 @@ public sealed class MouseCatalog
         new("MSI Center", new[] { "MSI Center.exe", "MSICenter.exe" }, new[] { "MSI" }, new[] { "MSI" }),
     };
 
+    public bool MatchesVerifiedId(ushort vid, ushort pid) => EndgameOp1Protocol.IsAllowedId(vid, pid);
+
     public IReadOnlyList<string> KnownBrands { get; } = new List<string>
     {
         "Endgame Gear",

@@ -73,6 +73,7 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<Input.IWindowsMouseSettingsService, Input.WindowsMouseSettingsService>();
         s.AddSingleton<Input.IMouseTestService, Input.MouseTestService>();
         s.AddSingleton<Input.IMousePrefStore, Input.MousePrefStore>();
+        s.AddSingleton<Input.EndgameOp1Protocol>();
 
         s.AddTransient<InputViewModel>();
 
