@@ -144,6 +144,7 @@
                 <StackPanel x:Name="ReportRatePanel" Spacing="8" Visibility="Collapsed">
                     <TextBlock Text="Report rate is a device setting, not a Windows setting." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     <toolkit:SettingsCard Header="Setting (read back)" Description="Can't read from this mouse" />
+                    <toolkit:SettingsCard Header="Measured" Description="{x:Bind ViewModel.ReportMeasuredLine, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Supported rates">
                         <ComboBox IsEnabled="False" PlaceholderText="No rates reported" MinWidth="200" />
                     </toolkit:SettingsCard>
@@ -162,6 +163,15 @@
                     <TextBlock Text="{x:Bind ViewModel.TestResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     <toolkit:SettingsCard Header="Buttons now" Description="{x:Bind ViewModel.LiveButtonsText, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Wheel" Description="{x:Bind ViewModel.LiveWheelText, Mode=OneWay}" />
+                    <toolkit:SettingsCard Header="Speed road" Description="The dashes move while the mouse sends movement. Faster movement makes the marker run faster.">
+                        <toolkit:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE962;" />
+                        </toolkit:SettingsCard.HeaderIcon>
+                        <StackPanel Spacing="8" MinWidth="320">
+                            <TextBlock Text="{x:Bind ViewModel.LiveSpeedText, Mode=OneWay}" />
+                            <Canvas x:Name="SpeedRoadCanvas" Height="96" SizeChanged="SpeedRoad_SizeChanged" />
+                        </StackPanel>
+                    </toolkit:SettingsCard>
                     <toolkit:SettingsCard Header="Counts per inch">
                         <StackPanel Spacing="8">
                             <NumberBox Value="{x:Bind ViewModel.DpiInches, Mode=TwoWay}" Minimum="0.1" Maximum="100" SpinButtonPlacementMode="Inline" Header="Distance moved (inches)" MinWidth="200" />
