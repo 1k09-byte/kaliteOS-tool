@@ -171,9 +171,6 @@
                 <StackPanel x:Name="ReportRatePanel" Spacing="8" Visibility="Collapsed">
                     <TextBlock Text="Report rate is a device setting, not a Windows setting." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="{x:Bind ViewModel.DeviceVerifyText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <toolkit:SettingsCard Header="Community XM2 8K module" Description="Off by default. Probe is read-only; every write is verified by read-back.">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.CommunityProtocols, Mode=TwoWay}" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
                     <toolkit:SettingsCard Header="Setting (read back)" Description="{x:Bind ViewModel.ReportSettingText, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Measured" Description="{x:Bind ViewModel.ReportMeasuredLine, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Supported rates">

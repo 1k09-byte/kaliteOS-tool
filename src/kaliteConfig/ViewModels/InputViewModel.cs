@@ -74,7 +74,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _test.DeviceRemoved += OnTestDeviceRemoved;
         _discovery.Changed += OnDevicesChanged;
         ReapplyOnConnect = _prefs.Data.ReapplyOnConnect;
-        CommunityProtocols = _prefs.Data.CommunityProtocols;
         foreach (int rate in Input.EndgameOp1Protocol.SupportedRates())
             SupportedRates.Add(rate);
     }
@@ -164,9 +163,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial string ReportMeasuredLine { get; set; } = "Not measured yet.";
-
-    [ObservableProperty]
-    public partial bool CommunityProtocols { get; set; }
 
     [ObservableProperty]
     public partial string ReportSettingText { get; set; } = "Can't read from this mouse";
@@ -364,17 +360,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         ProbeDevice();
     }
 
-    partial void OnCommunityProtocolsChanged(bool value)
-    {
-        try
-        {
-            _prefs.Data.CommunityProtocols = value;
-            _prefs.Save();
-        }
-        catch { }
-        ProbeDevice();
-    }
-
     private void ProbeDevice()
     {
         _probeToken++;
@@ -393,9 +378,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         Input.EndgameDeviceStatus? status = null;
         try
         {
-            if (!CommunityProtocols)
-                verify = "Community module is off.";
-            else if (!_endgame.Matches(row.Device))
+            if (!_endgame.Matches(row.Device))
                 verify = "Not a supported community device.";
             else
                 status = await _endgame.ReadStatusAsync(row.Device).ConfigureAwait(false);
