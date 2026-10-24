@@ -72,6 +72,20 @@ namespace kaliteConfig.GpuOverclock.Views
                 Vm.OnMemOffsetCommitted(s.Value);
         }
 
+        private void XbarOffsetSlider_ValueChanged(object sender, RoutedEventArgs e)
+        {
+            if (Vm.IsBusy) return;
+            if (sender is Slider s && Vm is { IsSupported: true, HasXbarOffset: true } && Vm.XbarOffsetValue != s.Value)
+                Vm.OnXbarOffsetCommitted(s.Value);
+        }
+
+        private void SystemOffsetSlider_ValueChanged(object sender, RoutedEventArgs e)
+        {
+            if (Vm.IsBusy) return;
+            if (sender is Slider s && Vm is { IsSupported: true, HasSystemOffset: true } && Vm.SystemOffsetValue != s.Value)
+                Vm.OnSystemOffsetCommitted(s.Value);
+        }
+
         private void PowerLimitSlider_ValueChanged(object sender, RoutedEventArgs e)
         {
             if (Vm.IsBusy) return;
@@ -163,6 +177,20 @@ namespace kaliteConfig.GpuOverclock.Views
             if (Vm.IsBusy) return;
             if (Vm is { IsSupported: true, HasMemOffset: true })
                 CommitNumberBox(sender, Vm.MemOffsetMin, Vm.MemOffsetMax, Vm.MemOffsetValue, Vm.OnMemOffsetCommitted);
+        }
+
+        private void XbarOffsetBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
+        {
+            if (Vm.IsBusy) return;
+            if (Vm is { IsSupported: true, HasXbarOffset: true })
+                CommitNumberBox(sender, Vm.XbarOffsetMin, Vm.XbarOffsetMax, Vm.XbarOffsetValue, Vm.OnXbarOffsetCommitted);
+        }
+
+        private void SystemOffsetBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
+        {
+            if (Vm.IsBusy) return;
+            if (Vm is { IsSupported: true, HasSystemOffset: true })
+                CommitNumberBox(sender, Vm.SystemOffsetMin, Vm.SystemOffsetMax, Vm.SystemOffsetValue, Vm.OnSystemOffsetCommitted);
         }
 
         private void PowerLimitBox_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
@@ -305,7 +333,7 @@ namespace kaliteConfig.GpuOverclock.Views
         private Border? _vfReadoutChip;
         private TextBlock? _vfReadoutText;
         private Brush _vfNodeFill = new SolidColorBrush(Colors.White);
-        private Brush _vfNodeActiveFill = new SolidColorBrush(Colors.DodgerBlue);
+        private Brush _vfNodeActiveFill = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 25, 35, 90));
 
         private static Brush VfBrush(string key, Windows.UI.Color fallback)
             => Application.Current.Resources[key] as Brush ?? new SolidColorBrush(fallback);
@@ -456,8 +484,8 @@ namespace kaliteConfig.GpuOverclock.Views
         {
             var secondary = VfBrush("TextFillColorSecondaryBrush", Colors.Gray);
             var tertiary = VfBrush("TextFillColorTertiaryBrush", Colors.Gray);
-            var accent = VfBrush("AccentFillColorDefaultBrush", Colors.DodgerBlue);
-            var accentSoft = VfBrush("AccentFillColorTertiaryBrush", Colors.DodgerBlue);
+            var accent = VfBrush("AccentFillColorDefaultBrush", Windows.UI.Color.FromArgb(255, 25, 35, 90));
+            var accentSoft = VfBrush("AccentFillColorTertiaryBrush", Windows.UI.Color.FromArgb(255, 25, 35, 90));
             var grid = VfBrush("DividerStrokeColorDefaultBrush", Colors.Gray);
             _vfNodeFill = VfBrush("SolidBackgroundFillColorBaseBrush", Colors.White);
             _vfNodeActiveFill = accent;
@@ -829,7 +857,7 @@ namespace kaliteConfig.GpuOverclock.Views
             var secondary = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush
                 ?? new SolidColorBrush(Colors.Gray);
             var accent = Application.Current.Resources["AccentFillColorDefaultBrush"] as Brush
-                ?? new SolidColorBrush(Colors.DodgerBlue);
+                ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 25, 35, 90));
             var grid = Application.Current.Resources["DividerStrokeColorDefaultBrush"] as Brush
                 ?? new SolidColorBrush(Colors.Gray) { Opacity = 0.35 };
 
@@ -988,7 +1016,7 @@ namespace kaliteConfig.GpuOverclock.Views
             var secondary = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush
                 ?? new SolidColorBrush(Colors.Gray);
             var fallback = Application.Current.Resources["AccentFillColorDefaultBrush"] as Brush
-                ?? new SolidColorBrush(Colors.DodgerBlue);
+                ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 25, 35, 90));
             var grid = Application.Current.Resources["DividerStrokeColorDefaultBrush"] as Brush
                 ?? new SolidColorBrush(Colors.Gray) { Opacity = 0.35 };
 

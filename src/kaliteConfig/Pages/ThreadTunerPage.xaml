@@ -13,11 +13,9 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter" />
 
-        <!-- Rule rows: flat list rows inside one card instead of one card per row. -->
         <DataTemplate x:Key="RuleRowTemplate" x:DataType="models:TunerProfile">
             <Border Margin="2,1" Padding="16,11" CornerRadius="6"
                     Background="Transparent"
-                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
                     ToolTipService.ToolTip="{x:Bind Pattern}" DoubleTapped="RuleRow_DoubleTapped">
                 <Border.ContextFlyout>
                     <MenuFlyout>
@@ -74,7 +72,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- ── Header band ─────────────────────────────────────────────── -->
         <Grid Grid.Row="0" Margin="28,20,28,6" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -91,7 +88,6 @@
             </SelectorBar>
         </Grid>
 
-        <!-- ── Processes tab ───────────────────────────────────────────── -->
         <Grid x:Name="ProcessesPanel" Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -100,14 +96,12 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Game Mode card -->
-            <Expander Grid.Row="0" Style="{StaticResource GalleryCardExpander}" Margin="28,6,28,0"
+            <Expander x:Name="GameModeCard" Grid.Row="0" Style="{StaticResource GalleryCardExpander}" Margin="28,6,28,0"
                       IsExpanded="False">
                 <Expander.Header>
                     <Grid ColumnSpacing="14" Padding="0,2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="1">
@@ -116,14 +110,12 @@
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <ComboBox Grid.Column="1" MinWidth="140" VerticalAlignment="Center" AutomationProperties.Name="Game Mode preset"
-                                  SelectedIndex="{x:Bind GameMode.PresetIndex, Mode=TwoWay}" ToolTipService.ToolTip="How much the background set is reduced">
+                                  SelectedIndex="{x:Bind GameMode.PresetIndex, Mode=TwoWay}"                                  ToolTipService.ToolTip="Default preset for newly added games">
                             <ComboBoxItem Content="Light" />
                             <ComboBoxItem Content="Balanced" />
                             <ComboBoxItem Content="Aggressive" />
                             <ComboBoxItem Content="Custom" />
                         </ComboBox>
-                        <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" OnContent="On" OffContent="Off"
-                                      AutomationProperties.Name="Game Mode" IsOn="{x:Bind GameMode.Enabled, Mode=OneWay}" Toggled="GameModeToggle_Toggled" />
                     </Grid>
                 </Expander.Header>
 
@@ -137,11 +129,18 @@
                         <Button Content="Resume everything now" Click="GameModeResume_Click" AutomationProperties.Name="Resume everything now" />
                         <NumberBox Value="{x:Bind GameMode.DebounceMs, Mode=TwoWay}" Minimum="250" Maximum="5000" SmallChange="50"
                                    SpinButtonPlacementMode="Inline" Header="Activation delay (ms)" Width="200" />
+                        <ComboBox Header="Optimize scope" SelectedIndex="{x:Bind OptimizeLevelIndex, Mode=TwoWay}" Width="150"
+                                  ToolTipService.ToolTip="Standard lowers only processes actively using CPU. Aggressive also lowers idle background processes.">
+                            <ComboBoxItem Content="Standard" />
+                            <ComboBoxItem Content="Aggressive" />
+                        </ComboBox>
                         <TextBlock Text="{x:Bind GameMode.JournalText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Bottom" />
                     </StackPanel>
 
                     <TextBlock Text="{x:Bind GameMode.PreviewSummary, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="{x:Bind GameMode.CpuPlanSummary, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                     <Grid ColumnSpacing="12">
@@ -196,15 +195,23 @@
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="gamemode:GameModeGameEntry">
                                         <Grid ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{x:Bind Name}" />
-                                                <TextBlock Text="{x:Bind Path}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <Button Grid.Column="1" Content="Remove" Click="GameModeRemoveGame_Click" Tag="{x:Bind}" AutomationProperties.Name="Remove game" />
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Name}" />
+                                            <TextBlock Text="{x:Bind Path}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1" MinWidth="120" VerticalAlignment="Center" AutomationProperties.Name="Game preset"
+                                                  SelectedIndex="{x:Bind PresetIndex, Mode=TwoWay}" SelectionChanged="GameModeGamePreset_Changed">
+                                            <ComboBoxItem Content="Light" />
+                                            <ComboBoxItem Content="Balanced" />
+                                            <ComboBoxItem Content="Aggressive" />
+                                            <ComboBoxItem Content="Custom" />
+                                        </ComboBox>
+                                        <Button Grid.Column="2" Content="Remove" Click="GameModeRemoveGame_Click" Tag="{x:Bind}" AutomationProperties.Name="Remove game" />
                                         </Grid>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
@@ -268,7 +275,6 @@
                 </ScrollViewer>
             </Expander>
 
-            <!-- Command card -->
             <Border Grid.Row="1" Style="{StaticResource GalleryCard}" Margin="28,10,28,0" Padding="14,10">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
@@ -279,9 +285,8 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode"
-                                ToolTipService.ToolTip="Raises the selected process to Above Normal and applies the safe Gaming Mode profile." />
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">                        <Button x:Name="PageGamingModeButton" Content="Enable Gaming mode" Style="{StaticResource AccentButtonStyle}" Click="Page_ToggleGamingMode"
+                                 ToolTipService.ToolTip="Turns the Game Mode session engine on or off. No process needs to be selected." />
                         <Button x:Name="PageRestoreButton" Content="Restore changes" Click="Page_RestorePriorities" IsEnabled="False"
                                 ToolTipService.ToolTip="Revert every priority kaliteConfig changed." />
                     </StackPanel>
@@ -311,7 +316,6 @@
                 </Grid>
             </Border>
 
-            <!-- Process table card -->
             <Border Grid.Row="2" Style="{StaticResource GalleryCard}" Margin="28,10,28,0" Padding="10,8">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -327,8 +331,9 @@
                                 <ColumnDefinition Width="86" />
                                 <ColumnDefinition Width="76" />
                                 <ColumnDefinition Width="104" />
-                                <ColumnDefinition Width="104" />
-                                <ColumnDefinition Width="{x:Bind ViewModel.ShowCounterDeltas, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
+                            <ColumnDefinition Width="104" />
+                            <ColumnDefinition Width="92" />
+                            <ColumnDefinition Width="{x:Bind ViewModel.ShowCounterDeltas, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
                                 <ColumnDefinition Width="{x:Bind ViewModel.ShowCounterDeltas, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
                                 <ColumnDefinition Width="64" />
                             </Grid.ColumnDefinitions>
@@ -338,11 +343,13 @@
                             <TextBlock Grid.Column="3" Text="Threads" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             <TextBlock Grid.Column="4" Text="Priority" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             <TextBlock Grid.Column="5" Text="State" FontWeight="SemiBold" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                            <TextBlock Grid.Column="6" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            <TextBlock Grid.Column="6" Text="Affinity" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                       ToolTipService.ToolTip="Live CPU affinity per process (All = every core). Hover a value for the exact mask." />
+                            <TextBlock Grid.Column="7" Text="Context switches delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                        Visibility="{x:Bind ViewModel.ShowCounterDeltasVis, Mode=OneWay}" />
-                            <TextBlock Grid.Column="7" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            <TextBlock Grid.Column="8" Text="Cycles delta" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                        Visibility="{x:Bind ViewModel.ShowCounterDeltasVis, Mode=OneWay}" />
-                            <TextBlock Grid.Column="8" Text="Boost" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            <TextBlock Grid.Column="9" Text="Boost" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                        ToolTipService.ToolTip="Priority boost for the whole process. Untick to disable it - the choice is saved and re-applied to this process every time it starts." />
                         </Grid>
                     </Border>
@@ -352,7 +359,7 @@
                               Background="Transparent" BorderThickness="0">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:TunerProcessRow">
-                                <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" CornerRadius="6">
+                                <Border CornerRadius="6">
                                 <Grid Padding="16,7" ColumnSpacing="14" Background="Transparent"
                                         ToolTipService.ToolTip="{x:Bind Name}"
                                         DoubleTapped="Row_DoubleTapped">
@@ -393,6 +400,7 @@
                                         <ColumnDefinition Width="76" />
                                         <ColumnDefinition Width="104" />
                                         <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="92" />
                                         <ColumnDefinition Width="{x:Bind ShowCounters, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
                                         <ColumnDefinition Width="{x:Bind ShowCounters, Mode=OneWay, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=120}" />
                                         <ColumnDefinition Width="64" />
@@ -434,13 +442,16 @@
                                     <TextBlock Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind PriorityText, Mode=OneWay}" />
                                     <TextBlock Grid.Column="5" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12" Text="{x:Bind State, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     <TextBlock Grid.Column="6" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12"
+                                               Text="{x:Bind AffinitySummary, Mode=OneWay}"
+                                               ToolTipService.ToolTip="{x:Bind AffinityDetail, Mode=OneWay}" />
+                                    <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12"
                                                Text="{x:Bind ContextSwitchesDelta, Mode=OneWay}"
                                                Visibility="{x:Bind ShowCountersVis, Mode=OneWay}" />
-                                    <TextBlock Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12"
+                                    <TextBlock Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" FontSize="12"
                                                Text="{x:Bind CyclesDelta, Mode=OneWay}"
                                                Visibility="{x:Bind ShowCountersVis, Mode=OneWay}" />
 
-                                    <CheckBox Grid.Column="8"
+                                    <CheckBox Grid.Column="9"
                                               HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
                                               MinWidth="0"
@@ -470,7 +481,6 @@
                 </Grid>
             </Border>
 
-            <!-- Footer strip -->
             <Grid Grid.Row="3" Margin="30,6,30,10">
                 <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                     <TextBlock Text="Updated 2 s" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
@@ -488,7 +498,6 @@
             </Grid>
         </Grid>
 
-        <!-- ── Rules tab ───────────────────────────────────────────────── -->
         <Grid x:Name="RulesPanel" Grid.Row="1" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -496,7 +505,6 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Rules command card -->
             <Border Grid.Row="0" Style="{StaticResource GalleryCard}" Margin="28,6,28,0" Padding="14,10">
                 <Grid ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
@@ -518,7 +526,6 @@
                 </Grid>
             </Border>
 
-            <!-- Rules list card -->
             <Border Grid.Row="1" Style="{StaticResource GalleryCard}" Margin="28,10,28,0" Padding="10,8">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -552,14 +559,16 @@
                 </Grid>
             </Border>
 
-            <!-- Rules footer -->
             <Grid Grid.Row="2" Margin="30,6,30,10">
                 <StackPanel Orientation="Horizontal" Spacing="24">
                     <TextBlock x:Name="RulesCountText" Text="0 rules" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                     <TextBlock Text="Each action is applied and verified independently" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                    <CheckBox Content="Rules can enable Game Mode automatically" IsChecked="{x:Bind AllowRuleAutoGameMode, Mode=TwoWay}" VerticalAlignment="Center"
+                              ToolTipService.ToolTip="When off, rules with 'Automatic Gaming mode' are skipped and logged instead of changing priorities." />
                 </StackPanel>
                 <TextBlock Text="Double-click to edit" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </Grid>
     </Grid>
 </Page>
+

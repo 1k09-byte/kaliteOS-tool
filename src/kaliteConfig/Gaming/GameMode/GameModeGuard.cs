@@ -74,6 +74,10 @@ public sealed class GameModeGuard
             if (image.Equals(shell, StringComparison.OrdinalIgnoreCase))
                 return new GuardVerdict(false, "Shell, compositor, audio or servicing process");
 
+        foreach (var net in BackgroundCatalog.ConnectivityFamily)
+            if (image.Equals(net, StringComparison.OrdinalIgnoreCase))
+                return new GuardVerdict(false, "Connectivity process (Wi-Fi, Bluetooth or VPN), left alone");
+
         lock (_gate)
         {
             if (_servicePids.Contains(fact.Pid)) return new GuardVerdict(false, "Hosts a Windows service");
@@ -172,6 +176,33 @@ public sealed class GameModeGuard
         }
     }
 
+    public static bool IsUnsafeGameTarget(ProcessFact fact)
+    {
+        if (fact.Pid <= 4 || fact.SessionId == 0) return true;
+        if (string.Equals(fact.Name, "System", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fact.Name, "Registry", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fact.Name, "Idle", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return IsAntiCheat(fact.Name);
+    }
+
+    public static HashSet<int> ExpandGameDescendants(IReadOnlyDictionary<int, int> parents, int gamePid)
+    {
+        var set = new HashSet<int> { gamePid };
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var pair in parents)
+            {
+                if (set.Contains(pair.Key) || !set.Contains(pair.Value)) continue;
+                set.Add(pair.Key);
+                changed = true;
+            }
+        }
+        return set;
+    }
+
     public static bool MatchesName(string pattern, string imageName)
     {
         if (string.IsNullOrWhiteSpace(pattern)) return false;
@@ -184,7 +215,6 @@ public sealed class GameModeGuard
         }
         if (imageName.Equals(trimmed, StringComparison.OrdinalIgnoreCase)) return true;
 
-        // Entries saved before names were normalized may omit the .exe suffix.
         return !trimmed.Contains('.') && imageName.Equals(trimmed + ".exe", StringComparison.OrdinalIgnoreCase);
     }
 

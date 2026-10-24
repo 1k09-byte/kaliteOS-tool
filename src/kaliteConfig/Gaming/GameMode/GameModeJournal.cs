@@ -18,6 +18,12 @@ public sealed class GameModeJournalEntry
     public uint ThrottlingControlMask { get; set; }
     public uint ThrottlingStateMask { get; set; }
     public bool WasSuspended { get; set; }
+    public bool CpuSetsChanged { get; set; }
+    public bool OriginalCpuSetsRestricted { get; set; }
+    public string OriginalCpuSetIds { get; set; } = string.Empty;
+    public string SystemCpuSetIds { get; set; } = string.Empty;
+    public string BoostDisabledTids { get; set; } = string.Empty;
+    public string ThreadPriorityTweaks { get; set; } = string.Empty;
 }
 
 public sealed class GameModeJournal
@@ -58,6 +64,32 @@ public sealed class GameModeJournal
         {
             _entries.RemoveAll(e => e.Pid == entry.Pid);
             _entries.Add(entry);
+            SaveLocked();
+        }
+    }
+
+    public void UpsertCpuState(int pid, long ticks, string originalIds, bool originallyRestricted, string systemIds)
+    {
+        lock (_gate)
+        {
+            var existing = _entries.Find(e => e.Pid == pid && e.CreationTicks == ticks);
+            if (existing is null) return;
+            existing.CpuSetsChanged = true;
+            existing.OriginalCpuSetIds = originalIds;
+            existing.OriginalCpuSetsRestricted = originallyRestricted;
+            existing.SystemCpuSetIds = systemIds;
+            SaveLocked();
+        }
+    }
+
+    public void UpsertThreadState(int pid, long ticks, string boostTids, string priorityTweaks)
+    {
+        lock (_gate)
+        {
+            var existing = _entries.Find(e => e.Pid == pid && e.CreationTicks == ticks);
+            if (existing is null) return;
+            existing.BoostDisabledTids = boostTids;
+            existing.ThreadPriorityTweaks = priorityTweaks;
             SaveLocked();
         }
     }

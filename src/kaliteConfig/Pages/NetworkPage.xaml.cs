@@ -38,7 +38,7 @@ public sealed partial class NetworkPage : Page
     public static Brush DotBrush(bool isUp) => new SolidColorBrush(isUp ? Colors.LimeGreen : Colors.Gray);
 
     public static Brush SeverityBrush(NetFindingSeverity s) => new SolidColorBrush(
-        s == NetFindingSeverity.Warning ? Colors.OrangeRed : Colors.DodgerBlue);
+        s == NetFindingSeverity.Warning ? Colors.OrangeRed : Windows.UI.Color.FromArgb(255, 140, 145, 172));
 
     private async void NetworkPage_Loaded(object sender, RoutedEventArgs e)
     {
@@ -320,7 +320,7 @@ public sealed partial class NetworkPage : Page
             int buckets = Math.Max(1, (int)(w - 40));
             var rxBands = NetParsing.DecimateMinMax(rx, buckets);
             var txBands = NetParsing.DecimateMinMax(tx, buckets);
-            var rxPoly = new Polyline { Stroke = new SolidColorBrush(Colors.DodgerBlue), StrokeThickness = 2 };
+            var rxPoly = new Polyline { Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 25, 35, 90)), StrokeThickness = 2 };
             var txPoly = new Polyline { Stroke = new SolidColorBrush(Colors.Orange), StrokeThickness = 2 };
             for (int i = 0; i < rxBands.Count; i++)
             {

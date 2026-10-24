@@ -15,23 +15,23 @@
                 <Border Style="{StaticResource CardBorder}" Padding="12">
                     <StackPanel Spacing="8">
 
-                        <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Description="Reading…" Margin="0,0,0,2"><ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration"/></toolkit:SettingsCard>
-                        <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)" Description="Reading…"><ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Margin="0,0,0,2"><ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)"><ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus"/></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardBorder}" Padding="12">
                     <StackPanel Spacing="8">
                         <TextBlock Text="Security and virtualization" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="14,4,0,0" />
-                        <toolkit:SettingsCard x:Name="VbsCard" Header="Virtualization-Based Security (VBS)" Description="Reading…"><ToggleSwitch x:Name="VbsToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="Vbs"/></toolkit:SettingsCard>
-                        <toolkit:SettingsCard x:Name="HvciCard" Header="Memory integrity (HVCI)" Description="Reading…"><ToggleSwitch x:Name="HvciToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="Hvci"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="VbsCard" Header="Virtualization-Based Security (VBS)"><ToggleSwitch x:Name="VbsToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="Vbs"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="HvciCard" Header="Memory integrity (HVCI)"><ToggleSwitch x:Name="HvciToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="Hvci"/></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardBorder}" Padding="12">
                     <StackPanel Spacing="8">
                         <TextBlock Text="GPU scheduling" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="14,4,0,0" />
-                        <toolkit:SettingsCard x:Name="HagsCard" Header="Hardware-accelerated GPU scheduling (HAGS)" Description="Reading…"><ToggleSwitch x:Name="HagsToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="HwSchMode"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="HagsCard" Header="Hardware-accelerated GPU scheduling (HAGS)"><ToggleSwitch x:Name="HagsToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="HwSchMode"/></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardBorder}" Padding="12">

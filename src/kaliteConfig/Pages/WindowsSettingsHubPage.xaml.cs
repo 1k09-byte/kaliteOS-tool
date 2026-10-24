@@ -25,21 +25,16 @@ namespace kaliteConfig.Pages
             _loadingKernelToggles = true;
             try
             {
-                LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard,
-                    "Serializes timer expiration (active scheme).");
-                LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
-                    "Boosts multimedia thread priorities (needs restart). OFF stops the MMCSS service and sets System Responsiveness to 100; ON sets it to 20.");
-                LoadOneKernelToggle("Vbs", VbsToggle, VbsCard,
-                    "Hypervisor-based isolation for security services (needs restart). OFF frees the hypervisor and can lift game performance, but breaks Memory integrity, Credential Guard, WSL2, Hyper-V and Windows Sandbox.");
-                LoadOneKernelToggle("Hvci", HvciToggle, HvciCard,
-                    "Kernel driver allow list (needs restart). OFF helps with older or unsigned drivers; ON is the hardened Windows 11 default. Only meaningful while VBS is on.");
-                LoadOneKernelToggle("HwSchMode", HagsToggle, HagsCard,
-                    "Lets the GPU manage its own command queues (needs restart). ON usually lowers input-to-display latency; OFF restores classic GPU scheduling. Both modes are driver-supported and reversible.");
+                LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard);
+                LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard);
+                LoadOneKernelToggle("Vbs", VbsToggle, VbsCard);
+                LoadOneKernelToggle("Hvci", HvciToggle, HvciCard);
+                LoadOneKernelToggle("HwSchMode", HagsToggle, HagsCard);
             }
             finally { _loadingKernelToggles = false; }
         }
 
-        private void LoadOneKernelToggle(string id, ToggleSwitch toggle, CommunityToolkit.WinUI.Controls.SettingsCard card, string caption)
+        private void LoadOneKernelToggle(string id, ToggleSwitch toggle, CommunityToolkit.WinUI.Controls.SettingsCard card)
         {
             var def = Services.WindowsSettingsService.Find(id);
             if (def == null) return;
@@ -49,15 +44,11 @@ namespace kaliteConfig.Pages
                 bool unset = det.State == Services.WindowsSettingsService.TweakState.WindowsDefault;
                 toggle.IsOn = det.State == Services.WindowsSettingsService.TweakState.On
                     || (unset && def.DefaultOnWhenAbsent);
-                card.Description = unset
-                    ? caption + (def.DefaultOnWhenAbsent
-                        ? " Not set explicitly - Windows default is ON."
-                        : " Not set explicitly - Windows default is OFF.")
-                    : det.Describe(caption);
+                card.Description = string.Empty;
             }
-            catch (Exception ex)
+            catch
             {
-                card.Description = caption + $" Unreadable: {ex.Message}";
+                card.Description = string.Empty;
             }
         }
 

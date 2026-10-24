@@ -85,7 +85,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         [RelayCommand]
         private Task RefreshAsync() => LoadAsync();
 
-        private Task LoadAsync()
+        private async Task LoadAsync()
         {
             try
             {
@@ -110,7 +110,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     Cards.Add(ToCardItem(AmdGpuSimulation.Support));
                     HasCards = true;
                     HasTunableCard = AmdGpuSimulation.Support.AnyControlSupported;
-                    return Task.CompletedTask;
+                    return;
                 }
 
                 if (!AmdAdlxInterop.IsAvailable)
@@ -126,11 +126,15 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                     ErrorMessage = AmdAdlxInterop.LastInitializationError ??
                         "The AMD display driver did not provide ADLX (amdadlx64.dll). " +
                         "Install or repair the AMD display driver, then refresh.";
-                    return Task.CompletedTask;
+                    return;
                 }
 
                 AdlxAvailable = true;
-                DriverVersionText = AmdAdlxInterop.DriverVersion ?? "unknown";
+
+                var windowsDriverVersion = await System.Threading.Tasks.Task.Run(
+                    () => Services.DisplayDriverVersion.AmdDisplayDriver);
+                DriverVersionText = windowsDriverVersion
+                    ?? AmdAdlxInterop.DriverVersion ?? "unknown";
 
                 var gpus = AmdAdlxInterop.EnumerateGpusWithSupport();
                 Cards.Clear();
@@ -165,13 +169,10 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             {
                 ErrorMessage = "AMD detection failed: " + ex.Message;
                 StatusText = "Detection failed";
-            }
-            finally
+            }            finally
             {
                 IsLoading = false;
             }
-
-            return Task.CompletedTask;
         }
 
         private static AmdGpuCardItem ToCardItem(AmdGpuTuningSupport gpu) => new()

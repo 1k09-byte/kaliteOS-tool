@@ -30,7 +30,8 @@ namespace kaliteConfig.Pages
             _startup = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::kaliteConfig.Services.StartupService>(App.Services);
             this.DataContext = ViewModel;
             this.GameMode = new Gaming.GameMode.GameModeViewModel(App.Current.GameMode);
-            
+            this.GameMode.PropertyChanged += GameMode_PropertyChanged;
+
             this.Loaded += ThreadTunerPage_Loaded;
             this.Unloaded += ThreadTunerPage_Unloaded;
         }
@@ -48,11 +49,6 @@ namespace kaliteConfig.Pages
         {
             ViewModel.IsPageVisible = false;
             base.OnNavigatedFrom(e);
-        }
-
-        private void GameModeToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (sender is ToggleSwitch toggle) GameMode.SetEnabledFromUi(toggle.IsOn);
         }
 
         private void GameModePreview_Click(object sender, RoutedEventArgs e) => GameMode.Preview();
@@ -80,6 +76,8 @@ namespace kaliteConfig.Pages
         }
 
         private void GameModeListFeedback_Close(InfoBar sender, object args) => GameMode.ClearListFeedback();
+
+        private void GameModeGamePreset_Changed(object sender, SelectionChangedEventArgs e) => GameMode.SaveGames();
 
         private void GameModeRemoveGame_Click(object sender, RoutedEventArgs e)
         {
@@ -160,14 +158,59 @@ namespace kaliteConfig.Pages
         private void ProfileWatcher_RulesChanged(object? sender, EventArgs e)
         {
             RefreshPageGamingModeUi();
-            if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            if (App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 PageGamingStatusText.Text = "Gaming mode ON (automatic · from a rule)";
             }
         }
 
+        public bool AllowRuleAutoGameMode
+        {
+            get => App.Current.ProfileWatcher.AllowRuleAutoGameMode;
+            set { try { App.Current.ProfileWatcher.SetAllowRuleAutoGameMode(value); } catch { } }
+        }
+
+        public int OptimizeLevelIndex
+        {
+            get => App.Current.LegacyGamingMode.AggressiveOptimization ? 1 : 0;
+            set
+            {
+                try
+                {
+                    App.Current.LegacyGamingMode.AggressiveOptimization = value == 1;
+                    App.Current.LegacyGamingMode.SaveAggression();
+                }
+                catch { }
+            }
+        }
+
+        private bool _gameWasActive;
+
+        private void GameMode_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Gaming.GameMode.GameModeViewModel.IsActive))
+            {
+                bool active = GameMode.IsActive;
+                bool justActivated = active && !_gameWasActive;
+                _gameWasActive = active;
+                if (justActivated)
+                {
+                    void Expand() => GameModeCard.IsExpanded = true;
+                    if (DispatcherQueue.HasThreadAccess) Expand();
+                    else DispatcherQueue.TryEnqueue(Expand);
+                }
+                return;
+            }
+            if (e.PropertyName != nameof(Gaming.GameMode.GameModeViewModel.Enabled)) return;
+            void Apply() => PageGamingModeButton.Content = GameMode.Enabled ? "Disable Gaming mode" : "Enable Gaming mode";
+            if (DispatcherQueue.HasThreadAccess) Apply();
+            else DispatcherQueue.TryEnqueue(Apply);
+        }
+
         private void ThreadTunerPage_Unloaded(object sender, RoutedEventArgs e)
-        {            if (_rulesHooked)
+        {
+            try { GameMode.PropertyChanged -= GameMode_PropertyChanged; } catch { }
+            if (_rulesHooked)
             {
                 App.Current.ProfileWatcher.RulesChanged -= ProfileWatcher_RulesChanged;
                 _rulesHooked = false;
@@ -226,18 +269,22 @@ namespace kaliteConfig.Pages
 
         private void RefreshPageGamingModeUi()
         {
-            var svc = App.Current.GamingMode;
-            bool hasTarget = SelectedProcess is not null;
-            bool mine = svc.IsHeldBy(GameModeOwner.UserInterface);
+            GameMode.Refresh();
+            var svc = App.Current.LegacyGamingMode;
+            bool engineOn = GameMode.Enabled;
 
-            PageGamingModeButton.Content = mine ? "Turn off Gaming mode" : "Enable Gaming mode";
+            PageGamingModeButton.Content = engineOn ? "Disable Gaming mode" : "Enable Gaming mode";
             PageGamingModeButton.IsEnabled = true;
             PageRestoreButton.IsEnabled = svc.RestorableCount > 0 || svc.IsActive;
 
-            string target = SelectedProcess is { } r ? r.Name : "(no process selected)";
-            if (mine)
+            if (engineOn)
             {
-                PageGamingStatusText.Text = $"Gaming mode ON · target {target} · {svc.RestorableCount} restorable";
+                string text = GameMode.StatusText;
+                if (svc.IsHeldBy(GameModeOwner.UserInterface))
+                    text += $" · {svc.RestorableCount} restorable";
+                else if (svc.IsActive)
+                    text += $" · rule/auto hold active ({svc.RestorableCount} restorable)";
+                PageGamingStatusText.Text = text;
             }
             else if (svc.IsActive)
             {
@@ -246,33 +293,46 @@ namespace kaliteConfig.Pages
             }
             else
             {
-                PageGamingStatusText.Text = hasTarget
-                    ? $"Ready · target {target}"
-                    : "Select a process row, or use a rule with Automatic Gaming mode";
+                PageGamingStatusText.Text = GameMode.Games.Count == 0
+                    ? "Game Mode is off. Press Enable Gaming mode, then add your game in the Game Mode card below."
+                    : "Game Mode is off. Press Enable Gaming mode, then start a listed game.";
             }
+        }
+
+        private static int? ForegroundPid()
+        {
+            try
+            {
+                var hwnd = Native.NativeMethods.GameMode.GetForegroundWindow();
+                if (hwnd != IntPtr.Zero
+                    && Gaming.GameMode.ForegroundWatcher.TryResolveForeground(hwnd, out int pid, out _, out _))
+                    return pid;
+            }
+            catch { }
+            return null;
         }
 
         private async void Page_ToggleGamingMode(object sender, RoutedEventArgs e)
         {
-            var svc = App.Current.GamingMode;
+            var svc = App.Current.LegacyGamingMode;
             PageGamingModeButton.IsEnabled = false;
             try
             {
-                if (!svc.IsHeldBy(GameModeOwner.UserInterface))
+                if (!GameMode.Enabled)
                 {
-                    if (SelectedProcess is not { } row)
-                    {
-                        PageGamingStatusText.Text = "Click a process row first, or create a rule with 'Automatic Gaming mode' ticked";
-                        return;
-                    }
+                    GameMode.ToggleEnabled();
 
-                    var result = await svc.AcquireAsync(GameModeOwner.UserInterface, row.Pid, reason: "Threads page button");
-                    PageGamingStatusText.Text = result.Summary;
+                    int target = SelectedProcess?.Pid ?? ForegroundPid() ?? Environment.ProcessId;
+                    var result = await svc.AcquireAsync(GameModeOwner.UserInterface, target, reason: "Threads page button");
+                    RefreshPageGamingModeUi();
+                    PageGamingStatusText.Text = $"{GameMode.StatusText} · {result.Summary}";
                 }
                 else
                 {
+                    GameMode.ToggleEnabled();
                     bool ended = svc.Release(GameModeOwner.UserInterface);
-                    PageGamingStatusText.Text = ended
+                    RefreshPageGamingModeUi();
+                    PageGamingStatusText.Text = ended || svc.Holds.Count == 0
                         ? "Gaming mode off · priorities restored"
                         : $"Gaming mode handed back · still held by {svc.Holds.Count} other holder(s)";
                 }
@@ -280,16 +340,17 @@ namespace kaliteConfig.Pages
             catch (Exception ex)
             {
                 PageGamingStatusText.Text = $"Gaming mode error: {ex.Message}";
+                RefreshPageGamingModeUi();
             }
             finally
             {
-                RefreshPageGamingModeUi();
+                PageGamingModeButton.IsEnabled = true;
             }
         }
 
         private async void Page_RestorePriorities(object sender, RoutedEventArgs e)
         {
-            App.Current.GamingMode.ReleaseAll();
+            App.Current.LegacyGamingMode.ReleaseAll();
             PageGamingStatusText.Text = "Priorities restored";
             RefreshPageGamingModeUi();
 
@@ -308,7 +369,7 @@ namespace kaliteConfig.Pages
             };
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                var (reset, skipped) = App.Current.GamingMode.ResetAllPrioritiesToNormal();
+                var (reset, skipped) = App.Current.LegacyGamingMode.ResetAllPrioritiesToNormal();
                 PageGamingStatusText.Text = $"Reset {reset} process(es) to Normal ({skipped} skipped).";
                 RefreshPageGamingModeUi();
             }

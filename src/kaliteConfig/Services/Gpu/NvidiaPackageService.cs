@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -191,15 +191,10 @@ namespace kaliteConfig.Services
             }, ct);
         }
 
-        // 7-Zip ships 7zr.exe unsigned, so a pinned SHA-256 is the only thing we can check before
-        // running it. But 7-zip.org replaces that file in place at every release, which used to make
-        // the whole NVIDIA install fail with "failed hash verification" the day a new 7-Zip shipped.
-        // Keep every build we have verified, and fall back to the extractor bundled with Windows
-        // (bsdtar, which reads .7z and .exe self-extractors) when an unknown build shows up.
         private static readonly string[] Known7zrSha256 =
         {
-            "AD4C82FADCBDF93C03B4FC440F300509C7D60C5C2F4D183E35D9D70D6957037D", // 7-Zip 25.x
-            "256FECA8E274E5DA655E2A284FABAFD9F554365EB164862089DACD4E8276D282", // 7-Zip 26.04 (2026-10-05)
+            "AD4C82FADCBDF93C03B4FC440F300509C7D60C5C2F4D183E35D9D70D6957037D",
+            "256FECA8E274E5DA655E2A284FABAFD9F554365EB164862089DACD4E8276D282",
         };
 
         private const string SevenZrUrl = "https://www.7-zip.org/a/7zr.exe";
@@ -213,11 +208,7 @@ namespace kaliteConfig.Services
             return Convert.ToHexString(SHA256.HashData(fs));
         }
 
-        /// <summary>
-        /// Returns the path of a hash-verified 7zr.exe, or <c>null</c> when no trusted copy can be
-        /// obtained. Never throws for download/hash problems - the caller falls back to Windows' tar.
-        /// </summary>
-        private async Task<string?> TryEnsure7zrAsync(Action<string> log, CancellationToken ct)
+                private async Task<string?> TryEnsure7zrAsync(Action<string> log, CancellationToken ct)
         {
             string toolsDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "kaliteConfig", "Tools");
@@ -251,7 +242,7 @@ namespace kaliteConfig.Services
                     string hash = Convert.ToHexString(SHA256.HashData(bytes));
                     if (!IsKnown7zr(hash))
                     {
-                        // A retry would return the same bytes, so stop and let the caller fall back.
+
                         log($"Downloaded 7zr.exe failed hash verification ({hash}) - refusing to run it " +
                             "(7-Zip likely published a newer build; this app only runs builds it has verified).");
                         return null;

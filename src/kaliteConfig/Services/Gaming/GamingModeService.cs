@@ -2,7 +2,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,6 +60,39 @@ public sealed class GamingModeResult
 public sealed class GamingModeService
 {
     private const double ContentionPercentOfTotalCpu = 2.0;
+
+    private static string AggressionSettingsPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "kaliteConfig", "gamingmode-manual.json");
+
+    public bool AggressiveOptimization { get; set; }
+
+    public GamingModeService()
+    {
+        try
+        {
+            if (File.Exists(AggressionSettingsPath))
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(AggressionSettingsPath));
+                if (doc.RootElement.TryGetProperty("Aggressive", out var el) &&
+                    (el.ValueKind == JsonValueKind.True || el.ValueKind == JsonValueKind.False))
+                    AggressiveOptimization = el.GetBoolean();
+            }
+        }
+        catch { }
+    }
+
+    public void SaveAggression()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(AggressionSettingsPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            File.WriteAllText(AggressionSettingsPath,
+                "{\"Aggressive\":" + (AggressiveOptimization ? "true" : "false") + "}");
+        }
+        catch { }
+    }
 
     private sealed record RestoreEntry
     {
@@ -344,8 +379,12 @@ public sealed class GamingModeService
                     if (ProcessTuningService.IsSelf(pid)) continue;
                     if (GamingExemptionService.IsExempt(name)) continue;
 
-                    if (!cpu.TryGetValue(pid, out double cpuPct)) continue;
-                    if (cpuPct < ContentionPercentOfTotalCpu) continue;
+                    if (!cpu.TryGetValue(pid, out double cpuPct))
+                    {
+                        if (!AggressiveOptimization) continue;
+                        cpuPct = 0;
+                    }
+                    if (cpuPct < (AggressiveOptimization ? 0.0 : ContentionPercentOfTotalCpu)) continue;
 
                     using var handle = NativeMethods.Handles.OpenProcess(
                         NativeMethods.ProcessAccess.SetInformation | NativeMethods.ProcessAccess.QueryLimitedInformation,

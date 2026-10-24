@@ -67,7 +67,6 @@
         <GridLength x:Key="AffinityProcessorsColumn">1.15*</GridLength>
         <GridLength x:Key="AffinityChevronColumn">16</GridLength>
 
-        <!-- Wide row: identity on the left, labelled value columns on the right. -->
         <DataTemplate x:Key="AffinityDeviceRowTemplate" x:DataType="models:AffinityDeviceItem">
             <Grid ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
@@ -408,7 +407,6 @@
             </ScrollViewer>
         </ContentDialog>
 
-        <!-- ── Header band ─────────────────────────────────────────────── -->
         <Grid Grid.Row="0" Padding="28,20,28,0" ColumnSpacing="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -443,7 +441,6 @@
             </CommandBar>
         </Grid>
 
-        <!-- ── Summary strip ───────────────────────────────────────────── -->
         <StackPanel Grid.Row="1" Padding="28,12,28,0" Spacing="8">
             <ProgressBar IsIndeterminate="True"
                          Visibility="{x:Bind local:AffinityPage.BoolToVis(ViewModel.IsRefreshing), Mode=OneWay}" />
@@ -452,11 +449,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <TextBlock Text="{x:Bind ViewModel.DeviceCountText, Mode=OneWay}"
                                    Style="{StaticResource GalleryPageTitle}" FontSize="22" VerticalAlignment="Center" />
-                        <StackPanel VerticalAlignment="Center" Spacing="0">
-                            <TextBlock Text="Devices" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="tunable adapters found" FontSize="11"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
+                        <TextBlock Text="Devices" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource GalleryCard}" Padding="16,10" CornerRadius="8">
@@ -488,7 +481,6 @@
                        TextWrapping="Wrap" />
         </StackPanel>
 
-        <!-- ── Device categories ───────────────────────────────────────── -->
         <ScrollViewer Grid.Row="2" Padding="28,12,28,20"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
@@ -612,3 +604,4 @@
         </ScrollViewer>
     </Grid>
 </Page>
+

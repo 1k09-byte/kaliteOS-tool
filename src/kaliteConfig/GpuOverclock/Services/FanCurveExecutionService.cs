@@ -17,7 +17,8 @@ namespace kaliteConfig.GpuOverclock.Services
         private Task? _loop;
         private FanCurvePoint[] _points = Array.Empty<FanCurvePoint>();
         private Func<int?>? _tempProvider;
-        private TimeSpan _interval = TimeSpan.FromSeconds(2);
+
+        private TimeSpan _interval = TimeSpan.FromSeconds(1);
         private readonly string _markerPath;
 
         public event Action<string?>? Stopped;

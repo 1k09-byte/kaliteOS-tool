@@ -19,11 +19,97 @@ namespace kaliteConfig
         private static Window? _windowStatic;
 
         public static bool IsDryRun { get; private set; }
+
+        public static bool IsDev { get; private set; }
         public static bool IsAdmin { get; private set; }
 
         public static bool StartedToTray { get; private set; }
 
         public IThemeService? ThemeService { get; set; }
+
+        private static void SetAppBrush(string key, Windows.UI.Color color)
+        {
+            try { Application.Current.Resources[key] = new Microsoft.UI.Xaml.Media.SolidColorBrush(color); }
+            catch { }
+        }
+
+        private static void ApplyNavyAppAccent()
+        {
+            try
+            {
+                var res = Application.Current.Resources;
+                var navy = Windows.UI.Color.FromArgb(255, 25, 35, 90);
+                var navyHover = Windows.UI.Color.FromArgb(255, 48, 55, 115);
+                var navyPressed = Windows.UI.Color.FromArgb(255, 15, 21, 54);
+                var navyDisabled = Windows.UI.Color.FromArgb(255, 64, 66, 84);
+                var navyText = Windows.UI.Color.FromArgb(255, 140, 145, 172);
+                var navyTextHover = Windows.UI.Color.FromArgb(255, 197, 200, 214);
+                var white = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+                res["SystemAccentColor"] = navy;
+                res["SystemAccentColorLight1"] = Windows.UI.Color.FromArgb(255, 82, 90, 131);
+                res["SystemAccentColorLight2"] = navyText;
+                res["SystemAccentColorLight3"] = navyTextHover;
+                res["SystemAccentColorDark1"] = Windows.UI.Color.FromArgb(255, 20, 28, 72);
+                res["SystemAccentColorDark2"] = Windows.UI.Color.FromArgb(255, 15, 21, 54);
+                res["SystemAccentColorDark3"] = Windows.UI.Color.FromArgb(255, 10, 14, 36);
+                SetAppBrush("AccentFillColorDefaultBrush", navy);
+                SetAppBrush("AccentFillColorSecondaryBrush", navyHover);
+                SetAppBrush("AccentFillColorTertiaryBrush", navyPressed);
+                SetAppBrush("AccentTextFillColorPrimaryBrush", navyText);
+                SetAppBrush("AccentTextFillColorSecondaryBrush", navyText);
+                SetAppBrush("AccentTextFillColorTertiaryBrush", navyTextHover);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver",
+                    "ToggleSwitchStrokeOn", "ToggleSwitchStrokeOnPointerOver",
+                    "SliderTrackValueFill", "SliderTrackValueFillPointerOver",
+                    "SliderThumbBackground", "SliderThumbBackgroundPointerOver",
+                    "CheckBoxCheckBackgroundFillChecked", "CheckBoxCheckBackgroundFillCheckedPointerOver",
+                    "CheckBoxCheckBackgroundFillIndeterminate", "CheckBoxCheckBackgroundFillIndeterminatePointerOver",
+                    "RadioButtonOuterEllipseCheckedFill", "RadioButtonOuterEllipseCheckedFillPointerOver",
+                    "RadioButtonOuterEllipseCheckedStroke", "RadioButtonOuterEllipseCheckedStrokePointerOver",
+                    "ProgressBarForeground", "ProgressBarIndeterminateForegroundThemeBrush",
+                    "ProgressRingForegroundThemeBrush", "InfoBadgeBackground",
+                }) SetAppBrush(key, navy);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchFillOnPressed", "ToggleSwitchStrokeOnPressed",
+                    "SliderTrackValueFillPressed", "SliderThumbBackgroundPressed",
+                    "CheckBoxCheckBackgroundFillCheckedPressed", "CheckBoxCheckBackgroundFillIndeterminatePressed",
+                    "RadioButtonOuterEllipseCheckedFillPressed", "RadioButtonOuterEllipseCheckedStrokePressed",
+                    "HyperlinkButtonForegroundPressed",
+                }) SetAppBrush(key, navyPressed);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchFillOnDisabled", "ToggleSwitchStrokeOnDisabled",
+                    "SliderTrackValueFillDisabled", "SliderThumbBackgroundDisabled",
+                    "CheckBoxCheckBackgroundFillCheckedDisabled", "CheckBoxCheckBackgroundFillIndeterminateDisabled",
+                    "RadioButtonOuterEllipseCheckedFillDisabled", "RadioButtonOuterEllipseCheckedStrokeDisabled",
+                }) SetAppBrush(key, navyDisabled);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
+                    "CheckBoxCheckGlyphForegroundChecked", "CheckBoxCheckGlyphForegroundCheckedPointerOver",
+                    "CheckBoxCheckGlyphForegroundCheckedPressed", "CheckBoxCheckGlyphForegroundIndeterminate",
+                    "CheckBoxCheckGlyphForegroundIndeterminatePointerOver", "CheckBoxCheckGlyphForegroundIndeterminatePressed",
+                    "RadioButtonCheckGlyphFill", "RadioButtonCheckGlyphFillPointerOver", "RadioButtonCheckGlyphFillPressed",
+                    "InfoBadgeForeground",
+                }) SetAppBrush(key, white);
+
+                foreach (var key in new[]
+                {
+                    "HyperlinkButtonForeground", "HyperlinkButtonForegroundPointerOver",
+                }) SetAppBrush(key, navyText);
+
+                SetAppBrush("SliderOuterThumbBackground", white);
+                SetAppBrush("SliderThumbBorderBrush", navyPressed);
+            }
+            catch { }
+        }
 
         private async Task ApplyDefaultAppearanceAsync()
         {
@@ -51,7 +137,7 @@ namespace kaliteConfig
         public CpuSetService CpuSets => Services.GetRequiredService<CpuSetService>();
         public NativeSnapshotService NativeSnapshot { get; } = new NativeSnapshotService();
 
-        public GamingModeService GamingMode => Services.GetRequiredService<GamingModeService>();
+        public GamingModeService LegacyGamingMode => Services.GetRequiredService<GamingModeService>();
         public Gaming.GameMode.GameModeEngine GameMode => Services.GetRequiredService<Gaming.GameMode.GameModeEngine>();
         public ForegroundSuspendService ForegroundSuspend => Services.GetRequiredService<ForegroundSuspendService>();
         public ProfileWatcherService ProfileWatcher => Services.GetRequiredService<ProfileWatcherService>();
@@ -64,6 +150,10 @@ namespace kaliteConfig
             if (args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase))
             {
                 IsDryRun = true;
+            }
+            if (args.Contains("--dev", StringComparer.OrdinalIgnoreCase))
+            {
+                IsDev = true;
             }
 
             if (Gaming.GameMode.GameModeEngine.TryRunGuard(args))
@@ -119,9 +209,9 @@ namespace kaliteConfig
             _ = EnsureAutostartAsync();
             ProfileWatcher.StartKeeper();
             ProfileWatcher.StartGamingModeWatcher();
-            if (UpdateCheckService.TryLaunchInstalledCopyAndExitIfStaleSession())
+            if (!IsDev && UpdateCheckService.TryLaunchInstalledCopyAndExitIfStaleSession())
                 return;
-            _ = CheckForUpdateOnStartupAsync();
+            if (!IsDev) _ = CheckForUpdateOnStartupAsync();
         }
 
         private static async Task EnsureAutostartAsync()
@@ -288,7 +378,7 @@ namespace kaliteConfig
                 catch { }
                 ShutdownTrace("closed.gpu-done");
 
-                try { GamingMode.ReleaseAll(); }
+                try { LegacyGamingMode.ReleaseAll(); }
                 catch { }
                 try { GameMode.Dispose(); }
                 catch { }
@@ -305,6 +395,7 @@ namespace kaliteConfig
                 .ConfigureElementTheme(ElementTheme.Dark)
                 .ConfigureBackdrop(DevWinUI.BackdropType.None, true)
                 .Initialize(_window);
+            ApplyNavyAppAccent();
             try { GameMode.Start(); }
             catch { }
 

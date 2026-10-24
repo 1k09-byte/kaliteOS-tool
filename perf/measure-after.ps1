@@ -7,16 +7,13 @@ function Measure-Idle([string]$Out) {
   & (Join-Path $root 'perf/measure-idle-state.ps1') -Seconds 30 -Out $Out
 }
 
-# 1. Fresh start
 Get-Process kaliteConfig -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 2
 Start-Process -FilePath $exe | Out-Null
 Start-Sleep -Seconds 40
 
-# 2. Idle, visible (home page)
 Write-Output ('[visible] ' + (Measure-Idle 'perf/after-idle-visible.csv'))
 
-# 3. Idle, minimized
 $p = Get-Process kaliteConfig | Select-Object -First 1
 Add-Type @"
 using System;
@@ -32,7 +29,6 @@ Write-Output ('[minimized] ' + (Measure-Idle 'perf/after-idle-minimized.csv'))
 [void][W2]::ShowWindow($p.MainWindowHandle, 9)
 Start-Sleep -Seconds 3
 
-# 4. Visit Graphics Control, then leave the page, then idle again.
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $proc = Get-Process kaliteConfig | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
@@ -52,7 +48,7 @@ function Select-Nav([string]$name) {
   return $false
 }
 Select-Nav 'Graphics Control' | Out-Null
-Start-Sleep -Seconds 6      # page loads, telemetry starts (by design)
-Select-Nav 'Power' | Out-Null   # leave the Graphics page
-Start-Sleep -Seconds 5      # Teardown -> StopAsync should have halted the loop
+Start-Sleep -Seconds 6
+Select-Nav 'Power' | Out-Null
+Start-Sleep -Seconds 5
 Write-Output ('[after-graphics-visit] ' + (Measure-Idle 'perf/after-idle-post-graphics.csv'))

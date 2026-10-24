@@ -32,8 +32,7 @@ namespace kaliteConfig.Pages
 
         private void ExtensionsFlyout_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
         {
-            // The extension list is the only thing the wheel should move while this flyout is open.
-            // Without this the app list behind the flyout scrolls at the same time once the list hits an end.
+
             e.Handled = true;
         }
 
@@ -77,7 +76,7 @@ namespace kaliteConfig.Pages
         {
             BrowserInstallStatus.Failed => Services.Theming.ThemeHelper.Brush("SystemFillColorCriticalBrush", Microsoft.UI.Colors.OrangeRed),
             BrowserInstallStatus.NotInstalled or BrowserInstallStatus.UpdateAvailable
-                => Services.Theming.ThemeHelper.Brush("AccentTextFillColorPrimaryBrush", Microsoft.UI.Colors.DodgerBlue),
+                => Services.Theming.ThemeHelper.Brush("AccentTextFillColorPrimaryBrush", Windows.UI.Color.FromArgb(255, 25, 35, 90)),
             _ => Services.Theming.ThemeHelper.Brush("TextFillColorSecondaryBrush", Microsoft.UI.Colors.Gray),
         };
 

@@ -18,6 +18,9 @@ public interface ICursorService
     (string? Path, string? Error) ImportCursorFile(string sourcePath);
     SchemeScan ScanSchemeFolder(string folder);
     IReadOnlyList<CursorPack> Packs();
+    CursorPack? DetectActivePack();
+    void RememberActivePack(CursorPack? pack);
+    void ClearRememberedActivePack();
 
     IReadOnlyList<SettingResult> ApplyScheme(IReadOnlyDictionary<string, string> roleToPath);
     IReadOnlyList<SettingResult> ApplyPointerSize(int size);

@@ -247,6 +247,50 @@
                                 StepFrequency="1" SnapsTo="StepValues" />
                     </StackPanel>
 
+                    <StackPanel Spacing="4">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="XBAR clock offset (MHz)" VerticalAlignment="Center"
+                                       ToolTipService.ToolTip="Offset for the crossbar (memory interconnect) clock. Greyed out when this GPU or driver does not expose the XBAR clock domain." />
+                            <NumberBox Grid.Column="1" Width="104" IsEnabled="{x:Bind Vm.HasXbarOffset, Mode=OneWay}"
+                                       Minimum="{x:Bind Vm.XbarOffsetMin, Mode=OneWay}"
+                                       Maximum="{x:Bind Vm.XbarOffsetMax, Mode=OneWay}"
+                                       Value="{x:Bind Vm.XbarOffsetValue, Mode=OneWay}"
+                                       ValueChanged="XbarOffsetBox_ValueChanged"
+                                       SpinButtonPlacementMode="Compact" SmallChange="1"
+                                       ToolTipService.ToolTip="Type an exact offset - commits through the same confirmation countdown as dragging." />
+                        </Grid>
+                        <Slider x:Name="XbarOffsetSlider"
+                                IsEnabled="{x:Bind Vm.HasXbarOffset, Mode=OneWay}"
+                                Minimum="{x:Bind Vm.XbarOffsetMin, Mode=OneWay}"
+                                Maximum="{x:Bind Vm.XbarOffsetMax, Mode=OneWay}"
+                                Value="{x:Bind Vm.XbarOffsetValue, Mode=OneWay}"
+                                ValueChanged="XbarOffsetSlider_ValueChanged"
+                                StepFrequency="1" SnapsTo="StepValues" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="System clock offset (MHz)" VerticalAlignment="Center"
+                                       ToolTipService.ToolTip="Offset for the GPU SoC/system clock. Greyed out when this GPU or driver does not expose the system clock domain." />
+                            <NumberBox Grid.Column="1" Width="104" IsEnabled="{x:Bind Vm.HasSystemOffset, Mode=OneWay}"
+                                       Minimum="{x:Bind Vm.SystemOffsetMin, Mode=OneWay}"
+                                       Maximum="{x:Bind Vm.SystemOffsetMax, Mode=OneWay}"
+                                       Value="{x:Bind Vm.SystemOffsetValue, Mode=OneWay}"
+                                       ValueChanged="SystemOffsetBox_ValueChanged"
+                                       SpinButtonPlacementMode="Compact" SmallChange="1"
+                                       ToolTipService.ToolTip="Type an exact offset - commits through the same confirmation countdown as dragging." />
+                        </Grid>
+                        <Slider x:Name="SystemOffsetSlider"
+                                IsEnabled="{x:Bind Vm.HasSystemOffset, Mode=OneWay}"
+                                Minimum="{x:Bind Vm.SystemOffsetMin, Mode=OneWay}"
+                                Maximum="{x:Bind Vm.SystemOffsetMax, Mode=OneWay}"
+                                Value="{x:Bind Vm.SystemOffsetValue, Mode=OneWay}"
+                                ValueChanged="SystemOffsetSlider_ValueChanged"
+                                StepFrequency="1" SnapsTo="StepValues" />
+                    </StackPanel>
+
                     <StackPanel Spacing="4" Visibility="{x:Bind local:OverclockSection.BoolToVis(Vm.HasPowerLimit), Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>

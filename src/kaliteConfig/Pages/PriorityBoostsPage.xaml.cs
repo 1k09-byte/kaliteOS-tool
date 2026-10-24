@@ -169,7 +169,6 @@ namespace kaliteConfig.Pages
         }
 
         public static bool NotProtected(bool isProtected) => !isProtected;
-        public static string BoostText(bool boostEnabled) => boostEnabled ? "On" : "Off";
 
         private async void ThreadAction_ToggleBoost(object sender, RoutedEventArgs e)
         {
@@ -185,6 +184,7 @@ namespace kaliteConfig.Pages
                         await Services.BoostPreferenceService.Instance.SuppressAsync(row.ProcessName, row.Tid, row.Description, string.Empty);
 
                     row.BoostEnabled = targetState;
+                    row.IsBoostKnown = true;
                 }
                 catch (Exception ex)
                 {

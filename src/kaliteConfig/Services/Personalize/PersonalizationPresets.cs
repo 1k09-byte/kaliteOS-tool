@@ -9,6 +9,7 @@ public static class PersonalizationPresets
 
     public static readonly AccentSwatch[] AccentSwatches =
     {
+        new("Personalize_Accent_Navy", "#19235A"),
         new("Personalize_Accent_Blue", "#0078D4"),
         new("Personalize_Accent_Teal", "#008272"),
         new("Personalize_Accent_Green", "#107C10"),

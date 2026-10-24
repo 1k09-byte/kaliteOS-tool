@@ -34,6 +34,16 @@ namespace kaliteConfig.GpuOverclock.Services
         GpuResult SetPowerLimitPercent(double percent);
         GpuResult SetTempLimitC(int tempLimitC);
 
+        GpuResult SetXbarOffsetMhz(int offsetMhz)
+            => GpuResult.Fail(
+                OverclockErrorKind.ControlUnsupported,
+                "XBAR clock offset is not available on this GPU or driver.");
+
+        GpuResult SetSystemOffsetMhz(int offsetMhz)
+            => GpuResult.Fail(
+                OverclockErrorKind.ControlUnsupported,
+                "System clock offset is not available on this GPU or driver.");
+
         GpuResult SetFanStaticPercent(int percent);
 
         GpuResult RestoreFanAuto();

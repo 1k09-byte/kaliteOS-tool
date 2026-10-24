@@ -120,7 +120,7 @@ namespace kaliteConfig
         {
             App.ShutdownTrace("prepare.begin");
             _allowExit = true;
-            try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
+            try { (Application.Current as App)?.LegacyGamingMode.ReleaseAll(); } catch { }
             App.ShutdownTrace("prepare.gaming-released");
             try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
             App.ShutdownTrace("prepare.foreground-resumed");
@@ -141,6 +141,7 @@ namespace kaliteConfig
             TitleFade.Background = _titleFadeBrush;
             _backdropTintBrush = new SolidColorBrush();
             TintLayer.Background = _backdropTintBrush;
+            EnsureDefaultNavyTint();
             ApplyBackgroundImage();
             ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
             try
@@ -233,7 +234,7 @@ namespace kaliteConfig
                 {
                     App.ShutdownTrace("tray-exit.dequeued");
                     _allowExit = true;
-                    try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
+                    try { (Application.Current as App)?.LegacyGamingMode.ReleaseAll(); } catch { }
                     App.ShutdownTrace("tray-exit.gaming-released");
                     try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
                     App.ShutdownTrace("tray-exit.foreground-resumed");
@@ -410,6 +411,28 @@ namespace kaliteConfig
             }
             catch { }
 
+        }
+
+        private static void EnsureDefaultNavyTint()
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "kaliteConfig");
+                string marker = System.IO.Path.Combine(dir, "navy-tint-auto.txt");
+                if (System.IO.File.Exists(marker)) return;
+                if (!kaliteConfig.Services.BackdropTint.HasSavedFile())
+                    kaliteConfig.Services.BackdropTint.Save(0x19, 0x23, 0x5A,
+                        kaliteConfig.Services.BackdropTint.DefaultStrengthPercent);
+                try
+                {
+                    System.IO.Directory.CreateDirectory(dir);
+                    System.IO.File.WriteAllText(marker, DateTime.UtcNow.ToString("o"));
+                }
+                catch { }
+            }
+            catch { }
         }
 
         public void ApplyBackdropTint((byte R, byte G, byte B, byte A) tint)
@@ -930,6 +953,11 @@ namespace kaliteConfig
             if (isInstalled == 1)
             {
                 _kaliteOSAutoSetupRan = true;
+                _ = Task.Run(async () =>
+                {
+                    try { await ApplyBundledPixelDotOnceAsync(); } catch { }
+                    try { await ApplyNavyAccentOnceAsync(); } catch { }
+                });
                 return;
             }
 
@@ -1014,11 +1042,13 @@ namespace kaliteConfig
                 if (installed)
                 {
                     try { Services.KaliteOSRegistryService.SetIsInstalled(1); } catch { }
+                    string cursorNote = await ApplyBundledPixelDotOnceAsync();
+                    string accentNote = await ApplyNavyAccentOnceAsync();
                     DispatcherQueue.TryEnqueue(() =>
                     {
                         KaliteOSProgressBar.IsIndeterminate = false;
                         KaliteOSProgressBar.Value = 100;
-                        KaliteOSProgressText.Text = "Done - Windhawk installed and KaliteOS mods imported.";
+                        KaliteOSProgressText.Text = "Done - Windhawk installed and KaliteOS mods imported." + cursorNote + accentNote;
                         KaliteOSPercentText.Text = "100%";
                         KaliteOSPercentText.Visibility = Visibility.Visible;
                     });
@@ -1048,6 +1078,63 @@ namespace kaliteConfig
                 await Task.Delay(6000);
                 DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
             }
+        }
+
+        private static async Task<string> ApplyBundledPixelDotOnceAsync()
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "kaliteConfig");
+                string navyFlag = System.IO.Path.Combine(dir, "pixel-dot-navy-auto.txt");
+                if (System.IO.File.Exists(navyFlag)) return "";
+                var cursor = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.Personalize.ICursorService>(App.Services);
+                var pack = await Task.Run(() => cursor.Packs()
+                    .FirstOrDefault(p => string.Equals(p.Name, "Pixel Dot Navy", StringComparison.OrdinalIgnoreCase)));
+                if (pack is null) return "";
+                var scan = await Task.Run(() => cursor.ScanSchemeFolder(pack.FolderPath));
+                if (scan.Mapping.Count == 0) return "";
+                var results = await Task.Run(() => cursor.ApplyScheme(scan.Mapping));
+                if (results.Any(r => !r.Ok)) return "";
+                try { cursor.RememberActivePack(pack); } catch { }
+                try
+                {
+                    System.IO.Directory.CreateDirectory(dir);
+                    System.IO.File.WriteAllText(navyFlag, DateTime.UtcNow.ToString("o"));
+                    string legacyFlag = System.IO.Path.Combine(dir, "pixel-dot-auto.txt");
+                    if (System.IO.File.Exists(legacyFlag))
+                    {
+                        try { System.IO.File.WriteAllText(legacyFlag, DateTime.UtcNow.ToString("o")); } catch { }
+                    }
+                }
+                catch { }
+                return " Pixel Dot Navy cursor enabled.";
+            }
+            catch { return ""; }
+        }
+
+        private static async Task<string> ApplyNavyAccentOnceAsync()
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "kaliteConfig");
+                string flag = System.IO.Path.Combine(dir, "navy-accent-auto.txt");
+                if (System.IO.File.Exists(flag)) return "";
+                var theme = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.Personalize.IThemeSettingsService>(App.Services);
+                var results = await Task.Run(() => theme.ApplyAccentColor(unchecked((int)0xFF19235A)));
+                if (results.Any(r => !r.Ok)) return "";
+                try
+                {
+                    System.IO.Directory.CreateDirectory(dir);
+                    System.IO.File.WriteAllText(flag, DateTime.UtcNow.ToString("o"));
+                }
+                catch { }
+                return " Navy accent applied.";
+            }
+            catch { return ""; }
         }
 
         private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement
