@@ -255,11 +255,22 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         return IsValidDpi(IsV2(pid), ReadU16(config, OffStages + 1));
     }
 
+    private static string NormalizePath(string path)
+    {
+        string clean = (path ?? string.Empty).TrimEnd('\0').Trim();
+        if (clean.StartsWith("\\??\\", StringComparison.Ordinal)) clean = clean.Substring(4);
+        else if (clean.StartsWith("\\\\?\\", StringComparison.Ordinal)) clean = clean.Substring(4);
+        else if (clean.StartsWith("\\\\.\\", StringComparison.Ordinal)) clean = clean.Substring(4);
+        if (clean.StartsWith("\\", StringComparison.Ordinal)) clean = clean.TrimStart('\\');
+        return "\\\\?\\" + clean;
+    }
+
     private static IntPtr OpenPath(string path, uint access)
     {
         const uint share = 3;
         const uint open = 3;
-        IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        string full = NormalizePath(path);
+        IntPtr handle = NativeInput.CreateFileW(full, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
         if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return IntPtr.Zero;
         return handle;
     }
@@ -325,9 +336,14 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     private static string ShortPath(string path)
     {
         if (string.IsNullOrEmpty(path)) return "(none)";
-        int index = path.IndexOf("col", StringComparison.OrdinalIgnoreCase);
-        if (index > 0 && index + 5 <= path.Length) return path.Substring(index, 5);
-        return path.Length <= 24 ? path : path.Substring(0, 24);
+        int hash = path.LastIndexOf('#');
+        string tail = hash >= 0 && hash + 1 < path.Length ? path.Substring(hash + 1) : path;
+        int brace = tail.IndexOf('{');
+        if (brace > 0) tail = tail.Substring(0, brace);
+        if (tail.Length > 20) tail = tail.Substring(0, 20);
+        int col = path.IndexOf("col", StringComparison.OrdinalIgnoreCase);
+        string collection = col >= 0 && col + 5 <= path.Length ? path.Substring(col, 5) : string.Empty;
+        return collection.Length > 0 ? collection + "/" + tail : tail;
     }
 
     private sealed class ReadAttempt
