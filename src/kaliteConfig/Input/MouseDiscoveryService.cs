@@ -577,7 +577,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                         Marshal.WriteInt32(devinfo, devinfoSize);
                         uint got = 0;
                         if (!NativeInput.SetupDiGetDeviceInterfaceDetailW(set, ref iface, detail, required, out got, devinfo)) continue;
-                        string path = Marshal.PtrToStringUni(IntPtr.Add(detail, IntPtr.Size == 8 ? 8 : 4)) ?? string.Empty;
+                        string path = Marshal.PtrToStringUni(IntPtr.Add(detail, 4)) ?? string.Empty;
                         if (path.Length == 0) continue;
                         var entry = new SetupEntry { DetailPath = path, RawPath = path };
                         entry.ContainerId = ReadContainer(set, devinfo);
