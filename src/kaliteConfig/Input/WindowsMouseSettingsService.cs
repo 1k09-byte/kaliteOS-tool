@@ -243,12 +243,37 @@ public sealed class WindowsMouseSettingsService : IWindowsMouseSettingsService
         foreach (var entry in saved)
         {
             bool ok = RestoreOne(entry.Setting, entry.Original, current);
+            if (ok) ok = MatchesCurrent(entry.Setting, entry.Original);
             if (ok) restored++; else failed++;
         }
         string message = failed == 0
             ? "Restored and verified: " + restored + " setting(s) returned to how they were."
             : "Could not restore: " + failed + " setting(s) failed, " + restored + " restored.";
         return Task.FromResult(new MouseWriteOutcome(failed == 0 ? MouseResult.Verified : MouseResult.RestoreFailed, message));
+    }
+
+    private bool MatchesCurrent(string setting, string original)
+    {
+        try
+        {
+            var current = Read();
+            string now = setting switch
+            {
+                "Pointer speed" => current.PointerSpeed.ToString(),
+                "Scroll lines" => current.WheelLines.ToString(),
+                "Horizontal scroll" => current.WheelChars.ToString(),
+                "Primary button" => current.Swapped ? "Left" : "Right",
+                "Double-click speed" => current.DoubleClickMs.ToString(),
+                "Snap to default button" => OnOff(current.SnapDefault),
+                "ClickLock" => OnOff(current.ClickLock),
+                "ClickLock time" => current.ClickLockMs.ToString(),
+                "Pointer precision" => OnOff(current.Precision),
+                "Pointer trails" => OnOff(current.Trails),
+                _ => string.Empty,
+            };
+            return now.Length > 0 && string.Equals(now.Trim(), original.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
     }
 
     private bool RestoreOne(string setting, string original, WindowsMouseState current)
