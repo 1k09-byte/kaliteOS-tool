@@ -25,6 +25,9 @@ public sealed partial class MouseDeviceRow : ObservableObject
 
     [ObservableProperty]
     public partial string MeasuredLine { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string RateLine { get; set; } = string.Empty;
 }
 
 public sealed partial class InputViewModel : ObservableObject, IDisposable
@@ -380,6 +383,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _deviceStatus = null;
         DeviceCanSet = false;
         if (row is null) return;
+        row.RateLine = string.Empty;
         _ = ProbeDeviceAsync(row, token);
     }
 
@@ -398,7 +402,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         }
         catch
         {
-            verify = "The mouse did not answer the probe.";
+            verify = _endgame.LastError.Length > 0 ? _endgame.LastError : "The mouse did not answer the probe.";
         }
         _ui.TryEnqueue(() =>
         {
@@ -424,6 +428,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             foreach (string option in DeviceLodOptions(status)) LodOptions.Add(option);
             RequestedLodIndex = status.LodIndex < LodOptions.Count ? status.LodIndex : 0;
             InfoMemory = "Verified on this device: " + status.DpiX + " DPI, " + status.RateHz + " Hz.";
+            row.RateLine = status.RateHz + " Hz on device";
             DeviceCanSet = true;
             DeviceApplyText = string.Empty;
         });
@@ -435,14 +440,21 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         return new string[] { "0.7 mm", "0.8 mm", "0.9 mm", "1.0 mm", "1.1 mm", "1.2 mm", "1.3 mm", "1.4 mm", "1.5 mm", "1.6 mm", "1.7 mm" };
     }
 
-    public async Task ApplyDeviceAsync()
+    public async Task ApplyRateAsync()
     {
-        var row = SelectedDevice;
         var status = _deviceStatus;
-        if (row is null || status is null || !DeviceCanSet) return;
+        if (status is null || !DeviceCanSet) return;
         var changes = new List<(string Setting, string Original, string Requested)>();
         if (RequestedRate != status.RateHz)
             changes.Add(("report-rate", status.RateHz.ToString(), RequestedRate.ToString()));
+        await ApplySettingsAsync(changes).ConfigureAwait(false);
+    }
+
+    public async Task ApplySensorAsync()
+    {
+        var status = _deviceStatus;
+        if (status is null || !DeviceCanSet) return;
+        var changes = new List<(string Setting, string Original, string Requested)>();
         int dpi = (int)Math.Round(RequestedDpi);
         if (dpi != status.DpiX)
             changes.Add(("dpi", status.DpiX.ToString(), dpi.ToString()));
@@ -456,6 +468,13 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             changes.Add(("slamclick-filter", slamWas, slam));
         if (RequestedLodIndex != status.LodIndex)
             changes.Add(("lift-off", status.LodIndex.ToString(), RequestedLodIndex.ToString()));
+        await ApplySettingsAsync(changes).ConfigureAwait(false);
+    }
+
+    private async Task ApplySettingsAsync(List<(string Setting, string Original, string Requested)> changes)
+    {
+        var row = SelectedDevice;
+        if (row is null) return;
         if (changes.Count == 0)
         {
             DeviceApplyText = "Nothing differs from the device.";
