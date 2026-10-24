@@ -65,6 +65,11 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<Input.IMouseClassifier, Input.MouseClassifier>();
         s.AddSingleton<Input.IVendorSoftwareDetector, Input.VendorSoftwareDetector>();
         s.AddSingleton<Input.IMouseDiscoveryService, Input.MouseDiscoveryService>();
+        s.AddSingleton<Input.IMouseCapabilityProvider, Input.MouseCapabilityProvider>();
+        s.AddSingleton<Input.IMouseGuardPolicy, Input.MouseGuardPolicy>();
+        s.AddSingleton<Input.IMouseSnapshotService, Input.MouseSnapshotService>();
+        s.AddSingleton<Input.IMouseLog, Input.MouseLog>();
+        s.AddSingleton<Input.IMouseWriteTransaction, Input.MouseWriteTransaction>();
 
         s.AddSingleton<BiosManagerViewModel>();
         s.AddTransient<GpuDriversViewModel>();
