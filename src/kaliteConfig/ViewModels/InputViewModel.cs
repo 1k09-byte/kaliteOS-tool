@@ -390,11 +390,13 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             if (!_endgame.Matches(row.Device))
                 verify = "Not a supported community device.";
             else
-                status = await _endgame.ReadStatusAsync(row.Device).ConfigureAwait(false);
+                status = await _endgame.TryReadStatusAsync(row.Device).ConfigureAwait(false);
+            if (status is null && verify is null)
+                verify = _endgame.LastError.Length > 0 ? _endgame.LastError : "The mouse did not answer the probe.";
         }
-        catch
+        catch (Exception ex)
         {
-            verify = _endgame.LastError.Length > 0 ? _endgame.LastError : "The mouse did not answer the probe.";
+            verify = ex.Message;
         }
         _ui.TryEnqueue(() =>
         {

@@ -26,7 +26,6 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 {
     public string Id => "endgame-gear-op1";
     public bool EnabledByDefault => false;
-
     public string LastError { get; private set; } = string.Empty;
 
     private const ushort VendorId = 0x3367;
@@ -65,17 +64,14 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 
     public bool Matches(MouseDevice device) => IsAllowedId(device.VendorId, device.ProductId);
 
-    public async Task<IReadOnlyList<MouseCapability>> ProbeAsync(MouseDevice device)
+    public Task<IReadOnlyList<MouseCapability>> ProbeAsync(MouseDevice device)
     {
         var list = new List<MouseCapability>();
-        try
+        EndgameDeviceStatus? status = TryReadStatus(device);
+        if (status is null)
         {
-            await ReadStatusAsync(device).ConfigureAwait(false);
-        }
-        catch
-        {
-            list.Add(new MouseCapability(CapabilityKind.ReportRate, CapabilityState.CantRead, "The mouse did not answer the probe."));
-            return list;
+            list.Add(new MouseCapability(CapabilityKind.ReportRate, CapabilityState.CantRead, LastError));
+            return Task.FromResult<IReadOnlyList<MouseCapability>>(list);
         }
         list.Add(new MouseCapability(CapabilityKind.DeviceInfo, CapabilityState.Available, string.Empty));
         list.Add(new MouseCapability(CapabilityKind.WindowsSettings, CapabilityState.Available, "Applies to all mice."));
@@ -88,20 +84,18 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         list.Add(new MouseCapability(CapabilityKind.Profiles, CapabilityState.NotImplemented, "Onboard profiles are not implemented in this app."));
         list.Add(new MouseCapability(CapabilityKind.Test, CapabilityState.Available, string.Empty));
         list.Add(new MouseCapability(CapabilityKind.Log, CapabilityState.Available, string.Empty));
-        return list;
+        return Task.FromResult<IReadOnlyList<MouseCapability>>(list);
     }
 
-    public async Task<string?> ReadAsync(MouseDevice device, string setting)
+    public Task<string?> ReadAsync(MouseDevice device, string setting)
     {
-        EndgameDeviceStatus status;
-        try
-        {
-            status = await ReadStatusAsync(device).ConfigureAwait(false);
-        }
-        catch
-        {
-            return null;
-        }
+        EndgameDeviceStatus? status = TryReadStatus(device);
+        if (status is null) return Task.FromResult<string?>(null);
+        return Task.FromResult<string?>(ReadValue(status, setting));
+    }
+
+    private static string? ReadValue(EndgameDeviceStatus status, string setting)
+    {
         switch ((setting ?? string.Empty).ToLowerInvariant())
         {
             case "report-rate": return status.RateHz.ToString();
@@ -117,27 +111,37 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
-    public async Task<bool> WriteAsync(MouseDevice device, string setting, string value)
+    public Task<bool> WriteAsync(MouseDevice device, string setting, string value)
     {
-        bool v2 = IsV2(device.ProductId);
-        byte[] config;
-        try
+        return Task.Run(() => WriteCore(device, setting, value));
+    }
+
+    private bool WriteCore(MouseDevice device, string setting, string value)
+    {
+        string? path = ChoosePath(device, out byte[]? config);
+        if (path is null || config is null)
         {
-            config = await LoadConfigAsync(device).ConfigureAwait(false);
-        }
-        catch
-        {
+            LastError = "The configuration interface could not be read.";
             return false;
         }
+        bool v2 = IsV2(device.ProductId);
         switch ((setting ?? string.Empty).ToLowerInvariant())
         {
             case "report-rate":
-                if (!int.TryParse(value, out int rate) || Array.IndexOf(Rates, rate) < 0) return false;
+                if (!int.TryParse(value, out int rate) || Array.IndexOf(Rates, rate) < 0)
+                {
+                    LastError = "Unsupported report rate.";
+                    return false;
+                }
                 config[OffDivider] = (byte)(8000 / rate);
                 if (rate == 8000 && !v2) config[OffMotion] = 0;
                 break;
             case "dpi":
-                if (!int.TryParse(value, out int dpi) || !IsValidDpi(v2, dpi)) return false;
+                if (!int.TryParse(value, out int dpi) || !IsValidDpi(v2, dpi))
+                {
+                    LastError = "That DPI value is not supported by this mouse.";
+                    return false;
+                }
                 WriteStages(config, dpi, dpi);
                 break;
             case "motion-sync":
@@ -163,26 +167,62 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 break;
             case "lift-off":
                 if (!int.TryParse(value, out int lod)) return false;
-                if (lod < 0 || lod >= LodCount(v2)) return false;
+                if (lod < 0 || lod >= LodCount(v2))
+                {
+                    LastError = "That lift-off value is not supported by this mouse.";
+                    return false;
+                }
                 config[OffLod] = (byte)lod;
                 break;
             default:
                 return false;
         }
-        try
-        {
-            return await StoreConfigAsync(device, config).ConfigureAwait(false);
-        }
-        catch
-        {
-            return false;
-        }
+        return StoreConfig(path, config);
     }
 
-    public async Task<EndgameDeviceStatus> ReadStatusAsync(MouseDevice device)
+    public EndgameDeviceStatus? TryReadStatus(MouseDevice device)
     {
-        byte[] config = await LoadConfigAsync(device).ConfigureAwait(false);
+        string? path = ChoosePath(device, out byte[]? config);
+        if (path is null || config is null) return null;
         return ParseStatus(device.ProductId, config);
+    }
+
+    public Task<EndgameDeviceStatus?> TryReadStatusAsync(MouseDevice device) => Task.Run(() => TryReadStatus(device));
+
+    private string? ChoosePath(MouseDevice device, out byte[]? config)
+    {
+        config = null;
+        var paths = VendorPaths(device);
+        if (paths.Count == 0)
+        {
+            LastError = "No interface to read the mouse from.";
+            return null;
+        }
+        var ranked = new List<(string Path, int Feature)>();
+        foreach (string path in paths)
+            ranked.Add((path, FeatureLength(path)));
+        ranked.Sort((left, right) => right.Feature.CompareTo(left.Feature));
+        var failures = new List<string>();
+        foreach (var candidate in ranked)
+        {
+            if (candidate.Feature < CommandSize)
+            {
+                failures.Add(ShortPath(candidate.Path) + ": no 64 byte feature report");
+                continue;
+            }
+            var attempt = ReadConfig(candidate.Path, device.ProductId);
+            if (attempt.Config != null)
+            {
+                config = attempt.Config;
+                LastError = string.Empty;
+                return candidate.Path;
+            }
+            failures.Add(ShortPath(candidate.Path) + " (" + candidate.Feature + "): " + attempt.Error);
+        }
+        LastError = failures.Count == 0
+            ? "The mouse did not answer the probe."
+            : "Tried " + failures.Count + (failures.Count == 1 ? " interface: " : " interfaces: ") + string.Join("; ", failures);
+        return null;
     }
 
     private static bool IsV2(ushort pid)
@@ -262,59 +302,27 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 
     private static List<string> VendorPaths(MouseDevice device)
     {
-        var vendor = new List<string>();
-        var other = new List<string>();
+        var ordered = new List<string>();
+        var others = new List<string>();
         foreach (var face in device.Interfaces)
         {
             if (face.DevicePath.Length == 0) continue;
             if (face.VendorDefined)
             {
-                if (!vendor.Contains(face.DevicePath)) vendor.Add(face.DevicePath);
+                if (!ordered.Contains(face.DevicePath)) ordered.Add(face.DevicePath);
                 continue;
             }
-            if (!other.Contains(face.DevicePath)) other.Add(face.DevicePath);
+            if (!others.Contains(face.DevicePath)) others.Add(face.DevicePath);
         }
-        var ordered = new List<string>();
-        foreach (string path in vendor) if (!ordered.Contains(path)) ordered.Add(path);
-        foreach (string path in other) if (!ordered.Contains(path)) ordered.Add(path);
+        foreach (string path in others)
+            if (!ordered.Contains(path)) ordered.Add(path);
         return ordered;
-    }
-
-    private async Task<byte[]> LoadConfigAsync(MouseDevice device)
-    {
-        var paths = VendorPaths(device);
-        if (paths.Count == 0)
-        {
-            LastError = "The vendor interface was not found.";
-            throw new IOException(LastError, unchecked((int)0x80070002));
-        }
-        paths.Sort((left, right) => FeatureLength(right).CompareTo(FeatureLength(left)));
-        Exception? last = null;
-        var failures = new List<string>();
-        foreach (string path in paths)
-        {
-            try
-            {
-                return await WithTimeout(() => AttemptRead(device.ProductId, path)).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                last = ex;
-                failures.Add(ShortPath(path) + ": " + ex.Message);
-            }
-        }
-        LastError = failures.Count == 0
-            ? "The mouse did not answer the probe."
-            : "Tried " + failures.Count + (failures.Count == 1 ? " interface: " : " interfaces: ") + string.Join("; ", failures);
-        throw last ?? new IOException(LastError, unchecked((int)0x8007001F));
     }
 
     private static int FeatureLength(string path)
     {
-        const uint share = 3;
-        const uint open = 3;
-        IntPtr handle = NativeInput.CreateFileW(path, 0, share, IntPtr.Zero, open, 0, IntPtr.Zero);
-        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return 0;
+        IntPtr handle = OpenPath(path, 0);
+        if (handle == IntPtr.Zero) return 0;
         try
         {
             if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero) return 0;
@@ -348,47 +356,40 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         if (string.IsNullOrEmpty(path)) return "(none)";
         int index = path.IndexOf("col", StringComparison.OrdinalIgnoreCase);
         if (index > 0 && index + 5 <= path.Length) return path.Substring(index, 5);
-        int hid = path.IndexOf("hid#", StringComparison.OrdinalIgnoreCase);
-        if (hid >= 0 && hid + 24 <= path.Length) return path.Substring(hid, 24);
         return path.Length <= 24 ? path : path.Substring(0, 24);
     }
 
-    private async Task<bool> StoreConfigAsync(MouseDevice device, byte[] config)
+    private sealed class ReadAttempt
     {
-        var paths = VendorPaths(device);
-        if (paths.Count == 0) return false;
-        foreach (string path in paths)
+        public byte[]? Config;
+        public string Error = string.Empty;
+    }
+
+    private static ReadAttempt ReadConfig(string path, ushort pid)
+    {
+        var attempt = new ReadAttempt();
+        IntPtr handle = OpenPath(path, 0xC0000000);
+        if (handle == IntPtr.Zero)
         {
-            try
+            int accessError = Marshal.GetLastWin32Error();
+            handle = OpenPath(path, 0x80000000);
+            if (handle == IntPtr.Zero)
             {
-                return await WithTimeout(() => AttemptStore(path, config)).ConfigureAwait(false);
-            }
-            catch
-            {
+                attempt.Error = "open code " + accessError + "/" + Marshal.GetLastWin32Error();
+                return attempt;
             }
         }
-        return false;
-    }
-
-    private static async Task<T> WithTimeout<T>(Func<T> work)
-    {
-        var task = Task.Run(work);
-        var completed = await Task.WhenAny(task, Task.Delay(12000)).ConfigureAwait(false);
-        if (!ReferenceEquals(completed, task))
-            throw new TimeoutException("The mouse did not answer in time.");
-        return await task.ConfigureAwait(false);
-    }
-
-    private static byte[] AttemptRead(ushort pid, string path)
-    {
-        IntPtr handle = OpenDevice(path);
         try
         {
             var command = new byte[CommandSize];
             command[0] = ReportCommand;
             command[1] = OpLoad;
             if (!SetReport(handle, command))
-                throw new IOException("The command was not accepted.", Marshal.GetLastWin32Error());
+            {
+                int code = Marshal.GetLastWin32Error();
+                attempt.Error = "load command code " + code;
+                return attempt;
+            }
             System.Threading.Thread.Sleep(80);
             for (int round = 0; round < 3; round++)
             {
@@ -398,12 +399,14 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                     if (got != null && IsValidConfig(got, got.Length, pid))
                     {
                         got[0] = ReportConfig;
-                        return got;
+                        attempt.Config = got;
+                        return attempt;
                     }
                 }
                 System.Threading.Thread.Sleep(60 << round);
             }
-            throw new IOException("The mouse did not return a valid configuration.", unchecked((int)0x8007001F));
+            attempt.Error = "no valid configuration";
+            return attempt;
         }
         finally
         {
@@ -411,17 +414,17 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
-    private static bool AttemptStore(string path, byte[] config)
+    private static bool StoreConfig(string path, byte[] config)
     {
-        IntPtr handle = OpenDevice(path);
+        IntPtr handle = OpenPath(path, 0xC0000000);
+        if (handle == IntPtr.Zero) return false;
         try
         {
             var buffer = new byte[ConfigSize];
             buffer[0] = ReportConfig;
             buffer[1] = OpStore;
             Buffer.BlockCopy(config, 2, buffer, 2, ConfigSize - 2);
-            if (!SetReport(handle, buffer))
-                return false;
+            if (!SetReport(handle, buffer)) return false;
             System.Threading.Thread.Sleep(300);
             int backoff = 60;
             for (int attempt = 0; attempt < 8; attempt++)
@@ -443,21 +446,13 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
-    private static readonly uint[] AccessModes = new uint[] { 0xC0000000, 0x80000000, 0 };
-
-    private static IntPtr OpenDevice(string path)
+    private static IntPtr OpenPath(string path, uint access)
     {
         const uint share = 3;
         const uint open = 3;
-        int lastError = 0;
-        foreach (uint access in AccessModes)
-        {
-            IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
-            if (handle != IntPtr.Zero && handle != new IntPtr(-1)) return handle;
-            lastError = Marshal.GetLastWin32Error();
-            if (lastError != 5) break;
-        }
-        throw new IOException("The vendor interface could not be opened (code " + lastError + ").", lastError);
+        IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return IntPtr.Zero;
+        return handle;
     }
 
     private static bool SetReport(IntPtr handle, byte[] buffer)
@@ -481,8 +476,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         {
             for (int i = 0; i < size; i++) Marshal.WriteByte(native, i, 0);
             Marshal.WriteByte(native, 0, id);
-            if (!NativeInput.HidD_GetFeature(handle, native, (uint)size))
-                return null;
+            if (!NativeInput.HidD_GetFeature(handle, native, (uint)size)) return null;
             var buffer = new byte[size];
             Marshal.Copy(native, buffer, 0, size);
             return buffer;
