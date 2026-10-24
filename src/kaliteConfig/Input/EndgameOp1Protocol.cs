@@ -27,6 +27,8 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     public string Id => "endgame-gear-op1";
     public bool EnabledByDefault => false;
 
+    public string LastError { get; private set; } = string.Empty;
+
     private const ushort VendorId = 0x3367;
     private const byte ReportConfig = 0xA0;
     private const byte ReportCommand = 0xA1;
@@ -274,7 +276,10 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     {
         var paths = VendorPaths(device);
         if (paths.Count == 0)
-            throw new IOException("The mouse exposes no vendor interface.", unchecked((int)0x80070002));
+        {
+            LastError = "The vendor interface was not found.";
+            throw new IOException(LastError, unchecked((int)0x80070002));
+        }
         Exception? last = null;
         foreach (string path in paths)
         {
@@ -287,7 +292,8 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 last = ex;
             }
         }
-        throw last ?? new IOException("The mouse did not answer the probe.", unchecked((int)0x8007001F));
+        LastError = last?.Message ?? "The mouse did not answer the probe.";
+        throw last ?? new IOException(LastError, unchecked((int)0x8007001F));
     }
 
     private async Task<bool> StoreConfigAsync(MouseDevice device, byte[] config)

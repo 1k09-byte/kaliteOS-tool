@@ -111,6 +111,17 @@ namespace kaliteConfig.Pages
         {
             if (e.PropertyName == nameof(InputViewModel.Capabilities))
                 RebuildSections();
+            else if (e.PropertyName == nameof(InputViewModel.DeviceCanSet))
+                RefreshSensorPanel();
+        }
+
+        private void RefreshSensorPanel()
+        {
+            if (SectionBar.SelectedItem is SelectorBarItem item && item.Tag is Input.MouseCapability cap && cap.Kind == Input.CapabilityKind.Sensor)
+            {
+                VendorPanel.Visibility = ViewModel.DeviceCanSet ? Visibility.Collapsed : Visibility.Visible;
+                SensorRealPanel.Visibility = ViewModel.DeviceCanSet ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         private void RebuildSections()
@@ -134,6 +145,7 @@ namespace kaliteConfig.Pages
         private void SectionBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
             foreach (var panel in _panels.Values.Distinct()) panel.Visibility = Visibility.Collapsed;
+            SensorRealPanel.Visibility = Visibility.Collapsed;
             var current = ViewModel.SelectedCapability;
             if (sender.SelectedItem is SelectorBarItem item && item.Tag is Input.MouseCapability cap)
             {
@@ -152,6 +164,7 @@ namespace kaliteConfig.Pages
             {
                 keep.Visibility = Visibility.Visible;
             }
+            RefreshSensorPanel();
         }
 
         private void DeviceGrid_ItemClick(object sender, ItemClickEventArgs e)
@@ -172,7 +185,9 @@ namespace kaliteConfig.Pages
 
         private async void WindowsRevert_Click(object sender, RoutedEventArgs e) => await ViewModel.RevertWindowsAsync();
 
-        private async void DeviceApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyDeviceAsync();
+        private async void RateApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyRateAsync();
+
+        private async void SensorApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplySensorAsync();
 
         private void TestStart_Click(object sender, RoutedEventArgs e) => ViewModel.StartTest();
 

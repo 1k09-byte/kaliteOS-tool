@@ -218,6 +218,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             return devices;
         }
         var setupPaths = MapSetupPaths();
+        var vendorById = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         var auxByContainer = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         foreach (var aux in auxInfos)
         {
@@ -239,15 +240,35 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 auxByContainer[setup.ContainerId] = list;
             }
             list.Add(entry);
+            if (entry.VendorDefined && entry.VendorId != 0)
+            {
+                string key = entry.VendorId.ToString("X4") + ":" + entry.ProductId.ToString("X4");
+                if (!vendorById.TryGetValue(key, out var bucket))
+                {
+                    bucket = new List<MouseInterfaceInfo>();
+                    vendorById[key] = bucket;
+                }
+                bucket.Add(entry);
+            }
         }
         foreach (var info in mouseInfos)
         {
             if (MouseClassifier.LooksLikeNonMouse(info.ManufacturerText, info.ProductText)) continue;
-            var device = BuildDevice(info, setupPaths);
+            var device = BuildDevice(info, setupPaths, vendorById);
             if (device is null) continue;
             if (device.ContainerId.Length > 0 && auxByContainer.TryGetValue(device.ContainerId, out var extra))
                 foreach (var extraInfo in extra)
                     device.Interfaces.Add(extraInfo);
+            bool vendorAttached = false;
+            foreach (var face in device.Interfaces)
+                if (face.VendorDefined) vendorAttached = true;
+            if (!vendorAttached && device.VendorId != 0)
+            {
+                string key = device.VendorId.ToString("X4") + ":" + device.ProductId.ToString("X4");
+                if (vendorById.TryGetValue(key, out var bucket))
+                    foreach (var face in bucket)
+                        device.Interfaces.Add(face);
+            }
             devices.Add(device);
         }
         MarkReceivers(devices);
@@ -602,7 +623,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         catch { return string.Empty; }
     }
 
-    private MouseDevice? BuildDevice(RawInterface info, Dictionary<string, SetupEntry> setupPaths)
+    private MouseDevice? BuildDevice(RawInterface info, Dictionary<string, SetupEntry> setupPaths, Dictionary<string, List<MouseInterfaceInfo>> vendorById)
     {
         try
         {
