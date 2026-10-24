@@ -177,7 +177,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             default:
                 return false;
         }
-        return StoreConfig(path, config);
+        return StoreConfig(path, config, _liveFeature > 0 ? _liveFeature : ConfigSize);
     }
 
     public EndgameDeviceStatus? TryReadStatus(MouseDevice device)
@@ -188,6 +188,9 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     }
 
     public Task<EndgameDeviceStatus?> TryReadStatusAsync(MouseDevice device) => Task.Run(() => TryReadStatus(device));
+
+    private string _livePath = string.Empty;
+    private int _liveFeature;
 
     private string? ChoosePath(MouseDevice device, out byte[]? config)
     {
@@ -207,13 +210,15 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         {
             if (candidate.Feature < CommandSize)
             {
-                failures.Add(ShortPath(candidate.Path) + ": no 64 byte feature report");
+                failures.Add(ShortPath(candidate.Path) + ": no feature report");
                 continue;
             }
-            var attempt = ReadConfig(candidate.Path, device.ProductId);
+            var attempt = ReadConfig(candidate.Path, device.ProductId, candidate.Feature);
             if (attempt.Config != null)
             {
                 config = attempt.Config;
+                _livePath = candidate.Path;
+                _liveFeature = candidate.Feature;
                 LastError = string.Empty;
                 return candidate.Path;
             }
@@ -365,37 +370,33 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         public string Error = string.Empty;
     }
 
-    private static ReadAttempt ReadConfig(string path, ushort pid)
+    private static ReadAttempt ReadConfig(string path, ushort pid, int feature)
     {
         var attempt = new ReadAttempt();
         IntPtr handle = OpenPath(path, 0xC0000000);
         if (handle == IntPtr.Zero)
         {
-            int accessError = Marshal.GetLastWin32Error();
+            int writeError = Marshal.GetLastWin32Error();
             handle = OpenPath(path, 0x80000000);
             if (handle == IntPtr.Zero)
             {
-                attempt.Error = "open code " + accessError + "/" + Marshal.GetLastWin32Error();
+                attempt.Error = "open code " + writeError + "/" + Marshal.GetLastWin32Error();
                 return attempt;
             }
         }
         try
         {
-            var command = new byte[CommandSize];
+            var command = new byte[feature];
             command[0] = ReportCommand;
             command[1] = OpLoad;
-            if (!SetReport(handle, command))
-            {
-                int code = Marshal.GetLastWin32Error();
-                attempt.Error = "load command code " + code;
-                return attempt;
-            }
-            System.Threading.Thread.Sleep(80);
+            bool sent = SetReport(handle, command);
+            int sendError = sent ? 0 : Marshal.GetLastWin32Error();
+            System.Threading.Thread.Sleep(120);
             for (int round = 0; round < 3; round++)
             {
                 foreach (byte id in new byte[] { ReportCommand, ReportConfig })
                 {
-                    byte[]? got = GetReport(handle, id, ConfigSize);
+                    byte[]? got = GetReport(handle, id, feature);
                     if (got != null && IsValidConfig(got, got.Length, pid))
                     {
                         got[0] = ReportConfig;
@@ -403,9 +404,9 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                         return attempt;
                     }
                 }
-                System.Threading.Thread.Sleep(60 << round);
+                System.Threading.Thread.Sleep(80 << round);
             }
-            attempt.Error = "no valid configuration";
+            attempt.Error = sent ? "no valid configuration" : "load refused (code " + sendError + ")";
             return attempt;
         }
         finally
@@ -414,22 +415,23 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
-    private static bool StoreConfig(string path, byte[] config)
+    private static bool StoreConfig(string path, byte[] config, int feature)
     {
         IntPtr handle = OpenPath(path, 0xC0000000);
         if (handle == IntPtr.Zero) return false;
         try
         {
-            var buffer = new byte[ConfigSize];
+            var buffer = new byte[feature];
             buffer[0] = ReportConfig;
             buffer[1] = OpStore;
-            Buffer.BlockCopy(config, 2, buffer, 2, ConfigSize - 2);
+            int copy = Math.Min(config.Length - 2, feature - 2);
+            if (copy > 0) Buffer.BlockCopy(config, 2, buffer, 2, copy);
             if (!SetReport(handle, buffer)) return false;
             System.Threading.Thread.Sleep(300);
             int backoff = 60;
             for (int attempt = 0; attempt < 8; attempt++)
             {
-                byte[]? reply = GetReport(handle, ReportCommand, CommandSize);
+                byte[]? reply = GetReport(handle, ReportCommand, feature);
                 if (reply != null && reply.Length > 1)
                 {
                     if (reply[1] == StatusOk) return true;

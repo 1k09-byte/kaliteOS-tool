@@ -60,6 +60,7 @@ public sealed class MouseDevice
     public ushort ProductId { get; set; }
     public string ContainerId { get; set; } = string.Empty;
     public string ParentId { get; set; } = string.Empty;
+    public string BusDescription { get; set; } = string.Empty;
     public string InterfacePath { get; set; } = string.Empty;
     public string MakerSource { get; set; } = string.Empty;
     public string OpenResult { get; set; } = string.Empty;

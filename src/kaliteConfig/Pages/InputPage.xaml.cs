@@ -42,8 +42,22 @@ namespace kaliteConfig.Pages
             _panels[Input.CapabilityKind.Log] = LogPanel;
             ViewModel.PropertyChanged += ViewModel_PropertyChanged;
             ViewModel.RoadUpdate += OnRoadUpdate;
-            this.Loaded += (_, _) => { ViewModel.Open(); };
-            this.Unloaded += (_, _) => { try { ViewModel.Close(); } catch { } };
+            this.Loaded += (_, _) =>
+            {
+                ViewModel.Open();
+                if (App.MainWindow is { } window) window.Activated += HostWindow_Activated;
+            };
+            this.Unloaded += (_, _) =>
+            {
+                if (App.MainWindow is { } window) window.Activated -= HostWindow_Activated;
+                try { ViewModel.Close(); } catch { }
+            };
+        }
+
+        private void HostWindow_Activated(object sender, WindowActivatedEventArgs args)
+        {
+            if (args.WindowActivationState == WindowActivationState.Deactivated) return;
+            try { ViewModel.RefreshDevices(); } catch { }
         }
 
         private double _roadOffset;

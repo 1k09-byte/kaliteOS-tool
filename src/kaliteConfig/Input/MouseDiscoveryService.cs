@@ -89,6 +89,8 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             + "Product: " + (device.Product.Length > 0 ? device.Product : "not reported") + "\n"
             + "Serial: " + (device.Serial.Length > 0 ? device.Serial : "not exposed") + "\n"
             + "Container: " + (device.ContainerId.Length > 0 ? device.ContainerId : "none") + "\n"
+            + "Bus description: " + (device.BusDescription.Length > 0 ? device.BusDescription : "not reported") + "\n"
+            + "Parent: " + (device.ParentId.Length > 0 ? device.ParentId : "not reported") + "\n"
             + "Path: " + device.InterfacePath + "\n"
             + "Connection: " + ConnectionText(device.Connection) + "\n"
             + "Open: " + device.OpenResult + "\n"
@@ -541,6 +543,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         public string ContainerId = string.Empty;
         public string Maker = string.Empty;
         public string ParentId = string.Empty;
+        public string BusDesc = string.Empty;
     }
 
     private static Dictionary<string, SetupEntry> MapSetupPaths()
@@ -577,6 +580,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                         entry.ContainerId = ReadContainer(set, devinfo);
                         entry.Maker = ReadMaker(set, devinfo);
                         entry.ParentId = ReadParent(set, devinfo);
+                        entry.BusDesc = ReadBusDesc(set, devinfo);
                         map[NormPath(path)] = entry;
                     }
                     finally
@@ -616,6 +620,25 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 if (!NativeInput.SetupDiGetDevicePropertyW(set, devinfo, ref key, out _, buffer, 64, out _, 0)) return string.Empty;
                 var guid = Marshal.PtrToStructure<Guid>(buffer);
                 return guid == Guid.Empty ? string.Empty : guid.ToString("B").ToUpperInvariant();
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string ReadBusDesc(IntPtr set, IntPtr devinfo)
+    {
+        try
+        {
+            var key = new NativeInput.DevPropKey { Fmtid = NativeInput.DevpkeyDeviceBusDescFmtid, Pid = NativeInput.DevpkeyDeviceBusDescPid };
+            IntPtr buffer = Marshal.AllocHGlobal(1024);
+            try
+            {
+                if (!NativeInput.SetupDiGetDevicePropertyW(set, devinfo, ref key, out _, buffer, 1024, out _, 0)) return string.Empty;
+                return Marshal.PtrToStringUni(buffer) ?? string.Empty;
             }
             finally
             {
@@ -677,10 +700,12 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             string source = maker.Length > 0 ? "HID string descriptor" : "unknown";
             string container = string.Empty;
             string parent = string.Empty;
+            string busDesc = string.Empty;
             if (setupPaths.TryGetValue(NormPath(info.Path), out var setup))
             {
                 container = setup.ContainerId;
                 parent = setup.ParentId;
+                busDesc = setup.BusDesc;
                 if (maker.Length == 0 && setup.Maker.Length > 0)
                 {
                     maker = setup.Maker;
@@ -708,6 +733,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 ? "Interface opened for string reads."
                 : "Interface could not be opened (code " + info.OpenError + "). Device-node values used.";
             device.ParentId = parent;
+            device.BusDescription = busDesc;
             device.Connection = ClassifyConnection(info.Path, instance, parent);
             device.Interfaces.Add(new MouseInterfaceInfo
             {
