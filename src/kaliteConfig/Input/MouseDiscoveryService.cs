@@ -307,8 +307,11 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 return null;
             }
             ReadHidStrings(result);
-            if (ReadCapsKind(result, ref firstError)) return result;
+            string? capsError = null;
+            if (ReadCapsKind(result, ref capsError)) return result;
             if (ReadInfoKind(handle, result, ref firstError)) return result;
+            if (capsError != null)
+                firstError = (capsError + " " + (firstError ?? string.Empty)).Trim();
             return null;
         }
         catch (Exception ex)
@@ -343,9 +346,10 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 try
                 {
                     for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
-                    if (NativeInput.HidP_GetCaps(preparsed, caps) != 0)
+                    int capsStatus = NativeInput.HidP_GetCaps(preparsed, caps);
+                    if (capsStatus != 0)
                     {
-                        firstError ??= "Reads failed at the descriptor parse.";
+                        firstError ??= "Reads failed at the descriptor parse (status 0x" + capsStatus.ToString("X8") + ").";
                         return false;
                     }
                     ushort usage = (ushort)Marshal.ReadInt16(caps, 0);
