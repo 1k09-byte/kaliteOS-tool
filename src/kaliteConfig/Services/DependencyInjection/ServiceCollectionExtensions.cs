@@ -61,6 +61,11 @@ public static class ServiceCollectionExtensions
         s.AddTransient<ThreadTunerViewModel>();
         s.AddTransient<SnipViewModel>();
 
+        s.AddSingleton<Input.MouseCatalog>();
+        s.AddSingleton<Input.IMouseClassifier, Input.MouseClassifier>();
+        s.AddSingleton<Input.IVendorSoftwareDetector, Input.VendorSoftwareDetector>();
+        s.AddSingleton<Input.IMouseDiscoveryService, Input.MouseDiscoveryService>();
+
         s.AddSingleton<BiosManagerViewModel>();
         s.AddTransient<GpuDriversViewModel>();
         s.AddTransient<UninstallerViewModel>();
