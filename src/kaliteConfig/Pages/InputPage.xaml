@@ -20,227 +20,250 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
         <TextBlock Grid.Row="0" Text="Input" Style="{StaticResource TitleLargeTextBlockStyle}" />
-        <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.ShowVendorBanner, Mode=OneWay}" Severity="Warning" Message="{x:Bind ViewModel.VendorBanner, Mode=OneWay}" />
-        <Grid Grid.Row="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="{x:Bind ViewModel.EmptyStateText, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-            <GridView Grid.Row="0" ItemsSource="{x:Bind ViewModel.Devices, Mode=OneWay}" SelectionMode="Single" SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}" IsItemClickEnabled="True" ItemClick="DeviceGrid_ItemClick" Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay}">
+
+        <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.ShowVendorBanner, Mode=OneWay}" Severity="Warning"
+                 Message="{x:Bind ViewModel.VendorBanner, Mode=OneWay}" />
+
+        <StackPanel Grid.Row="2" Spacing="8">
+            <TextBlock Text="{x:Bind ViewModel.EmptyStateText, Mode=OneWay}"
+                       Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"
+                       Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+            <GridView ItemsSource="{x:Bind ViewModel.Devices, Mode=OneWay}" SelectionMode="Single"
+                      SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}" IsItemClickEnabled="True"
+                      ItemClick="DeviceGrid_ItemClick"
+                      Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay}">
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="models:MouseDeviceRow">
-                        <Border Width="280" Padding="16,12" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                            <StackPanel Spacing="4">
+                        <Border Width="240" Padding="14,10" CornerRadius="8"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                            <StackPanel Spacing="2">
                                 <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{x:Bind Device.BrandText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{x:Bind ConnectionText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock Text="{x:Bind RateLine, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="{x:Bind MeasuredLine, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>
                 </GridView.ItemTemplate>
             </GridView>
-            <Expander Grid.Row="1" Header="Ignored devices" IsExpanded="False" HorizontalAlignment="Stretch" Margin="0,8,0,0">
+            <Expander Header="Ignored devices" IsExpanded="False" HorizontalAlignment="Stretch">
                 <ListView ItemsSource="{x:Bind ViewModel.IgnoredDevices, Mode=OneWay}" SelectionMode="None">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:MouseDeviceRow">
-                            <StackPanel Spacing="4" Padding="0,4">
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="2*" />
-                                        <ColumnDefinition Width="3*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{x:Bind DisplayName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind Device.ClassReason, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                    <Button Grid.Column="2" Content="Show anyway" Click="ShowIgnored_Click" Tag="{x:Bind}" VerticalAlignment="Center" ToolTipService.ToolTip="Show this device anyway (Windows settings only)" />
-                                </Grid>
-                                <Expander Header="Discovery details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                                    <TextBlock Text="{x:Bind Device.DiscoveryText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                </Expander>
-                            </StackPanel>
+                            <Grid ColumnSpacing="12" Padding="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{x:Bind DisplayName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Device.ClassReason, Mode=OneWay}" VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <Button Grid.Column="2" Content="Show anyway" Click="ShowIgnored_Click" Tag="{x:Bind}"
+                                        ToolTipService.ToolTip="Show this device anyway (Windows settings only)" />
+                            </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
             </Expander>
-        </Grid>
-        <SelectorBar Grid.Row="3" x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged" />
-        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Padding="0,0,0,32">
-            <StackPanel Spacing="8">
-                <StackPanel x:Name="InfoPanel" Spacing="8" Visibility="{x:Bind ViewModel.InfoVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <toolkit:SettingsCard Header="Brand" Description="{x:Bind ViewModel.InfoBrand, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Model" Description="{x:Bind ViewModel.InfoModel, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="VID and PID" Description="{x:Bind ViewModel.InfoVidPid, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Serial" Description="{x:Bind ViewModel.InfoSerial, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Connection" Description="{x:Bind ViewModel.InfoConnection, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Receiver" Description="{x:Bind ViewModel.InfoReceiver, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Vendor software" Description="{x:Bind ViewModel.InfoVendor, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Why shown" Description="{x:Bind ViewModel.InfoReason, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Onboard memory" Description="{x:Bind ViewModel.InfoMemory, Mode=OneWay}" />
-                    <Expander Header="Discovery details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                        <TextBlock Text="{x:Bind ViewModel.InfoDiscovery, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    </Expander>
-                    <toolkit:SettingsCard Header="Nickname">
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Padding="0,0,0,32">
+            <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.InfoVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                <Border Padding="16,12" CornerRadius="8"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{x:Bind ViewModel.SelectedDevice.DisplayName, Mode=OneWay, FallbackValue=''}"
+                                   Style="{StaticResource SubtitleTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                            <Run Text="{x:Bind ViewModel.InfoBrand, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{x:Bind ViewModel.InfoConnection, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{x:Bind ViewModel.InfoVidPid, Mode=OneWay}" />
+                        </TextBlock>
+                        <Expander Header="Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,6,0,0">
+                            <StackPanel Spacing="4">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                                    <Run Text="Model: " /><Run Text="{x:Bind ViewModel.InfoModel, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                                    <Run Text="Serial: " /><Run Text="{x:Bind ViewModel.InfoSerial, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                                    <Run Text="Receiver: " /><Run Text="{x:Bind ViewModel.InfoReceiver, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                                    <Run Text="Onboard memory: " /><Run Text="{x:Bind ViewModel.InfoMemory, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                                    <Run Text="Discovery: " /><Run Text="{x:Bind ViewModel.InfoDiscovery, Mode=OneWay}" />
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                    <TextBox Text="{x:Bind ViewModel.Nickname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="200" PlaceholderText="Nickname" />
+                                    <Button Content="Save name" Click="NicknameSave_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="Mouse settings" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,6,0,0" />
+                <InfoBar IsOpen="True" IsClosable="False" Severity="Informational"
+                         Message="{x:Bind ViewModel.DeviceVerifyText, Mode=OneWay}"
+                         Visibility="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}" />
+                <InfoBar IsOpen="True" IsClosable="False" Severity="Success"
+                         Message="{x:Bind ViewModel.DeviceVerifyText, Mode=OneWay}"
+                         Visibility="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+
+                <toolkit:SettingsCard Header="Poll rate" Description="How often the mouse reports to the PC. Saved on the mouse.">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.SupportedRates, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.RequestedRate, Mode=TwoWay}"
+                              IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" MinWidth="140" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard Header="DPI" Description="{x:Bind ViewModel.DeviceDpiText, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider Value="{x:Bind ViewModel.RequestedDpi, Mode=TwoWay}" Minimum="50" Maximum="26000"
+                                StepFrequency="50" MinWidth="220" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                        <NumberBox Value="{x:Bind ViewModel.RequestedDpi, Mode=TwoWay}" Minimum="50" Maximum="26000"
+                                   SpinButtonPlacementMode="Compact" MinWidth="120" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard Header="eDPI" Description="{x:Bind ViewModel.EDpiText, Mode=OneWay}">
+                    <NumberBox Value="{x:Bind ViewModel.Sensitivity, Mode=TwoWay}" Minimum="0.01" Maximum="20"
+                               SmallChange="0.01" SpinButtonPlacementMode="Compact" MinWidth="120" Header="Game sensitivity" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard Header="Motion Sync" Description="Aligns the sensor report with the USB poll.">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedMotionSync, Mode=TwoWay}" OnContent="On" OffContent="Off"
+                                  IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Angle snapping" Description="Straightens near-horizontal and near-vertical movement.">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedAngleSnapping, Mode=TwoWay}" OnContent="On" OffContent="Off"
+                                  IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Ripple control" Description="Smooths small unintended movement.">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedRipple, Mode=TwoWay}" OnContent="On" OffContent="Off"
+                                  IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Slam-click filter" Description="Stops a hard landing from registering a click.">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedSlamclick, Mode=TwoWay}" OnContent="On" OffContent="Off"
+                                  IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Motion jitter filter" Description="Removes sensor jitter at low speeds.">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedJitter, Mode=TwoWay}" OnContent="On" OffContent="Off"
+                                  IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Lift-off distance" Description="How far the mouse must lift before tracking stops.">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.LodOptions, Mode=OneWay}"
+                              SelectedIndex="{x:Bind ViewModel.RequestedLodIndex, Mode=TwoWay}"
+                              IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" MinWidth="140" />
+                </toolkit:SettingsCard>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Apply to mouse" Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" Click="DeviceApply_Click" />
+                    <Button Content="Undo my changes" Click="DeviceRevert_Click" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind ViewModel.DeviceApplyText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Windows pointer settings" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,10,0,0" />
+                <TextBlock Text="These apply to every mouse on this PC." Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <toolkit:SettingsCard Header="Pointer speed">
+                    <Slider Value="{x:Bind ViewModel.Speed, Mode=TwoWay}" Minimum="1" Maximum="20" StepFrequency="1" MinWidth="200" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Enhanced pointer precision">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Precision, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Pointer trails">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Trails, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Scroll lines per notch">
+                    <NumberBox Value="{x:Bind ViewModel.WheelLines, Mode=TwoWay}" Minimum="-1" Maximum="100" SpinButtonPlacementMode="Inline" MinWidth="140" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Double-click speed (ms)">
+                    <NumberBox Value="{x:Bind ViewModel.DoubleClickMs, Mode=TwoWay}" Minimum="100" Maximum="2000" SpinButtonPlacementMode="Inline" MinWidth="140" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Primary button is left">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.PrimaryLeft, Mode=TwoWay}" OnContent="Left" OffContent="Right" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Snap pointer to default button">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.SnapDefault, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="ClickLock">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.ClickLock, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                </toolkit:SettingsCard>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Apply Windows settings" Style="{StaticResource AccentButtonStyle}" Click="WindowsApply_Click" />
+                    <Button Content="Reset section" Click="WindowsReset_Click" />
+                    <Button Content="Revert everything this app changed" Click="WindowsRevert_Click" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind ViewModel.WindowsResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Measure" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,10,0,0" />
+                <toolkit:SettingsCard Header="Poll rate test" Description="Move the mouse in circles while it runs. Measured by this PC, approximate.">
+                    <StackPanel Spacing="8" MinWidth="320">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox Text="{x:Bind ViewModel.Nickname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="200" PlaceholderText="Nickname" />
-                            <Button Content="Save" Click="NicknameSave_Click" />
+                            <Button Content="Start" Click="TestStart_Click" />
+                            <Button Content="Stop" Click="TestStop_Click" />
                         </StackPanel>
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Re-apply on connect" Description="Re-applies the saved Windows settings when the mouse arrives. Off by default.">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.ReapplyOnConnect, Mode=TwoWay}" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                </StackPanel>
-                <StackPanel x:Name="WindowsPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="Applies to all mice. These are system-wide Windows settings, not per-device settings." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Bind ViewModel.WindowsOriginalText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <toolkit:SettingsCard Header="Pointer speed">
-                        <Slider Value="{x:Bind ViewModel.Speed, Mode=TwoWay}" Minimum="1" Maximum="20" StepFrequency="1" MinWidth="200" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Enhanced pointer precision">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.Precision, Mode=TwoWay}" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Pointer trails">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.Trails, Mode=TwoWay}" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Scroll lines per notch">
-                        <NumberBox Value="{x:Bind ViewModel.WheelLines, Mode=TwoWay}" Minimum="-1" Maximum="100" SpinButtonPlacementMode="Inline" MinWidth="160" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Horizontal scroll characters">
-                        <Slider Value="{x:Bind ViewModel.WheelChars, Mode=TwoWay}" Minimum="1" Maximum="20" StepFrequency="1" MinWidth="200" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Primary button is left">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.PrimaryLeft, Mode=TwoWay}" OnContent="Left" OffContent="Right" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Double-click speed (ms)">
-                        <NumberBox Value="{x:Bind ViewModel.DoubleClickMs, Mode=TwoWay}" Minimum="100" Maximum="2000" SpinButtonPlacementMode="Inline" MinWidth="160" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Snap pointer to default button">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.SnapDefault, Mode=TwoWay}" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="ClickLock">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.ClickLock, Mode=TwoWay}" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="ClickLock time (ms)">
-                        <NumberBox Value="{x:Bind ViewModel.ClickLockMs, Mode=TwoWay}" Minimum="200" Maximum="2200" SpinButtonPlacementMode="Inline" MinWidth="160" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Scroll inactive windows" Description="Not implemented in this app.">
-                        <ToggleSwitch IsEnabled="False" IsOn="False" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Hide pointer while typing" Description="Not implemented in this app.">
-                        <ToggleSwitch IsEnabled="False" IsOn="False" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Show pointer location on Ctrl" Description="Not implemented in this app.">
-                        <ToggleSwitch IsEnabled="False" IsOn="False" OnContent="On" OffContent="Off" />
-                    </toolkit:SettingsCard>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Apply Windows settings" Style="{StaticResource AccentButtonStyle}" Click="WindowsApply_Click" />
-                        <Button Content="Reset section" Click="WindowsReset_Click" />
-                        <Button Content="Revert everything this app changed" Click="WindowsRevert_Click" />
+                        <TextBlock Text="{x:Bind ViewModel.TestStatusText, Mode=OneWay}" TextWrapping="Wrap" />
+                        <TextBlock Text="{x:Bind ViewModel.TestResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBlock Text="{x:Bind ViewModel.WindowsResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel x:Name="VendorPanel" Spacing="8" Visibility="Collapsed">
-                    <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="{x:Bind ViewModel.VendorBanner, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowVendorBanner, Mode=OneWay}" />
-                    <toolkit:SettingsCard x:Name="VendorStateCard" Header="Vendor settings" Description="Detected, vendor settings not implemented yet." />
-                </StackPanel>
-                <StackPanel x:Name="SensorRealPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="{x:Bind ViewModel.DeviceVerifyText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <toolkit:SettingsCard Header="Device DPI" Description="{x:Bind ViewModel.DeviceDpiText, Mode=OneWay}">
-                        <NumberBox Value="{x:Bind ViewModel.RequestedDpi, Mode=TwoWay}" Minimum="10" Maximum="30000" SpinButtonPlacementMode="Inline" MinWidth="200" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Motion Sync">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedMotionSync, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Slam-click filter">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedSlamclick, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Angle snapping">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedAngleSnapping, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Ripple control">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedRipple, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Motion jitter filter">
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.RequestedJitter, Mode=TwoWay}" OnContent="On" OffContent="Off" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" />
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Lift-off distance">
-                        <ComboBox ItemsSource="{x:Bind ViewModel.LodOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.RequestedLodIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" MinWidth="200" />
-                    </toolkit:SettingsCard>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Apply sensor settings" Style="{StaticResource AccentButtonStyle}" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" Click="SensorApply_Click" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Speed road" Description="The road runs as you move the mouse.">
+                    <StackPanel Spacing="8" MinWidth="320">
+                        <TextBlock Text="{x:Bind ViewModel.LiveSpeedText, Mode=OneWay}" />
+                        <Canvas x:Name="SpeedRoadCanvas" Height="88" SizeChanged="SpeedRoad_SizeChanged" />
                     </StackPanel>
-                    <TextBlock Text="{x:Bind ViewModel.DeviceApplyText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel x:Name="ReportRatePanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="Report rate is a device setting, not a Windows setting." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Bind ViewModel.DeviceVerifyText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <toolkit:SettingsCard Header="Setting (read back)" Description="{x:Bind ViewModel.ReportSettingText, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Measured" Description="{x:Bind ViewModel.ReportMeasuredLine, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Supported rates">
-                        <ComboBox ItemsSource="{x:Bind ViewModel.SupportedRates, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.RequestedRate, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" MinWidth="200" />
-                    </toolkit:SettingsCard>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Apply report rate" Style="{StaticResource AccentButtonStyle}" IsEnabled="{x:Bind ViewModel.DeviceCanSet, Mode=OneWay}" Click="RateApply_Click" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Buttons" Description="{x:Bind ViewModel.LiveButtonsText, Mode=OneWay}" />
+                <toolkit:SettingsCard Header="Wheel" Description="{x:Bind ViewModel.LiveWheelText, Mode=OneWay}" />
+                <toolkit:SettingsCard Header="Counts per inch">
+                    <StackPanel Spacing="8">
+                        <NumberBox Value="{x:Bind ViewModel.DpiInches, Mode=TwoWay}" Minimum="0.1" Maximum="100"
+                                   SpinButtonPlacementMode="Inline" Header="Distance moved (inches)" MinWidth="200" />
+                        <Button Content="Analyze" Click="DpiAnalyze_Click" />
+                        <TextBlock Text="{x:Bind ViewModel.DpiResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBlock Text="{x:Bind ViewModel.DeviceApplyText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Bind ViewModel.MismatchText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel x:Name="TestPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="Move the mouse continuously in circles." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Start" Click="TestStart_Click" />
-                        <Button Content="Stop" Click="TestStop_Click" />
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Double-click test">
+                    <StackPanel Spacing="8">
+                        <Border MinHeight="70" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="8" PointerPressed="ClickTestArea_PointerPressed">
+                            <TextBlock Text="Double-click here" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Border>
+                        <TextBlock Text="{x:Bind ViewModel.ClickTestText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBlock Text="{x:Bind ViewModel.TestStatusText, Mode=OneWay}" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Bind ViewModel.TestResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    <toolkit:SettingsCard Header="Buttons now" Description="{x:Bind ViewModel.LiveButtonsText, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Wheel" Description="{x:Bind ViewModel.LiveWheelText, Mode=OneWay}" />
-                    <toolkit:SettingsCard Header="Speed road" Description="The dashes move while the mouse sends movement. Faster movement makes the marker run faster.">
-                        <toolkit:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xE962;" />
-                        </toolkit:SettingsCard.HeaderIcon>
-                        <StackPanel Spacing="8" MinWidth="320">
-                            <TextBlock Text="{x:Bind ViewModel.LiveSpeedText, Mode=OneWay}" />
-                            <Canvas x:Name="SpeedRoadCanvas" Height="96" SizeChanged="SpeedRoad_SizeChanged" />
-                        </StackPanel>
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Counts per inch">
-                        <StackPanel Spacing="8">
-                            <NumberBox Value="{x:Bind ViewModel.DpiInches, Mode=TwoWay}" Minimum="0.1" Maximum="100" SpinButtonPlacementMode="Inline" Header="Distance moved (inches)" MinWidth="200" />
-                            <Button Content="Analyze" Click="DpiAnalyze_Click" />
-                            <TextBlock Text="{x:Bind ViewModel.DpiResultText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </toolkit:SettingsCard>
-                    <toolkit:SettingsCard Header="Double-click test">
-                        <StackPanel Spacing="8">
-                            <Border x:Name="ClickTestArea" MinHeight="80" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="8" PointerPressed="ClickTestArea_PointerPressed">
-                                <TextBlock Text="Double-click here" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </Border>
-                            <TextBlock Text="{x:Bind ViewModel.ClickTestText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </toolkit:SettingsCard>
-                </StackPanel>
-                <StackPanel x:Name="LogPanel" Spacing="8" Visibility="Collapsed">
-                    <ListView ItemsSource="{x:Bind ViewModel.Log.Rows, Mode=OneWay}" SelectionMode="None" MaxHeight="480">
+                </toolkit:SettingsCard>
+                <toolkit:SettingsCard Header="Re-apply on connect" Description="Re-applies the saved Windows settings when the mouse arrives.">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.ReapplyOnConnect, Mode=TwoWay}" OnContent="On" OffContent="Off" />
+                </toolkit:SettingsCard>
+
+                <Expander Header="Activity log" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,8,0,0">
+                    <ListView ItemsSource="{x:Bind ViewModel.Log.Rows, Mode=OneWay}" SelectionMode="None" MaxHeight="360">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="input:MouseLogRow">
                                 <StackPanel Spacing="2" Padding="0,4">
-                                    <TextBlock Text="{x:Bind Action}" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{x:Bind Action}" TextWrapping="Wrap" />
                                     <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
-                                        <Run Text="{x:Bind Time}" /><Run Text=" " /><Run Text="{x:Bind Device}" /><Run Text=" " /><Run Text="{x:Bind Result}" />
+                                        <Run Text="{x:Bind Time}" /><Run Text="  " /><Run Text="{x:Bind Device}" /><Run Text="  " /><Run Text="{x:Bind Result}" /><Run Text="  " /><Run Text="{x:Bind Message}" />
                                     </TextBlock>
-                                    <TextBlock Text="{x:Bind Message}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                </StackPanel>
+                </Expander>
             </StackPanel>
         </ScrollViewer>
     </Grid>
