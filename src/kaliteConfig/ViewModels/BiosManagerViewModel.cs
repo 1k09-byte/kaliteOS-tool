@@ -37,6 +37,8 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     private CancellationTokenSource? _filterCts;
     private string _searchText = string.Empty;
 
+        public string SearchText => _searchText;
+
     public BiosManagerViewModel()
     {
         _dispatcher = App.MainWindow?.DispatcherQueue ?? DispatcherQueue.GetForCurrentThread();
@@ -120,6 +122,13 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     }
 
     partial void OnHasDocumentChanged(bool value) => OnPropertyChanged(nameof(EmptyVisibility));
+
+        partial void OnSelectedRowChanging(BiosSettingRow? oldValue, BiosSettingRow? newValue)
+    {
+        if (oldValue is not null) oldValue.IsPicked = false;
+        if (newValue is not null) newValue.IsPicked = true;
+    }
+
     partial void OnSelectedRowChanged(BiosSettingRow? value)
     {
         OnPropertyChanged(nameof(HasSelectedRow));
@@ -250,7 +259,7 @@ public sealed partial class BiosManagerViewModel : ObservableObject
     private async Task ApplyToBiosAsync()
     {
         if (_document is null || !HasChanges) return;
-        
+
         IsLoading = true;
         ShowError(null);
         try
@@ -262,9 +271,9 @@ public sealed partial class BiosManagerViewModel : ObservableObject
 
             var service = new ScewinExportService();
             await Task.Run(() => service.ImportAsync(tempPath));
-            
+
             try { File.Delete(tempPath); } catch { }
-            
+
             StatusText = $"Successfully applied {ModifiedCount} change(s) to BIOS.";
 
             await ExportAndLoadCommand.ExecuteAsync(null);
@@ -353,8 +362,7 @@ public sealed partial class BiosManagerViewModel : ObservableObject
 
         Rows = new ObservableCollection<BiosSettingRow>(_allRows);
         RebuildCategories();
-        // Force a notification even when "All" was already selected, so the chip strip
-        // re-selects it after its item collection was rebuilt.
+
         SelectedCategoryItem = null;
         SelectedCategoryItem = BiosCategory.All;
         _selectedSection = null;

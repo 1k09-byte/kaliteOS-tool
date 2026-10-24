@@ -23,6 +23,10 @@ namespace kaliteConfig.GpuOverclock.Models
 
         public OverclockControlRange? TempLimitRangeC { get; init; }
 
+                public OverclockControlRange? XbarOffsetRangeMHz { get; init; }
+
+                public OverclockControlRange? SystemOffsetRangeMHz { get; init; }
+
         public double? CurrentPowerLimitPercent { get; init; }
 
         public int? CurrentTempLimitC { get; init; }

@@ -428,6 +428,8 @@
                 <Border Style="{StaticResource PersonalizeCard}" Padding="12">
                     <StackPanel Spacing="8">
                         <TextBlock Text="Cursor packs" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="{Binding ActivePackText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         <TextBlock Text="Choose a pack of custom cursor files. Each .cur or .ani file is matched to a pointer role by its name."
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />

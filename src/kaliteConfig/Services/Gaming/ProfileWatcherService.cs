@@ -114,10 +114,54 @@ public sealed class ProfileWatcherService : IDisposable
             Log("load FAILED: " + ex.GetType().Name + ": " + ex.Message);
         }
         await EnsureBuiltInDefaultsAsync();
+        LoadRuleGameModeConsent();
         RaiseChanged();
     }
 
     public const string SelfProcessPattern = "kaliteConfig.exe";
+
+    private static string GameModeConsentPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "kaliteConfig", "gamingmode-rules.json");
+
+    public bool AllowRuleAutoGameMode { get; private set; } = true;
+
+    private void LoadRuleGameModeConsent()
+    {
+        try
+        {
+            if (File.Exists(GameModeConsentPath))
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(GameModeConsentPath));
+                if (doc.RootElement.TryGetProperty("Allow", out var el) &&
+                    (el.ValueKind == JsonValueKind.True || el.ValueKind == JsonValueKind.False))
+                {
+                    AllowRuleAutoGameMode = el.GetBoolean();
+                    return;
+                }
+            }
+            lock (_lock)
+            {
+                AllowRuleAutoGameMode = ActiveProfiles.Any(p => p.Enabled && p.GamingModeAuto);
+            }
+            SaveRuleGameModeConsent();
+        }
+        catch { }
+    }
+
+    public void SetAllowRuleAutoGameMode(bool value)
+    {
+        AllowRuleAutoGameMode = value;
+        SaveRuleGameModeConsent();
+        Log($"rule game-mode consent: {(value ? "allowed" : "blocked")}");
+        RaiseChanged();
+    }
+
+    private void SaveRuleGameModeConsent()
+    {
+        try { File.WriteAllText(GameModeConsentPath, "{\"Allow\":" + (AllowRuleAutoGameMode ? "true" : "false") + "}"); }
+        catch { }
+    }
 
     private List<TunerProfile> CreateBuiltInDefaults()
     {
@@ -728,7 +772,11 @@ public sealed class ProfileWatcherService : IDisposable
 
             bool gamingRule = matched.Any(p => p.GamingModeAuto);
 
-            if (gamingRule)
+            if (gamingRule && !AllowRuleAutoGameMode)
+            {
+                Log($"gaming-mode: blocked automatic hold for [{name}] (Rules can enable Game Mode automatically is off)");
+            }
+            else if (gamingRule)
             {
                 List<int> armed;
                 lock (_gamingLock)
@@ -744,7 +792,7 @@ public sealed class ProfileWatcherService : IDisposable
 
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                await App.Current.GamingMode.AcquireAsync(
+                await App.Current.LegacyGamingMode.AcquireAsync(
                     GameModeOwner.Rule, pid, armed, $"automatic gaming mode rule matched {name}");
                 Log($"gaming-mode: rule hold taken for [{name}] pid={pid}, protected={armed.Count}");
             }
@@ -902,18 +950,22 @@ public sealed class ProfileWatcherService : IDisposable
                 armed = _gamingModePids.ToList();
             }
 
-            if (armed.Count > 0)
+            if (armed.Count > 0 && !AllowRuleAutoGameMode)
+            {
+                Log("gaming-mode: rule hold blocked (Rules can enable Game Mode automatically is off)");
+            }
+            else if (armed.Count > 0)
             {
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                _ = App.Current.GamingMode.AcquireAsync(
+                _ = App.Current.LegacyGamingMode.AcquireAsync(
                         GameModeOwner.Rule, armed[0], armed, "automatic gaming mode rule")
                     .ContinueWith(_ => Log($"gaming-mode: evaluated, armed pids=[{string.Join(",", armed)}]"));
             }
-            else if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            else if (App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 Log("gaming-mode: no armed processes remain (rules changed), releasing the rule's hold");
-                App.Current.GamingMode.Release(GameModeOwner.Rule);
+                App.Current.LegacyGamingMode.Release(GameModeOwner.Rule);
             }
         }
         catch (Exception ex)
@@ -960,15 +1012,15 @@ public sealed class ProfileWatcherService : IDisposable
                 }
             }
 
-            if (hasArmed && !anyAlive && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            if (hasArmed && !anyAlive && App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 Log("gaming-mode: liveness monitor found no armed game processes, releasing the rule's hold");
-                App.Current.GamingMode.Release(GameModeOwner.Rule);
+                App.Current.LegacyGamingMode.Release(GameModeOwner.Rule);
                 _gamingLivenessTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
             }
-            else if (anyAlive && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            else if (anyAlive && App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
-                int? target = App.Current.GamingMode.SessionTargetPid;
+                int? target = App.Current.LegacyGamingMode.SessionTargetPid;
                 if (target.HasValue && !IsPidAlive(target.Value))
                 {
                     Log("gaming-mode: session target exited while other armed games run - handing over");
@@ -1036,10 +1088,10 @@ public sealed class ProfileWatcherService : IDisposable
                 wasLast = _gamingModePids.Count == 0;
             }
 
-            if (wasLast && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            if (wasLast && App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 Log("gaming-mode: last armed process exited, releasing the rule's hold");
-                App.Current.GamingMode.Release(GameModeOwner.Rule);
+                App.Current.LegacyGamingMode.Release(GameModeOwner.Rule);
                 _gamingLivenessTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
             }
             else if (wasLast)

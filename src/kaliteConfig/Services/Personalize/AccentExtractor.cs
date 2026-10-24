@@ -40,7 +40,7 @@ public static class AccentExtractor
             }
         }
 
-        if (counts.Count == 0) return new AccentExtraction(unchecked((int)0xFF0078D4), 0.5, 0, 0);
+        if (counts.Count == 0) return new AccentExtraction(unchecked((int)0xFF19235A), 0.5, 0, 0);
 
         var buckets = counts
             .Select(kv => (Key: Expand(kv.Key), Count: kv.Value))

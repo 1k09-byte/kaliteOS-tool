@@ -9,19 +9,11 @@ namespace kaliteConfig.Services;
 
 public sealed class StartupService
 {
-    // Packaged builds register the OS startup-task extension declared in
-    // Package.appxmanifest; the OS resolves it by package family, so the
-    // versioned WindowsApps path never has to be written anywhere.
+
     private const string StartupTaskId = "KaliteConfigStartup";
 
-    // Unpackaged builds use Task Scheduler instead of an HKCU Run value: the exe
-    // requires administrator, and a Run value cannot elevate at logon - Windows
-    // either shows a UAC prompt nobody answers or starts nothing at all.
-    // A task registered with "run with highest privileges" starts silently.
     public const string ScheduledTaskName = "kaliteConfig";
 
-    // Leftovers from earlier builds. Removed as soon as we see them so the app
-    // never launches twice at logon (or burns a UAC prompt that can't succeed).
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValueName = "kaliteConfig";
 
@@ -78,10 +70,6 @@ public sealed class StartupService
         }
     }
 
-    /// <summary>
-    /// True when the logon task exists and still points at this exe with the tray
-    /// argument (a stale path after a reinstall counts as not enabled).
-    /// </summary>
     internal static bool IsScheduledTaskCurrent()
     {
         try
@@ -113,9 +101,6 @@ public sealed class StartupService
             return false;
         }
 
-        // /sc onlogon + /rl highest: starts silently at logon with the elevation
-        // the app requires. The short delay lets Explorer finish bringing up the
-        // shell so the tray icon has somewhere to land.
         string args = $"/create /tn \"{ScheduledTaskName}\" " +
                       $"/tr \"\\\"{exe}\\\" {TrayArg}\" " +
                       "/sc onlogon /delay 0000:15 /rl highest /f";

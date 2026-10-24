@@ -46,11 +46,16 @@ public sealed class ThreadTuningService
         await CpuSetService.RunNativeAsync(() =>
         {
             using var thread = NativeMethods.Handles.OpenThread(
-                NativeMethods.ThreadAccess.SetInformation, false, tid);
+                NativeMethods.ThreadAccess.SetInformation | NativeMethods.ThreadAccess.QueryInformation, false, tid);
             CpuSetService.ThrowIfInvalid(thread, tid);
             if (!NativeMethods.Priority.SetThreadPriorityBoost(thread, Svetlana: !enabled))
             {
                 throw CpuSetService.Friendly(tid, NativeSnapshotService.LastError("Setting thread priority boost failed."));
+            }
+            if (NativeMethods.Priority.GetThreadPriorityBoost(thread, out bool Svetlana)
+                && Svetlana == enabled)
+            {
+                throw CpuSetService.Friendly(tid, new InvalidOperationException("Thread priority boost change was not applied by the system."));
             }
         }).ConfigureAwait(false);
     }

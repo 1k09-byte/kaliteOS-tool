@@ -20,7 +20,8 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<Gaming.GameMode.GameModeSettingsStore>(),
             sp.GetRequiredService<Gaming.GameMode.GameModeLog>()));
         s.AddSingleton<ForegroundSuspendService>(sp =>
-            new ForegroundSuspendService(sp.GetRequiredService<ProcessTuningService>()));
+            new ForegroundSuspendService(sp.GetRequiredService<ProcessTuningService>(),
+                sp.GetRequiredService<Gaming.GameMode.GameModeEngine>()));
         s.AddSingleton<ProfileWatcherService>(sp =>
             new ProfileWatcherService(
                 sp.GetRequiredService<ProcessTuningService>(),
@@ -59,7 +60,8 @@ public static class ServiceCollectionExtensions
         s.AddTransient<PowerPlansViewModel>();
         s.AddTransient<ThreadTunerViewModel>();
         s.AddTransient<SnipViewModel>();
-        s.AddTransient<BiosManagerViewModel>();
+
+        s.AddSingleton<BiosManagerViewModel>();
         s.AddTransient<GpuDriversViewModel>();
         s.AddTransient<UninstallerViewModel>();
         s.AddTransient<UpdateViewModel>();

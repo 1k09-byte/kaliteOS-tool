@@ -12,6 +12,7 @@
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#40000000" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#30000000" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#26000000" />
+            <SolidColorBrush x:Key="RailSelectionPlateBrush" Color="#FF3D4E8F" />
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>
 
@@ -21,6 +22,7 @@
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
+            <SolidColorBrush x:Key="RailSelectionPlateBrush" Color="#FF3D4E8F" />
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>
 
@@ -30,6 +32,7 @@
             <SolidColorBrush x:Key="RailHighlightSelectedBrush" Color="#4DFFFFFF" />
             <SolidColorBrush x:Key="RailHighlightHoverBrush" Color="#38FFFFFF" />
             <SolidColorBrush x:Key="RailHighlightPressedBrush" Color="#2EFFFFFF" />
+            <SolidColorBrush x:Key="RailSelectionPlateBrush" Color="#FF3D4E8F" />
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
@@ -91,7 +94,7 @@
                                                 <VisualState.Setters>
                                                     <Setter Target="ItemBody.Opacity" Value="0"/>
                                                     <Setter Target="SelectionPlate.Opacity" Value="1"/>
-                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                     <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
@@ -99,7 +102,7 @@
                                                 <VisualState.Setters>
                                                     <Setter Target="ItemBody.Opacity" Value="1"/>
                                                     <Setter Target="SelectionPlate.Opacity" Value="1"/>
-                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                     <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
@@ -107,7 +110,7 @@
                                                 <VisualState.Setters>
                                                     <Setter Target="ItemBody.Opacity" Value="0.82"/>
                                                     <Setter Target="SelectionPlate.Opacity" Value="1"/>
-                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                    <Setter Target="IconPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                     <Setter Target="ItemLabel.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
                                                 </VisualState.Setters>
                                             </VisualState>
@@ -128,7 +131,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             CornerRadius="{StaticResource KaliteRailPlateRadius}"
-                                            Background="{ThemeResource RailHighlightSelectedBrush}"
+                                            Background="{ThemeResource RailSelectionPlateBrush}"
                                             BorderThickness="0"
                                             Opacity="0" />
 

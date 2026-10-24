@@ -56,7 +56,7 @@ foreach ($name in $Pages) {
     }
   }
   if (-not $found) { Write-Output "NAV-NOT-FOUND: $name"; continue }
-  Start-Sleep -Seconds 4   # let the page render
+  Start-Sleep -Seconds 4
 
   [void](Focus-App $proc.MainWindowHandle)
   $rect = New-Object Win+RECT
@@ -69,7 +69,7 @@ foreach ($name in $Pages) {
   if ([Win]::GetForegroundWindow() -eq $proc.MainWindowHandle) {
     $gfx.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object System.Drawing.Size($w, $h)))
   } else {
-    # occluded: ask the window to paint itself (may be blank for GPU-composited content)
+
     $hdc = $gfx.GetHdc()
     [void][Win]::PrintWindow($proc.MainWindowHandle, $hdc, 2)
     $gfx.ReleaseHdc($hdc)

@@ -143,7 +143,7 @@
                                     <ColumnDefinition Width="100" />
                                 </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Column="0" Text="{x:Bind local:PriorityBoostsPage.BoostText(BoostEnabled), Mode=OneWay}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Grid.Column="0" Text="{x:Bind BoostDisplay, Mode=OneWay}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock Grid.Column="1" Text="{x:Bind Tid}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock Grid.Column="2" Text="{x:Bind ProcessName, Mode=OneWay}" VerticalAlignment="Center" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="3" Text="{x:Bind Description, Mode=OneWay}" VerticalAlignment="Center" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />

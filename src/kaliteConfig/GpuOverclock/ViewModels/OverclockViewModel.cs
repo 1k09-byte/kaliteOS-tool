@@ -258,6 +258,30 @@ namespace kaliteConfig.GpuOverclock.ViewModels
         public partial bool HasMemOffset { get; private set; }
 
         [ObservableProperty]
+        public partial bool HasXbarOffset { get; private set; }
+
+        [ObservableProperty]
+        public partial double XbarOffsetMin { get; private set; }
+
+        [ObservableProperty]
+        public partial double XbarOffsetMax { get; private set; }
+
+        [ObservableProperty]
+        public partial double XbarOffsetValue { get; private set; }
+
+        [ObservableProperty]
+        public partial bool HasSystemOffset { get; private set; }
+
+        [ObservableProperty]
+        public partial double SystemOffsetMin { get; private set; }
+
+        [ObservableProperty]
+        public partial double SystemOffsetMax { get; private set; }
+
+        [ObservableProperty]
+        public partial double SystemOffsetValue { get; private set; }
+
+        [ObservableProperty]
         public partial double MemOffsetMin { get; private set; }
 
         [ObservableProperty]
@@ -439,6 +463,16 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 MemOffsetMin = mr.Minimum; MemOffsetMax = mr.Maximum;
                 MemOffsetValue = mr.Clamp(memCur);
             }
+
+            HasXbarOffset = c.XbarOffsetRangeMHz is not null;
+            XbarOffsetMin = c.XbarOffsetRangeMHz?.Minimum ?? -500;
+            XbarOffsetMax = c.XbarOffsetRangeMHz?.Maximum ?? 500;
+            XbarOffsetValue = c.XbarOffsetRangeMHz?.Clamp(0) ?? 0;
+            HasSystemOffset = c.SystemOffsetRangeMHz is not null;
+            SystemOffsetMin = c.SystemOffsetRangeMHz?.Minimum ?? -500;
+            SystemOffsetMax = c.SystemOffsetRangeMHz?.Maximum ?? 500;
+            SystemOffsetValue = c.SystemOffsetRangeMHz?.Clamp(0) ?? 0;
+
             HasPowerLimit = c.PowerLimitRangePercent is not null;
             if (c.PowerLimitRangePercent is { } pr)
             {
@@ -641,6 +675,22 @@ namespace kaliteConfig.GpuOverclock.ViewModels
                 $"{_anchors.CoreMhz:+0;-0;0} MHz", $"{(int)value:+0;-0;0} MHz");
         }
 
+        public void OnXbarOffsetCommitted(double value)
+        {
+            if (!HasXbarOffset) return;
+            XbarOffsetValue = value;
+            QueueWrite(OcControlNames.XbarClockOffset, () => _module.Controller.SetXbarOffsetMhz((int)value),
+                "driver value", $"{(int)value:+0;-0;0} MHz");
+        }
+
+        public void OnSystemOffsetCommitted(double value)
+        {
+            if (!HasSystemOffset) return;
+            SystemOffsetValue = value;
+            QueueWrite(OcControlNames.SystemClockOffset, () => _module.Controller.SetSystemOffsetMhz((int)value),
+                "driver value", $"{(int)value:+0;-0;0} MHz");
+        }
+
         public void OnMemOffsetCommitted(double value)
         {
             MemOffsetValue = value;
@@ -667,7 +717,8 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             if (!IsSupported) return;
             _dirty[controlName] = new PendingWrite(controlName, apply, oldDisplay, newDisplay);
             _debounceTimer ??= _dispatcher.CreateTimer();
-            _debounceTimer.Interval = TimeSpan.FromMilliseconds(600);
+
+            _debounceTimer.Interval = TimeSpan.FromMilliseconds(250);
             _debounceTimer.IsRepeating = false;
             _debounceTimer.Tick -= FlushDirty;
             _debounceTimer.Tick += FlushDirty;
@@ -1348,11 +1399,7 @@ namespace kaliteConfig.GpuOverclock.ViewModels
             _module.FanCurve.Stopped -= OnFanCurveStopped;
             _module.GameAutoApply.StatusChanged -= OnAutoApplyStatus;
             _debounceTimer?.Stop();
-            // The 1 Hz GPU polling loop is only useful while this page is on
-            // screen (Telemetry.Update has no other subscriber). Without this
-            // stop, one visit to the Graphics page left the loop querying the
-            // driver every second for the rest of the app's life, including
-            // while minimized. Loaded -> InitializeAsync starts it again.
+
             _ = _module.Telemetry.StopAsync();
         }
     }

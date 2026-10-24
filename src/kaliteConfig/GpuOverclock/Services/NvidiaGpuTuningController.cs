@@ -368,6 +368,11 @@ namespace kaliteConfig.GpuOverclock.Services
                         TempLimitRangeC = tempRange,
                         CurrentPowerLimitPercent = powerPctCur,
                         CurrentTempLimitC = tempCur,
+
+                        SystemOffsetRangeMHz = QueryDeltaRangeMhz(PublicClockDomain.Processor) is { } sys
+                            ? new OverclockControlRange(sys.MinMhz, sys.MaxMhz, 1) : null,
+
+                        XbarOffsetRangeMHz = null,
                         FanControlSupported = fanSupported,
                         ZeroRpmSupported = false,
                         VfCurveSupported = vfSupported,
@@ -473,6 +478,9 @@ namespace kaliteConfig.GpuOverclock.Services
 
         public GpuResult SetMemoryOffsetMhz(int offsetMhz)
             => SetClockOffset(PublicClockDomain.Memory, offsetMhz);
+
+        public GpuResult SetSystemOffsetMhz(int offsetMhz)
+            => SetClockOffset(PublicClockDomain.Processor, offsetMhz);
 
         private (int First, int Last)? BoostTableRange(PublicClockDomain domain)
         {

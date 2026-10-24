@@ -181,7 +181,7 @@ public partial class GalleryItem : ObservableObject
                 if (res.TryGetValue(key, out var b) && b is Microsoft.UI.Xaml.Media.Brush brush) return brush;
             }
             catch { }
-            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
+            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 25, 35, 90));
         }
     }
 

@@ -4,6 +4,8 @@ namespace kaliteConfig.GpuOverclock.Models
     {
         public const string CoreClockOffset = "Core clock offset";
         public const string MemoryClockOffset = "Memory clock offset";
+        public const string XbarClockOffset = "XBAR clock offset";
+        public const string SystemClockOffset = "System clock offset";
         public const string PowerLimit = "Power limit";
         public const string TemperatureLimit = "Temperature limit";
         public const string FanSpeed = "Fan speed";

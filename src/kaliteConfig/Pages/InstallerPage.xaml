@@ -62,9 +62,7 @@
                                     Visibility="{x:Bind HasExtensions, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                         <DropDownButton.Flyout>
                             <Flyout>
-                                <!-- The row grid lets the list shrink when the flyout is squeezed near the window edge,
-                                     so the apply button and the last item are never clipped, and the wheel only ever
-                                     scrolls one region. -->
+
                                 <Grid Width="340" RowSpacing="8" MaxHeight="420"
                                       PointerWheelChanged="ExtensionsFlyout_PointerWheelChanged">
                                     <Grid.RowDefinitions>
@@ -278,3 +276,4 @@
         <local:UninstallerPage x:Name="UninstallPanel" Grid.Row="2" Visibility="Collapsed" />
     </Grid>
 </Page>
+

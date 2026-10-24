@@ -9,9 +9,9 @@ namespace kaliteConfig.Gaming.GameMode;
 
 public enum GameModeState { Idle, Pending, Active, Releasing }
 
-public enum BackgroundAction { None, LowerPriority, Efficiency, ConfineCores, Suspend }
+public enum BackgroundAction { None, LowerPriority, Efficiency, ConfineCores, Suspend, GameBoost, Sweep }
 
-public enum BackgroundCategory { Updaters, Launchers, Overlays, Browsers, CloudSync, Chat, UserAdded, CaptureTools }
+public enum BackgroundCategory { Updaters, Launchers, Overlays, Browsers, CloudSync, Chat, UserAdded, CaptureTools, Game }
 
 public enum GameModePreset { Light, Balanced, Aggressive, Custom }
 
@@ -75,6 +75,13 @@ public sealed record GameModeGameEntry
     public string Path { get; set; } = string.Empty;
     public bool MatchByPath { get; set; }
     public GameModePreset Preset { get; set; } = GameModePreset.Balanced;
+
+    [JsonIgnore]
+    public int PresetIndex
+    {
+        get => (int)Preset;
+        set => Preset = (GameModePreset)Math.Clamp(value, 0, 3);
+    }
 }
 
 public sealed class GameModeSettings
@@ -186,6 +193,30 @@ public static class BackgroundCatalog
         "MsiExec.exe",
         "msiexec.exe",
     };
+
+    public static readonly string[] ConnectivityFamily =
+    {
+        "WUDFHost.exe",
+        "BTTray.exe",
+        "BtTray.exe",
+        "BTServer.exe",
+        "KillerControlCenter.exe",
+        "KillerNetworkService.exe",
+        "nordvpn.exe",
+        "ExpressVPN.exe",
+        "Surfshark.exe",
+        "ProtonVPN.exe",
+        "MullvadVPN.exe",
+        "Windscribe.exe",
+        "openvpn-gui.exe",
+        "wireguard.exe",
+        "tailscale.exe",
+    };
+
+    public static BackgroundCatalogEntry SweepFallback(string imageName) => new(
+        "sweep", "Background app", BackgroundCategory.UserAdded,
+        new[] { imageName }, BackgroundAction.Sweep, true,
+        "Uncatalogued background app");
 
     public static readonly string[] IgnoredForegroundClasses =
     {

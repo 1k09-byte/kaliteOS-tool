@@ -42,7 +42,6 @@ using (var source = new EventPipeTraceEventDispatcher(path))
     {
         var leafName = stackSource.GetFrameName(stackSource.GetFrameIndex(sample.StackIndex), false) ?? "<unknown>";
 
-        // Collect the inclusive stack, detecting off-CPU marker frames.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         bool sawBlockedMarker = false;
         foreach (var cs in stackSource.Enumerate(sample.StackIndex))

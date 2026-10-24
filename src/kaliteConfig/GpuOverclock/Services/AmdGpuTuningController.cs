@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using kaliteConfig.GpuOverclock.Models;
@@ -31,6 +31,15 @@ namespace kaliteConfig.GpuOverclock.Services
         public bool IsInitialized { get; private set; }
 
         public string? DriverVersion { get; private set; }
+
+                private string DisplayDriverVersionText
+        {
+            get
+            {
+                if (IsSimulated) return DriverVersion ?? "unknown";
+                return DisplayDriverVersion.AmdDisplayDriver ?? DriverVersion ?? "unknown";
+            }
+        }
 
         public bool IsSimulated { get; private set; }
 
@@ -209,7 +218,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 return GpuResult<GpuIdentity>.Ok(new GpuIdentity
                 {
                     FullName = _primary.Name,
-                    DriverVersion = DriverVersion ?? "unknown",
+                    DriverVersion = DisplayDriverVersionText,
                     IsNotebook = !_primary.IsDiscrete,
                     PciDeviceId = ParsePciDeviceId(_primary.PnpString),
                 });
@@ -299,7 +308,7 @@ namespace kaliteConfig.GpuOverclock.Services
                 return GpuResult<GpuCapabilities>.Ok(new GpuCapabilities
                 {
                     GpuName = _primary.Name,
-                    DriverVersion = DriverVersion ?? "unknown",
+                    DriverVersion = DisplayDriverVersionText,
                     IsNotebook = !_primary.IsDiscrete,
                     IsIntegrated = !_primary.IsDiscrete,
 

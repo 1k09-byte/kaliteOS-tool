@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using kaliteConfig.Gaming.GameMode;
 using kaliteConfig.Native;
 using kaliteConfig.ProcessOptimizer.Services;
 
@@ -15,6 +16,7 @@ namespace kaliteConfig.Services;
 public sealed class ForegroundSuspendService : IDisposable
 {
     private readonly ProcessTuningService _tuning;
+    private readonly GameModeEngine _engine;
     private readonly object _gate = new();
     private readonly Dictionary<int, SuspendedEntry> _suspended = new();
     private readonly HashSet<string> _games = new(StringComparer.OrdinalIgnoreCase);
@@ -37,7 +39,23 @@ public sealed class ForegroundSuspendService : IDisposable
 
     public IReadOnlyList<string> GameExes
     {
-        get { lock (_gate) return _games.OrderBy(g => g).ToList(); }
+        get { try { return _engine.Games.Select(g => g.Name).OrderBy(n => n).ToList(); } catch { return new List<string>(); } }
+    }
+
+    private bool EngineHasGames
+    {
+        get { try { return _engine.Games.Count > 0; } catch { return false; } }
+    }
+
+    private void MigrateGamesToEngine()
+    {
+        string[] own;
+        lock (_gate) { own = _games.ToArray(); _games.Clear(); }
+        foreach (var g in own)
+        {
+            try { _engine.AddGamePath(g); } catch { }
+        }
+        try { SaveSettings(); } catch { }
     }
 
     public bool Auto
@@ -78,10 +96,12 @@ public sealed class ForegroundSuspendService : IDisposable
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-    public ForegroundSuspendService(ProcessTuningService tuning)
+    public ForegroundSuspendService(ProcessTuningService tuning, GameModeEngine engine)
     {
         _tuning = tuning;
+        _engine = engine;
         LoadSettings();
+        MigrateGamesToEngine();
         _ = Task.Run(async () =>
         {
             try { await ResumeJournalOrphansAsync().ConfigureAwait(false); }
@@ -93,23 +113,25 @@ public sealed class ForegroundSuspendService : IDisposable
     public void AddGame(string exeName)
     {
         if (string.IsNullOrWhiteSpace(exeName)) return;
-        string norm = NormalizeExe(exeName);
-        lock (_gate)
+        try
         {
-            if (!_games.Add(norm)) return;
+            var result = _engine.AddGamePath(exeName);
+            StatusText = result.Message;
         }
-        SaveSettings();
-        StatusText = $"{norm} added to the game list.";
+        catch { }
     }
 
     public void RemoveGame(string exeName)
     {
-        lock (_gate)
+        try
         {
-            _games.Remove(NormalizeExe(exeName));
+            string norm = NormalizeExe(exeName);
+            var match = _engine.Games.FirstOrDefault(g => string.Equals(g.Name, norm, StringComparison.OrdinalIgnoreCase));
+            if (match is null) return;
+            _engine.RemoveGame(match.Name, match.Path);
+            StatusText = $"{match.Name} removed from the game list.";
         }
-        SaveSettings();
-        StatusText = $"{exeName} removed from the game list.";
+        catch { }
     }
 
     public static string NormalizeExe(string name)
@@ -124,7 +146,7 @@ public sealed class ForegroundSuspendService : IDisposable
         string? game = gameExeHint != null ? NormalizeExe(gameExeHint) : ForegroundExe();
         if (game == null)
         {
-            StatusText = "No game in foreground.";
+            StatusText = EngineHasGames ? "No game in foreground." : "No games listed — add your game in the Game Mode card.";
             return 0;
         }
         var targets = BuildBackgroundList(game);
@@ -240,7 +262,7 @@ public sealed class ForegroundSuspendService : IDisposable
             else if (!listed && active != null)
             {
                 ResumeAllSync();
-                StatusText = "No game in foreground.";
+                StatusText = EngineHasGames ? "No game in foreground." : "No games listed — add your game in the Game Mode card.";
             }
         }
         catch { }
@@ -249,7 +271,8 @@ public sealed class ForegroundSuspendService : IDisposable
 
     private bool IsGameListed(string exe)
     {
-        lock (_gate) return _games.Contains(exe);
+        try { return _engine.Games.Any(g => string.Equals(g.Name, exe, StringComparison.OrdinalIgnoreCase)); }
+        catch { return false; }
     }
 
     private static string? ForegroundExe()
@@ -286,10 +309,7 @@ public sealed class ForegroundSuspendService : IDisposable
 
                 if (pid <= 4 || pid == self) continue;
                 if (gameExe != null && name.Equals(gameExe, StringComparison.OrdinalIgnoreCase)) continue;
-                lock (_gate)
-                {
-                    if (_games.Contains(name)) continue;
-                }
+                if (IsGameListed(name)) continue;
                  if (ProcessTuningService.IsCritical(name, pid)) continue;
                  if (ProcessTuningService.IsSelf(pid)) continue;
                  long ticks;

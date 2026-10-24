@@ -11,7 +11,6 @@ if (!(Test-Path $ExeFull)) { Write-Output "EXE-NOT-FOUND $ExeFull"; exit 1 }
 $traceTool = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) "perf/tools/dotnet-trace.exe"))
 if (!(Test-Path $traceTool)) { Write-Output "TRACE-TOOL-NOT-FOUND $traceTool"; exit 1 }
 
-# Fresh start so startup work is behind us and state is deterministic.
 Get-Process kaliteConfig -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 2
 
@@ -34,7 +33,7 @@ public static class Win32Show {
 "@
 $h = $p.MainWindowHandle
 if ($h -eq [IntPtr]::Zero) { Write-Output "NO-WINDOW-HANDLE"; exit 1 }
-[Win32Show]::ShowWindow($h, 6) | Out-Null   # SW_MINIMIZE
+[Win32Show]::ShowWindow($h, 6) | Out-Null
 Start-Sleep -Seconds 8
 if (![Win32Show]::IsIconic($h)) { Write-Output "MINIMIZE-FAILED"; exit 1 }
 
@@ -43,5 +42,5 @@ Write-Output ("minimized: cpu ms={0}" -f $p.TotalProcessorTime.TotalMilliseconds
 & $traceTool collect --process-id $p.Id --duration ("00:00:{0:D2}" -f $TraceSeconds) --output "$OutDir/idle-minimized.nettrace"
 if ($LASTEXITCODE -ne 0) { Write-Output "TRACE-MINIMIZED-FAILED exit=$LASTEXITCODE"; exit 1 }
 
-[Win32Show]::ShowWindow($h, 9) | Out-Null   # SW_RESTORE
+[Win32Show]::ShowWindow($h, 9) | Out-Null
 Write-Output "TRACE-COLLECTION-DONE"
