@@ -262,14 +262,15 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 
     private static List<string> VendorPaths(MouseDevice device)
     {
-        var paths = new List<string>();
+        var vendor = new List<string>();
+        var all = new List<string>();
         foreach (var face in device.Interfaces)
         {
-            if (!face.VendorDefined) continue;
             if (face.DevicePath.Length == 0) continue;
-            if (!paths.Contains(face.DevicePath)) paths.Add(face.DevicePath);
+            if (!all.Contains(face.DevicePath)) all.Add(face.DevicePath);
+            if (face.VendorDefined && !vendor.Contains(face.DevicePath)) vendor.Add(face.DevicePath);
         }
-        return paths;
+        return vendor.Count > 0 ? vendor : all;
     }
 
     private async Task<byte[]> LoadConfigAsync(MouseDevice device)

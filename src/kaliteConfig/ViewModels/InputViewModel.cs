@@ -192,6 +192,15 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     public partial bool RequestedSlamclick { get; set; }
 
     [ObservableProperty]
+    public partial bool RequestedAngleSnapping { get; set; }
+
+    [ObservableProperty]
+    public partial bool RequestedRipple { get; set; }
+
+    [ObservableProperty]
+    public partial bool RequestedJitter { get; set; }
+
+    [ObservableProperty]
     public partial ObservableCollection<string> LodOptions { get; set; } = new();
 
     [ObservableProperty]
@@ -396,6 +405,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 ReportSettingText = "Can't read from this mouse";
                 DeviceDpiText = string.Empty;
                 DeviceApplyText = string.Empty;
+                InfoMemory = "Can't read from this mouse. " + (verify ?? string.Empty);
                 return;
             }
             _deviceStatus = status;
@@ -407,6 +417,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             DeviceDpiText = status.DpiX + " DPI (read back)";
             RequestedMotionSync = status.MotionSync;
             RequestedSlamclick = status.SlamclickFilter;
+            RequestedAngleSnapping = status.AngleSnapping;
+            RequestedRipple = status.RippleControl;
+            RequestedJitter = status.JitterFilter;
             LodOptions.Clear();
             foreach (string option in DeviceLodOptions(status)) LodOptions.Add(option);
             RequestedLodIndex = status.LodIndex < LodOptions.Count ? status.LodIndex : 0;
@@ -449,6 +462,18 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         string slamWas = status.SlamclickFilter ? "On" : "Off";
         if (!string.Equals(slam, slamWas, StringComparison.OrdinalIgnoreCase))
             changes.Add(("slamclick-filter", slamWas, slam));
+        string snap = RequestedAngleSnapping ? "On" : "Off";
+        string snapWas = status.AngleSnapping ? "On" : "Off";
+        if (!string.Equals(snap, snapWas, StringComparison.OrdinalIgnoreCase))
+            changes.Add(("angle-snapping", snapWas, snap));
+        string ripple = RequestedRipple ? "On" : "Off";
+        string rippleWas = status.RippleControl ? "On" : "Off";
+        if (!string.Equals(ripple, rippleWas, StringComparison.OrdinalIgnoreCase))
+            changes.Add(("ripple-control", rippleWas, ripple));
+        string jitter = RequestedJitter ? "On" : "Off";
+        string jitterWas = status.JitterFilter ? "On" : "Off";
+        if (!string.Equals(jitter, jitterWas, StringComparison.OrdinalIgnoreCase))
+            changes.Add(("jitter-filter", jitterWas, jitter));
         if (RequestedLodIndex != status.LodIndex)
             changes.Add(("lift-off", status.LodIndex.ToString(), RequestedLodIndex.ToString()));
         await ApplySettingsAsync(changes).ConfigureAwait(false);
@@ -492,7 +517,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private void ClearInfo()
     {
         Nickname = string.Empty;
-        Capabilities.Clear();
+        Capabilities = new ObservableCollection<Input.MouseCapability>();
         SelectedCapability = null;
         InfoBrand = string.Empty;
         InfoModel = string.Empty;
@@ -517,13 +542,14 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         var row = SelectedDevice;
         if (row is null)
         {
-            Capabilities.Clear();
+            Capabilities = new ObservableCollection<Input.MouseCapability>();
             return;
         }
         Nickname = row.Device.Nickname;
         var caps = _capabilities.ForDevice(row.Device);
-        Capabilities.Clear();
-        foreach (var cap in caps) Capabilities.Add(cap);
+        var next = new ObservableCollection<Input.MouseCapability>();
+        foreach (var cap in caps) next.Add(cap);
+        Capabilities = next;
         SelectedCapability = Capabilities.FirstOrDefault(c => c.Kind == Input.CapabilityKind.DeviceInfo) ?? Capabilities.FirstOrDefault();
         ShowVendorBanner = row.Device.VendorSoftwarePresent;
         VendorBanner = row.Device.VendorSoftwarePresent
@@ -539,7 +565,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         InfoReceiver = row.Device.BehindReceiver ? "Linked to a wireless receiver" : "Direct connection";
         InfoVendor = row.Device.VendorSoftwarePresent ? row.Device.VendorSoftwareName : "None detected";
         InfoReason = row.Device.ClassReason;
-        InfoMemory = "Can't read from this mouse. No verified module exists for it.";
+        InfoMemory = _endgame.Matches(row.Device)
+            ? "Reading the device…"
+            : "Can't read from this mouse. No verified module exists for it.";
         InfoDiscovery = row.Device.DiscoveryText;
         LoadWindows();
     }

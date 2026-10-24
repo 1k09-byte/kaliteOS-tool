@@ -218,6 +218,19 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             return devices;
         }
         var setupPaths = MapSetupPaths();
+        var pathsById = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (string known in setupPaths.Keys)
+        {
+            ParseHidPath(known, out ushort svid, out ushort spid, out _);
+            if (svid == 0) continue;
+            string skey = svid.ToString("X4") + ":" + spid.ToString("X4");
+            if (!pathsById.TryGetValue(skey, out var list))
+            {
+                list = new List<string>();
+                pathsById[skey] = list;
+            }
+            if (!list.Contains(known)) list.Add(known);
+        }
         var vendorById = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         var auxByContainer = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         foreach (var aux in auxInfos)
@@ -240,7 +253,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 auxByContainer[setup.ContainerId] = list;
             }
             list.Add(entry);
-            if (entry.VendorDefined && entry.VendorId != 0)
+            if (entry.VendorId != 0)
             {
                 string key = entry.VendorId.ToString("X4") + ":" + entry.ProductId.ToString("X4");
                 if (!vendorById.TryGetValue(key, out var bucket))
@@ -259,15 +272,22 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             if (device.ContainerId.Length > 0 && auxByContainer.TryGetValue(device.ContainerId, out var extra))
                 foreach (var extraInfo in extra)
                     device.Interfaces.Add(extraInfo);
-            bool vendorAttached = false;
-            foreach (var face in device.Interfaces)
-                if (face.VendorDefined) vendorAttached = true;
-            if (!vendorAttached && device.VendorId != 0)
+            if (device.VendorId != 0)
             {
                 string key = device.VendorId.ToString("X4") + ":" + device.ProductId.ToString("X4");
                 if (vendorById.TryGetValue(key, out var bucket))
                     foreach (var face in bucket)
-                        device.Interfaces.Add(face);
+                        if (!HasPath(device, face.DevicePath)) device.Interfaces.Add(face);
+                if (pathsById.TryGetValue(key, out var pathList))
+                    foreach (string known in pathList)
+                        if (!HasPath(device, known))
+                            device.Interfaces.Add(new MouseInterfaceInfo
+                            {
+                                DevicePath = known,
+                                VendorId = device.VendorId,
+                                ProductId = device.ProductId,
+                                VendorDefined = true,
+                            });
             }
             devices.Add(device);
         }
@@ -518,6 +538,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         public string DetailPath = string.Empty;
         public string ContainerId = string.Empty;
         public string Maker = string.Empty;
+        public string ParentId = string.Empty;
     }
 
     private static Dictionary<string, SetupEntry> MapSetupPaths()
@@ -553,6 +574,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                         var entry = new SetupEntry { DetailPath = path };
                         entry.ContainerId = ReadContainer(set, devinfo);
                         entry.Maker = ReadMaker(set, devinfo);
+                        entry.ParentId = ReadParent(set, devinfo);
                         map[NormPath(path)] = entry;
                     }
                     finally
@@ -601,6 +623,25 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         catch { return string.Empty; }
     }
 
+    private static string ReadParent(IntPtr set, IntPtr devinfo)
+    {
+        try
+        {
+            var key = new NativeInput.DevPropKey { Fmtid = NativeInput.DevpkeyDeviceParentFmtid, Pid = NativeInput.DevpkeyDeviceParentPid };
+            IntPtr buffer = Marshal.AllocHGlobal(1024);
+            try
+            {
+                if (!NativeInput.SetupDiGetDevicePropertyW(set, devinfo, ref key, out _, buffer, 1024, out _, 0)) return string.Empty;
+                return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch { return string.Empty; }
+    }
+
     private static string ReadMaker(IntPtr set, IntPtr devinfo)
     {
         try
@@ -633,9 +674,11 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             string maker = info.ManufacturerText;
             string source = maker.Length > 0 ? "HID string descriptor" : "unknown";
             string container = string.Empty;
+            string parent = string.Empty;
             if (setupPaths.TryGetValue(NormPath(info.Path), out var setup))
             {
                 container = setup.ContainerId;
+                parent = setup.ParentId;
                 if (maker.Length == 0 && setup.Maker.Length > 0)
                 {
                     maker = setup.Maker;
@@ -662,7 +705,8 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             device.OpenResult = info.Opened
                 ? "Interface opened for string reads."
                 : "Interface could not be opened (code " + info.OpenError + "). Device-node values used.";
-            device.Connection = ClassifyConnection(info.Path, instance);
+            device.ParentId = parent;
+            device.Connection = ClassifyConnection(info.Path, instance, parent);
             device.Interfaces.Add(new MouseInterfaceInfo
             {
                 Handle = info.Handle,
@@ -697,13 +741,20 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         if (parts.Length >= 3) instance = parts[2];
     }
 
-    private static MouseConnection ClassifyConnection(string path, string instance)
+    private static MouseConnection ClassifyConnection(string path, string instance, string parent)
     {
-        string text = ((path ?? string.Empty) + "|" + (instance ?? string.Empty)).ToUpperInvariant();
+        string text = ((path ?? string.Empty) + "|" + (instance ?? string.Empty) + "|" + (parent ?? string.Empty)).ToUpperInvariant();
         if (text.Contains("BTHENUM") || text.Contains("BTHUSB") || text.Contains("BLUETOOTH")) return MouseConnection.Bluetooth;
         if (text.Contains("USB")) return MouseConnection.Usb;
         if (text.Contains("HID")) return MouseConnection.Other;
         return MouseConnection.Unknown;
+    }
+
+    private static bool HasPath(MouseDevice device, string path)
+    {
+        foreach (var face in device.Interfaces)
+            if (string.Equals(face.DevicePath, path, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
     }
 
     private static void MarkReceivers(List<MouseDevice> devices)
