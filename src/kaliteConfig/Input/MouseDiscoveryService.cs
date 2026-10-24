@@ -309,9 +309,10 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             ReadHidStrings(result);
             string? capsError = null;
             if (ReadCapsKind(result, ref capsError)) return result;
-            if (ReadInfoKind(handle, result, ref firstError)) return result;
-            if (capsError != null)
-                firstError = (capsError + " " + (firstError ?? string.Empty)).Trim();
+            string? infoError = null;
+            if (ReadInfoKind(handle, result, ref infoError)) return result;
+            if (firstError is null)
+                firstError = ((capsError ?? string.Empty) + " " + (infoError ?? string.Empty)).Trim();
             return null;
         }
         catch (Exception ex)
@@ -347,13 +348,18 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 {
                     for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
                     int capsStatus = NativeInput.HidP_GetCaps(preparsed, caps);
-                    if (capsStatus != 0)
+                    if (capsStatus < 0)
                     {
                         firstError ??= "Reads failed at the descriptor parse (status 0x" + capsStatus.ToString("X8") + ").";
                         return false;
                     }
                     ushort usage = (ushort)Marshal.ReadInt16(caps, 0);
                     ushort page = (ushort)Marshal.ReadInt16(caps, 2);
+                    if (page == 0 && usage == 0)
+                    {
+                        firstError ??= "Reads failed: the descriptor came back empty.";
+                        return false;
+                    }
                     result.Usage = usage;
                     result.UsagePage = page;
                     if (page == 1 && usage == 2) result.Kind = NativeInput.RimTypeMouse;
