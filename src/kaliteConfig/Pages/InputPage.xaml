@@ -30,7 +30,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="No supported mouse found." Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Grid.Row="0" Text="{x:Bind ViewModel.EmptyStateText, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
             <GridView Grid.Row="0" ItemsSource="{x:Bind ViewModel.Devices, Mode=OneWay}" SelectionMode="Single" SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}" IsItemClickEnabled="True" ItemClick="DeviceGrid_ItemClick" Visibility="{x:Bind ViewModel.HasSupportedDevices, Mode=OneWay}">
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="models:MouseDeviceRow">
@@ -51,16 +51,21 @@
                 <ListView ItemsSource="{x:Bind ViewModel.IgnoredDevices, Mode=OneWay}" SelectionMode="None">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:MouseDeviceRow">
-                            <Grid ColumnSpacing="12" Padding="0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="3*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{x:Bind DisplayName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind Device.ClassReason, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                <Button Grid.Column="2" Content="Show anyway" Click="ShowIgnored_Click" Tag="{x:Bind}" VerticalAlignment="Center" ToolTipService.ToolTip="Show this device anyway (Windows settings only)" />
-                            </Grid>
+                            <StackPanel Spacing="4" Padding="0,4">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="3*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{x:Bind DisplayName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Device.ClassReason, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                    <Button Grid.Column="2" Content="Show anyway" Click="ShowIgnored_Click" Tag="{x:Bind}" VerticalAlignment="Center" ToolTipService.ToolTip="Show this device anyway (Windows settings only)" />
+                                </Grid>
+                                <Expander Header="Discovery details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                    <TextBlock Text="{x:Bind Device.DiscoveryText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </Expander>
+                            </StackPanel>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
@@ -69,7 +74,7 @@
         <SelectorBar Grid.Row="3" x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged" />
         <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Padding="0,0,0,32">
             <StackPanel Spacing="8">
-                <StackPanel x:Name="InfoPanel" Spacing="8">
+                <StackPanel x:Name="InfoPanel" Spacing="8" Visibility="{x:Bind ViewModel.InfoVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                     <toolkit:SettingsCard Header="Brand" Description="{x:Bind ViewModel.InfoBrand, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Model" Description="{x:Bind ViewModel.InfoModel, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="VID and PID" Description="{x:Bind ViewModel.InfoVidPid, Mode=OneWay}" />
@@ -79,6 +84,9 @@
                     <toolkit:SettingsCard Header="Vendor software" Description="{x:Bind ViewModel.InfoVendor, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Why shown" Description="{x:Bind ViewModel.InfoReason, Mode=OneWay}" />
                     <toolkit:SettingsCard Header="Onboard memory" Description="{x:Bind ViewModel.InfoMemory, Mode=OneWay}" />
+                    <Expander Header="Discovery details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock Text="{x:Bind ViewModel.InfoDiscovery, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </Expander>
                     <toolkit:SettingsCard Header="Nickname">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBox Text="{x:Bind ViewModel.Nickname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="200" PlaceholderText="Nickname" />
