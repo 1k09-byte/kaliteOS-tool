@@ -39,7 +39,8 @@ public sealed class MouseClassifier : IMouseClassifier
         device.VendorSoftwarePresent = vendorSoftwarePresent;
         device.VendorSoftwareName = vendorSoftwareName ?? string.Empty;
         bool makerBranded = !catalog.IsGenericMaker(device.Manufacturer);
-        device.Branded = makerBranded;
+        bool tokenBranded = !makerBranded && catalog.MatchesKnownBrand(device.Manufacturer, device.Product);
+        device.Branded = makerBranded || tokenBranded;
         if (vendorSoftwarePresent || hasVendorInterface)
         {
             device.Class = MouseClass.Supported;
@@ -48,10 +49,12 @@ public sealed class MouseClassifier : IMouseClassifier
                 : "Vendor-defined interface handled by this app.";
             return;
         }
-        if (makerBranded)
+        if (makerBranded || tokenBranded)
         {
             device.Class = MouseClass.Supported;
-            device.ClassReason = "Brand identified from the device manufacturer string.";
+            device.ClassReason = makerBranded
+                ? "Brand identified from the device manufacturer string."
+                : "Brand identified from the device product string.";
             return;
         }
         device.Class = MouseClass.Ignored;
