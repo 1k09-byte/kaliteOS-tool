@@ -243,4 +243,73 @@ internal static partial class NativeInput
 
     [LibraryImport("cfgmgr32.dll", SetLastError = true)]
     internal static partial uint CM_Unregister_Notification(IntPtr notifyContext);
+
+    internal delegate IntPtr WndProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    internal struct WndClassEx
+    {
+        public uint Size;
+        public uint Style;
+        public WndProc Proc;
+        public int ClsExtra;
+        public int WndExtra;
+        public IntPtr Instance;
+        public IntPtr Icon;
+        public IntPtr Cursor;
+        public IntPtr Background;
+        public string? MenuName;
+        public string ClassName;
+        public IntPtr IconSm;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct Msg
+    {
+        public IntPtr Hwnd;
+        public uint Message;
+        public IntPtr WParam;
+        public IntPtr LParam;
+        public uint Time;
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern ushort RegisterClassExW(ref WndClassEx windowClass);
+
+    [LibraryImport("user32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial IntPtr CreateWindowExW(
+        uint exStyle,
+        string className,
+        string windowName,
+        uint style,
+        int x,
+        int y,
+        int width,
+        int height,
+        IntPtr parent,
+        IntPtr menu,
+        IntPtr instance,
+        IntPtr param);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool DestroyWindow(IntPtr hwnd);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial int GetMessageW(out Msg message, IntPtr hwnd, uint filterMin, uint filterMax);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool TranslateMessage(ref Msg message);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial IntPtr DispatchMessageW(ref Msg message);
+
+    [LibraryImport("user32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial IntPtr DefWindowProcW(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial IntPtr GetModuleHandleW(string? moduleName);
 }
