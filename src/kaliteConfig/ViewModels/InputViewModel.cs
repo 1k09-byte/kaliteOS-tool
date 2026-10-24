@@ -293,6 +293,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 int dropped = _discovery.DroppedInterfaces;
                 if (dropped > 0)
                     EmptyStateText += " " + dropped + (dropped == 1 ? " interface" : " interfaces") + " could not be read.";
+                string scanError = _discovery.LastScanError;
+                if (scanError.Length > 0)
+                    EmptyStateText += " " + scanError;
             }
             else
             {
