@@ -1,38 +1,20 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using kaliteConfig.Input.Interop;
 
 namespace kaliteConfig.Input;
-
-public sealed class EndgameDeviceStatus
-{
-    public int DpiX { get; set; }
-    public int DpiY { get; set; }
-    public int RateHz { get; set; }
-    public int LodIndex { get; set; }
-    public int LodCount { get; set; }
-    public bool MotionSync { get; set; }
-    public bool AngleSnapping { get; set; }
-    public bool RippleControl { get; set; }
-    public bool SlamclickFilter { get; set; }
-    public bool JitterFilter { get; set; }
-    public bool IsV2 { get; set; }
-}
 
 public sealed class EndgameOp1Protocol : IMouseProtocol
 {
     public string Id => "endgame-gear-op1";
     public bool EnabledByDefault => false;
     public string LastError { get; private set; } = string.Empty;
+    public static string Source => "Community-documented HID protocol, OpenMouse mouse-protocol";
 
     private const ushort VendorId = 0x3367;
     private const byte ReportConfig = 0xA0;
     private const byte ReportCommand = 0xA1;
-    private const int ConfigSize = 1041;
-    private const int CommandSize = 64;
     private const byte OpLoad = 0x12;
     private const byte OpStore = 0x11;
     private const byte StatusOk = 0x01;
@@ -52,6 +34,9 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     private static readonly ushort[] V2Pids = new ushort[] { 0x1976, 0x1978, 0x1980 };
     private static readonly int[] Rates = new int[] { 125, 250, 500, 1000, 2000, 4000, 8000 };
 
+    private string _livePath = string.Empty;
+    private int _liveFeature;
+
     public static bool IsAllowedId(ushort vid, ushort pid)
     {
         if (vid != VendorId) return false;
@@ -62,66 +47,38 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 
     public static IReadOnlyList<int> SupportedRates() => Rates;
 
+    IReadOnlyList<int> IMouseProtocol.SupportedRates => Rates;
+
     public bool Matches(MouseDevice device) => IsAllowedId(device.VendorId, device.ProductId);
 
-    public Task<IReadOnlyList<MouseCapability>> ProbeAsync(MouseDevice device)
+    public MouseDeviceSettings? TryRead(MouseDevice device)
     {
-        var list = new List<MouseCapability>();
-        EndgameDeviceStatus? status = TryReadStatus(device);
-        if (status is null)
+        string? path = ChoosePath(device, out byte[]? config);
+        if (path is null || config is null) return null;
+        bool v2 = IsV2(device.ProductId);
+        return new MouseDeviceSettings
         {
-            list.Add(new MouseCapability(CapabilityKind.ReportRate, CapabilityState.CantRead, LastError));
-            return Task.FromResult<IReadOnlyList<MouseCapability>>(list);
-        }
-        list.Add(new MouseCapability(CapabilityKind.DeviceInfo, CapabilityState.Available, string.Empty));
-        list.Add(new MouseCapability(CapabilityKind.WindowsSettings, CapabilityState.Available, "Applies to all mice."));
-        list.Add(new MouseCapability(CapabilityKind.Sensor, CapabilityState.Available, "Verified on this device."));
-        list.Add(new MouseCapability(CapabilityKind.ReportRate, CapabilityState.Available, "Verified on this device."));
-        list.Add(new MouseCapability(CapabilityKind.Buttons, CapabilityState.NotImplemented, "Button remap is not implemented in this app."));
-        list.Add(new MouseCapability(CapabilityKind.Scroll, CapabilityState.NotImplemented, "Scroll behavior is not implemented in this app."));
-        list.Add(new MouseCapability(CapabilityKind.Lighting, CapabilityState.NotImplemented, "Lighting is not implemented in this app."));
-        list.Add(new MouseCapability(CapabilityKind.Power, CapabilityState.NotImplemented, "Power controls are not implemented in this app."));
-        list.Add(new MouseCapability(CapabilityKind.Profiles, CapabilityState.NotImplemented, "Onboard profiles are not implemented in this app."));
-        list.Add(new MouseCapability(CapabilityKind.Test, CapabilityState.Available, string.Empty));
-        list.Add(new MouseCapability(CapabilityKind.Log, CapabilityState.Available, string.Empty));
-        return Task.FromResult<IReadOnlyList<MouseCapability>>(list);
+            DpiX = ReadU16(config, OffStages + 1),
+            DpiY = ReadU16(config, OffStages + 3),
+            RateHz = DecodeRate(config[OffDivider]),
+            LodIndex = config[OffLod],
+            LodCount = LodCount(v2),
+            MotionSync = config[OffMotion] != 0,
+            AngleSnapping = config[OffSnap] != 0,
+            RippleControl = config[OffRipple] != 0,
+            SlamclickFilter = (config[OffFlags] & FlagSlam) != 0,
+            JitterFilter = (config[OffFlags] & FlagJitter) != 0,
+            IsV2 = v2,
+            ModelName = device.Product,
+        };
     }
 
-    public Task<string?> ReadAsync(MouseDevice device, string setting)
-    {
-        EndgameDeviceStatus? status = TryReadStatus(device);
-        if (status is null) return Task.FromResult<string?>(null);
-        return Task.FromResult<string?>(ReadValue(status, setting));
-    }
-
-    private static string? ReadValue(EndgameDeviceStatus status, string setting)
-    {
-        switch ((setting ?? string.Empty).ToLowerInvariant())
-        {
-            case "report-rate": return status.RateHz.ToString();
-            case "dpi": return status.DpiX.ToString();
-            case "dpi-y": return status.DpiY.ToString();
-            case "motion-sync": return status.MotionSync ? "On" : "Off";
-            case "angle-snapping": return status.AngleSnapping ? "On" : "Off";
-            case "ripple-control": return status.RippleControl ? "On" : "Off";
-            case "slamclick-filter": return status.SlamclickFilter ? "On" : "Off";
-            case "jitter-filter": return status.JitterFilter ? "On" : "Off";
-            case "lift-off": return status.LodIndex.ToString();
-            default: return null;
-        }
-    }
-
-    public Task<bool> WriteAsync(MouseDevice device, string setting, string value)
-    {
-        return Task.Run(() => WriteCore(device, setting, value));
-    }
-
-    private bool WriteCore(MouseDevice device, string setting, string value)
+    public bool TryWrite(MouseDevice device, string setting, string value)
     {
         string? path = ChoosePath(device, out byte[]? config);
         if (path is null || config is null)
         {
-            LastError = "The configuration interface could not be read.";
+            LastError = LastError.Length > 0 ? LastError : "The configuration interface could not be read.";
             return false;
         }
         bool v2 = IsV2(device.ProductId);
@@ -146,7 +103,11 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 break;
             case "motion-sync":
                 bool motion = string.Equals(value, "On", StringComparison.OrdinalIgnoreCase);
-                if (motion && !v2 && DecodeRate(config[OffDivider]) == 8000) return false;
+                if (motion && !v2 && DecodeRate(config[OffDivider]) == 8000)
+                {
+                    LastError = "Motion Sync cannot be on at 8000 Hz on this mouse.";
+                    return false;
+                }
                 config[OffMotion] = motion ? (byte)1 : (byte)0;
                 break;
             case "angle-snapping":
@@ -177,40 +138,32 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             default:
                 return false;
         }
-        return StoreConfig(path, config, _liveFeature > 0 ? _liveFeature : ConfigSize);
+        return StoreConfig(path, config, _liveFeature);
     }
-
-    public EndgameDeviceStatus? TryReadStatus(MouseDevice device)
-    {
-        string? path = ChoosePath(device, out byte[]? config);
-        if (path is null || config is null) return null;
-        return ParseStatus(device.ProductId, config);
-    }
-
-    public Task<EndgameDeviceStatus?> TryReadStatusAsync(MouseDevice device) => Task.Run(() => TryReadStatus(device));
-
-    private string _livePath = string.Empty;
-    private int _liveFeature;
 
     private string? ChoosePath(MouseDevice device, out byte[]? config)
     {
         config = null;
-        var paths = VendorPaths(device);
+        LastError = string.Empty;
+        var paths = CandidatePaths(device);
         if (paths.Count == 0)
         {
             LastError = "No interface to read the mouse from.";
             return null;
         }
-        var ranked = new List<(string Path, int Feature)>();
+        var ranked = new List<(string Path, int Feature, string Problem)>();
         foreach (string path in paths)
-            ranked.Add((path, FeatureLength(path)));
+        {
+            int feature = FeatureLength(path, out string problem);
+            ranked.Add((path, feature, problem));
+        }
         ranked.Sort((left, right) => right.Feature.CompareTo(left.Feature));
         var failures = new List<string>();
         foreach (var candidate in ranked)
         {
-            if (candidate.Feature < CommandSize)
+            if (candidate.Feature < 64)
             {
-                failures.Add(ShortPath(candidate.Path) + ": no feature report");
+                failures.Add(ShortPath(candidate.Path) + ": " + (candidate.Feature == 0 ? candidate.Problem : candidate.Feature + " bytes"));
                 continue;
             }
             var attempt = ReadConfig(candidate.Path, device.ProductId, candidate.Feature);
@@ -219,7 +172,6 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 config = attempt.Config;
                 _livePath = candidate.Path;
                 _liveFeature = candidate.Feature;
-                LastError = string.Empty;
                 return candidate.Path;
             }
             failures.Add(ShortPath(candidate.Path) + " (" + candidate.Feature + "): " + attempt.Error);
@@ -228,6 +180,25 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             ? "The mouse did not answer the probe."
             : "Tried " + failures.Count + (failures.Count == 1 ? " interface: " : " interfaces: ") + string.Join("; ", failures);
         return null;
+    }
+
+    private static List<string> CandidatePaths(MouseDevice device)
+    {
+        var ordered = new List<string>();
+        var others = new List<string>();
+        foreach (var face in device.Interfaces)
+        {
+            if (face.DevicePath.Length == 0) continue;
+            if (face.VendorDefined)
+            {
+                if (!ordered.Contains(face.DevicePath)) ordered.Add(face.DevicePath);
+                continue;
+            }
+            if (!others.Contains(face.DevicePath)) others.Add(face.DevicePath);
+        }
+        foreach (string path in others)
+            if (!ordered.Contains(path)) ordered.Add(path);
+        return ordered;
     }
 
     private static bool IsV2(ushort pid)
@@ -274,71 +245,66 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
-    private static EndgameDeviceStatus ParseStatus(ushort pid, byte[] config)
-    {
-        bool v2 = IsV2(pid);
-        return new EndgameDeviceStatus
-        {
-            DpiX = ReadU16(config, OffStages + 1),
-            DpiY = ReadU16(config, OffStages + 3),
-            RateHz = DecodeRate(config[OffDivider]),
-            LodIndex = config[OffLod],
-            LodCount = LodCount(v2),
-            MotionSync = config[OffMotion] != 0,
-            AngleSnapping = config[OffSnap] != 0,
-            RippleControl = config[OffRipple] != 0,
-            SlamclickFilter = (config[OffFlags] & FlagSlam) != 0,
-            JitterFilter = (config[OffFlags] & FlagJitter) != 0,
-            IsV2 = v2,
-        };
-    }
-
     private static bool IsValidConfig(byte[] config, int length, ushort pid)
     {
         if (config is null || length < 131) return false;
         if (config[1] != StatusOk) return false;
         int levels = config[OffLevels];
         if (levels < 1 || levels > 4) return false;
-        byte divider = config[OffDivider];
-        if (divider < 1) return false;
-        int dpi = ReadU16(config, OffStages + 1);
-        return IsValidDpi(IsV2(pid), dpi);
+        if (config[OffDivider] < 1) return false;
+        return IsValidDpi(IsV2(pid), ReadU16(config, OffStages + 1));
     }
 
-    private static List<string> VendorPaths(MouseDevice device)
+    private static IntPtr OpenPath(string path, uint access)
     {
-        var ordered = new List<string>();
-        var others = new List<string>();
-        foreach (var face in device.Interfaces)
+        const uint share = 3;
+        const uint open = 3;
+        IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return IntPtr.Zero;
+        return handle;
+    }
+
+    private static IntPtr OpenForRead(string path)
+    {
+        foreach (uint access in new uint[] { 0xC0000000, 0x80000000, 0 })
         {
-            if (face.DevicePath.Length == 0) continue;
-            if (face.VendorDefined)
-            {
-                if (!ordered.Contains(face.DevicePath)) ordered.Add(face.DevicePath);
-                continue;
-            }
-            if (!others.Contains(face.DevicePath)) others.Add(face.DevicePath);
+            IntPtr handle = OpenPath(path, access);
+            if (handle != IntPtr.Zero) return handle;
         }
-        foreach (string path in others)
-            if (!ordered.Contains(path)) ordered.Add(path);
-        return ordered;
+        return IntPtr.Zero;
     }
 
-    private static int FeatureLength(string path)
+    private static int FeatureLength(string path, out string problem)
     {
-        IntPtr handle = OpenPath(path, 0);
-        if (handle == IntPtr.Zero) return 0;
+        problem = "could not open";
+        IntPtr handle = OpenForRead(path);
+        if (handle == IntPtr.Zero)
+        {
+            problem = "open refused (code " + Marshal.GetLastWin32Error() + ")";
+            return 0;
+        }
         try
         {
-            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero) return 0;
+            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero)
+            {
+                problem = "descriptor refused (code " + Marshal.GetLastWin32Error() + ")";
+                return 0;
+            }
             try
             {
                 IntPtr caps = Marshal.AllocHGlobal(64);
                 try
                 {
                     for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
-                    if (NativeInput.HidP_GetCaps(preparsed, caps) < 0) return 0;
-                    return (ushort)Marshal.ReadInt16(caps, 8);
+                    int status = NativeInput.HidP_GetCaps(preparsed, caps);
+                    if (status < 0)
+                    {
+                        problem = "caps status 0x" + status.ToString("X8");
+                        return 0;
+                    }
+                    int feature = (ushort)Marshal.ReadInt16(caps, 8);
+                    problem = "no feature reports";
+                    return feature;
                 }
                 finally
                 {
@@ -373,16 +339,11 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     private static ReadAttempt ReadConfig(string path, ushort pid, int feature)
     {
         var attempt = new ReadAttempt();
-        IntPtr handle = OpenPath(path, 0xC0000000);
+        IntPtr handle = OpenForRead(path);
         if (handle == IntPtr.Zero)
         {
-            int writeError = Marshal.GetLastWin32Error();
-            handle = OpenPath(path, 0x80000000);
-            if (handle == IntPtr.Zero)
-            {
-                attempt.Error = "open code " + writeError + "/" + Marshal.GetLastWin32Error();
-                return attempt;
-            }
+            attempt.Error = "open refused";
+            return attempt;
         }
         try
         {
@@ -417,7 +378,8 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 
     private static bool StoreConfig(string path, byte[] config, int feature)
     {
-        IntPtr handle = OpenPath(path, 0xC0000000);
+        if (feature <= 0) return false;
+        IntPtr handle = OpenForRead(path);
         if (handle == IntPtr.Zero) return false;
         try
         {
@@ -446,15 +408,6 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         {
             try { NativeInput.CloseHandle(handle); } catch { }
         }
-    }
-
-    private static IntPtr OpenPath(string path, uint access)
-    {
-        const uint share = 3;
-        const uint open = 3;
-        IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
-        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return IntPtr.Zero;
-        return handle;
     }
 
     private static bool SetReport(IntPtr handle, byte[] buffer)

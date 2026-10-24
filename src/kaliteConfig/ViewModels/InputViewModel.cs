@@ -37,10 +37,11 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private readonly Input.IMouseTestService _test;
     private readonly Input.IMouseLog _log;
     private readonly Input.IMousePrefStore _prefs;
-    private readonly Input.EndgameOp1Protocol _endgame;
+    private readonly Input.IMouseProtocolRegistry _protocols;
     private readonly Input.IMouseWriteTransaction _deviceTx;
     private readonly DispatcherQueue _ui;
-    private Input.EndgameDeviceStatus? _deviceStatus;
+    private Input.MouseDeviceSettings? _deviceStatus;
+    private Input.IMouseProtocol? _module;
     private int _probeToken;
     private readonly Dictionary<string, string> _deviceOriginal = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
@@ -57,7 +58,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         Input.IMouseTestService test,
         Input.IMouseLog log,
         Input.IMousePrefStore prefs,
-        Input.EndgameOp1Protocol endgame,
+        Input.IMouseProtocolRegistry protocols,
         Input.IMouseWriteTransaction deviceTx)
     {
         _discovery = discovery;
@@ -65,15 +66,14 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _test = test;
         _log = log;
         _prefs = prefs;
-        _endgame = endgame;
+        _protocols = protocols;
         _deviceTx = deviceTx;
         _ui = DispatcherQueue.GetForCurrentThread();
         _test.Progress += OnTestProgress;
         _test.DeviceRemoved += OnTestDeviceRemoved;
         _discovery.Changed += OnDevicesChanged;
         ReapplyOnConnect = _prefs.Data.ReapplyOnConnect;
-        foreach (int rate in Input.EndgameOp1Protocol.SupportedRates())
-            SupportedRates.Add(rate);
+
     }
 
     public Input.IMouseLog Log => _log;
@@ -385,15 +385,22 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private async Task ProbeDeviceAsync(MouseDeviceRow row, int token)
     {
         string? verify = null;
-        Input.EndgameDeviceStatus? status = null;
+        Input.MouseDeviceSettings? status = null;
+        Input.IMouseProtocol? module = null;
         try
         {
-            if (!_endgame.Matches(row.Device))
-                verify = "Not a supported community device.";
+            module = _protocols.Resolve(row.Device);
+            if (module is null)
+            {
+                verify = "This mouse's settings can't be read by this app yet. Windows settings and the tests below still work.";
+            }
             else
-                status = await _endgame.TryReadStatusAsync(row.Device).ConfigureAwait(false);
-            if (status is null && verify is null)
-                verify = _endgame.LastError.Length > 0 ? _endgame.LastError : "The mouse did not answer the probe.";
+            {
+                var found = await Task.Run(() => module.TryRead(row.Device)).ConfigureAwait(false);
+                status = found;
+                if (status is null)
+                    verify = module.LastError.Length > 0 ? module.LastError : "The mouse did not answer the probe.";
+            }
         }
         catch (Exception ex)
         {
@@ -412,8 +419,12 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 return;
             }
             _deviceStatus = status;
-            DeviceVerifyText = "Verified on this device.";
+            _module = module;
+            DeviceVerifyText = "Reading and writing this mouse works. Values come from the mouse.";
             ReportSettingText = status.RateHz + " Hz (read back)";
+            SupportedRates.Clear();
+            if (module != null)
+                foreach (int rate in module.SupportedRates) SupportedRates.Add(rate);
             if (!SupportedRates.Contains(status.RateHz)) SupportedRates.Add(status.RateHz);
             RequestedRate = status.RateHz;
             RequestedDpi = status.DpiX;
@@ -433,7 +444,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         });
     }
 
-    private static IReadOnlyList<string> DeviceLodOptions(Input.EndgameDeviceStatus status)
+    private static IReadOnlyList<string> DeviceLodOptions(Input.MouseDeviceSettings status)
     {
         if (!status.IsV2) return new string[] { "0.7 mm", "1 mm", "2 mm" };
         return new string[] { "0.7 mm", "0.8 mm", "0.9 mm", "1.0 mm", "1.1 mm", "1.2 mm", "1.3 mm", "1.4 mm", "1.5 mm", "1.6 mm", "1.7 mm" };
@@ -487,8 +498,8 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 Original = change.Original,
                 Requested = change.Requested,
                 StoredOnDevice = true,
-                Write = () => _endgame.WriteAsync(row.Device, change.Setting, change.Requested),
-                ReadBack = () => _endgame.ReadAsync(row.Device, change.Setting),
+                Write = () => WriteDeviceAsync(row, change.Setting, change.Requested),
+                ReadBack = () => ReadDeviceAsync(row, change.Setting),
             }).ConfigureAwait(false);
             first ??= outcome.Message;
         }
@@ -565,9 +576,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 Original = change.Original,
                 Requested = change.Requested,
                 StoredOnDevice = true,
-                Write = () => _endgame.WriteAsync(row.Device, change.Setting, change.Requested),
-                ReadBack = () => _endgame.ReadAsync(row.Device, change.Setting),
-                RestoreOriginal = () => _endgame.WriteAsync(row.Device, change.Setting, change.Original),
+                Write = () => WriteDeviceAsync(row, change.Setting, change.Requested),
+                ReadBack = () => ReadDeviceAsync(row, change.Setting),
+                RestoreOriginal = () => WriteDeviceAsync(row, change.Setting, change.Original),
             }).ConfigureAwait(false);
             messages.Add(outcome.Message);
             if (outcome.Result == Input.MouseResult.Verified || outcome.Result == Input.MouseResult.AppliedNoVerify)
@@ -579,6 +590,33 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             DeviceApplyText = joined;
             ProbeDevice();
         });
+    }
+
+    private async Task<bool> WriteDeviceAsync(MouseDeviceRow row, string setting, string value)
+    {
+        var module = _module;
+        if (module is null) return false;
+        return await Task.Run(() => module.TryWrite(row.Device, setting, value)).ConfigureAwait(false);
+    }
+
+    private async Task<string?> ReadDeviceAsync(MouseDeviceRow row, string setting)
+    {
+        var module = _module;
+        if (module is null) return null;
+        var settings = await Task.Run(() => module.TryRead(row.Device)).ConfigureAwait(false);
+        if (settings is null) return null;
+        return setting switch
+        {
+            "report-rate" => settings.RateHz.ToString(),
+            "dpi" => settings.DpiX.ToString(),
+            "motion-sync" => settings.MotionSync ? "On" : "Off",
+            "angle-snapping" => settings.AngleSnapping ? "On" : "Off",
+            "ripple-control" => settings.RippleControl ? "On" : "Off",
+            "slamclick-filter" => settings.SlamclickFilter ? "On" : "Off",
+            "jitter-filter" => settings.JitterFilter ? "On" : "Off",
+            "lift-off" => settings.LodIndex.ToString(),
+            _ => null,
+        };
     }
 
     private void ClearInfo()
@@ -622,9 +660,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         InfoReceiver = row.Device.BehindReceiver ? "Linked to a wireless receiver" : "Direct connection";
         InfoVendor = row.Device.VendorSoftwarePresent ? row.Device.VendorSoftwareName : "None detected";
         InfoReason = row.Device.ClassReason;
-        InfoMemory = _endgame.Matches(row.Device)
+        InfoMemory = _protocols.Resolve(row.Device) != null
             ? "Reading the device…"
-            : "Can't read from this mouse. No verified module exists for it.";
+            : "This mouse's memory can't be read by this app yet.";
         InfoDiscovery = row.Device.DiscoveryText;
         LoadWindows();
     }
