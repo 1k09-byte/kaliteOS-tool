@@ -43,7 +43,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private bool _testVisible;
     private double _roadSeconds;
     private long _roadReports;
-    private MouseDeviceRow? _fallbackRow;
 
     public InputViewModel(
         Input.IMouseDiscoveryService discovery,
@@ -194,6 +193,15 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     public partial string InfoReason { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string EmptyStateText { get; set; } = "No pointing device found.";
+
+    [ObservableProperty]
+    public partial bool InfoVisible { get; set; }
+
+    [ObservableProperty]
+    public partial string InfoDiscovery { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial string InfoMemory { get; set; } = string.Empty;
 
     public void Open()
@@ -266,36 +274,54 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 SelectedDevice = Devices.FirstOrDefault();
             else
                 LoadSelected();
-            _fallbackRow = null;
             if (SelectedDevice is null)
-                ShowFallbackInfo(IgnoredDevices.FirstOrDefault());
+            {
+                ClearInfo();
+                InfoVisible = false;
+                if (ignored.Count > 0)
+                {
+                    var reasons = new List<string>();
+                    foreach (var row in ignored)
+                        reasons.Add(row.DisplayName + ": " + row.Device.ClassReason);
+                    EmptyStateText = ignored.Count + (ignored.Count == 1 ? " pointing device" : " pointing devices")
+                        + " found, all ignored: " + string.Join(" ", reasons);
+                }
+                else
+                {
+                    EmptyStateText = "No pointing device found.";
+                }
+                int dropped = _discovery.DroppedInterfaces;
+                if (dropped > 0)
+                    EmptyStateText += " " + dropped + (dropped == 1 ? " interface" : " interfaces") + " could not be read.";
+            }
+            else
+            {
+                InfoVisible = true;
+                EmptyStateText = string.Empty;
+            }
         });
     }
 
     partial void OnSelectedDeviceChanged(MouseDeviceRow? value)
     {
-        _fallbackRow = null;
         LoadSelected();
     }
 
-    private void ShowFallbackInfo(MouseDeviceRow? row)
+    private void ClearInfo()
     {
-        _fallbackRow = row;
+        Nickname = string.Empty;
         Capabilities.Clear();
         SelectedCapability = null;
-        if (row is null) return;
-        Nickname = row.Device.Nickname;
-        InfoBrand = row.Device.WindowsOnly
-            ? "Brand couldn't be identified"
-            : row.Device.BrandText.Length > 0 ? row.Device.BrandText : "Unknown brand";
-        InfoModel = row.Device.Product.Length > 0 ? row.Device.Product : "Unknown model";
-        InfoVidPid = "VID " + row.Device.VendorId.ToString("X4") + ", PID " + row.Device.ProductId.ToString("X4");
-        InfoSerial = row.Device.Serial.Length > 0 ? row.Device.Serial : "Not exposed";
-        InfoConnection = ConnectionText(row.Device.Connection);
-        InfoReceiver = row.Device.BehindReceiver ? "Linked to a wireless receiver" : "Direct connection";
-        InfoVendor = row.Device.VendorSoftwarePresent ? row.Device.VendorSoftwareName : "None detected";
-        InfoReason = row.Device.ClassReason;
-        InfoMemory = "Can't read from this mouse. No verified module exists for it.";
+        InfoBrand = string.Empty;
+        InfoModel = string.Empty;
+        InfoVidPid = string.Empty;
+        InfoSerial = string.Empty;
+        InfoConnection = string.Empty;
+        InfoReceiver = string.Empty;
+        InfoVendor = string.Empty;
+        InfoReason = string.Empty;
+        InfoMemory = string.Empty;
+        InfoDiscovery = string.Empty;
     }
 
     private void LoadSelected()
@@ -326,6 +352,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         InfoVendor = row.Device.VendorSoftwarePresent ? row.Device.VendorSoftwareName : "None detected";
         InfoReason = row.Device.ClassReason;
         InfoMemory = "Can't read from this mouse. No verified module exists for it.";
+        InfoDiscovery = row.Device.DiscoveryText;
         LoadWindows();
     }
 
@@ -433,7 +460,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     public void SaveNickname()
     {
-        var row = SelectedDevice ?? _fallbackRow;
+        var row = SelectedDevice;
         if (row is null) return;
         string nick = (Nickname ?? string.Empty).Trim();
         row.Device.Nickname = nick;
