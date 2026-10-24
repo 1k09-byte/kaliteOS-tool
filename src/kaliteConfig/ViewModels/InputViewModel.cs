@@ -41,6 +41,8 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private Input.ReportRateResult? _lastResult;
     private readonly List<double> _clickTimes = new();
     private bool _testVisible;
+    private double _roadSeconds;
+    private long _roadReports;
 
     public InputViewModel(
         Input.IMouseDiscoveryService discovery,
@@ -142,6 +144,14 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial string LiveWheelText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string LiveSpeedText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ReportMeasuredLine { get; set; } = "Not measured yet.";
+
+    public event Action<double>? RoadUpdate;
 
     [ObservableProperty]
     public partial double DpiInches { get; set; } = 1.0;
@@ -491,6 +501,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         if (_test.Start(handle, ConnectionText(row.Device.Connection)))
         {
             TestRunning = true;
+            _roadSeconds = 0;
+            _roadReports = 0;
+            LiveSpeedText = string.Empty;
             TestStatusText = "Measuring. Move the mouse continuously in circles.";
         }
         else
@@ -519,6 +532,10 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         }
         TestRunning = false;
         _lastResult = result;
+        ReportMeasuredLine = "Not measured yet.";
+        LiveSpeedText = string.Empty;
+        _roadSeconds = 0;
+        _roadReports = 0;
         if (result.DeviceWasRemoved)
         {
             TestStatusText = "The device was removed during the test.";
@@ -552,6 +569,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             + ", 99th percentile " + Math.Round(result.P99IntervalMs, 3) + " ms"
             + ", " + result.OverTwiceMedian + " gaps over twice the median"
             + ". Connection: " + result.ConnectionText + ".";
+        ReportMeasuredLine = "Measured by this PC: about " + Math.Round(result.AvgHz, 0) + " Hz.";
         if (SelectedDevice != null)
             SelectedDevice.MeasuredLine = "Measured about " + Math.Round(result.AvgHz, 0) + " Hz by this PC.";
     }
@@ -597,6 +615,17 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             TestStatusText = "Measuring: " + live.Reports + " reports in " + Math.Round(live.Seconds, 1) + " s.";
             LiveButtonsText = ButtonsText(live.Buttons);
             LiveWheelText = "Wheel " + live.Wheel + ", horizontal " + live.HWheel + ".";
+            double gapSeconds = live.Seconds - _roadSeconds;
+            long gapReports = live.Reports - _roadReports;
+            if (gapSeconds > 0 && gapReports >= 0)
+            {
+                double speed = gapReports / gapSeconds;
+                LiveSpeedText = ((long)Math.Round(speed)) + " counts/sec";
+                try { RoadUpdate?.Invoke(speed); }
+                catch { }
+            }
+            _roadSeconds = live.Seconds;
+            _roadReports = live.Reports;
         });
     }
 
