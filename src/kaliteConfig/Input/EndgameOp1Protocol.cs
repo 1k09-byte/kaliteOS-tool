@@ -263,14 +263,21 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     private static List<string> VendorPaths(MouseDevice device)
     {
         var vendor = new List<string>();
-        var all = new List<string>();
+        var other = new List<string>();
         foreach (var face in device.Interfaces)
         {
             if (face.DevicePath.Length == 0) continue;
-            if (!all.Contains(face.DevicePath)) all.Add(face.DevicePath);
-            if (face.VendorDefined && !vendor.Contains(face.DevicePath)) vendor.Add(face.DevicePath);
+            if (face.VendorDefined)
+            {
+                if (!vendor.Contains(face.DevicePath)) vendor.Add(face.DevicePath);
+                continue;
+            }
+            if (!other.Contains(face.DevicePath)) other.Add(face.DevicePath);
         }
-        return vendor.Count > 0 ? vendor : all;
+        var ordered = new List<string>();
+        foreach (string path in vendor) if (!ordered.Contains(path)) ordered.Add(path);
+        foreach (string path in other) if (!ordered.Contains(path)) ordered.Add(path);
+        return ordered;
     }
 
     private async Task<byte[]> LoadConfigAsync(MouseDevice device)
@@ -387,15 +394,21 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
+    private static readonly uint[] AccessModes = new uint[] { 0xC0000000, 0x80000000, 0 };
+
     private static IntPtr OpenDevice(string path)
     {
-        const uint access = 0xC0000000;
         const uint share = 3;
         const uint open = 3;
-        IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
-        if (handle == IntPtr.Zero || handle == new IntPtr(-1))
-            throw new IOException("The vendor interface could not be opened.", Marshal.GetLastWin32Error());
-        return handle;
+        int lastError = 0;
+        foreach (uint access in AccessModes)
+        {
+            IntPtr handle = NativeInput.CreateFileW(path, access, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+            if (handle != IntPtr.Zero && handle != new IntPtr(-1)) return handle;
+            lastError = Marshal.GetLastWin32Error();
+            if (lastError != 5) break;
+        }
+        throw new IOException("The vendor interface could not be opened (code " + lastError + ").", lastError);
     }
 
     private static bool SetReport(IntPtr handle, byte[] buffer)
