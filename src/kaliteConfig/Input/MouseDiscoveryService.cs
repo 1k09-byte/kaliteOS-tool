@@ -219,9 +219,10 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         }
         var setupPaths = MapSetupPaths();
         var pathsById = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (string known in setupPaths.Keys)
+        foreach (var known in setupPaths.Values)
         {
-            ParseHidPath(known, out ushort svid, out ushort spid, out _);
+            if (known.RawPath.Length == 0) continue;
+            ParseHidPath(known.RawPath, out ushort svid, out ushort spid, out _);
             if (svid == 0) continue;
             string skey = svid.ToString("X4") + ":" + spid.ToString("X4");
             if (!pathsById.TryGetValue(skey, out var list))
@@ -229,7 +230,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 list = new List<string>();
                 pathsById[skey] = list;
             }
-            if (!list.Contains(known)) list.Add(known);
+            if (!list.Contains(known.RawPath)) list.Add(known.RawPath);
         }
         var vendorById = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         var auxByContainer = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
@@ -536,6 +537,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
     private sealed class SetupEntry
     {
         public string DetailPath = string.Empty;
+        public string RawPath = string.Empty;
         public string ContainerId = string.Empty;
         public string Maker = string.Empty;
         public string ParentId = string.Empty;
@@ -571,7 +573,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                         if (!NativeInput.SetupDiGetDeviceInterfaceDetailW(set, ref iface, detail, required, out got, devinfo)) continue;
                         string path = Marshal.PtrToStringUni(IntPtr.Add(detail, IntPtr.Size == 8 ? 8 : 4)) ?? string.Empty;
                         if (path.Length == 0) continue;
-                        var entry = new SetupEntry { DetailPath = path };
+                        var entry = new SetupEntry { DetailPath = path, RawPath = path };
                         entry.ContainerId = ReadContainer(set, devinfo);
                         entry.Maker = ReadMaker(set, devinfo);
                         entry.ParentId = ReadParent(set, devinfo);
@@ -752,8 +754,9 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
 
     private static bool HasPath(MouseDevice device, string path)
     {
+        string wanted = NormPath(path);
         foreach (var face in device.Interfaces)
-            if (string.Equals(face.DevicePath, path, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(NormPath(face.DevicePath), wanted, StringComparison.OrdinalIgnoreCase)) return true;
         return false;
     }
 

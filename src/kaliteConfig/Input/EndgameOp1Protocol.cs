@@ -288,6 +288,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             LastError = "The vendor interface was not found.";
             throw new IOException(LastError, unchecked((int)0x80070002));
         }
+        paths.Sort((left, right) => FeatureLength(right).CompareTo(FeatureLength(left)));
         Exception? last = null;
         var failures = new List<string>();
         foreach (string path in paths)
@@ -306,6 +307,40 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             ? "The mouse did not answer the probe."
             : "Tried " + failures.Count + (failures.Count == 1 ? " interface: " : " interfaces: ") + string.Join("; ", failures);
         throw last ?? new IOException(LastError, unchecked((int)0x8007001F));
+    }
+
+    private static int FeatureLength(string path)
+    {
+        const uint share = 3;
+        const uint open = 3;
+        IntPtr handle = NativeInput.CreateFileW(path, 0, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return 0;
+        try
+        {
+            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero) return 0;
+            try
+            {
+                IntPtr caps = Marshal.AllocHGlobal(64);
+                try
+                {
+                    for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
+                    if (NativeInput.HidP_GetCaps(preparsed, caps) < 0) return 0;
+                    return (ushort)Marshal.ReadInt16(caps, 8);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(caps);
+                }
+            }
+            finally
+            {
+                try { NativeInput.HidD_FreePreparsedData(preparsed); } catch { }
+            }
+        }
+        finally
+        {
+            try { NativeInput.CloseHandle(handle); } catch { }
+        }
     }
 
     private static string ShortPath(string path)
