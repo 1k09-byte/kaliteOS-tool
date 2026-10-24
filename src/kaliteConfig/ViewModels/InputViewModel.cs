@@ -33,7 +33,6 @@ public sealed partial class MouseDeviceRow : ObservableObject
 public sealed partial class InputViewModel : ObservableObject, IDisposable
 {
     private readonly Input.IMouseDiscoveryService _discovery;
-    private readonly Input.IMouseCapabilityProvider _capabilities;
     private readonly Input.IWindowsMouseSettingsService _windows;
     private readonly Input.IMouseTestService _test;
     private readonly Input.IMouseLog _log;
@@ -54,7 +53,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     public InputViewModel(
         Input.IMouseDiscoveryService discovery,
-        Input.IMouseCapabilityProvider capabilities,
         Input.IWindowsMouseSettingsService windows,
         Input.IMouseTestService test,
         Input.IMouseLog log,
@@ -63,7 +61,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         Input.IMouseWriteTransaction deviceTx)
     {
         _discovery = discovery;
-        _capabilities = capabilities;
         _windows = windows;
         _test = test;
         _log = log;
@@ -89,12 +86,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial MouseDeviceRow? SelectedDevice { get; set; }
-
-    [ObservableProperty]
-    public partial ObservableCollection<Input.MouseCapability> Capabilities { get; set; } = new();
-
-    [ObservableProperty]
-    public partial Input.MouseCapability? SelectedCapability { get; set; }
 
     [ObservableProperty]
     public partial bool HasSupportedDevices { get; set; }
@@ -593,8 +584,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private void ClearInfo()
     {
         Nickname = string.Empty;
-        Capabilities = new ObservableCollection<Input.MouseCapability>();
-        SelectedCapability = null;
         InfoBrand = string.Empty;
         InfoModel = string.Empty;
         InfoVidPid = string.Empty;
@@ -616,17 +605,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private void LoadSelected()
     {
         var row = SelectedDevice;
-        if (row is null)
-        {
-            Capabilities = new ObservableCollection<Input.MouseCapability>();
-            return;
-        }
+        if (row is null) return;
         Nickname = row.Device.Nickname;
-        var caps = _capabilities.ForDevice(row.Device);
-        var next = new ObservableCollection<Input.MouseCapability>();
-        foreach (var cap in caps) next.Add(cap);
-        Capabilities = next;
-        SelectedCapability = Capabilities.FirstOrDefault(c => c.Kind == Input.CapabilityKind.DeviceInfo) ?? Capabilities.FirstOrDefault();
+
         ShowVendorBanner = row.Device.VendorSoftwarePresent;
         VendorBanner = row.Device.VendorSoftwarePresent
             ? row.Device.VendorSoftwareName + " is running and may overwrite changes made here"
