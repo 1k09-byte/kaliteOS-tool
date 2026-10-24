@@ -35,7 +35,11 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private readonly Input.IMouseTestService _test;
     private readonly Input.IMouseLog _log;
     private readonly Input.IMousePrefStore _prefs;
+    private readonly Input.EndgameOp1Protocol _endgame;
+    private readonly Input.IMouseWriteTransaction _deviceTx;
     private readonly DispatcherQueue _ui;
+    private Input.EndgameDeviceStatus? _deviceStatus;
+    private int _probeToken;
     private bool _disposed;
     private Input.WindowsMouseState _original = new();
     private Input.ReportRateResult? _lastResult;
@@ -50,7 +54,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         Input.IWindowsMouseSettingsService windows,
         Input.IMouseTestService test,
         Input.IMouseLog log,
-        Input.IMousePrefStore prefs)
+        Input.IMousePrefStore prefs,
+        Input.EndgameOp1Protocol endgame,
+        Input.IMouseWriteTransaction deviceTx)
     {
         _discovery = discovery;
         _capabilities = capabilities;
@@ -58,11 +64,16 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _test = test;
         _log = log;
         _prefs = prefs;
+        _endgame = endgame;
+        _deviceTx = deviceTx;
         _ui = DispatcherQueue.GetForCurrentThread();
         _test.Progress += OnTestProgress;
         _test.DeviceRemoved += OnTestDeviceRemoved;
         _discovery.Changed += OnDevicesChanged;
         ReapplyOnConnect = _prefs.Data.ReapplyOnConnect;
+        CommunityProtocols = _prefs.Data.CommunityProtocols;
+        foreach (int rate in Input.EndgameOp1Protocol.SupportedRates())
+            SupportedRates.Add(rate);
     }
 
     public Input.IMouseLog Log => _log;
@@ -150,6 +161,45 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial string ReportMeasuredLine { get; set; } = "Not measured yet.";
+
+    [ObservableProperty]
+    public partial bool CommunityProtocols { get; set; }
+
+    [ObservableProperty]
+    public partial string ReportSettingText { get; set; } = "Can't read from this mouse";
+
+    [ObservableProperty]
+    public partial ObservableCollection<int> SupportedRates { get; set; } = new();
+
+    [ObservableProperty]
+    public partial int RequestedRate { get; set; } = 8000;
+
+    [ObservableProperty]
+    public partial bool DeviceCanSet { get; set; }
+
+    [ObservableProperty]
+    public partial string DeviceVerifyText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial double RequestedDpi { get; set; } = 3200;
+
+    [ObservableProperty]
+    public partial string DeviceDpiText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool RequestedMotionSync { get; set; }
+
+    [ObservableProperty]
+    public partial bool RequestedSlamclick { get; set; }
+
+    [ObservableProperty]
+    public partial ObservableCollection<string> LodOptions { get; set; } = new();
+
+    [ObservableProperty]
+    public partial int RequestedLodIndex { get; set; } = 1;
+
+    [ObservableProperty]
+    public partial string DeviceApplyText { get; set; } = string.Empty;
 
     public event Action<double>? RoadUpdate;
 
@@ -308,6 +358,133 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     partial void OnSelectedDeviceChanged(MouseDeviceRow? value)
     {
         LoadSelected();
+        ProbeDevice();
+    }
+
+    partial void OnCommunityProtocolsChanged(bool value)
+    {
+        try
+        {
+            _prefs.Data.CommunityProtocols = value;
+            _prefs.Save();
+        }
+        catch { }
+        ProbeDevice();
+    }
+
+    private void ProbeDevice()
+    {
+        _probeToken++;
+        int token = _probeToken;
+        var row = SelectedDevice;
+        _deviceStatus = null;
+        DeviceCanSet = false;
+        if (row is null) return;
+        _ = ProbeDeviceAsync(row, token);
+    }
+
+    private async Task ProbeDeviceAsync(MouseDeviceRow row, int token)
+    {
+        string? verify = null;
+        Input.EndgameDeviceStatus? status = null;
+        try
+        {
+            if (!CommunityProtocols)
+                verify = "Community module is off.";
+            else if (!_endgame.Matches(row.Device))
+                verify = "Not a supported community device.";
+            else
+                status = await _endgame.ReadStatusAsync(row.Device).ConfigureAwait(false);
+        }
+        catch
+        {
+            verify = "The mouse did not answer the probe.";
+        }
+        _ui.TryEnqueue(() =>
+        {
+            if (token != _probeToken) return;
+            if (status is null)
+            {
+                DeviceVerifyText = verify ?? string.Empty;
+                ReportSettingText = "Can't read from this mouse";
+                DeviceDpiText = string.Empty;
+                DeviceApplyText = string.Empty;
+                return;
+            }
+            _deviceStatus = status;
+            DeviceVerifyText = "Verified on this device.";
+            ReportSettingText = status.RateHz + " Hz (read back)";
+            if (!SupportedRates.Contains(status.RateHz)) SupportedRates.Add(status.RateHz);
+            RequestedRate = status.RateHz;
+            RequestedDpi = status.DpiX;
+            DeviceDpiText = status.DpiX + " DPI (read back)";
+            RequestedMotionSync = status.MotionSync;
+            RequestedSlamclick = status.SlamclickFilter;
+            LodOptions.Clear();
+            foreach (string option in DeviceLodOptions(status)) LodOptions.Add(option);
+            RequestedLodIndex = status.LodIndex < LodOptions.Count ? status.LodIndex : 0;
+            InfoMemory = "Verified on this device: " + status.DpiX + " DPI, " + status.RateHz + " Hz.";
+            DeviceCanSet = true;
+            DeviceApplyText = string.Empty;
+        });
+    }
+
+    private static IReadOnlyList<string> DeviceLodOptions(Input.EndgameDeviceStatus status)
+    {
+        if (!status.IsV2) return new string[] { "0.7 mm", "1 mm", "2 mm" };
+        return new string[] { "0.7 mm", "0.8 mm", "0.9 mm", "1.0 mm", "1.1 mm", "1.2 mm", "1.3 mm", "1.4 mm", "1.5 mm", "1.6 mm", "1.7 mm" };
+    }
+
+    public async Task ApplyDeviceAsync()
+    {
+        var row = SelectedDevice;
+        var status = _deviceStatus;
+        if (row is null || status is null || !DeviceCanSet) return;
+        var changes = new List<(string Setting, string Original, string Requested)>();
+        if (RequestedRate != status.RateHz)
+            changes.Add(("report-rate", status.RateHz.ToString(), RequestedRate.ToString()));
+        int dpi = (int)Math.Round(RequestedDpi);
+        if (dpi != status.DpiX)
+            changes.Add(("dpi", status.DpiX.ToString(), dpi.ToString()));
+        string motion = RequestedMotionSync ? "On" : "Off";
+        string motionWas = status.MotionSync ? "On" : "Off";
+        if (!string.Equals(motion, motionWas, StringComparison.OrdinalIgnoreCase))
+            changes.Add(("motion-sync", motionWas, motion));
+        string slam = RequestedSlamclick ? "On" : "Off";
+        string slamWas = status.SlamclickFilter ? "On" : "Off";
+        if (!string.Equals(slam, slamWas, StringComparison.OrdinalIgnoreCase))
+            changes.Add(("slamclick-filter", slamWas, slam));
+        if (RequestedLodIndex != status.LodIndex)
+            changes.Add(("lift-off", status.LodIndex.ToString(), RequestedLodIndex.ToString()));
+        if (changes.Count == 0)
+        {
+            DeviceApplyText = "Nothing differs from the device.";
+            return;
+        }
+        DeviceApplyText = "Applying " + changes.Count + (changes.Count == 1 ? " setting." : " settings.");
+        var messages = new List<string>();
+        foreach (var change in changes)
+        {
+            var outcome = await _deviceTx.RunAsync(new Input.MouseWritePlan
+            {
+                DeviceId = row.Device.StableId,
+                DeviceName = row.DisplayName,
+                Setting = change.Setting,
+                Original = change.Original,
+                Requested = change.Requested,
+                StoredOnDevice = true,
+                Write = () => _endgame.WriteAsync(row.Device, change.Setting, change.Requested),
+                ReadBack = () => _endgame.ReadAsync(row.Device, change.Setting),
+                RestoreOriginal = () => _endgame.WriteAsync(row.Device, change.Setting, change.Original),
+            }).ConfigureAwait(false);
+            messages.Add(outcome.Message);
+        }
+        string joined = string.Join(" ", messages);
+        _ui.TryEnqueue(() =>
+        {
+            DeviceApplyText = joined;
+            ProbeDevice();
+        });
     }
 
     private void ClearInfo()
@@ -325,6 +502,12 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         InfoReason = string.Empty;
         InfoMemory = string.Empty;
         InfoDiscovery = string.Empty;
+        DeviceVerifyText = string.Empty;
+        ReportSettingText = "Can't read from this mouse";
+        DeviceDpiText = string.Empty;
+        DeviceApplyText = string.Empty;
+        DeviceCanSet = false;
+        _deviceStatus = null;
     }
 
     private void LoadSelected()
