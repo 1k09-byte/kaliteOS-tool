@@ -43,6 +43,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private readonly DispatcherQueue _ui;
     private Input.EndgameDeviceStatus? _deviceStatus;
     private int _probeToken;
+    private readonly Dictionary<string, string> _deviceOriginal = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
     private Input.WindowsMouseState _original = new();
     private Input.ReportRateResult? _lastResult;
@@ -181,6 +182,15 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial double RequestedDpi { get; set; } = 3200;
+
+    [ObservableProperty]
+    public partial double Sensitivity { get; set; } = 1.0;
+
+    public string EDpiText => "eDPI " + Math.Round(RequestedDpi * Sensitivity);
+
+    partial void OnRequestedDpiChanged(double value) => OnPropertyChanged(nameof(EDpiText));
+
+    partial void OnSensitivityChanged(double value) => OnPropertyChanged(nameof(EDpiText));
 
     [ObservableProperty]
     public partial string DeviceDpiText { get; set; } = string.Empty;
@@ -438,6 +448,68 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         return new string[] { "0.7 mm", "0.8 mm", "0.9 mm", "1.0 mm", "1.1 mm", "1.2 mm", "1.3 mm", "1.4 mm", "1.5 mm", "1.6 mm", "1.7 mm" };
     }
 
+    public async Task ApplyDeviceAsync()
+    {
+        var status = _deviceStatus;
+        if (status is null || !DeviceCanSet) return;
+        var changes = new List<(string Setting, string Original, string Requested)>();
+        if (RequestedRate != status.RateHz)
+            changes.Add(("report-rate", status.RateHz.ToString(), RequestedRate.ToString()));
+        int dpi = (int)Math.Round(RequestedDpi);
+        if (dpi != status.DpiX)
+            changes.Add(("dpi", status.DpiX.ToString(), dpi.ToString()));
+        AddToggle(changes, status.MotionSync, RequestedMotionSync, "motion-sync");
+        AddToggle(changes, status.AngleSnapping, RequestedAngleSnapping, "angle-snapping");
+        AddToggle(changes, status.RippleControl, RequestedRipple, "ripple-control");
+        AddToggle(changes, status.SlamclickFilter, RequestedSlamclick, "slamclick-filter");
+        AddToggle(changes, status.JitterFilter, RequestedJitter, "jitter-filter");
+        if (RequestedLodIndex != status.LodIndex)
+            changes.Add(("lift-off", status.LodIndex.ToString(), RequestedLodIndex.ToString()));
+        await ApplySettingsAsync(changes).ConfigureAwait(false);
+    }
+
+    private static void AddToggle(List<(string Setting, string Original, string Requested)> changes, bool current, bool requested, string setting)
+    {
+        if (current == requested) return;
+        changes.Add((setting, current ? "On" : "Off", requested ? "On" : "Off"));
+    }
+
+    public async Task RevertDeviceAsync()
+    {
+        var row = SelectedDevice;
+        if (row is null || _deviceOriginal.Count == 0)
+        {
+            DeviceApplyText = "Nothing to undo.";
+            return;
+        }
+        var changes = new List<(string Setting, string Original, string Requested)>();
+        foreach (var pair in _deviceOriginal)
+            changes.Add((pair.Key, pair.Value, pair.Value));
+        string? first = null;
+        foreach (var change in changes)
+        {
+            var outcome = await _deviceTx.RunAsync(new Input.MouseWritePlan
+            {
+                DeviceId = row.Device.StableId,
+                DeviceName = row.DisplayName,
+                Setting = change.Setting,
+                Original = change.Original,
+                Requested = change.Requested,
+                StoredOnDevice = true,
+                Write = () => _endgame.WriteAsync(row.Device, change.Setting, change.Requested),
+                ReadBack = () => _endgame.ReadAsync(row.Device, change.Setting),
+            }).ConfigureAwait(false);
+            first ??= outcome.Message;
+        }
+        _deviceOriginal.Clear();
+        string message = "Restored the values found when this mouse was selected. " + (first ?? string.Empty);
+        _ui.TryEnqueue(() =>
+        {
+            DeviceApplyText = message;
+            ProbeDevice();
+        });
+    }
+
     public async Task ApplyRateAsync()
     {
         var status = _deviceStatus;
@@ -507,6 +579,8 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
                 RestoreOriginal = () => _endgame.WriteAsync(row.Device, change.Setting, change.Original),
             }).ConfigureAwait(false);
             messages.Add(outcome.Message);
+            if (outcome.Result == Input.MouseResult.Verified || outcome.Result == Input.MouseResult.AppliedNoVerify)
+                _deviceOriginal[change.Setting] = change.Original;
         }
         string joined = string.Join(" ", messages);
         _ui.TryEnqueue(() =>

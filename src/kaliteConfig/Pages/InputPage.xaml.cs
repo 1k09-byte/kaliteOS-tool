@@ -14,7 +14,10 @@ namespace kaliteConfig.Pages
     {
         public InputViewModel ViewModel { get; }
 
-        private readonly Dictionary<Input.CapabilityKind, StackPanel> _panels = new();
+        private double _roadOffset;
+        private double _roadTime;
+        private readonly List<Rectangle> _roadDashes = new();
+        private FontIcon? _roadMarker;
 
         public InputPage()
         {
@@ -29,19 +32,8 @@ namespace kaliteConfig.Pages
                 Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.EndgameOp1Protocol>(App.Services),
                 Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Input.IMouseWriteTransaction>(App.Services));
             this.DataContext = ViewModel;
-            _panels[Input.CapabilityKind.DeviceInfo] = InfoPanel;
-            _panels[Input.CapabilityKind.WindowsSettings] = WindowsPanel;
-            _panels[Input.CapabilityKind.Sensor] = VendorPanel;
-            _panels[Input.CapabilityKind.Buttons] = VendorPanel;
-            _panels[Input.CapabilityKind.Scroll] = VendorPanel;
-            _panels[Input.CapabilityKind.Lighting] = VendorPanel;
-            _panels[Input.CapabilityKind.Power] = VendorPanel;
-            _panels[Input.CapabilityKind.Profiles] = VendorPanel;
-            _panels[Input.CapabilityKind.ReportRate] = ReportRatePanel;
-            _panels[Input.CapabilityKind.Test] = TestPanel;
-            _panels[Input.CapabilityKind.Log] = LogPanel;
-            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
             ViewModel.RoadUpdate += OnRoadUpdate;
+            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
             this.Loaded += (_, _) =>
             {
                 ViewModel.Open();
@@ -50,6 +42,7 @@ namespace kaliteConfig.Pages
             this.Unloaded += (_, _) =>
             {
                 if (App.MainWindow is { } window) window.Activated -= HostWindow_Activated;
+                ViewModel.RoadUpdate -= OnRoadUpdate;
                 try { ViewModel.Close(); } catch { }
             };
         }
@@ -60,10 +53,41 @@ namespace kaliteConfig.Pages
             try { ViewModel.RefreshDevices(); } catch { }
         }
 
-        private double _roadOffset;
-        private double _roadTime;
-        private readonly List<Rectangle> _roadDashes = new();
-        private FontIcon? _roadMarker;
+        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(InputViewModel.DeviceCanSet))
+                DispatcherQueue.TryEnqueue(BuildRoad);
+        }
+
+        private void DeviceGrid_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is MouseDeviceRow row) ViewModel.SelectedDevice = row;
+        }
+
+        private void ShowIgnored_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is MouseDeviceRow row) ViewModel.ShowIgnoredAnyway(row);
+        }
+
+        private void NicknameSave_Click(object sender, RoutedEventArgs e) => ViewModel.SaveNickname();
+
+        private async void DeviceApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyDeviceAsync();
+
+        private async void DeviceRevert_Click(object sender, RoutedEventArgs e) => await ViewModel.RevertDeviceAsync();
+
+        private async void WindowsApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyWindowsAsync();
+
+        private async void WindowsReset_Click(object sender, RoutedEventArgs e) => await ViewModel.ResetWindowsSectionAsync();
+
+        private async void WindowsRevert_Click(object sender, RoutedEventArgs e) => await ViewModel.RevertWindowsAsync();
+
+        private void TestStart_Click(object sender, RoutedEventArgs e) => ViewModel.StartTest();
+
+        private void TestStop_Click(object sender, RoutedEventArgs e) => ViewModel.StopTest();
+
+        private void DpiAnalyze_Click(object sender, RoutedEventArgs e) => ViewModel.AnalyzeDpi();
+
+        private void ClickTestArea_PointerPressed(object sender, PointerRoutedEventArgs e) => ViewModel.RegisterClick();
 
         private void SpeedRoad_SizeChanged(object sender, SizeChangedEventArgs e) => BuildRoad();
 
@@ -76,7 +100,7 @@ namespace kaliteConfig.Pages
             if (width <= 0) return;
             Brush dashBrush = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"];
             Brush markerBrush = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
-            const double laneY = 40;
+            const double laneY = 36;
             var lane = new Rectangle { Width = width, Height = 2, Fill = dashBrush, Opacity = 0.4 };
             Canvas.SetLeft(lane, 0);
             Canvas.SetTop(lane, laneY + 11);
@@ -108,7 +132,7 @@ namespace kaliteConfig.Pages
             if (_roadMarker != null)
             {
                 Canvas.SetLeft(_roadMarker, width / 2 - 12);
-                Canvas.SetTop(_roadMarker, 26 - 14 + Math.Sin(_roadTime) * 4);
+                Canvas.SetTop(_roadMarker, 22 + Math.Sin(_roadTime) * 4);
             }
         }
 
@@ -120,95 +144,5 @@ namespace kaliteConfig.Pages
             _roadTime += 0.6;
             LayoutRoad(SpeedRoadCanvas.ActualWidth);
         }
-
-        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(InputViewModel.Capabilities))
-                RebuildSections();
-            else if (e.PropertyName == nameof(InputViewModel.DeviceCanSet))
-                RefreshSensorPanel();
-        }
-
-        private void RefreshSensorPanel()
-        {
-            if (SectionBar.SelectedItem is SelectorBarItem item && item.Tag is Input.MouseCapability cap && cap.Kind == Input.CapabilityKind.Sensor)
-            {
-                VendorPanel.Visibility = ViewModel.DeviceCanSet ? Visibility.Collapsed : Visibility.Visible;
-                SensorRealPanel.Visibility = ViewModel.DeviceCanSet ? Visibility.Visible : Visibility.Collapsed;
-            }
-        }
-
-        private void RebuildSections()
-        {
-            object? selected = SectionBar.SelectedItem;
-            SectionBar.Items.Clear();
-            foreach (var cap in ViewModel.Capabilities)
-            {
-                var item = new SelectorBarItem { Text = cap.Title, Tag = cap };
-                SectionBar.Items.Add(item);
-                if (selected is SelectorBarItem old && old.Tag is Input.MouseCapability oldCap && oldCap.Kind == cap.Kind)
-                    selected = item;
-            }
-            if (SectionBar.Items.Count == 0) return;
-            if (selected is SelectorBarItem keep && SectionBar.Items.Contains(keep))
-                SectionBar.SelectedItem = keep;
-            else
-                SectionBar.SelectedItem = SectionBar.Items[0];
-        }
-
-        private void SectionBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
-        {
-            foreach (var panel in _panels.Values.Distinct()) panel.Visibility = Visibility.Collapsed;
-            SensorRealPanel.Visibility = Visibility.Collapsed;
-            var current = ViewModel.SelectedCapability;
-            if (sender.SelectedItem is SelectorBarItem item && item.Tag is Input.MouseCapability cap)
-            {
-                ViewModel.SelectedCapability = cap;
-                if (_panels.TryGetValue(cap.Kind, out var panel))
-                {
-                    if (cap.Kind is Input.CapabilityKind.Sensor or Input.CapabilityKind.Buttons or Input.CapabilityKind.Scroll
-                        or Input.CapabilityKind.Lighting or Input.CapabilityKind.Power or Input.CapabilityKind.Profiles)
-                        VendorStateCard.Description = cap.Title + ": " + cap.StateText + ". " + cap.Detail;
-                    panel.Visibility = Visibility.Visible;
-                    if (cap.Kind == Input.CapabilityKind.Test)
-                        DispatcherQueue.TryEnqueue(BuildRoad);
-                }
-            }
-            else if (current != null && _panels.TryGetValue(current.Kind, out var keep))
-            {
-                keep.Visibility = Visibility.Visible;
-            }
-            RefreshSensorPanel();
-        }
-
-        private void DeviceGrid_ItemClick(object sender, ItemClickEventArgs e)
-        {
-            if (e.ClickedItem is MouseDeviceRow row) ViewModel.SelectedDevice = row;
-        }
-
-        private void ShowIgnored_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.Tag is MouseDeviceRow row) ViewModel.ShowIgnoredAnyway(row);
-        }
-
-        private void NicknameSave_Click(object sender, RoutedEventArgs e) => ViewModel.SaveNickname();
-
-        private async void WindowsApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyWindowsAsync();
-
-        private async void WindowsReset_Click(object sender, RoutedEventArgs e) => await ViewModel.ResetWindowsSectionAsync();
-
-        private async void WindowsRevert_Click(object sender, RoutedEventArgs e) => await ViewModel.RevertWindowsAsync();
-
-        private async void RateApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplyRateAsync();
-
-        private async void SensorApply_Click(object sender, RoutedEventArgs e) => await ViewModel.ApplySensorAsync();
-
-        private void TestStart_Click(object sender, RoutedEventArgs e) => ViewModel.StartTest();
-
-        private void TestStop_Click(object sender, RoutedEventArgs e) => ViewModel.StopTest();
-
-        private void DpiAnalyze_Click(object sender, RoutedEventArgs e) => ViewModel.AnalyzeDpi();
-
-        private void ClickTestArea_PointerPressed(object sender, PointerRoutedEventArgs e) => ViewModel.RegisterClick();
     }
 }
