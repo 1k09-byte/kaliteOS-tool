@@ -312,7 +312,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             {
                 byte[] blank = new byte[128];
                 Marshal.Copy(blank, 0, infoBuffer, 128);
-                Marshal.WriteInt32(infoBuffer, 0, 24);
+                Marshal.WriteInt32(infoBuffer, 0, 32);
                 uint infoSize = 128;
                 if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) == unchecked((uint)-1))
                 {
