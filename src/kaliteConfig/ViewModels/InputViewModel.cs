@@ -444,7 +444,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         var status = _deviceStatus;
         if (status is null || !DeviceCanSet) return;
         var changes = new List<(string Setting, string Original, string Requested)>();
-        if (RequestedRate != status.RateHz)
+        if (RequestedRate > 0 && SupportedRates.Contains(RequestedRate) && RequestedRate != status.RateHz)
             changes.Add(("report-rate", status.RateHz.ToString(), RequestedRate.ToString()));
         int dpi = (int)Math.Round(RequestedDpi);
         if (dpi != status.DpiX)
