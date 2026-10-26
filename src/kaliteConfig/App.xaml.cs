@@ -27,6 +27,24 @@ namespace kaliteConfig
 
         public IThemeService? ThemeService { get; set; }
 
+        public static void Notify(string title, string message, global::kaliteConfig.Services.Notifications.AppNoticeSeverity severity = global::kaliteConfig.Services.Notifications.AppNoticeSeverity.Info)
+        {
+            try
+            {
+                if (App.Services?.GetService(typeof(global::kaliteConfig.Services.Notifications.IAppNotificationService)) is global::kaliteConfig.Services.Notifications.IAppNotificationService service)
+                    service.Post(title, message, severity);
+            }
+            catch { }
+        }
+
+        public static void NotifyResult(string title, string? error, string successMessage)
+        {
+            if (string.IsNullOrWhiteSpace(error))
+                Notify(title, successMessage, global::kaliteConfig.Services.Notifications.AppNoticeSeverity.Success);
+            else
+                Notify(title, error!, global::kaliteConfig.Services.Notifications.AppNoticeSeverity.Error);
+        }
+
         private static void SetAppBrush(string key, Windows.UI.Color color)
         {
             try { Application.Current.Resources[key] = new Microsoft.UI.Xaml.Media.SolidColorBrush(color); }
@@ -313,6 +331,109 @@ namespace kaliteConfig
 
         private static System.Threading.Mutex? _singleInstanceMutex;
 
+        private static string SingleInstanceMutexName()
+        {
+            try
+            {
+                string path = (Environment.ProcessPath ?? "kaliteConfig").ToLowerInvariant();
+                unchecked
+                {
+                    uint hash = 2166136261;
+                    foreach (char c in path) hash = (hash ^ c) * 16777619;
+                    return "kaliteConfigAppMutex_" + hash.ToString("x8");
+                }
+            }
+            catch { return "kaliteConfigAppMutex"; }
+        }
+
+        private static bool TakeOverFromRunningInstance()
+        {
+            try
+            {
+                bool signaled = false;
+                for (int i = 0; i < 30 && !signaled; i++)
+                {
+                    try
+                    {
+                        using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ExitEventName);
+                        ev.Set();
+                        signaled = true;
+                    }
+                    catch (System.Threading.WaitHandleCannotBeOpenedException)
+                    {
+                        System.Threading.Thread.Sleep(100);
+                    }
+                }
+                if (!signaled) return false;
+                string name = SingleInstanceMutexName();
+                for (int i = 0; i < 100; i++)
+                {
+                    try
+                    {
+                        using var m = System.Threading.Mutex.OpenExisting(name);
+                        if (m.WaitOne(0)) return true;
+                    }
+                    catch (System.Threading.WaitHandleCannotBeOpenedException) { return true; }
+                    catch (System.Threading.AbandonedMutexException) { return true; }
+                    catch { }
+                    System.Threading.Thread.Sleep(100);
+                }
+                return false;
+            }
+            catch { return false; }
+        }
+
+        private static void SignalRunningInstance()
+        {
+            for (int i = 0; i < 50; i++)
+            {
+                try
+                {
+                    using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ShowWindowEventName);
+                    ev.Set();
+                    break;
+                }
+                catch (System.Threading.WaitHandleCannotBeOpenedException)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+            }
+        }
+
+        private static void ForegroundRunningInstance()
+        {
+            string? ownPath = null;
+            try { ownPath = Environment.ProcessPath; } catch { }
+            int ownId = Environment.ProcessId;
+            for (int i = 0; i < 30; i++)
+            {
+                try
+                {
+                    foreach (var proc in System.Diagnostics.Process.GetProcessesByName("kaliteConfig"))
+                    {
+                        try
+                        {
+                            if (proc.Id == ownId) continue;
+                            if (ownPath is not null)
+                            {
+                                string? other = null;
+                                try { other = proc.MainModule?.FileName; } catch { }
+                                if (other is not null && !string.Equals(other, ownPath, StringComparison.OrdinalIgnoreCase)) continue;
+                            }
+                            IntPtr hwnd = proc.MainWindowHandle;
+                            if (hwnd == IntPtr.Zero) continue;
+                            kaliteConfig.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
+                            return;
+                        }
+                        catch { }
+                        finally { try { proc.Dispose(); } catch { } }
+                    }
+                }
+                catch { }
+                System.Threading.Thread.Sleep(100);
+            }
+        }
+
         internal static void ShutdownTrace(string step)
         {
             try
@@ -335,26 +456,33 @@ namespace kaliteConfig
                 currentProcess.PriorityClass = System.Diagnostics.ProcessPriorityClass.Idle;
                 currentProcess.PriorityBoostEnabled = false;
             }
-            _singleInstanceMutex = new System.Threading.Mutex(true, "kaliteConfigAppMutex", out bool isFirstInstance);
+            bool isFirstInstance = true;
+            try
+            {
+                _singleInstanceMutex = new System.Threading.Mutex(true, SingleInstanceMutexName(), out isFirstInstance);
+            }
+            catch (System.Threading.AbandonedMutexException)
+            {
+                isFirstInstance = true;
+            }
+            catch { }
             if (!isFirstInstance)
             {
                 try
                 {
-                    for (int i = 0; i < 50; i++)
+                    if (System.Diagnostics.Debugger.IsAttached && TakeOverFromRunningInstance())
                     {
-                        try
-                        {
-                            using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ShowWindowEventName);
-                            ev.Set();
-                            break;
-                        }
-                        catch (System.Threading.WaitHandleCannotBeOpenedException)
-                        {
-                            System.Threading.Thread.Sleep(100);
-                        }
+                        try { _singleInstanceMutex = new System.Threading.Mutex(true, SingleInstanceMutexName(), out isFirstInstance); }
+                        catch (System.Threading.AbandonedMutexException) { isFirstInstance = true; }
+                        catch { }
                     }
                 }
                 catch { }
+            }
+            if (!isFirstInstance)
+            {
+                try { SignalRunningInstance(); } catch { }
+                try { ForegroundRunningInstance(); } catch { }
                 Environment.Exit(0);
                 return;
             }

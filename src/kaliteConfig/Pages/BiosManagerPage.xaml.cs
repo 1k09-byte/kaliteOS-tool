@@ -93,39 +93,6 @@ namespace kaliteConfig.Pages
             ViewModel.SaveFileCommand.Execute(null);
         }
 
-        private void SettingsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-
-            _ = DispatcherQueue.TryEnqueue(UpdateTileWidth);
-        }
-
-        private void UpdateTileWidth()
-        {
-            if (SettingsGrid.ItemsPanelRoot is not ItemsWrapGrid panel) return;
-
-            const double rowHeight = 12 + 16 + 2 + 14;
-            const double gutter = 5;
-            const double minTile = 240;
-            const double maxTile = 380;
-
-            double width = panel.ActualWidth;
-            if (width <= gutter) return;
-
-            int columns = (int)Math.Max(1, Math.Ceiling(width / (maxTile + gutter)));
-            while (columns > 1 &&
-                Math.Floor((width - columns * gutter) / columns) < minTile)
-            {
-                columns--;
-            }
-
-            double tile = Math.Floor((width - columns * gutter) / columns);
-            if (tile > maxTile) tile = maxTile;
-            if (tile < 180) tile = 180;
-
-            panel.ItemWidth = tile;
-            panel.ItemHeight = rowHeight;
-        }
-
         private void ErrorDismiss_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.HasError = false;
@@ -145,7 +112,7 @@ namespace kaliteConfig.Pages
             if (InspectorCard.Visibility == Visibility.Collapsed)
             {
                 _syncingSelection = true;
-                ((GridView)sender).SelectedItem = null;
+                ((ListView)sender).SelectedItem = null;
                 _syncingSelection = false;
                 _ = ShowQuickEditAsync(row);
                 return;

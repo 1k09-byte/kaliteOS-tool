@@ -95,6 +95,17 @@ public sealed partial class SnipTrayWindow : Window
         grid.RenderTransformOrigin = new Point(0.5, 0.5);
         grid.RenderTransform = new ScaleTransform { ScaleX = 0.96, ScaleY = 0.96 };
         TrayContent.Loaded += OnRootLoaded;
+        this.Closed += (_, _) =>
+        {
+            try { _timer.Stop(); } catch { }
+            try { _holdTracker.Stop(); } catch { }
+            try { PreviewImage.Source = null; } catch { }
+            try { _img.Dispose(); } catch { }
+            _img = null!;
+            _file = null;
+            _dragBitmap = null;
+            _dragBitmapTask = null;
+        };
     }
 
     private bool _fadeStarted;

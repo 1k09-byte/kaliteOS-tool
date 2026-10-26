@@ -52,15 +52,15 @@
                     <Setter Property="BorderThickness" Value="0" />
                     <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
                     <Setter Property="Width" Value="68" />
-                    <Setter Property="Height" Value="56" />
-                    <Setter Property="Margin" Value="0,2" />
+                    <Setter Property="Height" Value="40" />
+                    <Setter Property="Margin" Value="0,0" />
                     <Setter Property="Padding" Value="0" />
                     <Setter Property="HorizontalAlignment" Value="Center" />
                     <Setter Property="HorizontalContentAlignment" Value="Center" />
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="NavigationViewItem">
-                                <Grid x:Name="LayoutRoot" Background="Transparent" Width="68" Height="56">
+                                <Grid x:Name="LayoutRoot" Background="Transparent" Width="68" Height="40">
                                     <VisualStateManager.VisualStateGroups>
                                         <VisualStateGroup x:Name="CommonStates">
                                             <VisualStateGroup.Transitions>
@@ -142,7 +142,7 @@
                                         <StackPanel.RenderTransform>
                                             <TranslateTransform x:Name="ItemShift" X="0" Y="0" />
                                         </StackPanel.RenderTransform>
-                                        <Viewbox Width="20" Height="20"
+                                        <Viewbox Width="18" Height="18"
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"
                                                  Stretch="Uniform">
@@ -176,4 +176,5 @@
                         </Setter.Value>
                     </Setter>
                 </Style>
+
 </ResourceDictionary>

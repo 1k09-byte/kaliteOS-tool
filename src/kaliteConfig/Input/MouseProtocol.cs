@@ -20,6 +20,15 @@ public sealed class MouseDeviceSettings
     public bool SupportsRate { get; set; } = true;
     public bool SupportsDpi { get; set; } = true;
     public bool SupportsLod { get; set; } = true;
+    public int MulticlickLeft { get; set; } = 8;
+    public int MulticlickRight { get; set; } = 8;
+    public int MulticlickMiddle { get; set; } = 8;
+    public int MulticlickForward { get; set; } = 8;
+    public int MulticlickBack { get; set; } = 8;
+    public int SpdtLeft { get; set; }
+    public int SpdtRight { get; set; }
+    public bool SupportsMulticlick { get; set; }
+    public bool SupportsSpdt { get; set; }
     public string ModelName { get; set; } = string.Empty;
 }
 
@@ -31,6 +40,7 @@ public interface IMouseProtocol
     IReadOnlyList<int> SupportedRates { get; }
     bool Matches(MouseDevice device);
     MouseDeviceSettings? TryRead(MouseDevice device);
+    IReadOnlyList<MouseSettingSpec> Describe(MouseDevice device, MouseDeviceSettings settings);
     bool TryWrite(MouseDevice device, string setting, string value);
 }
 

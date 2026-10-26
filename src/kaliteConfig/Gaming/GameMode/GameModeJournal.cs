@@ -24,6 +24,8 @@ public sealed class GameModeJournalEntry
     public string SystemCpuSetIds { get; set; } = string.Empty;
     public string BoostDisabledTids { get; set; } = string.Empty;
     public string ThreadPriorityTweaks { get; set; } = string.Empty;
+    public bool ProcessBoostChanged { get; set; }
+    public bool OriginalProcessBoostDisabled { get; set; }
 }
 
 public sealed class GameModeJournal

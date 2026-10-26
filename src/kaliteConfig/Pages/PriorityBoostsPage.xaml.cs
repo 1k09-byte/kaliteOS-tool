@@ -30,6 +30,7 @@ namespace kaliteConfig.Pages
                 MainSelectorBar.SelectedItem = TabThreads;
             }
 
+            ViewModel.ResumePolling();
             ViewModel.SyncProfiles();
             RefreshRulesMeta();
             App.Current.ProfileWatcher.RulesChanged += ProfileWatcher_RulesChanged;

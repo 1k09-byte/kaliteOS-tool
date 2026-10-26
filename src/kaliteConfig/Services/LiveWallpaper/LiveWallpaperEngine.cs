@@ -249,11 +249,50 @@ public sealed class LiveWallpaperEngine : ILiveWallpaperEngine
         _settings = settings;
         if (!settings.FeatureEnabled || !settings.ResumeOnLaunch || string.IsNullOrEmpty(settings.LastItemId))
             return (true, null);
+        if (WasResumeInterrupted())
+        {
+            settings = settings with { ResumeOnLaunch = false };
+            _settings = settings;
+            _store.SaveSettings(settings);
+            State = LiveState.Failed;
+            Notify();
+            return (false, "Live wallpaper was turned off because the last launch did not finish starting it. Your files are kept; start it again from Personalize.");
+        }
         var item = _library.List().FirstOrDefault(i => i.Id == settings.LastItemId);
         if (item is null) return (true, null);
         var areas = _hosts.GetMonitors();
         var targets = areas.Select(a => (a, item)).ToList();
-        return await StartAsync(targets).ConfigureAwait(true);
+        WriteResumeMarker();
+        try
+        {
+            return await StartAsync(targets).ConfigureAwait(true);
+        }
+        finally
+        {
+            ClearResumeMarker();
+        }
+    }
+
+    private static string ResumeMarkerPath => System.IO.Path.Combine(LiveWallpaperStore.RootDir, "resume.lock");
+
+    private static bool WasResumeInterrupted()
+    {
+        try { return System.IO.File.Exists(ResumeMarkerPath); } catch { return false; }
+    }
+
+    private static void WriteResumeMarker()
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(LiveWallpaperStore.RootDir);
+            System.IO.File.WriteAllText(ResumeMarkerPath, DateTime.UtcNow.ToString("o"));
+        }
+        catch { }
+    }
+
+    private static void ClearResumeMarker()
+    {
+        try { System.IO.File.Delete(ResumeMarkerPath); } catch { }
     }
 
     public void PlaylistNext()

@@ -32,8 +32,9 @@
             Style="{StaticResource TitleLargeTextBlockStyle}"
             Text="Settings" />
         <ScrollViewer
+            x:Name="SettingsScroller"
             Grid.Row="1"
-            Padding="36,0,36,0"
+            Padding="0,0,0,0"
             VerticalScrollBarVisibility="Auto"
             VerticalScrollMode="Auto">
             <StackPanel
@@ -61,6 +62,9 @@
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
+                            <TextBlock x:Name="buildInfoText"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                     </InfoBar.Content>
                 </InfoBar>
@@ -80,6 +84,67 @@
                         OffContent="Off"
                         OnContent="On"
                         Toggled="StartupToggle_Toggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard
+                    Description="Side rail, top bar, floating bottom dock, or hidden with a Home page"
+                    Header="Navigation">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE700;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="navMode"
+                        Width="250"
+                        HorizontalAlignment="Right"
+                        SelectionChanged="NavMode_SelectionChanged">
+                        <ComboBoxItem Content="Side rail" Tag="Rail" />
+                        <ComboBoxItem Content="Top bar" Tag="Top" />
+                        <ComboBoxItem Content="Bottom dock" Tag="Bottom" />
+                        <ComboBoxItem Content="Hidden" Tag="Hidden" />
+                    </ComboBox>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard
+                    x:Name="StartHomeCard"
+                    Description="Open the Home shortcut page on launch (Hidden navigation only)"
+                    Header="Start on Home">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="startHomeToggle"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="StartHome_Toggled" />
+                </toolkit:SettingsCard>                <toolkit:SettingsCard
+                    Description="Get help, share setups and hear about updates"
+                    Header="Join our Discord">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <Button
+                        Content="Open invite"
+                        Click="DiscordInvite_Click" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard
+                    Description="Shows 'using kaliteOS' as your Discord activity. Nothing else is shared. Needs the Discord desktop app, with Display current activity turned on in Discord Settings, Activity Privacy"
+                    Header="Discord status">
+                    <toolkit:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </toolkit:SettingsCard.HeaderIcon>
+                    <StackPanel MinWidth="250" Spacing="8">
+                        <ToggleSwitch
+                            x:Name="presenceToggle"
+                            OffContent="Off"
+                            OnContent="On"
+                            Toggled="PresenceToggle_Toggled" />
+                        <TextBlock
+                            x:Name="presenceStatus"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
                 </toolkit:SettingsCard>
 
                 <TextBlock

@@ -23,6 +23,12 @@ internal static partial class NativeInput
     internal const uint DigcfDeviceinterface = 0x00000010;
 
     internal const uint SpdrpManufacturer = 0x0000000B;
+    internal const uint SpdrpDeviceDesc = 0x00000000;
+    internal const uint SpdrpClassName = 0x00000007;
+    internal const uint SpdrpFriendlyName = 0x0000000C;
+    internal const uint SpdrpLocationInfo = 0x0000000D;
+    internal const uint SpdrpAddress = 0x0000001C;
+    internal const uint DigcfAllClasses = 0x00000004;
 
     internal static readonly Guid DevpkeyDeviceContainerIdFmtid =
         new(0x8c7ed8ab, 0x3f4c, 0x11d2, 0xb2, 0x7d, 0x00, 0x10, 0x4b, 0xd1, 0x79, 0xd4);
@@ -135,6 +141,14 @@ internal static partial class NativeInput
         uint headerSize);
 
     [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial uint GetRawInputData(
+        IntPtr rawInput,
+        uint command,
+        IntPtr data,
+        ref uint size,
+        uint headerSize);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool RegisterRawInputDevices(
         [In] RawInputDevice[] devices,
@@ -152,6 +166,32 @@ internal static partial class NativeInput
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     internal static partial long QueryPerformanceCounter(out long value);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct FileTimeValue
+    {
+        public uint Low;
+        public uint High;
+    }
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetSystemTimes(
+        out FileTimeValue idle,
+        out FileTimeValue kernel,
+        out FileTimeValue user);
+
+    [LibraryImport("kernel32.dll")]
+    internal static partial IntPtr GetCurrentThread();
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetThreadTimes(
+        IntPtr thread,
+        out FileTimeValue creation,
+        out FileTimeValue exit,
+        out FileTimeValue kernel,
+        out FileTimeValue user);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     internal static partial long QueryPerformanceFrequency(out long value);
@@ -217,6 +257,22 @@ internal static partial class NativeInput
 
     [LibraryImport("setupapi.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetupDiEnumDeviceInfo(
+        IntPtr deviceInfoSet,
+        uint memberIndex,
+        IntPtr deviceInfoData);
+
+    [LibraryImport("setupapi.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetupDiGetDeviceInstanceIdW(
+        IntPtr deviceInfoSet,
+        IntPtr deviceInfoData,
+        IntPtr deviceInstanceId,
+        uint deviceInstanceIdSize,
+        out uint requiredSize);
+
+    [LibraryImport("setupapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetupDiEnumDeviceInterfaces(
         IntPtr deviceInfoSet,
         IntPtr deviceInfoData,
@@ -278,7 +334,7 @@ internal static partial class NativeInput
     {
         public uint Size;
         public uint Style;
-        public WndProc Proc;
+        public IntPtr Proc;
         public int ClsExtra;
         public int WndExtra;
         public IntPtr Instance;
@@ -326,6 +382,20 @@ internal static partial class NativeInput
 
     [LibraryImport("user32.dll", SetLastError = true)]
     internal static partial int GetMessageW(out Msg message, IntPtr hwnd, uint filterMin, uint filterMax);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool PeekMessageW(out Msg message, IntPtr hwnd, uint filterMin, uint filterMax, uint remove);
+
+    internal const uint QsAllInput = 0x04FF;
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial uint MsgWaitForMultipleObjectsEx(
+        uint count,
+        IntPtr handles,
+        uint milliseconds,
+        uint wakeMask,
+        uint flags);
 
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

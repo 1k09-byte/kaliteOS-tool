@@ -18,13 +18,6 @@ namespace kaliteConfig.Pages
             InitializeComponent();
         }
 
-        private void MainSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
-        {
-            bool uninstall = sender.SelectedItem == TabUninstall;
-            UninstallPanel.Visibility = uninstall ? Visibility.Visible : Visibility.Collapsed;
-            InstallPanel.Visibility = uninstall ? Visibility.Collapsed : Visibility.Visible;
-        }
-
         private void AppSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
             ViewModel.SearchQuery = sender.Text ?? string.Empty;

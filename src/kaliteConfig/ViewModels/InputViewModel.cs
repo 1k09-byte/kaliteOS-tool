@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Dispatching;
 using System;
 using System.Collections.Generic;
@@ -30,6 +30,14 @@ public sealed partial class MouseDeviceRow : ObservableObject
     public partial string RateLine { get; set; } = string.Empty;
 }
 
+public sealed class InputMotionSample
+{
+    public double Hertz { get; init; }
+    public double CountsPerSecond { get; init; }
+    public int DeltaX { get; init; }
+    public int DeltaY { get; init; }
+}
+
 public sealed partial class InputViewModel : ObservableObject, IDisposable
 {
     private readonly Input.IMouseDiscoveryService _discovery;
@@ -39,10 +47,16 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     private readonly Input.IMousePrefStore _prefs;
     private readonly Input.IMouseProtocolRegistry _protocols;
     private readonly Input.IMouseWriteTransaction _deviceTx;
+    private readonly Input.IPollRateAdvisor _advisor;
     private readonly DispatcherQueue _ui;
+    private Input.SystemInputProfile? _profile;
+    private Input.PollRateAdvice? _advice;
+    private long _liveMoveX;
+    private long _liveMoveY;
     private Input.MouseDeviceSettings? _deviceStatus;
     private Input.IMouseProtocol? _module;
     private int _probeToken;
+    private bool _probeDone;
     private readonly Dictionary<string, string> _deviceOriginal = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
     private Input.WindowsMouseState _original = new();
@@ -59,7 +73,8 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         Input.IMouseLog log,
         Input.IMousePrefStore prefs,
         Input.IMouseProtocolRegistry protocols,
-        Input.IMouseWriteTransaction deviceTx)
+        Input.IMouseWriteTransaction deviceTx,
+        Input.IPollRateAdvisor advisor)
     {
         _discovery = discovery;
         _windows = windows;
@@ -68,6 +83,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _prefs = prefs;
         _protocols = protocols;
         _deviceTx = deviceTx;
+        _advisor = advisor;
         _ui = DispatcherQueue.GetForCurrentThread();
         _test.Progress += OnTestProgress;
         _test.DeviceRemoved += OnTestDeviceRemoved;
@@ -89,6 +105,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial bool HasSupportedDevices { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasIgnoredDevices { get; set; }
 
     [ObservableProperty]
     public partial string VendorBanner { get; set; } = string.Empty;
@@ -139,16 +158,19 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     public partial string TestStatusText { get; set; } = "Move the mouse";
 
     [ObservableProperty]
+    public partial string TestSourceText { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial string TestResultText { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string MismatchText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string LiveButtonsText { get; set; } = string.Empty;
+    public partial string LiveButtonsText { get; set; } = "No buttons pressed.";
 
     [ObservableProperty]
-    public partial string LiveWheelText { get; set; } = string.Empty;
+    public partial string LiveWheelText { get; set; } = "Wheel 0, horizontal 0.";
 
     [ObservableProperty]
     public partial string LiveSpeedText { get; set; } = string.Empty;
@@ -160,10 +182,228 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     public partial string ReportSettingText { get; set; } = "Can't read from this mouse";
 
     [ObservableProperty]
-    public partial ObservableCollection<int> SupportedRates { get; set; } = new();
+    public partial ObservableCollection<string> RateOptions { get; set; } = new();
 
     [ObservableProperty]
-    public partial int RequestedRate { get; set; } = 8000;
+    public partial string? SelectedRate { get; set; }
+
+    public int? RequestedRate => ParseRate(SelectedRate);
+
+    partial void OnSelectedRateChanged(string? value) => OnPropertyChanged(nameof(RequestedRate));
+
+    public static int? ParseRate(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        int end = 0;
+        while (end < text.Length && char.IsDigit(text[end])) end++;
+        if (end == 0) return null;
+        return int.TryParse(text.AsSpan(0, end), out int value) && value > 0 ? value : null;
+    }
+
+    [ObservableProperty]
+    public partial string SystemProfileText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AdvisorDisplayText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string AdvisorRefreshText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string AdvisorBudgetText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string AdvisorCpuText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string AdvisorSupportedText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string AdvisorMeasuredText { get; set; } = "No movement measured yet";
+
+    [ObservableProperty]
+    public partial string AdvisorTargetText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string RecommendationText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string RecommendationButtonText { get; set; } = "Use";
+
+    [ObservableProperty]
+    public partial string RecommendationNote { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool CanUseRecommendation { get; set; }
+
+    [ObservableProperty]
+    public partial string LiveHzText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string LiveCountsText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string CpuUsageText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CpuShortText { get; set; } = "—";
+
+    [ObservableProperty]
+    public partial string QualityVerdict { get; set; } = "Not measured yet";
+
+    [ObservableProperty]
+    public partial string QualityDetail { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string UsbTreeText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string PortText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ModelClickText { get; set; } = "No clicks on the model yet.";
+
+    public event Action<InputMotionSample>? Motion;
+
+    public bool TakeMotion(out int dx, out int dy)
+    {
+        dx = 0;
+        dy = 0;
+        if (!TestRunning) return false;
+        try { return _test.TakeMotion(out dx, out dy); }
+        catch { return false; }
+    }
+
+    public event Action<int>? PressedButtonsChanged;
+
+    private bool _autoMeasure = true;
+    private int _modelClicks;
+    private string _activeDeviceId = string.Empty;
+
+    public void RegisterModelClick()
+    {
+        _modelClicks++;
+        ModelClickText = _modelClicks == 1
+            ? "1 click on the model."
+            : _modelClicks + " clicks on the model.";
+    }
+
+    private void TryAutoStart()
+    {
+        if (!_autoMeasure) return;
+        if (_test.Running) StopTestInternal();
+        if (!TestRunning) StartTest();
+    }
+
+    public void LoadSystemProfile()
+    {
+        try
+        {
+            _profile = _advisor.Read();
+        }
+        catch
+        {
+            _profile = null;
+        }
+        if (_profile is null) return;
+        var displays = new List<string>();
+        foreach (var display in _profile.Displays)
+            displays.Add(display.Width > 0 && display.Height > 0
+                ? display.Width + "x" + display.Height + " @ " + display.RefreshHz + " Hz"
+                : display.Text);
+        SystemProfileText = (displays.Count > 0 ? string.Join("  ·  ", displays) : "Display rate unknown")
+            + "  ·  " + ShortCpuName(_profile.CpuName) + "  ·  " + _profile.PhysicalCores + "C / "
+            + _profile.LogicalCores + "T";
+        AdvisorDisplayText = displays.Count > 0 ? string.Join("  ·  ", displays) : "Display rate unknown";
+        AdvisorRefreshText = _profile.RefreshHz + " Hz (fastest)";
+        AdvisorCpuText = ShortCpuName(_profile.CpuName) + "  ·  " + _profile.PhysicalCores + "C / "
+            + _profile.LogicalCores + "T";
+        UpdateAdvice();
+    }
+
+    private static string ShortCpuName(string name)
+    {
+        string text = (name ?? string.Empty).Replace("(R)", string.Empty).Replace("(TM)", string.Empty);
+        text = text.Replace("AMD ", string.Empty).Replace("Intel ", string.Empty).Replace("-Core", " ").Replace("Processor", " ");
+        var words = new List<string>();
+        foreach (string word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (word.Equals("CPU", StringComparison.OrdinalIgnoreCase)) continue;
+            words.Add(word);
+        }
+        if (words.Count > 0)
+        {
+            string last = words[words.Count - 1];
+            bool digits = last.Length <= 2;
+            foreach (char c in last) if (!char.IsDigit(c)) digits = false;
+            if (digits) words.RemoveAt(words.Count - 1);
+        }
+        return string.Join(' ', words);
+    }
+
+    public void UpdateAdvice()
+    {
+        if (_profile is null || !_probeDone) return;
+        if (_deviceStatus is null)
+        {
+            RecommendationText = "No rate to recommend";
+            RecommendationButtonText = "Use";
+            RecommendationNote = DeviceVerifyText;
+            CanUseRecommendation = false;
+            return;
+        }
+        var rates = new List<int>();
+        foreach (string option in RateOptions)
+        {
+            int? rate = ParseRate(option);
+            if (rate is int value && !rates.Contains(value)) rates.Add(value);
+        }
+        bool assumed = rates.Count == 0;
+        if (assumed)
+            rates.AddRange(new[] { 125, 250, 500, 1000, 2000, 4000, 8000 });
+        int measuredHz = _lastResult is { HasEnoughData: true, Unreliable: false } ? (int)Math.Round(_lastResult.AvgHz) : 0;
+        var advice = _advisor.Advise(_profile, rates, measuredHz);
+        _advice = advice;
+        AdvisorSupportedText = string.Join(" / ", rates) + " Hz" + (assumed ? " (fallback)" : string.Empty);
+        AdvisorMeasuredText = measuredHz > 0 ? measuredHz + " Hz (this PC)" : "No movement measured yet";
+        AdvisorBudgetText = advice.DisplayBudgetHz > 0
+            ? advice.DisplayBudgetHz + " Hz poll rate (8 reports per " + _profile.RefreshHz + " Hz frame)"
+            : "—";
+        AdvisorTargetText = advice.TargetHz > 0
+            ? advice.TargetHz + " Hz  ·  ceiling " + advice.CeilingHz + "  ·  floor " + advice.MinimumHz
+            : "—";
+        if (advice.RecommendedHz <= 0)
+        {
+            RecommendationText = "No rate to recommend";
+            RecommendationButtonText = "Use";
+            RecommendationNote = advice.Explanation;
+            CanUseRecommendation = false;
+            return;
+        }
+        RecommendationText = "Recommended for this PC: " + advice.RecommendedHz + " Hz";
+        RecommendationButtonText = "Use " + advice.RecommendedHz + " Hz";
+        RecommendationNote = advice.Explanation
+            + (assumed ? " This mouse did not report its rates, so nothing can be written to it." : string.Empty);
+        CanUseRecommendation = !assumed
+            && RateOptions.Contains(advice.RecommendedHz + " Hz")
+            && SelectedRate != advice.RecommendedHz + " Hz";
+    }
+
+    public void UseRecommendation()
+    {
+        var advice = _advice;
+        if (advice is null || advice.RecommendedHz <= 0) return;
+        string option = advice.RecommendedHz + " Hz";
+        if (!RateOptions.Contains(option))
+        {
+            DeviceApplyText = "This mouse does not list " + option + ", so it is not offered.";
+            return;
+        }
+        SelectedRate = option;
+        DeviceApplyText = "Staged " + option + ". Press Apply to mouse to write it.";
+        CanUseRecommendation = false;
+    }
+
 
     [ObservableProperty]
     public partial bool DeviceCanSet { get; set; }
@@ -172,34 +412,34 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     public partial string DeviceVerifyText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial double RequestedDpi { get; set; } = 3200;
+    public partial string DeviceCurrentText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial double Sensitivity { get; set; } = 1.0;
+    public partial string DeviceQuickText { get; set; } = string.Empty;
 
-    public string EDpiText => "eDPI " + Math.Round(RequestedDpi * Sensitivity);
+    [ObservableProperty]
+    public partial bool ShowRate { get; set; }
 
-    partial void OnRequestedDpiChanged(double value) => OnPropertyChanged(nameof(EDpiText));
+    [ObservableProperty]
+    public partial bool ShowDpi { get; set; }
 
-    partial void OnSensitivityChanged(double value) => OnPropertyChanged(nameof(EDpiText));
+    [ObservableProperty]
+    public partial bool ShowLod { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowButtons { get; set; }
+
+    [ObservableProperty]
+    public partial double RequestedDpi { get; set; } = 3200;
 
     [ObservableProperty]
     public partial string DeviceDpiText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial bool RequestedMotionSync { get; set; }
+    public partial ObservableCollection<MouseSettingRow> Settings { get; set; } = new();
 
     [ObservableProperty]
-    public partial bool RequestedSlamclick { get; set; }
-
-    [ObservableProperty]
-    public partial bool RequestedAngleSnapping { get; set; }
-
-    [ObservableProperty]
-    public partial bool RequestedRipple { get; set; }
-
-    [ObservableProperty]
-    public partial bool RequestedJitter { get; set; }
+    public partial ObservableCollection<MouseSettingRow> ButtonSettings { get; set; } = new();
 
     [ObservableProperty]
     public partial ObservableCollection<string> LodOptions { get; set; } = new();
@@ -210,7 +450,6 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string DeviceApplyText { get; set; } = string.Empty;
 
-    public event Action<double>? RoadUpdate;
 
     [ObservableProperty]
     public partial double DpiInches { get; set; } = 1.0;
@@ -267,7 +506,9 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     {
         _testVisible = true;
         _discovery.StartNotifications();
+        LoadSystemProfile();
         RefreshDevices();
+        TryAutoStart();
     }
 
     public void Close()
@@ -294,6 +535,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             UpdateDeviceList();
             CheckDrift();
             if (ReapplyOnConnect) _ = ReapplyAsync();
+            TryAutoStart();
         });
     }
 
@@ -302,6 +544,13 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         try { _discovery.Refresh(); }
         catch { }
         UpdateDeviceList();
+    }
+
+    public void Rescan()
+    {
+        _advisor.Refresh();
+        LoadSystemProfile();
+        RefreshDevices();
     }
 
     private void UpdateDeviceList()
@@ -322,6 +571,13 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             if (device.Class == Input.MouseClass.Supported || device.ForceShow) supported.Add(row);
             else ignored.Add(row);
         }
+        supported.Sort((left, right) =>
+        {
+            int leftRead = _protocols.Resolve(left.Device) != null ? 0 : 1;
+            int rightRead = _protocols.Resolve(right.Device) != null ? 0 : 1;
+            if (leftRead != rightRead) return leftRead - rightRead;
+            return string.Compare(left.DisplayName, right.DisplayName, StringComparison.OrdinalIgnoreCase);
+        });
         _ui.TryEnqueue(() =>
         {
             Devices.Clear();
@@ -329,6 +585,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             IgnoredDevices.Clear();
             foreach (var row in ignored) IgnoredDevices.Add(row);
             HasSupportedDevices = Devices.Count > 0;
+            HasIgnoredDevices = IgnoredDevices.Count > 0;
             if (SelectedDevice is null || !Devices.Contains(SelectedDevice))
                 SelectedDevice = Devices.FirstOrDefault();
             else
@@ -368,15 +625,35 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
     {
         LoadSelected();
         ProbeDevice();
+        if (!_testVisible) return;
+        string id = value?.Device.StableId ?? string.Empty;
+        if (string.Equals(id, _activeDeviceId, StringComparison.OrdinalIgnoreCase) && (TestRunning || _test.Running)) return;
+        _activeDeviceId = id;
+        StopTestInternal();
+        TryAutoStart();
     }
 
-    private void ProbeDevice()
+    private void ProbeDevice(bool reset = true)
     {
         _probeToken++;
         int token = _probeToken;
         var row = SelectedDevice;
-        _deviceStatus = null;
-        DeviceCanSet = false;
+        if (reset)
+        {
+            _deviceStatus = null;
+            _probeDone = false;
+            DeviceCanSet = false;
+            ShowRate = false;
+            ShowDpi = false;
+            ShowLod = false;
+            ShowButtons = false;
+            Settings.Clear();
+            ButtonSettings.Clear();
+            DeviceApplyText = string.Empty;
+            RecommendationText = string.Empty;
+            RecommendationNote = string.Empty;
+            CanUseRecommendation = false;
+        }
         if (row is null) return;
         row.RateLine = string.Empty;
         _ = ProbeDeviceAsync(row, token);
@@ -409,38 +686,63 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _ui.TryEnqueue(() =>
         {
             if (token != _probeToken) return;
+            _probeDone = true;
             if (status is null)
             {
+                Settings.Clear();
+                ButtonSettings.Clear();
+                ShowButtons = false;
                 DeviceVerifyText = verify ?? string.Empty;
+                DeviceCurrentText = string.Empty;
+                DeviceQuickText = string.Empty;
                 ReportSettingText = "Can't read from this mouse";
                 DeviceDpiText = string.Empty;
                 DeviceApplyText = string.Empty;
                 InfoMemory = "Can't read from this mouse. " + (verify ?? string.Empty);
+                UpdateAdvice();
                 return;
             }
             _deviceStatus = status;
             _module = module;
-            DeviceVerifyText = "Reading and writing this mouse works. Values come from the mouse.";
+            DeviceVerifyText = "Read from the mouse.";
+            IReadOnlyList<Input.MouseSettingSpec> specs = module is null
+                ? Array.Empty<Input.MouseSettingSpec>()
+                : module.Describe(row.Device, status);
+            DeviceCurrentText = "On the mouse now: " + status.DpiX + " DPI, " + status.RateHz + " Hz"
+                + (specs.Count == 0 ? "." : ", " + string.Join(", ", SettingsText(specs)) + ".");
+            DeviceQuickText = status.DpiX + " DPI  ·  " + status.RateHz + " Hz on the mouse";
             ReportSettingText = status.RateHz + " Hz (read back)";
-            SupportedRates.Clear();
+            RateOptions.Clear();
             if (module != null)
-                foreach (int rate in module.SupportedRates) SupportedRates.Add(rate);
-            if (!SupportedRates.Contains(status.RateHz)) SupportedRates.Add(status.RateHz);
-            RequestedRate = status.RateHz;
+                foreach (int rate in module.SupportedRates)
+                {
+                    string option = rate + " Hz";
+                    if (!RateOptions.Contains(option)) RateOptions.Add(option);
+                }
+            string currentRate = status.RateHz + " Hz";
+            if (!RateOptions.Contains(currentRate)) RateOptions.Add(currentRate);
+            SelectedRate = currentRate;
+            UpdateAdvice();
             RequestedDpi = status.DpiX;
             DeviceDpiText = status.DpiX + " DPI (read back)";
-            RequestedMotionSync = status.MotionSync;
-            RequestedSlamclick = status.SlamclickFilter;
-            RequestedAngleSnapping = status.AngleSnapping;
-            RequestedRipple = status.RippleControl;
-            RequestedJitter = status.JitterFilter;
+            Settings.Clear();
+            ButtonSettings.Clear();
+            foreach (var spec in specs)
+            {
+                var setting = new MouseSettingRow(spec);
+                if (setting.IsButtonSetting) ButtonSettings.Add(setting);
+                else Settings.Add(setting);
+            }
+            ShowButtons = ButtonSettings.Count > 0;
             LodOptions.Clear();
             foreach (string option in DeviceLodOptions(status)) LodOptions.Add(option);
             RequestedLodIndex = status.LodIndex < LodOptions.Count ? status.LodIndex : 0;
             InfoMemory = "Verified on this device: " + status.DpiX + " DPI, " + status.RateHz + " Hz.";
             row.RateLine = status.RateHz + " Hz on device";
+            ShowRate = status.SupportsRate;
+            ShowDpi = status.SupportsDpi;
+            ShowLod = status.SupportsLod;
             DeviceCanSet = true;
-            DeviceApplyText = string.Empty;
         });
     }
 
@@ -455,25 +757,31 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         var status = _deviceStatus;
         if (status is null || !DeviceCanSet) return;
         var changes = new List<(string Setting, string Original, string Requested)>();
-        if (RequestedRate > 0 && SupportedRates.Contains(RequestedRate) && RequestedRate != status.RateHz)
-            changes.Add(("report-rate", status.RateHz.ToString(), RequestedRate.ToString()));
+        if (RequestedRate is int wantedRate && wantedRate > 0 && wantedRate != status.RateHz)
+            changes.Add(("report-rate", status.RateHz.ToString(), wantedRate.ToString()));
         int dpi = (int)Math.Round(RequestedDpi);
         if (dpi != status.DpiX)
             changes.Add(("dpi", status.DpiX.ToString(), dpi.ToString()));
-        AddToggle(changes, status.MotionSync, RequestedMotionSync, "motion-sync");
-        AddToggle(changes, status.AngleSnapping, RequestedAngleSnapping, "angle-snapping");
-        AddToggle(changes, status.RippleControl, RequestedRipple, "ripple-control");
-        AddToggle(changes, status.SlamclickFilter, RequestedSlamclick, "slamclick-filter");
-        AddToggle(changes, status.JitterFilter, RequestedJitter, "jitter-filter");
         if (RequestedLodIndex != status.LodIndex)
             changes.Add(("lift-off", status.LodIndex.ToString(), RequestedLodIndex.ToString()));
+        AddStaged(changes, Settings);
+        AddStaged(changes, ButtonSettings);
         await ApplySettingsAsync(changes).ConfigureAwait(false);
     }
 
-    private static void AddToggle(List<(string Setting, string Original, string Requested)> changes, bool current, bool requested, string setting)
+    private static void AddStaged(List<(string Setting, string Original, string Requested)> changes, IEnumerable<MouseSettingRow> rows)
     {
-        if (current == requested) return;
-        changes.Add((setting, current ? "On" : "Off", requested ? "On" : "Off"));
+        foreach (var row in rows)
+        {
+            if (string.Equals(row.Canonical, row.OriginalCanonical, StringComparison.OrdinalIgnoreCase)) continue;
+            changes.Add((row.Id, row.OriginalCanonical, row.Canonical));
+        }
+    }
+
+    private static IEnumerable<string> SettingsText(IReadOnlyList<Input.MouseSettingSpec> specs)
+    {
+        foreach (var spec in specs)
+            yield return spec.Label.ToLowerInvariant() + " " + spec.ValueText;
     }
 
     public async Task RevertDeviceAsync()
@@ -508,51 +816,8 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _ui.TryEnqueue(() =>
         {
             DeviceApplyText = message;
-            ProbeDevice();
+            ProbeDevice(false);
         });
-    }
-
-    public async Task ApplyRateAsync()
-    {
-        var status = _deviceStatus;
-        if (status is null || !DeviceCanSet) return;
-        var changes = new List<(string Setting, string Original, string Requested)>();
-        if (RequestedRate != status.RateHz)
-            changes.Add(("report-rate", status.RateHz.ToString(), RequestedRate.ToString()));
-        await ApplySettingsAsync(changes).ConfigureAwait(false);
-    }
-
-    public async Task ApplySensorAsync()
-    {
-        var status = _deviceStatus;
-        if (status is null || !DeviceCanSet) return;
-        var changes = new List<(string Setting, string Original, string Requested)>();
-        int dpi = (int)Math.Round(RequestedDpi);
-        if (dpi != status.DpiX)
-            changes.Add(("dpi", status.DpiX.ToString(), dpi.ToString()));
-        string motion = RequestedMotionSync ? "On" : "Off";
-        string motionWas = status.MotionSync ? "On" : "Off";
-        if (!string.Equals(motion, motionWas, StringComparison.OrdinalIgnoreCase))
-            changes.Add(("motion-sync", motionWas, motion));
-        string slam = RequestedSlamclick ? "On" : "Off";
-        string slamWas = status.SlamclickFilter ? "On" : "Off";
-        if (!string.Equals(slam, slamWas, StringComparison.OrdinalIgnoreCase))
-            changes.Add(("slamclick-filter", slamWas, slam));
-        string snap = RequestedAngleSnapping ? "On" : "Off";
-        string snapWas = status.AngleSnapping ? "On" : "Off";
-        if (!string.Equals(snap, snapWas, StringComparison.OrdinalIgnoreCase))
-            changes.Add(("angle-snapping", snapWas, snap));
-        string ripple = RequestedRipple ? "On" : "Off";
-        string rippleWas = status.RippleControl ? "On" : "Off";
-        if (!string.Equals(ripple, rippleWas, StringComparison.OrdinalIgnoreCase))
-            changes.Add(("ripple-control", rippleWas, ripple));
-        string jitter = RequestedJitter ? "On" : "Off";
-        string jitterWas = status.JitterFilter ? "On" : "Off";
-        if (!string.Equals(jitter, jitterWas, StringComparison.OrdinalIgnoreCase))
-            changes.Add(("jitter-filter", jitterWas, jitter));
-        if (RequestedLodIndex != status.LodIndex)
-            changes.Add(("lift-off", status.LodIndex.ToString(), RequestedLodIndex.ToString()));
-        await ApplySettingsAsync(changes).ConfigureAwait(false);
     }
 
     private async Task ApplySettingsAsync(List<(string Setting, string Original, string Requested)> changes)
@@ -588,7 +853,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _ui.TryEnqueue(() =>
         {
             DeviceApplyText = joined;
-            ProbeDevice();
+            ProbeDevice(false);
         });
     }
 
@@ -605,18 +870,15 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         if (module is null) return null;
         var settings = await Task.Run(() => module.TryRead(row.Device)).ConfigureAwait(false);
         if (settings is null) return null;
-        return setting switch
+        switch (setting)
         {
-            "report-rate" => settings.RateHz.ToString(),
-            "dpi" => settings.DpiX.ToString(),
-            "motion-sync" => settings.MotionSync ? "On" : "Off",
-            "angle-snapping" => settings.AngleSnapping ? "On" : "Off",
-            "ripple-control" => settings.RippleControl ? "On" : "Off",
-            "slamclick-filter" => settings.SlamclickFilter ? "On" : "Off",
-            "jitter-filter" => settings.JitterFilter ? "On" : "Off",
-            "lift-off" => settings.LodIndex.ToString(),
-            _ => null,
-        };
+            case "report-rate": return settings.RateHz.ToString();
+            case "dpi": return settings.DpiX.ToString();
+            case "lift-off": return settings.LodIndex.ToString();
+        }
+        foreach (var spec in module.Describe(row.Device, settings))
+            if (string.Equals(spec.Id, setting, StringComparison.OrdinalIgnoreCase)) return spec.Canonical;
+        return null;
     }
 
     private void ClearInfo()
@@ -632,12 +894,28 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         InfoReason = string.Empty;
         InfoMemory = string.Empty;
         InfoDiscovery = string.Empty;
+        UsbTreeText = string.Empty;
+        PortText = string.Empty;
+        QualityVerdict = "Not measured yet";
+        QualityDetail = string.Empty;
+        CpuUsageText = string.Empty;
+        CpuShortText = string.Empty;
         DeviceVerifyText = string.Empty;
+        DeviceCurrentText = string.Empty;
         ReportSettingText = "Can't read from this mouse";
         DeviceDpiText = string.Empty;
         DeviceApplyText = string.Empty;
         DeviceCanSet = false;
+        ShowRate = false;
+        ShowDpi = false;
+        ShowLod = false;
+        ShowButtons = false;
+        Settings.Clear();
+        ButtonSettings.Clear();
         _deviceStatus = null;
+        RateOptions.Clear();
+        SelectedRate = null;
+        UpdateAdvice();
     }
 
     private void LoadSelected()
@@ -661,9 +939,11 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         InfoVendor = row.Device.VendorSoftwarePresent ? row.Device.VendorSoftwareName : "None detected";
         InfoReason = row.Device.ClassReason;
         InfoMemory = _protocols.Resolve(row.Device) != null
-            ? "Reading the device…"
+            ? "Reading the deviceâ€¦"
             : "This mouse's memory can't be read by this app yet.";
         InfoDiscovery = row.Device.DiscoveryText;
+        UsbTreeText = row.Device.PortChain.Length > 0 ? row.Device.PortChain : "USB tree not reported for this device.";
+        PortText = row.Device.PortLabel.Length > 0 ? row.Device.PortLabel : "Port not reported";
         LoadWindows();
     }
 
@@ -734,9 +1014,13 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         if (lockMs != _original.ClickLockMs)
             messages.Add((await _windows.ApplyClickLockTimeAsync(DeviceId(), DeviceName(), _original.ClickLockMs, lockMs).ConfigureAwait(false)).Message);
         if (messages.Count == 0) messages.Add("No changes to apply.");
-        RememberApplied();
-        LoadWindows();
-        WindowsResultText = string.Join(" ", messages);
+        string joined = string.Join(" ", messages);
+        _ui.TryEnqueue(() =>
+        {
+            RememberApplied();
+            LoadWindows();
+            WindowsResultText = joined;
+        });
     }
 
     private void RememberApplied()
@@ -757,16 +1041,22 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     public async Task ResetWindowsSectionAsync()
     {
-        LoadWindows();
-        WindowsResultText = "Section reset to the current values.";
+        _ui.TryEnqueue(() =>
+        {
+            LoadWindows();
+            WindowsResultText = "Section reset to the current values.";
+        });
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
     public async Task RevertWindowsAsync()
     {
         var outcome = await _windows.RestoreAllAsync(DeviceId(), DeviceName()).ConfigureAwait(false);
-        LoadWindows();
-        WindowsResultText = outcome.Message;
+        _ui.TryEnqueue(() =>
+        {
+            LoadWindows();
+            WindowsResultText = outcome.Message;
+        });
     }
 
     public void SaveNickname()
@@ -828,7 +1118,7 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             }
             _log.Add(row.DisplayName, "Re-apply on connect", Input.MouseResult.AppliedNoVerify, "Re-applied saved Windows settings after the device arrived.");
         }
-        LoadWindows();
+        _ui.TryEnqueue(LoadWindows);
     }
 
     private void CheckDrift()
@@ -859,9 +1149,17 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     public void StartTest()
     {
+        if (TestRunning) return;
         var row = SelectedDevice;
         if (row is null || row.Device.Interfaces.Count == 0) return;
-        ulong handle = row.Device.Interfaces[0].Handle;
+        ulong handle = 0;
+        foreach (var face in row.Device.Interfaces)
+            if (face.Kind == Input.Interop.NativeInput.RimTypeMouse && face.Handle != 0)
+            {
+                handle = face.Handle;
+                break;
+            }
+        if (handle == 0 && row.Device.Interfaces.Count > 0) handle = row.Device.Interfaces[0].Handle;
         if (handle == 0) return;
         _lastResult = null;
         TestResultText = string.Empty;
@@ -872,7 +1170,16 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             TestRunning = true;
             _roadSeconds = 0;
             _roadReports = 0;
+            _liveMoveX = 0;
+            _liveMoveY = 0;
             LiveSpeedText = string.Empty;
+            LiveHzText = "—";
+            LiveCountsText = "—";
+            QualityVerdict = "Measuring";
+            QualityDetail = string.Empty;
+            CpuUsageText = string.Empty;
+            CpuShortText = string.Empty;
+            TestSourceText = string.Empty;
             TestStatusText = "Measuring. Move the mouse continuously in circles.";
         }
         else
@@ -883,7 +1190,14 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
 
     public void StopTest()
     {
+        _autoMeasure = false;
         StopTestInternal();
+    }
+
+    public void StartTestManually()
+    {
+        if (TestRunning) return;
+        StartTest();
     }
 
     private void StopTestInternal()
@@ -903,8 +1217,18 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _lastResult = result;
         ReportMeasuredLine = "Not measured yet.";
         LiveSpeedText = string.Empty;
+        LiveHzText = "—";
+        LiveCountsText = "—";
         _roadSeconds = 0;
         _roadReports = 0;
+        try { Motion?.Invoke(new InputMotionSample()); } catch { }
+        try { PressedButtonsChanged?.Invoke(0); } catch { }
+        CpuUsageText = "Capture thread used " + Math.Round(result.ThreadCpuPercent, 2)
+            + "% of one core while measuring. System load " + Math.Round(result.SystemCpuPercent, 1) + "%.";
+        CpuShortText = Math.Round(result.ThreadCpuPercent, 1) + "% / " + Math.Round(result.SystemCpuPercent, 0) + "%";
+        TestSourceText = result.FallbackActive
+            ? "Counted all mouse reports on this PC; the selected mouse was not labeled separately."
+            : result.MatchedReports > 0 ? "Counted reports from the selected mouse." : string.Empty;
         if (result.DeviceWasRemoved)
         {
             TestStatusText = "The device was removed during the test.";
@@ -929,7 +1253,23 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
             TestResultText = string.Empty;
             return;
         }
-        MismatchText = "Setting can't be read from this mouse.";
+        int? setRate = _deviceStatus?.RateHz;
+        if (setRate is int setHz && setHz > 0)
+        {
+            if (result.AvgHz < setHz * 0.9)
+                MismatchText = "This mouse is set to " + setHz + " Hz, but this PC received about "
+                    + Math.Round(result.AvgHz, 0) + " Hz while moving. Possible reasons: a wireless connection, USB power saving, a USB hub or port, or high CPU load. This is a measurement, not a diagnosis.";
+            else if (result.AvgHz > setHz * 1.1)
+                MismatchText = "This mouse is set to " + setHz + " Hz, but this PC received about "
+                    + Math.Round(result.AvgHz, 0) + " Hz while moving, which is above the setting.";
+            else
+                MismatchText = "Matches the setting of " + setHz + " Hz.";
+        }
+        else
+        {
+            MismatchText = "Setting can't be read from this mouse.";
+        }
+        UpdateQuality(result);
         TestStatusText = "Measured by this PC, approximate.";
         TestResultText = "Average " + Math.Round(result.AvgHz, 1) + " Hz"
             + ", min " + Math.Round(result.MinHz, 1) + " Hz"
@@ -941,6 +1281,110 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         ReportMeasuredLine = "Measured by this PC: about " + Math.Round(result.AvgHz, 0) + " Hz.";
         if (SelectedDevice != null)
             SelectedDevice.MeasuredLine = "Measured about " + Math.Round(result.AvgHz, 0) + " Hz by this PC.";
+    }
+
+    private void UpdateQuality(Input.ReportRateResult result)
+    {
+        ScoreQuality(result.AvgHz, result.MedianIntervalMs, result.P99IntervalMs, result.OverTwiceMedian,
+            result.MovementReports, result.ThreadCpuPercent, result.ConnectionText, false);
+    }
+
+    private void UpdateLiveQuality(Input.CaptureLive live)
+    {
+        if (live.WindowSamples < 40 || live.WindowHz <= 0) return;
+        ScoreQuality(live.WindowHz, live.WindowMedianMs, live.WindowP99Ms, live.WindowOverTwice,
+            live.WindowSamples, live.ThreadCpuPercent,
+            SelectedDevice is null ? "Unknown" : ConnectionText(SelectedDevice.Device.Connection), true);
+    }
+
+    private void ScoreQuality(double avgHz, double medianMs, double p99Ms, int overTwice,
+        int samples, double cpuPercent, string connection, bool live)
+    {
+        double matchPoints;
+        string matchText;
+        int? setting = _deviceStatus?.RateHz;
+        if (setting is int setHz && setHz > 0 && avgHz > 0)
+        {
+            double ratio = avgHz / setHz;
+            if (ratio >= 0.9 && ratio <= 1.1)
+            {
+                matchPoints = 40;
+                matchText = "Measured rate matches the " + setHz + " Hz setting (" + Math.Round(avgHz, 0) + " Hz).";
+            }
+            else if (ratio >= 0.75 && ratio <= 1.25)
+            {
+                matchPoints = 22;
+                matchText = "Measured rate is near the " + setHz + " Hz setting (" + Math.Round(avgHz, 0) + " Hz measured).";
+            }
+            else
+            {
+                matchPoints = 6;
+                matchText = "Measured rate is well away from the " + setHz + " Hz setting (" + Math.Round(avgHz, 0) + " Hz measured).";
+            }
+        }
+        else
+        {
+            matchPoints = 20;
+            matchText = "The mouse does not report its rate setting, so the match is not scored.";
+        }
+
+        double median = medianMs > 0 ? medianMs : 1;
+        double spread = p99Ms / median;
+        double steadyPoints;
+        string steadyText;
+        if (spread <= 1.5)
+        {
+            steadyPoints = 40;
+            steadyText = "Report spacing is steady (99th percentile " + Math.Round(spread, 2) + " times the median).";
+        }
+        else if (spread <= 2.5)
+        {
+            steadyPoints = 26;
+            steadyText = "Report spacing varies a little (99th percentile " + Math.Round(spread, 2) + " times the median).";
+        }
+        else if (spread <= 4)
+        {
+            steadyPoints = 14;
+            steadyText = "Report spacing varies (99th percentile " + Math.Round(spread, 2) + " times the median).";
+        }
+        else
+        {
+            steadyPoints = 6;
+            steadyText = "Report spacing is uneven (99th percentile " + Math.Round(spread, 2) + " times the median).";
+        }
+        if (samples > 0 && overTwice > samples / 20)
+            steadyPoints = Math.Max(4, steadyPoints - 10);
+
+        double cpuPoints;
+        string cpuText;
+        if (cpuPercent <= 5)
+        {
+            cpuPoints = 20;
+            cpuText = "Receiving used " + Math.Round(cpuPercent, 2) + "% of one core.";
+        }
+        else if (cpuPercent <= 10)
+        {
+            cpuPoints = 14;
+            cpuText = "Receiving used " + Math.Round(cpuPercent, 2) + "% of one core.";
+        }
+        else if (cpuPercent <= 20)
+        {
+            cpuPoints = 8;
+            cpuText = "Receiving used " + Math.Round(cpuPercent, 2) + "% of one core.";
+        }
+        else
+        {
+            cpuPoints = 3;
+            cpuText = "Receiving used " + Math.Round(cpuPercent, 2) + "% of one core.";
+        }
+
+        int score = (int)Math.Round(matchPoints + steadyPoints + cpuPoints);
+        QualityVerdict = (live ? "Live: " : string.Empty)
+            + (score >= 80 ? "Good" : score >= 55 ? "Fair" : "Poor") + " (" + score + "/100)";
+        string link = connection;
+        int hubs = SelectedDevice?.Device.HubDepth ?? 0;
+        if (hubs > 0) link += " through " + hubs + (hubs == 1 ? " hub" : " hubs");
+        QualityDetail = matchText + " " + steadyText + " " + cpuText + " Link: " + link + ".";
     }
 
     public void AnalyzeDpi()
@@ -981,20 +1425,44 @@ public sealed partial class InputViewModel : ObservableObject, IDisposable
         _ui.TryEnqueue(() =>
         {
             if (!_testVisible) return;
-            TestStatusText = "Measuring: " + live.Reports + " reports in " + Math.Round(live.Seconds, 1) + " s.";
             LiveButtonsText = ButtonsText(live.Buttons);
             LiveWheelText = "Wheel " + live.Wheel + ", horizontal " + live.HWheel + ".";
             double gapSeconds = live.Seconds - _roadSeconds;
             long gapReports = live.Reports - _roadReports;
-            if (gapSeconds > 0 && gapReports >= 0)
-            {
-                double speed = gapReports / gapSeconds;
-                LiveSpeedText = ((long)Math.Round(speed)) + " counts/sec";
-                try { RoadUpdate?.Invoke(speed); }
-                catch { }
-            }
+            long gapX = live.MoveX - _liveMoveX;
+            long gapY = live.MoveY - _liveMoveY;
             _roadSeconds = live.Seconds;
             _roadReports = live.Reports;
+            _liveMoveX = live.MoveX;
+            _liveMoveY = live.MoveY;
+            if (gapSeconds <= 0 || gapReports < 0) return;
+            double hz = live.WindowHz;
+            double distance = Math.Sqrt((double)gapX * gapX + (double)gapY * gapY);
+            double counts = distance / gapSeconds;
+            LiveHzText = hz > 0 ? ((long)Math.Round(hz)) + " Hz" : "—";
+            LiveCountsText = ((long)Math.Round(counts)) + " counts/s";
+            CpuUsageText = "Capture thread " + Math.Round(live.ThreadCpuPercent, 2)
+                + "% of one core over " + Math.Round(live.Seconds, 1) + " s. System load " + Math.Round(live.SystemCpuPercent, 1) + "%.";
+            CpuShortText = Math.Round(live.ThreadCpuPercent, 1) + "% / " + Math.Round(live.SystemCpuPercent, 0) + "%";
+            try { PressedButtonsChanged?.Invoke(live.Buttons); } catch { }
+            UpdateLiveQuality(live);
+            TestSourceText = live.FallbackActive
+                ? "Counted all mouse reports on this PC; the selected mouse was not labeled separately."
+                : "Counted reports from the selected mouse.";
+            TestStatusText = hz > 0
+                ? "Measured " + Math.Round(hz) + " Hz over the last second  ·  " + live.Reports + " reports so far."
+                : "Move the mouse continuously for a measurement.";
+            try
+            {
+                Motion?.Invoke(new InputMotionSample
+                {
+                    Hertz = hz,
+                    CountsPerSecond = counts,
+                    DeltaX = (int)Math.Clamp(gapX, int.MinValue, int.MaxValue),
+                    DeltaY = (int)Math.Clamp(gapY, int.MinValue, int.MaxValue),
+                });
+            }
+            catch { }
         });
     }
 

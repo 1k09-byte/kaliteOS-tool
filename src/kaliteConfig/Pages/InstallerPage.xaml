@@ -136,25 +136,17 @@
     <Grid x:Name="RootGrid" UseLayoutRounding="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="28,16,28,0" Spacing="2">
             <TextBlock Text="Apps" Style="{StaticResource TitleTextBlockStyle}" />
-            <TextBlock Text="Install the essentials in one click, or remove what you no longer use."
+            <TextBlock Text="Install the essentials in one click. Removing apps lives on the Uninstaller page."
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <SelectorBar x:Name="MainSelectorBar" Grid.Row="1" Margin="28,8,28,0"
-                     HorizontalAlignment="Left"
-                     SelectionChanged="MainSelectorBar_SelectionChanged">
-            <SelectorBarItem x:Name="TabInstall" Text="Install" IsSelected="True" />
-            <SelectorBarItem x:Name="TabUninstall" Text="Uninstall" />
-        </SelectorBar>
-
-        <Grid x:Name="InstallPanel" Grid.Row="2">
+        <Grid x:Name="InstallPanel" Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -273,7 +265,6 @@
             </ScrollViewer>
         </Grid>
 
-        <local:UninstallerPage x:Name="UninstallPanel" Grid.Row="2" Visibility="Collapsed" />
     </Grid>
 </Page>
 

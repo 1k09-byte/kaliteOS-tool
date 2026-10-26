@@ -45,6 +45,7 @@ public sealed class MouseInterfaceInfo
     public ushort ProductId { get; set; }
     public ushort UsagePage { get; set; }
     public ushort Usage { get; set; }
+    public int FeatureLength { get; set; }
     public bool VendorDefined { get; set; }
 }
 
@@ -74,6 +75,9 @@ public sealed class MouseDevice
     public string VendorSoftwareName { get; set; } = string.Empty;
     public bool BehindReceiver { get; set; }
     public bool IsVirtual { get; set; }
+    public string PortChain { get; set; } = string.Empty;
+    public string PortLabel { get; set; } = string.Empty;
+    public int HubDepth { get; set; }
     public string Nickname { get; set; } = string.Empty;
     public bool ForceShow { get; set; }
     public List<MouseInterfaceInfo> Interfaces { get; } = new();

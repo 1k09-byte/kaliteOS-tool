@@ -41,14 +41,6 @@
     <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Padding="28,8,28,16" Spacing="12">
 
-            <StackPanel Spacing="4">
-                <TextBlock Text="Personalize" Style="{StaticResource TitleLargeTextBlockStyle}" />
-                        <TextBlock Text="Customize your cursor and choose a desktop wallpaper."
-                           Style="{StaticResource BodyTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-
             <SelectorBar x:Name="SectionBar" SelectionChanged="SectionBar_SelectionChanged">
                 <SelectorBarItem x:Name="WallpaperItem" Text="Wallpaper" Tag="wallpaper" IsSelected="True" />
                 <SelectorBarItem x:Name="CursorItem" Text="Cursor" Tag="cursor" />

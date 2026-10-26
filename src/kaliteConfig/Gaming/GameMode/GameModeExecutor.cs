@@ -314,13 +314,22 @@ public sealed class GameModeExecutor
                 return decision with { Outcome = GameModeOutcome.SkippedSafety, Message = "Left alone (real-time priority)" };
 
             var entry = NewEntry(fact, BackgroundAction.GameBoost, original, 0, 0, 0);
+            if (NativeMethods.Priority.GetProcessPriorityBoost(handle, out bool boostWasDisabled))
+            {
+                entry.OriginalProcessBoostDisabled = boostWasDisabled;
+                if (!boostWasDisabled && NativeMethods.Priority.SetProcessPriorityBoost(handle, true))
+                    entry.ProcessBoostChanged = true;
+            }
             _journal.Add(entry);
 
             var (junkBoostOff, junkLowered) = SweepGameThreads(fact);
-            string junkSummary = junkBoostOff.Count == 0 && junkLowered.Count == 0 ? string.Empty
-                : $"; {junkBoostOff.Count} junk thread boost(s) off, {junkLowered.Count} junk thread(s) lowered";
-            if (junkBoostOff.Count > 0 || junkLowered.Count > 0)
-                _journal.UpsertThreadState(fact.Pid, fact.CreationTicks, string.Join(',', junkBoostOff), FormatThreadTweaks(junkLowered));
+            var boostOff = new List<uint>(junkBoostOff);
+            foreach (uint tid in DisableThreadBoosts(fact.Pid))
+                if (!boostOff.Contains(tid)) boostOff.Add(tid);
+            string junkSummary = boostOff.Count == 0 && junkLowered.Count == 0 ? string.Empty
+                : $"; {boostOff.Count} thread boost(s) off, {junkLowered.Count} junk thread(s) lowered";
+            if (boostOff.Count > 0 || junkLowered.Count > 0)
+                _journal.UpsertThreadState(fact.Pid, fact.CreationTicks, string.Join(',', boostOff), FormatThreadTweaks(junkLowered));
 
             bool boostPriority = original != NativeMethods.GameMode.AboveNormalPriorityClass
                 && original != NativeMethods.GameMode.HighPriorityClass;
@@ -328,11 +337,11 @@ public sealed class GameModeExecutor
             if (!boostPriority)
             {
                 if (!isolate)
-                    return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Game priority already high; left alone" };
+                    return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Game priority already high; boost disabled" };
                 if (!TryReadCpuSets(handle, out uint[] gameCurrent, out bool gameRestricted))
-                    return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Game priority already high; CPU sets unreadable" };
+                    return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Game priority already high; boost disabled; CPU sets unreadable" };
                 if (cpuPlan is not { Available: true })
-                    return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Game priority already high; left alone" };
+                    return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Game priority already high; boost disabled" };
                 var gameSet = gameRestricted ? gameCurrent : cpuPlan.SystemIds;
                 if (new HashSet<uint>(gameSet).SetEquals(cpuPlan.GameIds))
                     return decision with { Outcome = GameModeOutcome.AlreadyInState, Message = "Already in that state" };
@@ -351,7 +360,7 @@ public sealed class GameModeExecutor
                 }
             }
 
-            var applied = decision with { Outcome = GameModeOutcome.AppliedVerified, Message = (boostPriority ? "Game boosted, verified" : "Game priority already high; left alone") + junkSummary };
+            var applied = decision with { Outcome = GameModeOutcome.AppliedVerified, Message = (boostPriority ? "Game boosted, verified" : "Game priority already high; boost disabled") + junkSummary };
             if (!isolate)
                 return applied;
 
@@ -558,6 +567,8 @@ public sealed class GameModeExecutor
             }
         }
 
+        if (entry.ProcessBoostChanged)
+            ok &= NativeMethods.Priority.SetProcessPriorityBoost(handle, entry.OriginalProcessBoostDisabled);
         if (!string.IsNullOrEmpty(entry.BoostDisabledTids))
             RestoreThreadBoosts(ParseTids(entry.BoostDisabledTids));
         if (!string.IsNullOrEmpty(entry.ThreadPriorityTweaks))
