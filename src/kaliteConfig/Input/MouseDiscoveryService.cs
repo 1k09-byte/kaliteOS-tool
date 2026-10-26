@@ -59,6 +59,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
     public void Refresh()
     {
         var found = Enumerate();
+        UsbTree.Apply(found);
         var (present, name) = _vendor.Detect(_catalog);
         foreach (var device in found)
         {
@@ -91,6 +92,8 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             + "Container: " + (device.ContainerId.Length > 0 ? device.ContainerId : "none") + "\n"
             + "Bus description: " + (device.BusDescription.Length > 0 ? device.BusDescription : "not reported") + "\n"
             + "Parent: " + (device.ParentId.Length > 0 ? device.ParentId : "not reported") + "\n"
+            + "USB tree: " + (device.PortChain.Length > 0 ? device.PortChain : "not reported") + "\n"
+            + "USB port: " + (device.PortLabel.Length > 0 ? device.PortLabel : "not reported") + "\n"
             + "Path: " + device.InterfacePath + "\n"
             + "Connection: " + ConnectionText(device.Connection) + "\n"
             + "Open: " + device.OpenResult + "\n"
@@ -187,6 +190,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         var devices = new List<MouseDevice>();
         var mouseInfos = new List<RawInterface>();
         var auxInfos = new List<RawInterface>();
+        var keyboardPaths = new List<string>();
         try
         {
             uint count = RawListCount();
@@ -205,8 +209,12 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                     var info = ReadInterface(list.Handle, list.Type, ref firstError);
                     if (info is null) { _dropped++; continue; }
                     info.Handle = (ulong)list.Handle.ToInt64();
+                    if (info.Kind == NativeInput.RimTypeKeyboard)
+                    {
+                        keyboardPaths.Add(info.Path);
+                        continue;
+                    }
                     if (list.Type == NativeInput.RimTypeMouse) mouseInfos.Add(info);
-                    else if (list.Type == NativeInput.RimTypeKeyboard) auxInfos.Add(info);
                     else if (list.Type == NativeInput.RimTypeHid && info.VendorDefined) auxInfos.Add(info);
                 }
             }
@@ -221,24 +229,17 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         }
         var setupPaths = MapSetupPaths();
         if (setupPaths.Count == 0) firstError ??= "The device tree could not be enumerated.";
-        var pathsById = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var known in setupPaths.Values)
+        var keyboardContainers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string keyboardPath in keyboardPaths)
         {
-            if (known.RawPath.Length == 0) continue;
-            ParseHidPath(known.RawPath, out ushort svid, out ushort spid, out _);
-            if (svid == 0) continue;
-            string skey = svid.ToString("X4") + ":" + spid.ToString("X4");
-            if (!pathsById.TryGetValue(skey, out var list))
-            {
-                list = new List<string>();
-                pathsById[skey] = list;
-            }
-            if (!list.Contains(known.RawPath)) list.Add(known.RawPath);
+            if (!setupPaths.TryGetValue(NormPath(keyboardPath), out var keyboardSetup)) continue;
+            if (keyboardSetup.ContainerId.Length > 0) keyboardContainers.Add(keyboardSetup.ContainerId);
         }
         var vendorById = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         var auxByContainer = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
         foreach (var aux in auxInfos)
         {
+            if (aux.Kind == NativeInput.RimTypeKeyboard) continue;
             if (!setupPaths.TryGetValue(NormPath(aux.Path), out var setup)) continue;
             if (setup.ContainerId.Length == 0) continue;
             var entry = new MouseInterfaceInfo
@@ -282,20 +283,27 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 if (vendorById.TryGetValue(key, out var bucket))
                     foreach (var face in bucket)
                         if (!HasPath(device, face.DevicePath)) device.Interfaces.Add(face);
-                if (pathsById.TryGetValue(key, out var pathList))
-                    foreach (string known in pathList)
-                        if (!HasPath(device, known))
-                            device.Interfaces.Add(new MouseInterfaceInfo
-                            {
-                                DevicePath = known,
-                                VendorId = device.VendorId,
-                                ProductId = device.ProductId,
-                                VendorDefined = true,
-                            });
+                foreach (var entry in setupPaths.Values)
+                {
+                    if (entry.UsagePage == 1 && entry.Usage == 6) continue;
+                    ParseHidPath(entry.RawPath, out ushort svid, out ushort spid, out _);
+                    if (svid != device.VendorId || spid != device.ProductId) continue;
+                    if (HasPath(device, entry.RawPath)) continue;
+                    device.Interfaces.Add(new MouseInterfaceInfo
+                    {
+                        DevicePath = entry.RawPath,
+                        VendorId = svid,
+                        ProductId = spid,
+                        UsagePage = entry.UsagePage,
+                        Usage = entry.Usage,
+                        FeatureLength = entry.FeatureLength,
+                        VendorDefined = entry.UsagePage >= 0xFF00,
+                    });
+                }
             }
             devices.Add(device);
         }
-        MarkReceivers(devices);
+        MarkReceivers(devices, keyboardContainers);
         _scanError = firstError ?? string.Empty;
         return devices;
     }
@@ -436,11 +444,21 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         IntPtr infoBuffer = Marshal.AllocHGlobal(128);
         try
         {
-            byte[] blank = new byte[128];
-            Marshal.Copy(blank, 0, infoBuffer, 128);
-            Marshal.WriteInt32(infoBuffer, 0, 32);
             uint infoSize = 128;
-            if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) == unchecked((uint)-1))
+            bool gotInfo = false;
+            foreach (int structSize in new int[] { 32, 24 })
+            {
+                byte[] blank = new byte[128];
+                Marshal.Copy(blank, 0, infoBuffer, 128);
+                Marshal.WriteInt32(infoBuffer, 0, structSize);
+                infoSize = 128;
+                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) != unchecked((uint)-1))
+                {
+                    gotInfo = true;
+                    break;
+                }
+            }
+            if (!gotInfo)
             {
                 int code = Marshal.GetLastWin32Error();
                 firstError ??= "Reads failed at the device-info call (code " + code + ").";
@@ -545,6 +563,9 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         public string Maker = string.Empty;
         public string ParentId = string.Empty;
         public string BusDesc = string.Empty;
+        public ushort UsagePage;
+        public ushort Usage;
+        public int FeatureLength;
     }
 
     private static Dictionary<string, SetupEntry> MapSetupPaths()
@@ -574,17 +595,21 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                     try
                     {
                         for (int i = 0; i < devinfoSize; i++) Marshal.WriteByte(devinfo, i, 0);
-                        Marshal.WriteInt32(devinfo, devinfoSize);
+                        Marshal.WriteInt32(devinfo, 0, devinfoSize);
                         uint got = 0;
                         if (!NativeInput.SetupDiGetDeviceInterfaceDetailW(set, ref iface, detail, required, out got, devinfo)) continue;
                         string path = Marshal.PtrToStringUni(IntPtr.Add(detail, 4)) ?? string.Empty;
                         if (path.Length == 0) continue;
+                        path = StripKeyboardSuffix(path);
                         var entry = new SetupEntry { DetailPath = path, RawPath = path };
                         entry.ContainerId = ReadContainer(set, devinfo);
                         entry.Maker = ReadMaker(set, devinfo);
                         entry.ParentId = ReadParent(set, devinfo);
                         entry.BusDesc = ReadBusDesc(set, devinfo);
+                        ReadCapsForPath(entry);
                         map[NormPath(path)] = entry;
+                        string instanceKey = InstanceKey(path);
+                        if (instanceKey.Length > 0) map["#" + instanceKey] = entry;
                     }
                     finally
                     {
@@ -603,6 +628,54 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             try { NativeInput.SetupDiDestroyDeviceInfoList(set); } catch { }
         }
         return map;
+    }
+
+    private static string InstanceKey(string path)
+    {
+        string[] parts = (path ?? string.Empty).Split('#');
+        return parts.Length >= 3 ? parts[2] : string.Empty;
+    }
+
+    private static string StripKeyboardSuffix(string path)
+    {
+        string text = path ?? string.Empty;
+        if (text.EndsWith("\\kbd", StringComparison.OrdinalIgnoreCase)) text = text.Substring(0, text.Length - 4);
+        return text;
+    }
+
+    private static void ReadCapsForPath(SetupEntry entry)
+    {
+        IntPtr handle = NativeInput.CreateFileW(entry.RawPath, 0, 3, IntPtr.Zero, 3, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return;
+        try
+        {
+            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero) return;
+            try
+            {
+                IntPtr caps = Marshal.AllocHGlobal(64);
+                try
+                {
+                    for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
+                    if (NativeInput.HidP_GetCaps(preparsed, caps) < 0) return;
+                    entry.Usage = (ushort)Marshal.ReadInt16(caps, 0);
+                    entry.UsagePage = (ushort)Marshal.ReadInt16(caps, 2);
+                    entry.FeatureLength = (ushort)Marshal.ReadInt16(caps, 8);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(caps);
+                }
+            }
+            finally
+            {
+                try { NativeInput.HidD_FreePreparsedData(preparsed); } catch { }
+            }
+        }
+        catch { }
+        finally
+        {
+            try { NativeInput.CloseHandle(handle); } catch { }
+        }
     }
 
     private static string NormPath(string path)
@@ -704,7 +777,12 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
             string container = string.Empty;
             string parent = string.Empty;
             string busDesc = string.Empty;
-            if (setupPaths.TryGetValue(NormPath(info.Path), out var setup))
+            if (!setupPaths.TryGetValue(NormPath(info.Path), out var setup))
+            {
+                string instanceKey = InstanceKey(info.Path);
+                if (instanceKey.Length > 0) setupPaths.TryGetValue("#" + instanceKey, out setup);
+            }
+            if (setup != null)
             {
                 container = setup.ContainerId;
                 parent = setup.ParentId;
@@ -715,6 +793,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                     source = "device node";
                 }
             }
+            if (container.Length == 0) container = InstanceKey(info.Path);
             var device = new MouseDevice
             {
                 VendorId = vid,
@@ -737,7 +816,7 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
                 : "Interface could not be opened (code " + info.OpenError + "). Device-node values used.";
             device.ParentId = parent;
             device.BusDescription = busDesc;
-            device.Connection = ClassifyConnection(info.Path, instance, parent);
+            device.Connection = ClassifyConnection(info.Path, instance, parent, busDesc);
             device.Interfaces.Add(new MouseInterfaceInfo
             {
                 Handle = info.Handle,
@@ -772,9 +851,9 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         if (parts.Length >= 3) instance = parts[2];
     }
 
-    private static MouseConnection ClassifyConnection(string path, string instance, string parent)
+    private static MouseConnection ClassifyConnection(string path, string instance, string parent, string busDesc)
     {
-        string text = ((path ?? string.Empty) + "|" + (instance ?? string.Empty) + "|" + (parent ?? string.Empty)).ToUpperInvariant();
+        string text = ((path ?? string.Empty) + "|" + (instance ?? string.Empty) + "|" + (parent ?? string.Empty) + "|" + (busDesc ?? string.Empty)).ToUpperInvariant();
         if (text.Contains("BTHENUM") || text.Contains("BTHUSB") || text.Contains("BLUETOOTH")) return MouseConnection.Bluetooth;
         if (text.Contains("USB")) return MouseConnection.Usb;
         if (text.Contains("HID")) return MouseConnection.Other;
@@ -789,20 +868,16 @@ public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
         return false;
     }
 
-    private static void MarkReceivers(List<MouseDevice> devices)
+    private static void MarkReceivers(List<MouseDevice> devices, HashSet<string> keyboardContainers)
     {
         foreach (var device in devices)
         {
-            bool keyboard = false;
-            bool multi = device.Interfaces.Count > 1;
-            if (!multi) continue;
-            foreach (var iface in device.Interfaces)
-                if (iface.Kind == NativeInput.RimTypeKeyboard) keyboard = true;
-            if (keyboard && device.Connection == MouseConnection.Usb)
-            {
-                device.BehindReceiver = true;
-                device.Connection = MouseConnection.Receiver24Ghz;
-            }
+            if (device.Interfaces.Count <= 1) continue;
+            if (device.Connection != MouseConnection.Usb) continue;
+            if (device.ContainerId.Length == 0) continue;
+            if (!keyboardContainers.Contains(device.ContainerId)) continue;
+            device.BehindReceiver = true;
+            device.Connection = MouseConnection.Receiver24Ghz;
         }
     }
 }

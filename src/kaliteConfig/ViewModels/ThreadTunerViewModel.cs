@@ -64,6 +64,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     private void Profiles_RulesChanged(object? sender, EventArgs e) => SyncProfiles();
 
+    public void ResumePolling()
+    {
+        try { _timer.Start(); } catch { }
+    }
+
     public void Shutdown()
     {
         try { _timer.Stop(); } catch { }

@@ -29,9 +29,21 @@ public interface IMouseLog
 
 public sealed class MouseLog : IMouseLog
 {
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? _ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
     public ObservableCollection<MouseLogRow> Rows { get; } = new();
 
     public void Add(string device, string action, MouseResult result, string message)
+    {
+        if (_ui != null && !_ui.HasThreadAccess)
+        {
+            _ui.TryEnqueue(() => AddNow(device, action, result, message));
+            return;
+        }
+        AddNow(device, action, result, message);
+    }
+
+    private void AddNow(string device, string action, MouseResult result, string message)
     {
         string stamp = DateTime.Now.ToString("HH:mm:ss");
         try

@@ -140,6 +140,7 @@ namespace kaliteConfig.Pages
                 MainSelectorBar.SelectedItem = TabProcesses;
             }
 
+            ViewModel.ResumePolling();
             ViewModel.LoadProcessesCommand.Execute(null);
             HookSuspendUi();
             HookRulesChanged();

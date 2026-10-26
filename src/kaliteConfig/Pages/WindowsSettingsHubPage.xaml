@@ -7,9 +7,23 @@
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d" Background="Transparent" NavigationCacheMode="Disabled">
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Margin="28,16,28,0" Text="Windows Settings" Style="{StaticResource TitleTextBlockStyle}" />
-        <ScrollViewer Grid.Row="1" Padding="28,8,28,20" VerticalScrollBarVisibility="Auto"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="28,16,28,0" Spacing="2">
+            <TextBlock Text="Windows Settings" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="System switches and the appearance of Windows, in one place."
+                       Style="{StaticResource BodyTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+        </StackPanel>
+        <SelectorBar x:Name="HubBar" Grid.Row="1" Margin="28,8,28,4" HorizontalAlignment="Left"
+                     SelectionChanged="HubBar_SelectionChanged">
+            <SelectorBarItem x:Name="SystemTab" Text="System" IsSelected="True" />
+            <SelectorBarItem x:Name="PersonalizationTab" Text="Personalization" />
+        </SelectorBar>
+        <ScrollViewer x:Name="SystemPanel" Grid.Row="2" Padding="28,8,28,20" VerticalScrollBarVisibility="Auto"
                       HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
             <StackPanel x:Name="SettingsPanel" Spacing="8">
                 <Border Style="{StaticResource CardBorder}" Padding="12">
@@ -17,6 +31,7 @@
 
                         <toolkit:SettingsCard x:Name="TimerExpCard" Header="Serialized timer expiration" Margin="0,0,0,2"><ToggleSwitch x:Name="TimerExpToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="TimerExpiration"/></toolkit:SettingsCard>
                         <toolkit:SettingsCard x:Name="MmcssCard" Header="Multimedia Class Scheduler (MMCSS)"><ToggleSwitch x:Name="MmcssToggle" OffContent="Off" OnContent="On" Toggled="KernelToggle_Toggled" RightTapped="KernelToggle_RightTapped" Tag="MmcssStatus"/></toolkit:SettingsCard>
+                        <toolkit:SettingsCard x:Name="HibernateCard" Header="Hibernation" Description="Turning it off clears the hibernate flags and keeps fast startup off. Needs administrator rights."><ToggleSwitch x:Name="HibernateToggle" OffContent="Off" OnContent="On" Toggled="Hibernate_Toggled"/></toolkit:SettingsCard>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardBorder}" Padding="12">
@@ -55,5 +70,6 @@
                 </Border>
             </StackPanel>
         </ScrollViewer>
+        <Frame x:Name="PersonalizationFrame" Grid.Row="2" CacheSize="0" Visibility="Collapsed" />
     </Grid>
 </Page>

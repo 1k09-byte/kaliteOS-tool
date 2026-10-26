@@ -48,8 +48,9 @@
             Width="76"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
-            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-            IsHitTestVisible="False" />
+            Background="{ThemeResource KaliteChromeSurfaceBrush}"
+            IsHitTestVisible="False"
+            Visibility="Collapsed" />
 
         <Grid x:Name="NavShell" Grid.Row="0" Grid.RowSpan="2">
             <Grid.Transitions>
@@ -66,6 +67,7 @@
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             IsPaneToggleButtonVisible="False"
+            BorderThickness="0"
             PaneDisplayMode="Left"
             OpenPaneLength="76"
             CompactPaneLength="76"
@@ -79,11 +81,22 @@
                 <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
 
                 <SolidColorBrush x:Key="NavigationViewBackground" Color="{ThemeResource KaliteChromeSurfaceColor}" />
+                <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+                <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
 
               </ResourceDictionary>
             </NavigationView.Resources>
             
             <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="HomeRailItem" Style="{StaticResource RailNavItemStyle}" Content="Home" Tag="HomePage" AutomationProperties.Name="Home" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Apps" Tag="AppsPage" AutomationProperties.Name="App Manager" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
@@ -92,7 +105,7 @@
                         <PathIcon Data="M4.5 17.0009C3.7203 17.0009 3.07955 16.406 3.00687 15.6454L3 15.5009V4.50092C3 3.72122 3.59489 3.08047 4.35554 3.00778L4.5 3.00092H9C9.7797 3.00092 10.4204 3.5958 10.4931 4.35646L10.5 4.50092V4.75534L12.6886 2.48609C13.2276 1.92691 14.0959 1.8766 14.6956 2.34798L14.8118 2.44922L17.5694 5.17386C18.1219 5.71976 18.1614 6.5886 17.68 7.18505L17.5767 7.30053L15.266 9.50034L15.5 9.50092C16.2797 9.50092 16.9204 10.0958 16.9931 10.8565L17 11.0009V15.5009C17 16.2806 16.4051 16.9214 15.6445 16.994L15.5 17.0009H4.5ZM9.5 10.5009H4V15.5009C4 15.7157 4.13542 15.8988 4.32553 15.9696L4.41012 15.9929L4.5 16.0009H9.5V10.5009ZM15.5 10.5009H10.5V16.0009H15.5C15.7455 16.0009 15.9496 15.824 15.9919 15.5908L16 15.5009V11.0009C16 10.7555 15.8231 10.5513 15.5899 10.509L15.5 10.5009ZM10.5 7.71034V9.50034H12.29L10.5 7.71034ZM9 4.00092H4.5C4.25454 4.00092 4.05039 4.17779 4.00806 4.41104L4 4.50092V9.50092H9.5V4.50092C9.5 4.28614 9.36458 4.10299 9.17447 4.0322L9.08988 4.00897L9 4.00092Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Graphics" Tag="GraphicsPage" AutomationProperties.Name="Graphics Control" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
@@ -111,26 +124,39 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Drivers" Tag="DriversPage" AutomationProperties.Name="Drivers" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE90F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Uninstaller" Tag="UninstallerPage" AutomationProperties.Name="Uninstaller" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE74D;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Startup" Tag="StartupPage" AutomationProperties.Name="Startup" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7E8;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Tuning" Tag="ThreadTunerPage" AutomationProperties.Name="Process Tuning" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
                         <PathIcon Data="M5.5 2C6.88071 2 8 3.11929 8 4.5V6H13.5C14.3644 6 15.1118 6.49525 15.5413 7.21041L15.65 7.4243L17.8184 12.0125C17.9352 12.2596 18.0002 12.5293 18.0002 12.8055C18.0028 13.9213 17.1517 14.8569 16.0353 14.9926L15.8053 15C14.7061 15 13.8052 14.1083 13.8052 13.003L13.8043 12.84L12.0002 9V15.5C12.0002 16.8285 10.963 17.9157 9.65487 17.9947L9.50025 18C8.16335 18 7.06877 16.9535 7.00551 15.6322L7.00025 15.5V8H5.5C4.16335 8 3.06877 6.95353 3.00551 5.63222L3 5.5C3 4.16335 4.04647 3.06877 5.36778 3.00551L5.5 3H5.50025V4.5H7.00025V6H5.5C5.4673 6 5.4349 6.00122 5.40284 6.00363L5.35086 6.00977C5.16104 6.03756 5.09351 6.05929 5.03554 6.08272C4.54589 6.28183 4.15615 6.64303 3.93175 7.10304C3.89679 7.17466 3.86438 7.26629 3.84443 7.33088C3.82092 7.40698 3.80216 7.47895 3.79133 7.55013H4C4 7.55013 4 7.50536 4.00412 7.4586C4.019 7.28976 4.08486 7.02692 4.25056 6.78443L4.31688 6.69537C4.59473 6.34568 5.00696 6.09675 5.51865 6.00025H7C7.51169 6.09675 7.92392 6.34568 8.20177 6.69537L8.26809 6.78443C8.42398 6.99839 8.5 7.22941 8.5 7.5H4C4 7.77614 4.22386 8 4.5 8H8.5C8.77614 8 9 7.77614 9 7.5C9 7.22941 8.92398 6.99839 8.76809 6.78443L8.70177 6.69537C8.42392 6.34568 8.01169 6.09675 7.50025 6H8C9.32854 6 10.4157 7.03703 10.4947 8.34513L10.5 8.5V11H12.5C12.7761 11 13 11.2239 13 11.5C13 11.7294 12.8368 11.9213 12.6176 11.9806L12.55 12H10.5V14.5C10.5 14.7761 10.2239 15 9.95 15C9.72064 15 9.52874 14.8368 9.46939 14.6176L9.45 14.55V8C9.45 6.67157 10.487 5.5843 11.7951 5.5053L11.95 5.5H13.5C14.0006 5.5 14.4552 5.68819 14.8 5.99222L14.8872 6.08253C14.949 6.15545 15.006 6.23358 15.0577 6.31681L15.1106 6.40698L17.279 10.9951C17.3496 11.1444 17.3912 11.3093 17.4243 11.4883L17.4398 11.5834L17.4492 11.6997C17.4497 12.28 16.9956 12.7607 16.4253 12.8258L16.3353 12.833L16.1453 12.8355C15.5458 12.8355 15.0506 12.3734 15.0258 11.7828L15.0243 11.6669V8.50025H13.5002C13.2241 8.50025 13.0002 8.72411 13.0002 9.00025V13.003L13.0016 13.11C13.0416 13.5519 13.4111 13.8824 13.8564 13.9039L13.9189 13.9056H16.0354H16.0851H16.1454C16.8927 13.9056 17.5199 13.4079 17.6534 12.6933C17.7001 12.4431 17.6853 12.1878 17.6087 11.9427L17.5683 11.8219L15.4 7.23376C14.9288 6.23668 13.9183 5.56834 12.8217 5.55018L12.65 5.5H8.00025C7.96541 5.5 7.93043 5.50294 7.89552 5.5087L7.8488 5.5186L7.8488 4.5H5.50025Z" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="BIOS" Tag="BiosManagerPage" AutomationProperties.Name="BIOS Control" Padding="0">
-                    <ToolTipService.ToolTip>
-                        <ToolTip Visibility="Collapsed" />
-                    </ToolTipService.ToolTip>
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9D9;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Personalize" Tag="PersonalizePage" AutomationProperties.Name="Personalize Windows Appearance" Padding="0">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE771;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
@@ -160,12 +186,22 @@
                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE839;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+
                 <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="Input" Tag="InputPage" AutomationProperties.Name="Mouse Input" Padding="0">
                     <ToolTipService.ToolTip>
                         <ToolTip Visibility="Collapsed" />
                     </ToolTipService.ToolTip>
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE962;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Style="{StaticResource RailNavItemStyle}" Content="BIOS" Tag="BiosManagerPage" AutomationProperties.Name="BIOS Control" Padding="0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Visibility="Collapsed" />
+                    </ToolTipService.ToolTip>
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
@@ -190,17 +226,7 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" CacheSize="0" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" FontFamily="{StaticResource KaliteBodyFontFamily}">
-                    <Frame.ContentTransitions>
-                        <TransitionCollection>
-                            <NavigationThemeTransition>
-                                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                                    <SlideNavigationTransitionInfo Effect="FromRight" />
-                                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
-                            </NavigationThemeTransition>
-                        </TransitionCollection>
-                    </Frame.ContentTransitions>
-                </Frame>
+            <Frame x:Name="ContentFrame" CacheSize="0" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" FontFamily="{StaticResource KaliteBodyFontFamily}" />
         </NavigationView>
 
             <Border
@@ -219,6 +245,85 @@
             </Border>
         </Grid>
 
+        <Button x:Name="TopHomeButton"
+                Grid.Row="0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Margin="12,0,0,0"
+                Padding="8,4"
+                Visibility="Collapsed"
+                Click="TopHomeButton_Click"
+                UseSystemFocusVisuals="False"
+                Canvas.ZIndex="95"
+                ToolTipService.ToolTip="Home">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon Glyph="&#xE80F;" FontSize="14" />
+                <TextBlock Text="Home" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
+            </StackPanel>
+        </Button>
+
+        <Border x:Name="BottomDock"
+                Grid.Row="0" Grid.RowSpan="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,14"
+                Padding="10,8"
+                CornerRadius="18"
+                MaxWidth="920"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Visibility="Collapsed"
+                Canvas.ZIndex="95"
+                PointerEntered="BottomDock_PointerEntered"
+                PointerExited="BottomDock_PointerExited"
+                SizeChanged="BottomDock_SizeChanged">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="DockShift" />
+            </Border.RenderTransform>
+            <Grid ColumnSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" x:Name="DockLeft" Padding="6,8"
+                        VerticalAlignment="Center" Click="DockLeft_Click"
+                        ToolTipService.ToolTip="Scroll left"
+                        UseSystemFocusVisuals="False"
+                        AutomationProperties.Name="Scroll dock left"
+                        Background="Transparent" BorderThickness="0">
+                    <FontIcon Glyph="&#xE76B;" FontSize="14" />
+                </Button>
+                <ScrollViewer Grid.Column="1" x:Name="DockScroller"
+                              HorizontalScrollBarVisibility="Hidden"
+                              VerticalScrollBarVisibility="Disabled"
+                              HorizontalScrollMode="Auto"
+                              VerticalScrollMode="Disabled"
+                              VerticalAlignment="Center">
+                    <StackPanel x:Name="DockButtons" Orientation="Horizontal" Spacing="2" />
+                </ScrollViewer>
+                <Button Grid.Column="2" x:Name="DockRight" Padding="6,8"
+                        VerticalAlignment="Center" Click="DockRight_Click"
+                        ToolTipService.ToolTip="Scroll right"
+                        UseSystemFocusVisuals="False"
+                        AutomationProperties.Name="Scroll dock right"
+                        Background="Transparent" BorderThickness="0">
+                    <FontIcon Glyph="&#xE76C;" FontSize="14" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <InfoBar x:Name="AppNoticeBar"
+                 Grid.Row="0" Grid.RowSpan="2"
+                 Width="380"
+                 Margin="0,0,24,24"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Bottom"
+                 IsOpen="False"
+                 IsClosable="True"
+                 Canvas.ZIndex="90" />
+
         <TitleBar x:Name="titleBar" Grid.Row="0" FontFamily="{StaticResource KaliteBodyFontFamily}" />
         <Border
             x:Name="TitleFade"
@@ -226,53 +331,6 @@
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             IsHitTestVisible="False" />
-
-        <Border x:Name="KaliteOSStartupOverlay"
-                Grid.RowSpan="2"
-                Visibility="Collapsed"
-                Background="#E6000000"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch"
-                Canvas.ZIndex="100">
-            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="480">
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="24">
-                    <StackPanel Spacing="16">
-                        <StackPanel Spacing="4">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <FontIcon Glyph="&#xE713;" FontSize="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Setting up KaliteOS" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <TextBlock Text="First launch detected - installing Windhawk and importing mods. This may take a few minutes…"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" FontSize="12" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="8">
-                            <ProgressBar x:Name="KaliteOSProgressBar"
-                                         Minimum="0" Maximum="100" Value="0"
-                                         IsIndeterminate="True" />
-                            <TextBlock x:Name="KaliteOSProgressText"
-                                       Text="Preparing…"
-                                       FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" />
-                            <TextBlock x:Name="KaliteOSPercentText"
-                                       Text=""
-                                       FontSize="11"
-                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                       Visibility="Collapsed" />
-                        </StackPanel>
-
-                        <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
-                                   Text="Do not close the app. Progress is shown above; Windhawk installs silently and the bundled KaliteOS mods are imported automatically." />
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
 
     </Grid>
 </Window>

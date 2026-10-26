@@ -34,6 +34,8 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<IInstallerService>(sp => sp.GetRequiredService<InstallerService>());
         s.AddSingleton<WindhawkInstallerService>();
         s.AddSingleton<INavigationService, NavigationService>();
+        s.AddSingleton<Notifications.IAppNotificationService, Notifications.AppNotificationService>();
+        s.AddSingleton<HibernateSettingService>();
 
         s.AddSingleton<LiveWallpaper.IDesktopHostService, LiveWallpaper.DesktopHostService>();
         s.AddSingleton<LiveWallpaper.IWallpaperPowerMonitor, LiveWallpaper.WallpaperPowerMonitor>();
@@ -73,7 +75,8 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<Input.IWindowsMouseSettingsService, Input.WindowsMouseSettingsService>();
         s.AddSingleton<Input.IMouseTestService, Input.MouseTestService>();
         s.AddSingleton<Input.IMousePrefStore, Input.MousePrefStore>();
-        s.AddSingleton<Input.IMouseProtocol, Input.EndgameOp1Protocol>();
+        s.AddSingleton<Input.IPollRateAdvisor, Input.PollRateAdvisor>();
+        s.AddSingleton<Input.IMouseProtocol, Input.MouseHidConfigProtocol>();
         s.AddSingleton<Input.IMouseProtocolRegistry, Input.MouseProtocolRegistry>();
 
         s.AddTransient<InputViewModel>();

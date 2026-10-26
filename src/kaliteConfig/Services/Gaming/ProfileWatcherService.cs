@@ -165,42 +165,7 @@ public sealed class ProfileWatcherService : IDisposable
 
     private List<TunerProfile> CreateBuiltInDefaults()
     {
-        return new List<TunerProfile>
-        {
-            new TunerProfile
-            {
-                Name = "kaliteConfig (this app)",
-                Pattern = SelfProcessPattern,
-                PriorityClass = (uint)TunerPriorityClass.Idle,
-                BoostEnabled = false,
-                EfficiencyMode = true,
-                Enabled = true,
-                AutoApply = true
-            },
-
-            new TunerProfile
-            {
-                Name = "Input/Sensor Threads",
-                Pattern = "dwm.exe",
-                Enabled = true,
-                AutoApply = true,
-                ThreadRules = new ObservableCollection<TunerThreadRule>
-                {
-                    new TunerThreadRule
-                    {
-                        Description = "Master Input",
-                        Priority = (int)ThreadPriorityLevel.TimeCritical,
-                        EfficiencyMode = false
-                    },
-                    new TunerThreadRule
-                    {
-                        Description = "Kernel Sensor",
-                        Priority = (int)ThreadPriorityLevel.TimeCritical,
-                        EfficiencyMode = false
-                    }
-                }
-            }
-        };
+        return new List<TunerProfile>();
     }
 
     public async Task EnsureBuiltInDefaultsAsync()
@@ -214,6 +179,12 @@ public sealed class ProfileWatcherService : IDisposable
                 if (ActiveProfiles[i].Name == "DWM & Master Input" && IsOldDwmMasterInputShipment(ActiveProfiles[i]))
                 {
                     Log($"defaults: removed retired built-in 'DWM & Master Input'");
+                    ActiveProfiles.RemoveAt(i);
+                    changed = true;
+                }
+                else if (TouchesProtectedSystemProcess(ActiveProfiles[i].Pattern))
+                {
+                    Log($"defaults: removed profile that tuned a protected system process ([{ActiveProfiles[i].Name}])");
                     ActiveProfiles.RemoveAt(i);
                     changed = true;
                 }
@@ -288,40 +259,35 @@ public sealed class ProfileWatcherService : IDisposable
         {
             return IsOldDwmMasterInputShipment(p);
         }
-        if (p.Name == "Input/Sensor Threads")
+        return false;
+    }
+
+    private static readonly string[] ProtectedProcessPatterns =
+    {
+        "dwm", "csrss", "winlogon", "wininit", "services", "lsass", "smss", "system", "registry", "memory compression",
+        "kaliteconfig",
+    };
+
+    internal static bool TouchesProtectedSystemProcess(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return false;
+        foreach (string part in pattern.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (p.ThreadRules == null || p.ThreadRules.Count is not (2 or 3)) return false;
-
-            bool IsPlainHighest(TunerThreadRule r, string desc) =>
-                r.Description == desc && r.Priority == (int)ThreadPriorityLevel.Highest
-                && r.StartAddress == string.Empty && !r.MatchAllThreads
-                && r.BoostEnabled == null
-                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
-            bool IsPlainAboveNormal(TunerThreadRule r, string desc) =>
-                r.Description == desc && r.Priority == (int)ThreadPriorityLevel.AboveNormal
-                && r.StartAddress == string.Empty && !r.MatchAllThreads
-                && r.BoostEnabled == null
-                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
-
-            if (p.Pattern == "*")
-            {
-                if (p.ThreadRules.Count == 2)
-                {
-                    return IsPlainHighest(p.ThreadRules[0], "Input")
-                        && IsPlainAboveNormal(p.ThreadRules[1], "Sensor");
-                }
-                return IsPlainHighest(p.ThreadRules[0], "Input")
-                    && IsPlainHighest(p.ThreadRules[1], "Sensor")
-                    && IsPlainHighest(p.ThreadRules[2], "Kernel");
-            }
-            if (p.Pattern == "dwm.exe")
-            {
-                return IsPlainHighest(p.ThreadRules[0], "Master Input")
-                    && IsPlainHighest(p.ThreadRules[1], "Kernel Sensor");
-            }
-            return false;
+            string name = part.Trim('*', ' ').ToLowerInvariant();
+            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
+            if (ProtectedProcessPatterns.Contains(name)) return true;
         }
         return false;
+    }
+
+    private static bool IsProtectedProcess(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            return ProtectedProcessPatterns.Contains(process.ProcessName.ToLowerInvariant());
+        }
+        catch { return true; }
     }
 
     private static bool IsOldDwmMasterInputShipment(TunerProfile p)
@@ -594,6 +560,10 @@ public sealed class ProfileWatcherService : IDisposable
     public async Task<RuleApplyResult> ApplyProfileNowAsync(TunerProfile profile, bool quiet = false)
     {
         var pids = FindPids(profile.Pattern);
+        if (TouchesProtectedSystemProcess(profile.Pattern))
+        {
+            pids = pids.Where(pid => !IsProtectedProcess(pid)).ToList();
+        }
         Log($"apply-now: pattern=[{profile.Pattern}] pids=[{string.Join(",", pids)}]{(quiet ? " (keeper)" : "")}");
         if (pids.Count == 0)
         {

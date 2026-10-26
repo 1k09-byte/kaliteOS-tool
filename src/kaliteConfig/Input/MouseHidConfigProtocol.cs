@@ -5,12 +5,12 @@ using kaliteConfig.Input.Interop;
 
 namespace kaliteConfig.Input;
 
-public sealed class EndgameOp1Protocol : IMouseProtocol
+public sealed class MouseHidConfigProtocol : IMouseProtocol
 {
-    public string Id => "endgame-gear-op1";
+    public string Id => "hid-config";
     public bool EnabledByDefault => false;
     public string LastError { get; private set; } = string.Empty;
-    public static string Source => "Community-documented HID protocol, OpenMouse mouse-protocol";
+    public static string Source => "Community-documented HID configuration protocol, OpenMouse mouse-protocol";
 
     private const ushort VendorId = 0x3367;
     private const byte ReportConfig = 0xA0;
@@ -27,36 +27,54 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
     private const int OffMotion = 28;
     private const int OffLevels = 30;
     private const int OffStages = 51;
+    private const int OffButtons = 77;
+    private const byte SpdtSpeed = 0xF1;
+    private const byte SpdtSafe = 0xF0;
+    private const byte SpdtOff = 0x08;
     private const byte FlagSlam = 0x01;
     private const byte FlagJitter = 0x10;
+    private const int MaxMulticlick = 25;
+    private const int ButtonCount = 5;
 
-    private static readonly ushort[] WiredPids = new ushort[] { 0x1964, 0x1966, 0x1976, 0x1978, 0x1980 };
-    private static readonly ushort[] V2Pids = new ushort[] { 0x1976, 0x1978, 0x1980 };
+    private static readonly ushort[] KnownPids = new ushort[] { 0x1964, 0x1966, 0x1976, 0x1978, 0x1980, 0x1990, 0x1991 };
+    private static readonly ushort[] V2Pids = new ushort[] { 0x1976, 0x1978, 0x1980, 0x1990, 0x1991 };
     private static readonly int[] Rates = new int[] { 125, 250, 500, 1000, 2000, 4000, 8000 };
+    private static readonly string[] SpdtNames = new string[] { "Off", "GX Speed", "GX Safe" };
 
     private string _livePath = string.Empty;
     private int _liveFeature;
+    private int[] _liveRates = Array.Empty<int>();
 
-    public static bool IsAllowedId(ushort vid, ushort pid)
+    public static bool IsKnownVendor(ushort vid) => vid == VendorId;
+
+    public static bool IsKnownId(ushort vid, ushort pid)
     {
         if (vid != VendorId) return false;
-        foreach (ushort p in WiredPids)
+        foreach (ushort p in KnownPids)
             if (p == pid) return true;
         return false;
     }
 
-    public static IReadOnlyList<int> SupportedRates() => Rates;
+    public IReadOnlyList<int> SupportedRates => _liveRates;
 
-    IReadOnlyList<int> IMouseProtocol.SupportedRates => Rates;
+    private static bool RateKnown(int[] rates, int rate) => Array.IndexOf(rates, rate) >= 0;
 
-    public bool Matches(MouseDevice device) => IsAllowedId(device.VendorId, device.ProductId);
+    public bool Matches(MouseDevice device)
+    {
+        if (device is null || device.IsVirtual) return false;
+        if (IsKnownVendor(device.VendorId)) return true;
+        foreach (var face in device.Interfaces)
+            if (face.FeatureLength >= 64 || face.VendorDefined) return true;
+        return false;
+    }
 
     public MouseDeviceSettings? TryRead(MouseDevice device)
     {
         string? path = ChoosePath(device, out byte[]? config);
         if (path is null || config is null) return null;
-        bool v2 = IsV2(device.ProductId);
-        return new MouseDeviceSettings
+        NoteRates(config);
+        bool v2 = IsV2(device.ProductId) || config[OffLod] > 2;
+        var settings = new MouseDeviceSettings
         {
             DpiX = ReadU16(config, OffStages + 1),
             DpiY = ReadU16(config, OffStages + 3),
@@ -71,7 +89,85 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             IsV2 = v2,
             ModelName = device.Product,
         };
+        bool multiclick = true;
+        for (int button = 0; button < ButtonCount; button++)
+        {
+            byte raw = config[OffButtons + button * 7];
+            if (raw > MaxMulticlick && DecodeSpdt(raw) < 0) multiclick = false;
+        }
+        settings.SupportsMulticlick = multiclick;
+        settings.MulticlickLeft = ReadMulticlick(config, 0);
+        settings.MulticlickRight = ReadMulticlick(config, 1);
+        settings.MulticlickMiddle = ReadMulticlick(config, 2);
+        settings.MulticlickForward = ReadMulticlick(config, 3);
+        settings.MulticlickBack = ReadMulticlick(config, 4);
+        int leftMode = DecodeSpdt(config[OffButtons]);
+        int rightMode = DecodeSpdt(config[OffButtons + 7]);
+        settings.SupportsSpdt = leftMode >= 0 && rightMode >= 0;
+        settings.SpdtLeft = Math.Max(0, leftMode);
+        settings.SpdtRight = Math.Max(0, rightMode);
+        return settings;
     }
+
+    public IReadOnlyList<MouseSettingSpec> Describe(MouseDevice device, MouseDeviceSettings settings)
+    {
+        var list = new List<MouseSettingSpec>();
+        if (settings is null) return list;
+        list.Add(new MouseSettingSpec("motion-sync", "Motion sync", MouseSettingGroup.Sensor, MouseSettingKind.Toggle)
+        {
+            On = settings.MotionSync,
+            Hint = "Aligns reports with the sensor frame.",
+        });
+        list.Add(new MouseSettingSpec("angle-snapping", "Angle snapping", MouseSettingGroup.Sensor, MouseSettingKind.Toggle)
+        {
+            On = settings.AngleSnapping,
+            Hint = "Straightens near-axis movement.",
+        });
+        list.Add(new MouseSettingSpec("ripple-control", "Ripple control", MouseSettingGroup.Filters, MouseSettingKind.Toggle)
+        {
+            On = settings.RippleControl,
+            Hint = "Filters click ripple while moving.",
+        });
+        list.Add(new MouseSettingSpec("slamclick-filter", "Slamclick filter", MouseSettingGroup.Filters, MouseSettingKind.Toggle)
+        {
+            On = settings.SlamclickFilter,
+            Hint = "Ignores switch noise on a hard slam.",
+        });
+        list.Add(new MouseSettingSpec("jitter-filter", "Motion jitter filter", MouseSettingGroup.Filters, MouseSettingKind.Toggle)
+        {
+            On = settings.JitterFilter,
+            Hint = "Smooths counts while standing still.",
+        });
+        if (!settings.SupportsMulticlick) return list;
+        list.Add(MulticlickRow("multiclick-left", "Left button multiclick filter", settings.MulticlickLeft));
+        list.Add(MulticlickRow("multiclick-right", "Right button multiclick filter", settings.MulticlickRight));
+        list.Add(MulticlickRow("multiclick-middle", "Middle button multiclick filter", settings.MulticlickMiddle));
+        list.Add(MulticlickRow("multiclick-forward", "Forward button multiclick filter", settings.MulticlickForward));
+        list.Add(MulticlickRow("multiclick-back", "Back button multiclick filter", settings.MulticlickBack));
+        if (!settings.SupportsSpdt) return list;
+        list.Add(new MouseSettingSpec("spdt-left", "Left button SPDT", MouseSettingGroup.Buttons, MouseSettingKind.Choice)
+        {
+            Options = SpdtNames,
+            Index = settings.SpdtLeft,
+            Hint = "GX modes bypass the filter.",
+        });
+        list.Add(new MouseSettingSpec("spdt-right", "Right button SPDT", MouseSettingGroup.Buttons, MouseSettingKind.Choice)
+        {
+            Options = SpdtNames,
+            Index = settings.SpdtRight,
+            Hint = "GX modes bypass the filter.",
+        });
+        return list;
+    }
+
+    private static MouseSettingSpec MulticlickRow(string id, string label, int value) => new(id, label, MouseSettingGroup.Buttons, MouseSettingKind.Number)
+    {
+        Number = value,
+        Minimum = 0,
+        Maximum = MaxMulticlick,
+        Step = 1,
+        Hint = "Filter strength, not a debounce time.",
+    };
 
     public bool TryWrite(MouseDevice device, string setting, string value)
     {
@@ -81,13 +177,19 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             LastError = LastError.Length > 0 ? LastError : "The configuration interface could not be read.";
             return false;
         }
-        bool v2 = IsV2(device.ProductId);
+        NoteRates(config);
+        bool v2 = IsV2(device.ProductId) || config[OffLod] > 2;
         switch ((setting ?? string.Empty).ToLowerInvariant())
         {
             case "report-rate":
                 if (!int.TryParse(value, out int rate) || Array.IndexOf(Rates, rate) < 0)
                 {
                     LastError = "Unsupported report rate.";
+                    return false;
+                }
+                if (rate != DecodeRate(config[OffDivider]) && !RateKnown(_liveRates, rate))
+                {
+                    LastError = "This mouse did not report " + rate + " Hz, so it was not written.";
                     return false;
                 }
                 config[OffDivider] = (byte)(8000 / rate);
@@ -135,11 +237,69 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 }
                 config[OffLod] = (byte)lod;
                 break;
+            case "multiclick-left":
+            case "multiclick-right":
+            case "multiclick-middle":
+            case "multiclick-forward":
+            case "multiclick-back":
+                if (!int.TryParse(value, out int count) || count < 0 || count > MaxMulticlick)
+                {
+                    LastError = "That multiclick value is not supported by this mouse.";
+                    return false;
+                }
+                int index = ButtonIndex(setting);
+                byte raw = config[OffButtons + index * 7];
+                if (raw > MaxMulticlick && DecodeSpdt(raw) < 0)
+                {
+                    LastError = "This mouse does not store a multiclick value for that button.";
+                    return false;
+                }
+                config[OffButtons + index * 7] = (byte)count;
+                break;
+            case "spdt-left":
+            case "spdt-right":
+                if (!int.TryParse(value, out int mode) || mode < 0 || mode > 2)
+                {
+                    LastError = "That SPDT mode is not supported on this button.";
+                    return false;
+                }
+                int record = OffButtons + ButtonIndex(setting) * 7;
+                if (DecodeSpdt(config[record]) < 0)
+                {
+                    LastError = "This mouse does not report SPDT on that button.";
+                    return false;
+                }
+                config[record] = mode == 0 ? SpdtOff : mode == 1 ? SpdtSpeed : SpdtSafe;
+                break;
             default:
                 return false;
         }
         return StoreConfig(path, config, _liveFeature);
     }
+
+    private void NoteRates(byte[] config)
+    {
+        int rate = DecodeRate(config[OffDivider]);
+        _liveRates = Array.IndexOf(Rates, rate) >= 0 ? Rates : Array.Empty<int>();
+    }
+
+    private static int ReadMulticlick(byte[] config, int button)
+    {
+        byte value = config[OffButtons + button * 7];
+        return value > MaxMulticlick ? SpdtOff : value;
+    }
+
+    private static int DecodeSpdt(byte value) => value == SpdtSpeed ? 1 : value == SpdtSafe ? 2 : value == SpdtOff ? 0 : -1;
+
+    private static int ButtonIndex(string? setting) => setting switch
+    {
+        "multiclick-left" or "spdt-left" => 0,
+        "multiclick-right" or "spdt-right" => 1,
+        "multiclick-middle" => 2,
+        "multiclick-forward" => 3,
+        "multiclick-back" => 4,
+        _ => 0,
+    };
 
     private string? ChoosePath(MouseDevice device, out byte[]? config)
     {
@@ -152,10 +312,12 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
             return null;
         }
         var ranked = new List<(string Path, int Feature, string Problem)>();
-        foreach (string path in paths)
+        foreach (var face in paths)
         {
-            int feature = FeatureLength(path, out string problem);
-            ranked.Add((path, feature, problem));
+            if (face.FeatureLength >= 64)
+                ranked.Add((face.DevicePath, face.FeatureLength, string.Empty));
+            else
+                ranked.Add((face.DevicePath, FeatureLength(face.DevicePath, out string problem), problem));
         }
         ranked.Sort((left, right) => right.Feature.CompareTo(left.Feature));
         var failures = new List<string>();
@@ -166,7 +328,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 failures.Add(ShortPath(candidate.Path) + ": " + (candidate.Feature == 0 ? candidate.Problem : candidate.Feature + " bytes"));
                 continue;
             }
-            var attempt = ReadConfig(candidate.Path, device.ProductId, candidate.Feature);
+            var attempt = ReadConfig(candidate.Path, candidate.Feature);
             if (attempt.Config != null)
             {
                 config = attempt.Config;
@@ -182,22 +344,25 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         return null;
     }
 
-    private static List<string> CandidatePaths(MouseDevice device)
+    private static List<MouseInterfaceInfo> CandidatePaths(MouseDevice device)
     {
-        var ordered = new List<string>();
-        var others = new List<string>();
+        var ordered = new List<MouseInterfaceInfo>();
+        var others = new List<MouseInterfaceInfo>();
         foreach (var face in device.Interfaces)
         {
             if (face.DevicePath.Length == 0) continue;
-            if (face.VendorDefined)
-            {
-                if (!ordered.Contains(face.DevicePath)) ordered.Add(face.DevicePath);
-                continue;
-            }
-            if (!others.Contains(face.DevicePath)) others.Add(face.DevicePath);
+            bool duplicate = false;
+            foreach (var known in ordered)
+                if (string.Equals(known.DevicePath, face.DevicePath, StringComparison.OrdinalIgnoreCase)) duplicate = true;
+            foreach (var known in others)
+                if (string.Equals(known.DevicePath, face.DevicePath, StringComparison.OrdinalIgnoreCase)) duplicate = true;
+            if (duplicate) continue;
+            if (face.VendorDefined) ordered.Add(face);
+            else others.Add(face);
         }
-        foreach (string path in others)
-            if (!ordered.Contains(path)) ordered.Add(path);
+        ordered.Sort((left, right) => right.FeatureLength.CompareTo(left.FeatureLength));
+        others.Sort((left, right) => right.FeatureLength.CompareTo(left.FeatureLength));
+        foreach (var face in others) ordered.Add(face);
         return ordered;
     }
 
@@ -212,13 +377,9 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
 
     private static bool IsValidDpi(bool v2, int dpi)
     {
-        if (v2)
-        {
-            if (dpi < 10 || dpi > 30000) return false;
-            int step = dpi <= 10000 ? 10 : 50;
-            return dpi % step == 0;
-        }
-        return dpi >= 50 && dpi <= 26000 && dpi % 50 == 0;
+        if (dpi < 10 || dpi > 30000) return false;
+        int step = v2 ? (dpi <= 10000 ? 10 : 50) : 50;
+        return dpi % step == 0;
     }
 
     private static int DecodeRate(byte divider) => divider == 0 ? 0 : 8000 / divider;
@@ -245,19 +406,21 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         }
     }
 
-    private static bool IsValidConfig(byte[] config, int length, ushort pid)
+    private static bool IsValidConfig(byte[] config, int length)
     {
         if (config is null || length < 131) return false;
         if (config[1] != StatusOk) return false;
         int levels = config[OffLevels];
         if (levels < 1 || levels > 4) return false;
         if (config[OffDivider] < 1) return false;
-        return IsValidDpi(IsV2(pid), ReadU16(config, OffStages + 1));
+        int dpi = ReadU16(config, OffStages + 1);
+        return dpi >= 10 && dpi <= 30000;
     }
 
     private static string NormalizePath(string path)
     {
         string clean = (path ?? string.Empty).TrimEnd('\0').Trim();
+        if (clean.EndsWith("\\kbd", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(0, clean.Length - 4);
         if (clean.StartsWith("\\??\\", StringComparison.Ordinal)) clean = clean.Substring(4);
         else if (clean.StartsWith("\\\\?\\", StringComparison.Ordinal)) clean = clean.Substring(4);
         else if (clean.StartsWith("\\\\.\\", StringComparison.Ordinal)) clean = clean.Substring(4);
@@ -352,7 +515,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
         public string Error = string.Empty;
     }
 
-    private static ReadAttempt ReadConfig(string path, ushort pid, int feature)
+    private static ReadAttempt ReadConfig(string path, int feature)
     {
         var attempt = new ReadAttempt();
         IntPtr handle = OpenForRead(path);
@@ -374,7 +537,7 @@ public sealed class EndgameOp1Protocol : IMouseProtocol
                 foreach (byte id in new byte[] { ReportCommand, ReportConfig })
                 {
                     byte[]? got = GetReport(handle, id, feature);
-                    if (got != null && IsValidConfig(got, got.Length, pid))
+                    if (got != null && IsValidConfig(got, got.Length))
                     {
                         got[0] = ReportConfig;
                         attempt.Config = got;
