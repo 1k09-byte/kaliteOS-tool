@@ -114,49 +114,58 @@ public sealed class ProfileWatcherService : IDisposable
             Log("load FAILED: " + ex.GetType().Name + ": " + ex.Message);
         }
         await EnsureBuiltInDefaultsAsync();
+        LoadRuleGameModeConsent();
         RaiseChanged();
     }
 
     public const string SelfProcessPattern = "kaliteConfig.exe";
 
-    private List<TunerProfile> CreateBuiltInDefaults()
-    {
-        return new List<TunerProfile>
-        {
-            new TunerProfile
-            {
-                Name = "kaliteConfig (this app)",
-                Pattern = SelfProcessPattern,
-                PriorityClass = (uint)TunerPriorityClass.Idle,
-                BoostEnabled = false,
-                EfficiencyMode = true,
-                Enabled = true,
-                AutoApply = true
-            },
+    private static string GameModeConsentPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "kaliteConfig", "gamingmode-rules.json");
 
-            new TunerProfile
+    public bool AllowRuleAutoGameMode { get; private set; } = true;
+
+    private void LoadRuleGameModeConsent()
+    {
+        try
+        {
+            if (File.Exists(GameModeConsentPath))
             {
-                Name = "Input/Sensor Threads",
-                Pattern = "dwm.exe",
-                Enabled = true,
-                AutoApply = true,
-                ThreadRules = new ObservableCollection<TunerThreadRule>
+                using var doc = JsonDocument.Parse(File.ReadAllText(GameModeConsentPath));
+                if (doc.RootElement.TryGetProperty("Allow", out var el) &&
+                    (el.ValueKind == JsonValueKind.True || el.ValueKind == JsonValueKind.False))
                 {
-                    new TunerThreadRule
-                    {
-                        Description = "Master Input",
-                        Priority = (int)ThreadPriorityLevel.TimeCritical,
-                        EfficiencyMode = false
-                    },
-                    new TunerThreadRule
-                    {
-                        Description = "Kernel Sensor",
-                        Priority = (int)ThreadPriorityLevel.TimeCritical,
-                        EfficiencyMode = false
-                    }
+                    AllowRuleAutoGameMode = el.GetBoolean();
+                    return;
                 }
             }
-        };
+            lock (_lock)
+            {
+                AllowRuleAutoGameMode = ActiveProfiles.Any(p => p.Enabled && p.GamingModeAuto);
+            }
+            SaveRuleGameModeConsent();
+        }
+        catch { }
+    }
+
+    public void SetAllowRuleAutoGameMode(bool value)
+    {
+        AllowRuleAutoGameMode = value;
+        SaveRuleGameModeConsent();
+        Log($"rule game-mode consent: {(value ? "allowed" : "blocked")}");
+        RaiseChanged();
+    }
+
+    private void SaveRuleGameModeConsent()
+    {
+        try { File.WriteAllText(GameModeConsentPath, "{\"Allow\":" + (AllowRuleAutoGameMode ? "true" : "false") + "}"); }
+        catch { }
+    }
+
+    private List<TunerProfile> CreateBuiltInDefaults()
+    {
+        return new List<TunerProfile>();
     }
 
     public async Task EnsureBuiltInDefaultsAsync()
@@ -170,6 +179,12 @@ public sealed class ProfileWatcherService : IDisposable
                 if (ActiveProfiles[i].Name == "DWM & Master Input" && IsOldDwmMasterInputShipment(ActiveProfiles[i]))
                 {
                     Log($"defaults: removed retired built-in 'DWM & Master Input'");
+                    ActiveProfiles.RemoveAt(i);
+                    changed = true;
+                }
+                else if (TouchesProtectedSystemProcess(ActiveProfiles[i].Pattern))
+                {
+                    Log($"defaults: removed profile that tuned a protected system process ([{ActiveProfiles[i].Name}])");
                     ActiveProfiles.RemoveAt(i);
                     changed = true;
                 }
@@ -244,40 +259,35 @@ public sealed class ProfileWatcherService : IDisposable
         {
             return IsOldDwmMasterInputShipment(p);
         }
-        if (p.Name == "Input/Sensor Threads")
+        return false;
+    }
+
+    private static readonly string[] ProtectedProcessPatterns =
+    {
+        "dwm", "csrss", "winlogon", "wininit", "services", "lsass", "smss", "system", "registry", "memory compression",
+        "kaliteconfig",
+    };
+
+    internal static bool TouchesProtectedSystemProcess(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return false;
+        foreach (string part in pattern.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (p.ThreadRules == null || p.ThreadRules.Count is not (2 or 3)) return false;
-
-            bool IsPlainHighest(TunerThreadRule r, string desc) =>
-                r.Description == desc && r.Priority == (int)ThreadPriorityLevel.Highest
-                && r.StartAddress == string.Empty && !r.MatchAllThreads
-                && r.BoostEnabled == null
-                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
-            bool IsPlainAboveNormal(TunerThreadRule r, string desc) =>
-                r.Description == desc && r.Priority == (int)ThreadPriorityLevel.AboveNormal
-                && r.StartAddress == string.Empty && !r.MatchAllThreads
-                && r.BoostEnabled == null
-                && r.AffinityMask == null && r.IdealGroup == null && r.MemoryPriority == null;
-
-            if (p.Pattern == "*")
-            {
-                if (p.ThreadRules.Count == 2)
-                {
-                    return IsPlainHighest(p.ThreadRules[0], "Input")
-                        && IsPlainAboveNormal(p.ThreadRules[1], "Sensor");
-                }
-                return IsPlainHighest(p.ThreadRules[0], "Input")
-                    && IsPlainHighest(p.ThreadRules[1], "Sensor")
-                    && IsPlainHighest(p.ThreadRules[2], "Kernel");
-            }
-            if (p.Pattern == "dwm.exe")
-            {
-                return IsPlainHighest(p.ThreadRules[0], "Master Input")
-                    && IsPlainHighest(p.ThreadRules[1], "Kernel Sensor");
-            }
-            return false;
+            string name = part.Trim('*', ' ').ToLowerInvariant();
+            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
+            if (ProtectedProcessPatterns.Contains(name)) return true;
         }
         return false;
+    }
+
+    private static bool IsProtectedProcess(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            return ProtectedProcessPatterns.Contains(process.ProcessName.ToLowerInvariant());
+        }
+        catch { return true; }
     }
 
     private static bool IsOldDwmMasterInputShipment(TunerProfile p)
@@ -550,6 +560,10 @@ public sealed class ProfileWatcherService : IDisposable
     public async Task<RuleApplyResult> ApplyProfileNowAsync(TunerProfile profile, bool quiet = false)
     {
         var pids = FindPids(profile.Pattern);
+        if (TouchesProtectedSystemProcess(profile.Pattern))
+        {
+            pids = pids.Where(pid => !IsProtectedProcess(pid)).ToList();
+        }
         Log($"apply-now: pattern=[{profile.Pattern}] pids=[{string.Join(",", pids)}]{(quiet ? " (keeper)" : "")}");
         if (pids.Count == 0)
         {
@@ -728,7 +742,11 @@ public sealed class ProfileWatcherService : IDisposable
 
             bool gamingRule = matched.Any(p => p.GamingModeAuto);
 
-            if (gamingRule)
+            if (gamingRule && !AllowRuleAutoGameMode)
+            {
+                Log($"gaming-mode: blocked automatic hold for [{name}] (Rules can enable Game Mode automatically is off)");
+            }
+            else if (gamingRule)
             {
                 List<int> armed;
                 lock (_gamingLock)
@@ -744,7 +762,7 @@ public sealed class ProfileWatcherService : IDisposable
 
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                await App.Current.GamingMode.AcquireAsync(
+                await App.Current.LegacyGamingMode.AcquireAsync(
                     GameModeOwner.Rule, pid, armed, $"automatic gaming mode rule matched {name}");
                 Log($"gaming-mode: rule hold taken for [{name}] pid={pid}, protected={armed.Count}");
             }
@@ -902,18 +920,22 @@ public sealed class ProfileWatcherService : IDisposable
                 armed = _gamingModePids.ToList();
             }
 
-            if (armed.Count > 0)
+            if (armed.Count > 0 && !AllowRuleAutoGameMode)
+            {
+                Log("gaming-mode: rule hold blocked (Rules can enable Game Mode automatically is off)");
+            }
+            else if (armed.Count > 0)
             {
                 StartGamingModeExitWatcher();
                 StartGamingModeLivenessMonitor();
-                _ = App.Current.GamingMode.AcquireAsync(
+                _ = App.Current.LegacyGamingMode.AcquireAsync(
                         GameModeOwner.Rule, armed[0], armed, "automatic gaming mode rule")
                     .ContinueWith(_ => Log($"gaming-mode: evaluated, armed pids=[{string.Join(",", armed)}]"));
             }
-            else if (App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            else if (App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 Log("gaming-mode: no armed processes remain (rules changed), releasing the rule's hold");
-                App.Current.GamingMode.Release(GameModeOwner.Rule);
+                App.Current.LegacyGamingMode.Release(GameModeOwner.Rule);
             }
         }
         catch (Exception ex)
@@ -960,15 +982,15 @@ public sealed class ProfileWatcherService : IDisposable
                 }
             }
 
-            if (hasArmed && !anyAlive && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            if (hasArmed && !anyAlive && App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 Log("gaming-mode: liveness monitor found no armed game processes, releasing the rule's hold");
-                App.Current.GamingMode.Release(GameModeOwner.Rule);
+                App.Current.LegacyGamingMode.Release(GameModeOwner.Rule);
                 _gamingLivenessTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
             }
-            else if (anyAlive && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            else if (anyAlive && App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
-                int? target = App.Current.GamingMode.SessionTargetPid;
+                int? target = App.Current.LegacyGamingMode.SessionTargetPid;
                 if (target.HasValue && !IsPidAlive(target.Value))
                 {
                     Log("gaming-mode: session target exited while other armed games run - handing over");
@@ -1036,10 +1058,10 @@ public sealed class ProfileWatcherService : IDisposable
                 wasLast = _gamingModePids.Count == 0;
             }
 
-            if (wasLast && App.Current.GamingMode.IsHeldBy(GameModeOwner.Rule))
+            if (wasLast && App.Current.LegacyGamingMode.IsHeldBy(GameModeOwner.Rule))
             {
                 Log("gaming-mode: last armed process exited, releasing the rule's hold");
-                App.Current.GamingMode.Release(GameModeOwner.Rule);
+                App.Current.LegacyGamingMode.Release(GameModeOwner.Rule);
                 _gamingLivenessTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
             }
             else if (wasLast)

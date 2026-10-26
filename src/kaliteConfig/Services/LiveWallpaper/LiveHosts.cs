@@ -144,22 +144,31 @@ public sealed class LiveVideoHost : LiveHost
         _file = file;
         _lastSettings = settings;
         var tcs = new TaskCompletionSource<(bool Ok, string? Error)>();
-        View.DispatcherQueue.TryEnqueue(() =>
+        bool queued = false;
+        try
         {
-            try
+            queued = View.DispatcherQueue.TryEnqueue(() =>
             {
-                CreatePlayer(file, settings);
-                View.Content = _element;
-                View.Activate();
-                _player?.Play();
-                _heavyReleased = false;
-                tcs.SetResult((true, null));
-            }
-            catch (Exception ex)
-            {
-                tcs.SetResult((false, ex.Message));
-            }
-        });
+                try
+                {
+                    CreatePlayer(file, settings);
+                    View.Content = _element;
+                    View.Activate();
+                    _player?.Play();
+                    _heavyReleased = false;
+                    tcs.SetResult((true, null));
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetResult((false, ex.Message));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            tcs.SetResult((false, ex.Message));
+        }
+        if (!queued) tcs.TrySetResult((false, "The wallpaper window is not ready."));
         return tcs.Task;
     }
 
@@ -371,33 +380,42 @@ public sealed class LiveHtmlHost : LiveHost
             _entry = entry;
             _settings = settings;
             var tcs = new TaskCompletionSource<(bool Ok, string? Error)>();
-            View.DispatcherQueue.TryEnqueue(async () =>
+            bool queued = false;
+            try
             {
-                try
+                queued = View.DispatcherQueue.TryEnqueue(async () =>
                 {
-                    _view = new WebView2();
-                    View.Content = _view;
-                    View.Activate();
-                    var env = await CoreWebView2Environment.CreateAsync();
-                    await _view.EnsureCoreWebView2Async(env);
-                    Harden();
-                    _view.CoreWebView2.SetVirtualHostNameToFolderMapping(VirtualHost, _folder!,
-                        CoreWebView2HostResourceAccessKind.DenyCors);
-                    if (settings.FrameCap != LiveFrameCap.MatchDisplay)
-                        await _view.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(FrameCapScript(settings.FrameCap));
-                    _view.CoreWebView2.NavigationCompleted += (_, _) =>
+                    try
                     {
-                        _ready = true;
-                        PostProperties();
-                    };
-                    _view.CoreWebView2.Navigate("https:" + "//" + VirtualHost + "/" + _entry!.Replace('\\', '/'));
-                    tcs.SetResult((true, null));
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetResult((false, ex.Message));
-                }
-            });
+                        _view = new WebView2();
+                        View.Content = _view;
+                        View.Activate();
+                        var env = await CoreWebView2Environment.CreateAsync().AsTask().ConfigureAwait(true);
+                        await _view.EnsureCoreWebView2Async(env).AsTask().ConfigureAwait(true);
+                        Harden();
+                        _view.CoreWebView2.SetVirtualHostNameToFolderMapping(VirtualHost, _folder!,
+                            CoreWebView2HostResourceAccessKind.DenyCors);
+                        if (settings.FrameCap != LiveFrameCap.MatchDisplay)
+                            await _view.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(FrameCapScript(settings.FrameCap));
+                        _view.CoreWebView2.NavigationCompleted += (_, _) =>
+                        {
+                            _ready = true;
+                            PostProperties();
+                        };
+                        _view.CoreWebView2.Navigate("https:" + "//" + VirtualHost + "/" + _entry!.Replace('\\', '/'));
+                        tcs.SetResult((true, null));
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetResult((false, ex.Message));
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                tcs.SetResult((false, ex.Message));
+            }
+            if (!queued) tcs.TrySetResult((false, "The wallpaper window is not ready."));
             return await tcs.Task.ConfigureAwait(false);
         }
         catch (Exception ex)

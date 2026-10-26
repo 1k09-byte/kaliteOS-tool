@@ -27,11 +27,6 @@ public sealed partial class BiosSettingRow : ObservableObject
     private readonly string _sectionText;
     public string SectionText => _sectionText;
 
-    /// <summary>
-    /// Second line of a settings tile: the menu path when there is one, otherwise the
-    /// firmware token (or offset). Dump files where nothing is sectioned make
-    /// "(unsectioned)" repeat on every tile, so the token carries more signal.
-    /// </summary>
     public string TileMetaText
     {
         get
@@ -92,10 +87,30 @@ public sealed partial class BiosSettingRow : ObservableObject
 
     public bool Matches(string query)
     {
-        return Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-               (Item.Token?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-               HelpText.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-               Item.Value.Contains(query, StringComparison.OrdinalIgnoreCase);
+        var terms = query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (terms.Length == 0) return true;
+        foreach (var term in terms)
+            if (!MatchesTerm(term)) return false;
+        return true;
+    }
+
+    private bool MatchesTerm(string term)
+    {
+        var cmp = StringComparison.OrdinalIgnoreCase;
+        if (Name.Contains(term, cmp)) return true;
+        if (TileMetaText.Contains(term, cmp)) return true;
+        if (Item.Token?.Contains(term, cmp) ?? false) return true;
+        if (Item.Offset?.Contains(term, cmp) ?? false) return true;
+        if (HelpText.Contains(term, cmp)) return true;
+        if (SectionText.Contains(term, cmp)) return true;
+        if (Item.Value.Contains(term, cmp)) return true;
+        if (ValueDisplay.Contains(term, cmp)) return true;
+        foreach (var o in Options)
+        {
+            if (o.Label?.Contains(term, cmp) ?? false) return true;
+            if (o.RawToken.Contains(term, cmp)) return true;
+        }
+        return false;
     }
 
     private string _valueText;
@@ -142,6 +157,22 @@ public sealed partial class BiosSettingRow : ObservableObject
     }
     public bool IsModified => Item.IsModified;
     public Visibility ModifiedVisibility => IsModified ? Visibility.Visible : Visibility.Collapsed;
+
+    private bool _isPicked;
+
+    public bool IsPicked
+    {
+        get => _isPicked;
+        set
+        {
+            if (_isPicked == value) return;
+            _isPicked = value;
+            OnPropertyChanged(nameof(IsPicked));
+            OnPropertyChanged(nameof(PickedVisibility));
+        }
+    }
+
+    public Visibility PickedVisibility => _isPicked ? Visibility.Visible : Visibility.Collapsed;
 
     private bool _isInvalid;
     public bool IsInvalid

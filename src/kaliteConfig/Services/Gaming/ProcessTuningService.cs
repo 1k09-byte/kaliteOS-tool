@@ -107,6 +107,7 @@ public sealed class ProcessTuningService
             var parentPids = GetParentPids();
 
             foreach (var proc in Process.GetProcesses())
+            using (proc)
             {
                 int pid;
                 try

@@ -51,8 +51,17 @@ public partial class TunerProcessRow : ObservableObject
 
     [ObservableProperty] public partial string PriorityText { get; set; } = "?";
     [ObservableProperty] public partial uint PriorityValue { get; set; }
-    [ObservableProperty] public partial string AffinitySummary { get; set; } = "?";
-    [ObservableProperty] public partial ulong AffinityMask { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AffinityDetail))]
+    public partial string AffinitySummary { get; set; } = "?";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AffinityDetail))]
+    public partial ulong AffinityMask { get; set; }
+
+    public string AffinityDetail =>
+        AffinitySummary == "?"
+            ? "Affinity unknown (access denied or not sampled yet)"
+            : $"Affinity mask 0x{AffinityMask:X}";
     [ObservableProperty] public partial string PriorityBoostText { get; set; } = "Unknown";
 
     [ObservableProperty] public partial bool? BoostAllowed { get; set; }
@@ -99,7 +108,9 @@ public partial class ThreadBoostRow : ObservableObject
     [ObservableProperty] public partial int Pid { get; set; }
     [ObservableProperty] public partial string ProcessName { get; set; } = string.Empty;
     [ObservableProperty] public partial string Description { get; set; } = "(unnamed)";
-    [ObservableProperty] public partial bool BoostEnabled { get; set; } = true;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(BoostDisplay))] public partial bool BoostEnabled { get; set; }
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(BoostDisplay))] public partial bool IsBoostKnown { get; set; }
+    public string BoostDisplay => !IsBoostKnown ? "Unknown" : (BoostEnabled ? "On" : "Off");
     [ObservableProperty] public partial bool IsProtected { get; set; }
     [ObservableProperty] public partial bool IsBusy { get; set; }
 }

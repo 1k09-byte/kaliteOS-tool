@@ -1,0 +1,883 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using kaliteConfig.Input.Interop;
+
+namespace kaliteConfig.Input;
+
+public interface IMouseDiscoveryService
+{
+    IReadOnlyList<MouseDevice> Devices { get; }
+    int DroppedInterfaces { get; }
+    string LastScanError { get; }
+    event Action? Changed;
+    void Refresh();
+    void StartNotifications();
+    void StopNotifications();
+}
+
+public sealed class MouseDiscoveryService : IMouseDiscoveryService, IDisposable
+{
+    private readonly MouseCatalog _catalog;
+    private readonly IMouseClassifier _classifier;
+    private readonly IVendorSoftwareDetector _vendor;
+    private readonly List<MouseDevice> _devices = new();
+    private readonly object _gate = new();
+    private IntPtr _notifyContext;
+    private byte[]? _filterBuffer;
+    private System.Runtime.InteropServices.GCHandle _filterPin;
+    private NativeInput.DeviceNotifyCallback? _callback;
+    private bool _disposed;
+
+    public MouseDiscoveryService(MouseCatalog catalog, IMouseClassifier classifier, IVendorSoftwareDetector vendor)
+    {
+        _catalog = catalog;
+        _classifier = classifier;
+        _vendor = vendor;
+    }
+
+    public IReadOnlyList<MouseDevice> Devices
+    {
+        get { lock (_gate) return _devices.ToArray(); }
+    }
+
+    public int DroppedInterfaces
+    {
+        get { lock (_gate) return _dropped; }
+    }
+
+    public string LastScanError
+    {
+        get { lock (_gate) return _scanError; }
+    }
+
+    private int _dropped;
+    private string _scanError = string.Empty;
+
+    public event Action? Changed;
+
+    public void Refresh()
+    {
+        var found = Enumerate();
+        UsbTree.Apply(found);
+        var (present, name) = _vendor.Detect(_catalog);
+        foreach (var device in found)
+        {
+            _classifier.Classify(device, _catalog, present && MakerMatches(device, name), present ? name : string.Empty, HasHandledVendorInterface(device));
+            device.DiscoveryText = DescribeDiscovery(device);
+        }
+        lock (_gate)
+        {
+            _devices.Clear();
+            _devices.AddRange(found);
+        }
+        try { Changed?.Invoke(); } catch { }
+    }
+
+    private static string ConnectionText(MouseConnection connection) => connection switch
+    {
+        MouseConnection.Usb => "USB",
+        MouseConnection.Receiver24Ghz => "2.4 GHz receiver",
+        MouseConnection.Bluetooth => "Bluetooth",
+        MouseConnection.Other => "Other",
+        _ => "Unknown",
+    };
+
+    private static string DescribeDiscovery(MouseDevice device)
+    {
+        return "VID " + device.VendorId.ToString("X4") + ", PID " + device.ProductId.ToString("X4") + "\n"
+            + "Maker: " + (device.Manufacturer.Length > 0 ? device.Manufacturer : "not reported") + " (" + device.MakerSource + ")\n"
+            + "Product: " + (device.Product.Length > 0 ? device.Product : "not reported") + "\n"
+            + "Serial: " + (device.Serial.Length > 0 ? device.Serial : "not exposed") + "\n"
+            + "Container: " + (device.ContainerId.Length > 0 ? device.ContainerId : "none") + "\n"
+            + "Bus description: " + (device.BusDescription.Length > 0 ? device.BusDescription : "not reported") + "\n"
+            + "Parent: " + (device.ParentId.Length > 0 ? device.ParentId : "not reported") + "\n"
+            + "USB tree: " + (device.PortChain.Length > 0 ? device.PortChain : "not reported") + "\n"
+            + "USB port: " + (device.PortLabel.Length > 0 ? device.PortLabel : "not reported") + "\n"
+            + "Path: " + device.InterfacePath + "\n"
+            + "Connection: " + ConnectionText(device.Connection) + "\n"
+            + "Open: " + device.OpenResult + "\n"
+            + "Rule: " + device.ClassReason;
+    }
+
+    private static bool MakerMatches(MouseDevice device, string softwareName)
+    {
+        if (string.IsNullOrEmpty(softwareName)) return false;
+        string maker = device.Manufacturer ?? string.Empty;
+        if (maker.Length == 0) return false;
+        string lower = softwareName.ToLowerInvariant();
+        foreach (string word in maker.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries))
+            if (word.Length > 2 && lower.Contains(word.ToLowerInvariant())) return true;
+        return false;
+    }
+
+    private static bool HasHandledVendorInterface(MouseDevice device)
+    {
+        return false;
+    }
+
+    public void StartNotifications()
+    {
+        if (_notifyContext != IntPtr.Zero) return;
+        try
+        {
+            _filterBuffer = new byte[48];
+            BitConverter.GetBytes(48u).CopyTo(_filterBuffer, 0);
+            Guid hid = NativeInput.HidInterfaceGuid;
+            hid.ToByteArray().CopyTo(_filterBuffer, 32);
+            _callback = OnNotify;
+            _filterPin = GCHandle.Alloc(_filterBuffer, GCHandleType.Pinned);
+            IntPtr filter = _filterPin.AddrOfPinnedObject();
+            uint result = NativeInput.CM_Register_Notification(filter, IntPtr.Zero, _callback, out _notifyContext);
+            if (result != 0)
+            {
+                _notifyContext = IntPtr.Zero;
+                ReleaseFilterPin();
+            }
+        }
+        catch
+        {
+            _notifyContext = IntPtr.Zero;
+            ReleaseFilterPin();
+        }
+    }
+
+    public void StopNotifications()
+    {
+        if (_notifyContext == IntPtr.Zero) return;
+        try { NativeInput.CM_Unregister_Notification(_notifyContext); }
+        catch { }
+        _notifyContext = IntPtr.Zero;
+        _callback = null;
+        ReleaseFilterPin();
+        _filterBuffer = null;
+    }
+
+    private void ReleaseFilterPin()
+    {
+        try
+        {
+            if (_filterPin.IsAllocated) _filterPin.Free();
+        }
+        catch { }
+    }
+
+    private void OnNotify(IntPtr context, uint notifyType, IntPtr notifyInfo)
+    {
+        try { Refresh(); }
+        catch { }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        StopNotifications();
+    }
+
+    private static uint RawListCount()
+    {
+        uint count = 0;
+        NativeInput.GetRawInputDeviceList(IntPtr.Zero, ref count, (uint)Marshal.SizeOf<NativeInput.RawInputDeviceList>());
+        return count;
+    }
+
+    private List<MouseDevice> Enumerate()
+    {
+        _dropped = 0;
+        string? firstError = null;
+        _scanError = string.Empty;
+        var devices = new List<MouseDevice>();
+        var mouseInfos = new List<RawInterface>();
+        var auxInfos = new List<RawInterface>();
+        var keyboardPaths = new List<string>();
+        try
+        {
+            uint count = RawListCount();
+            if (count == 0) return devices;
+            int entrySize = Marshal.SizeOf<NativeInput.RawInputDeviceList>();
+            IntPtr buffer = Marshal.AllocHGlobal(checked((int)count * entrySize));
+            try
+            {
+                uint want = count;
+                uint got = NativeInput.GetRawInputDeviceList(buffer, ref want, (uint)entrySize);
+                if (got == unchecked((uint)-1)) return devices;
+                for (int i = 0; i < got; i++)
+                {
+                    IntPtr item = IntPtr.Add(buffer, i * entrySize);
+                    var list = Marshal.PtrToStructure<NativeInput.RawInputDeviceList>(item);
+                    var info = ReadInterface(list.Handle, list.Type, ref firstError);
+                    if (info is null) { _dropped++; continue; }
+                    info.Handle = (ulong)list.Handle.ToInt64();
+                    if (info.Kind == NativeInput.RimTypeKeyboard)
+                    {
+                        keyboardPaths.Add(info.Path);
+                        continue;
+                    }
+                    if (list.Type == NativeInput.RimTypeMouse) mouseInfos.Add(info);
+                    else if (list.Type == NativeInput.RimTypeHid && info.VendorDefined) auxInfos.Add(info);
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch
+        {
+            return devices;
+        }
+        var setupPaths = MapSetupPaths();
+        if (setupPaths.Count == 0) firstError ??= "The device tree could not be enumerated.";
+        var keyboardContainers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string keyboardPath in keyboardPaths)
+        {
+            if (!setupPaths.TryGetValue(NormPath(keyboardPath), out var keyboardSetup)) continue;
+            if (keyboardSetup.ContainerId.Length > 0) keyboardContainers.Add(keyboardSetup.ContainerId);
+        }
+        var vendorById = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
+        var auxByContainer = new Dictionary<string, List<MouseInterfaceInfo>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var aux in auxInfos)
+        {
+            if (aux.Kind == NativeInput.RimTypeKeyboard) continue;
+            if (!setupPaths.TryGetValue(NormPath(aux.Path), out var setup)) continue;
+            if (setup.ContainerId.Length == 0) continue;
+            var entry = new MouseInterfaceInfo
+            {
+                DevicePath = aux.Path,
+                Kind = aux.Kind,
+                VendorId = aux.VendorId,
+                ProductId = aux.ProductId,
+                UsagePage = aux.UsagePage,
+                Usage = aux.Usage,
+                VendorDefined = aux.VendorDefined,
+            };
+            if (!auxByContainer.TryGetValue(setup.ContainerId, out var list))
+            {
+                list = new List<MouseInterfaceInfo>();
+                auxByContainer[setup.ContainerId] = list;
+            }
+            list.Add(entry);
+            if (entry.VendorId != 0)
+            {
+                string key = entry.VendorId.ToString("X4") + ":" + entry.ProductId.ToString("X4");
+                if (!vendorById.TryGetValue(key, out var bucket))
+                {
+                    bucket = new List<MouseInterfaceInfo>();
+                    vendorById[key] = bucket;
+                }
+                bucket.Add(entry);
+            }
+        }
+        foreach (var info in mouseInfos)
+        {
+            if (MouseClassifier.LooksLikeNonMouse(info.ManufacturerText, info.ProductText)) continue;
+            var device = BuildDevice(info, setupPaths, vendorById);
+            if (device is null) continue;
+            if (device.ContainerId.Length > 0 && auxByContainer.TryGetValue(device.ContainerId, out var extra))
+                foreach (var extraInfo in extra)
+                    device.Interfaces.Add(extraInfo);
+            if (device.VendorId != 0)
+            {
+                string key = device.VendorId.ToString("X4") + ":" + device.ProductId.ToString("X4");
+                if (vendorById.TryGetValue(key, out var bucket))
+                    foreach (var face in bucket)
+                        if (!HasPath(device, face.DevicePath)) device.Interfaces.Add(face);
+                foreach (var entry in setupPaths.Values)
+                {
+                    if (entry.UsagePage == 1 && entry.Usage == 6) continue;
+                    ParseHidPath(entry.RawPath, out ushort svid, out ushort spid, out _);
+                    if (svid != device.VendorId || spid != device.ProductId) continue;
+                    if (HasPath(device, entry.RawPath)) continue;
+                    device.Interfaces.Add(new MouseInterfaceInfo
+                    {
+                        DevicePath = entry.RawPath,
+                        VendorId = svid,
+                        ProductId = spid,
+                        UsagePage = entry.UsagePage,
+                        Usage = entry.Usage,
+                        FeatureLength = entry.FeatureLength,
+                        VendorDefined = entry.UsagePage >= 0xFF00,
+                    });
+                }
+            }
+            devices.Add(device);
+        }
+        MarkReceivers(devices, keyboardContainers);
+        _scanError = firstError ?? string.Empty;
+        return devices;
+    }
+
+    private sealed class RawInterface
+    {
+        public ulong Handle;
+        public bool Opened;
+        public int OpenError;
+        public string Path = string.Empty;
+        public string ManufacturerText = string.Empty;
+        public string ProductText = string.Empty;
+        public string SerialText = string.Empty;
+        public uint Kind;
+        public ushort VendorId;
+        public ushort ProductId;
+        public ushort UsagePage;
+        public ushort Usage;
+        public bool VendorDefined;
+    }
+
+    private static RawInterface? ReadInterface(IntPtr handle, uint kind, ref string? firstError)
+    {
+        var result = new RawInterface { Kind = kind };
+        try
+        {
+            uint nameSize = 0;
+            uint sizeResult = NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDevicename, IntPtr.Zero, ref nameSize);
+            if (nameSize < 2)
+            {
+                int code = Marshal.GetLastWin32Error();
+                firstError ??= "Reads failed at the device-name size call (result " + sizeResult + ", code " + code + ").";
+                return null;
+            }
+            IntPtr nameBuffer = Marshal.AllocHGlobal(checked((int)nameSize * 2));
+            try
+            {
+                uint nameLen = nameSize;
+                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDevicename, nameBuffer, ref nameLen) == unchecked((uint)-1))
+                {
+                    int code = Marshal.GetLastWin32Error();
+                    firstError ??= "Reads failed at the device-name call (code " + code + ").";
+                    return null;
+                }
+                result.Path = Marshal.PtrToStringUni(nameBuffer) ?? string.Empty;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(nameBuffer);
+            }
+            if (result.Path.Length == 0)
+            {
+                firstError ??= "Reads failed: the device name came back empty.";
+                return null;
+            }
+            ReadHidStrings(result);
+            string? capsError = null;
+            if (ReadCapsKind(result, ref capsError)) return result;
+            string? infoError = null;
+            if (ReadInfoKind(handle, result, ref infoError)) return result;
+            if (firstError is null)
+                firstError = ((capsError ?? string.Empty) + " " + (infoError ?? string.Empty)).Trim();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            firstError ??= "Reads failed: " + ex.GetType().Name + " " + ex.Message;
+            return null;
+        }
+    }
+
+    private static bool ReadCapsKind(RawInterface result, ref string? firstError)
+    {
+        const uint share = 3;
+        const uint open = 3;
+        IntPtr handle = NativeInput.CreateFileW(result.Path, 0, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+        {
+            int code = Marshal.GetLastWin32Error();
+            firstError ??= "Reads failed at the descriptor open (code " + code + ").";
+            return false;
+        }
+        try
+        {
+            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero)
+            {
+                int code = Marshal.GetLastWin32Error();
+                firstError ??= "Reads failed at the descriptor read (code " + code + ").";
+                return false;
+            }
+            try
+            {
+                IntPtr caps = Marshal.AllocHGlobal(64);
+                try
+                {
+                    for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
+                    int capsStatus = NativeInput.HidP_GetCaps(preparsed, caps);
+                    if (capsStatus < 0)
+                    {
+                        firstError ??= "Reads failed at the descriptor parse (status 0x" + capsStatus.ToString("X8") + ").";
+                        return false;
+                    }
+                    ushort usage = (ushort)Marshal.ReadInt16(caps, 0);
+                    ushort page = (ushort)Marshal.ReadInt16(caps, 2);
+                    if (page == 0 && usage == 0)
+                    {
+                        firstError ??= "Reads failed: the descriptor came back empty.";
+                        return false;
+                    }
+                    result.Usage = usage;
+                    result.UsagePage = page;
+                    if (page == 1 && usage == 2) result.Kind = NativeInput.RimTypeMouse;
+                    else if (page == 1 && usage == 6) result.Kind = NativeInput.RimTypeKeyboard;
+                    else result.Kind = NativeInput.RimTypeHid;
+                    result.VendorDefined = page >= 0xFF00 || usage >= 0xFF00;
+                    return result.Kind == NativeInput.RimTypeMouse
+                        || result.Kind == NativeInput.RimTypeKeyboard
+                        || result.VendorDefined;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(caps);
+                }
+            }
+            finally
+            {
+                try { NativeInput.HidD_FreePreparsedData(preparsed); } catch { }
+            }
+        }
+        finally
+        {
+            try { NativeInput.CloseHandle(handle); } catch { }
+        }
+    }
+
+    private static bool ReadInfoKind(IntPtr handle, RawInterface result, ref string? firstError)
+    {
+        IntPtr infoBuffer = Marshal.AllocHGlobal(128);
+        try
+        {
+            uint infoSize = 128;
+            bool gotInfo = false;
+            foreach (int structSize in new int[] { 32, 24 })
+            {
+                byte[] blank = new byte[128];
+                Marshal.Copy(blank, 0, infoBuffer, 128);
+                Marshal.WriteInt32(infoBuffer, 0, structSize);
+                infoSize = 128;
+                if (NativeInput.GetRawInputDeviceInfoW(handle, NativeInput.RidiDeviceinfo, infoBuffer, ref infoSize) != unchecked((uint)-1))
+                {
+                    gotInfo = true;
+                    break;
+                }
+            }
+            if (!gotInfo)
+            {
+                int code = Marshal.GetLastWin32Error();
+                firstError ??= "Reads failed at the device-info call (code " + code + ").";
+                return false;
+            }
+            uint type = (uint)Marshal.ReadInt32(infoBuffer, 4);
+            if (type == NativeInput.RimTypeMouse)
+            {
+                result.Kind = NativeInput.RimTypeMouse;
+                result.VendorDefined = false;
+                return true;
+            }
+            if (type == NativeInput.RimTypeKeyboard)
+            {
+                result.Kind = NativeInput.RimTypeKeyboard;
+                result.VendorDefined = false;
+                return true;
+            }
+            if (type == NativeInput.RimTypeHid)
+            {
+                result.Kind = NativeInput.RimTypeHid;
+                result.UsagePage = (ushort)Marshal.ReadInt16(infoBuffer, 20);
+                result.Usage = (ushort)Marshal.ReadInt16(infoBuffer, 22);
+                result.VendorDefined = result.UsagePage >= 0xFF00;
+                result.VendorId = (ushort)Marshal.ReadInt16(infoBuffer, 8);
+                result.ProductId = (ushort)Marshal.ReadInt16(infoBuffer, 12);
+                return true;
+            }
+            firstError ??= "Reads failed: unknown device type " + type + ".";
+            return false;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(infoBuffer);
+        }
+    }
+
+    private static void ReadHidStrings(RawInterface result)
+    {
+        const uint share = 3;
+        const uint open = 3;
+        IntPtr handle = NativeInput.CreateFileW(result.Path, 0, share, IntPtr.Zero, open, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+        {
+            result.Opened = false;
+            try { result.OpenError = Marshal.GetLastWin32Error(); }
+            catch { result.OpenError = -1; }
+            return;
+        }
+        result.Opened = true;
+        try
+        {
+            var attributes = new NativeInput.HidAttributes { Size = (uint)Marshal.SizeOf<NativeInput.HidAttributes>() };
+            if (NativeInput.HidD_GetAttributes(handle, ref attributes))
+            {
+                result.VendorId = attributes.VendorId;
+                result.ProductId = attributes.ProductId;
+            }
+            result.ManufacturerText = ReadHidText(handle, true);
+            result.ProductText = ReadHidText(handle, false);
+            result.SerialText = ReadHidSerial(handle);
+        }
+        catch { }
+        finally
+        {
+            try { NativeInput.CloseHandle(handle); } catch { }
+        }
+    }
+
+    private static string ReadHidText(IntPtr handle, bool maker)
+    {
+        IntPtr buffer = Marshal.AllocHGlobal(512);
+        try
+        {
+            bool ok = maker
+                ? NativeInput.HidD_GetManufacturerString(handle, buffer, 512)
+                : NativeInput.HidD_GetProductString(handle, buffer, 512);
+            if (!ok) return string.Empty;
+            return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+        }
+        catch { return string.Empty; }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+    private static string ReadHidSerial(IntPtr handle)
+    {
+        IntPtr buffer = Marshal.AllocHGlobal(512);
+        try
+        {
+            if (!NativeInput.HidD_GetSerialNumberString(handle, buffer, 512)) return string.Empty;
+            return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+        }
+        catch { return string.Empty; }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+    private sealed class SetupEntry
+    {
+        public string DetailPath = string.Empty;
+        public string RawPath = string.Empty;
+        public string ContainerId = string.Empty;
+        public string Maker = string.Empty;
+        public string ParentId = string.Empty;
+        public string BusDesc = string.Empty;
+        public ushort UsagePage;
+        public ushort Usage;
+        public int FeatureLength;
+    }
+
+    private static Dictionary<string, SetupEntry> MapSetupPaths()
+    {
+        var map = new Dictionary<string, SetupEntry>(StringComparer.OrdinalIgnoreCase);
+        Guid hid = NativeInput.HidInterfaceGuid;
+        IntPtr set = NativeInput.SetupDiGetClassDevsW(ref hid, null, IntPtr.Zero,
+            NativeInput.DigcfPresent | NativeInput.DigcfDeviceinterface);
+        if (set == IntPtr.Zero || set == new IntPtr(-1)) return map;
+        try
+        {
+            uint index = 0;
+            while (true)
+            {
+                var iface = new NativeInput.DeviceInterfaceData { Size = (uint)Marshal.SizeOf<NativeInput.DeviceInterfaceData>() };
+                if (!NativeInput.SetupDiEnumDeviceInterfaces(set, IntPtr.Zero, ref hid, index, ref iface)) break;
+                index++;
+                uint required = 0;
+                NativeInput.SetupDiGetDeviceInterfaceDetailW(set, ref iface, IntPtr.Zero, 0, out required, IntPtr.Zero);
+                if (required < 8) continue;
+                IntPtr detail = Marshal.AllocHGlobal(checked((int)required));
+                try
+                {
+                    Marshal.WriteInt32(detail, IntPtr.Size == 8 ? 8 : 6);
+                    int devinfoSize = IntPtr.Size == 8 ? 32 : 28;
+                    IntPtr devinfo = Marshal.AllocHGlobal(devinfoSize);
+                    try
+                    {
+                        for (int i = 0; i < devinfoSize; i++) Marshal.WriteByte(devinfo, i, 0);
+                        Marshal.WriteInt32(devinfo, 0, devinfoSize);
+                        uint got = 0;
+                        if (!NativeInput.SetupDiGetDeviceInterfaceDetailW(set, ref iface, detail, required, out got, devinfo)) continue;
+                        string path = Marshal.PtrToStringUni(IntPtr.Add(detail, 4)) ?? string.Empty;
+                        if (path.Length == 0) continue;
+                        path = StripKeyboardSuffix(path);
+                        var entry = new SetupEntry { DetailPath = path, RawPath = path };
+                        entry.ContainerId = ReadContainer(set, devinfo);
+                        entry.Maker = ReadMaker(set, devinfo);
+                        entry.ParentId = ReadParent(set, devinfo);
+                        entry.BusDesc = ReadBusDesc(set, devinfo);
+                        ReadCapsForPath(entry);
+                        map[NormPath(path)] = entry;
+                        string instanceKey = InstanceKey(path);
+                        if (instanceKey.Length > 0) map["#" + instanceKey] = entry;
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(devinfo);
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(detail);
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            try { NativeInput.SetupDiDestroyDeviceInfoList(set); } catch { }
+        }
+        return map;
+    }
+
+    private static string InstanceKey(string path)
+    {
+        string[] parts = (path ?? string.Empty).Split('#');
+        return parts.Length >= 3 ? parts[2] : string.Empty;
+    }
+
+    private static string StripKeyboardSuffix(string path)
+    {
+        string text = path ?? string.Empty;
+        if (text.EndsWith("\\kbd", StringComparison.OrdinalIgnoreCase)) text = text.Substring(0, text.Length - 4);
+        return text;
+    }
+
+    private static void ReadCapsForPath(SetupEntry entry)
+    {
+        IntPtr handle = NativeInput.CreateFileW(entry.RawPath, 0, 3, IntPtr.Zero, 3, 0, IntPtr.Zero);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return;
+        try
+        {
+            if (!NativeInput.HidD_GetPreparsedData(handle, out IntPtr preparsed) || preparsed == IntPtr.Zero) return;
+            try
+            {
+                IntPtr caps = Marshal.AllocHGlobal(64);
+                try
+                {
+                    for (int i = 0; i < 64; i++) Marshal.WriteByte(caps, i, 0);
+                    if (NativeInput.HidP_GetCaps(preparsed, caps) < 0) return;
+                    entry.Usage = (ushort)Marshal.ReadInt16(caps, 0);
+                    entry.UsagePage = (ushort)Marshal.ReadInt16(caps, 2);
+                    entry.FeatureLength = (ushort)Marshal.ReadInt16(caps, 8);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(caps);
+                }
+            }
+            finally
+            {
+                try { NativeInput.HidD_FreePreparsedData(preparsed); } catch { }
+            }
+        }
+        catch { }
+        finally
+        {
+            try { NativeInput.CloseHandle(handle); } catch { }
+        }
+    }
+
+    private static string NormPath(string path)
+    {
+        string text = (path ?? string.Empty).Trim();
+        if (text.StartsWith("\\\\?\\", StringComparison.OrdinalIgnoreCase)) text = text.Substring(4);
+        return text;
+    }
+
+    private static string ReadContainer(IntPtr set, IntPtr devinfo)
+    {
+        try
+        {
+            var key = new NativeInput.DevPropKey { Fmtid = NativeInput.DevpkeyDeviceContainerIdFmtid, Pid = NativeInput.DevpkeyDeviceContainerIdPid };
+            IntPtr buffer = Marshal.AllocHGlobal(64);
+            try
+            {
+                if (!NativeInput.SetupDiGetDevicePropertyW(set, devinfo, ref key, out _, buffer, 64, out _, 0)) return string.Empty;
+                var guid = Marshal.PtrToStructure<Guid>(buffer);
+                return guid == Guid.Empty ? string.Empty : guid.ToString("B").ToUpperInvariant();
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string ReadBusDesc(IntPtr set, IntPtr devinfo)
+    {
+        try
+        {
+            var key = new NativeInput.DevPropKey { Fmtid = NativeInput.DevpkeyDeviceBusDescFmtid, Pid = NativeInput.DevpkeyDeviceBusDescPid };
+            IntPtr buffer = Marshal.AllocHGlobal(1024);
+            try
+            {
+                if (!NativeInput.SetupDiGetDevicePropertyW(set, devinfo, ref key, out _, buffer, 1024, out _, 0)) return string.Empty;
+                return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string ReadParent(IntPtr set, IntPtr devinfo)
+    {
+        try
+        {
+            var key = new NativeInput.DevPropKey { Fmtid = NativeInput.DevpkeyDeviceParentFmtid, Pid = NativeInput.DevpkeyDeviceParentPid };
+            IntPtr buffer = Marshal.AllocHGlobal(1024);
+            try
+            {
+                if (!NativeInput.SetupDiGetDevicePropertyW(set, devinfo, ref key, out _, buffer, 1024, out _, 0)) return string.Empty;
+                return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string ReadMaker(IntPtr set, IntPtr devinfo)
+    {
+        try
+        {
+            uint needed = 0;
+            uint regtype = 0;
+            NativeInput.SetupDiGetDeviceRegistryPropertyW(set, devinfo, NativeInput.SpdrpManufacturer, out regtype, IntPtr.Zero, 0, out needed);
+            if (needed < 2) return string.Empty;
+            IntPtr buffer = Marshal.AllocHGlobal(checked((int)needed));
+            try
+            {
+                if (!NativeInput.SetupDiGetDeviceRegistryPropertyW(set, devinfo, NativeInput.SpdrpManufacturer, out regtype, buffer, needed, out _)) return string.Empty;
+                return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch { return string.Empty; }
+    }
+
+    private MouseDevice? BuildDevice(RawInterface info, Dictionary<string, SetupEntry> setupPaths, Dictionary<string, List<MouseInterfaceInfo>> vendorById)
+    {
+        try
+        {
+            ParseHidPath(info.Path, out ushort vid, out ushort pid, out string instance);
+            if (info.VendorId != 0) vid = info.VendorId;
+            if (info.ProductId != 0) pid = info.ProductId;
+            string maker = info.ManufacturerText;
+            string source = maker.Length > 0 ? "HID string descriptor" : "unknown";
+            string container = string.Empty;
+            string parent = string.Empty;
+            string busDesc = string.Empty;
+            if (!setupPaths.TryGetValue(NormPath(info.Path), out var setup))
+            {
+                string instanceKey = InstanceKey(info.Path);
+                if (instanceKey.Length > 0) setupPaths.TryGetValue("#" + instanceKey, out setup);
+            }
+            if (setup != null)
+            {
+                container = setup.ContainerId;
+                parent = setup.ParentId;
+                busDesc = setup.BusDesc;
+                if (maker.Length == 0 && setup.Maker.Length > 0)
+                {
+                    maker = setup.Maker;
+                    source = "device node";
+                }
+            }
+            if (container.Length == 0) container = InstanceKey(info.Path);
+            var device = new MouseDevice
+            {
+                VendorId = vid,
+                ProductId = pid,
+                Manufacturer = maker.Trim(),
+                Product = info.ProductText.Trim(),
+                Serial = info.SerialText.Trim(),
+                ContainerId = container,
+            };
+            device.IsVirtual = _catalog.LooksVirtual(instance, string.Empty, info.Path);
+            string serialPart = device.Serial.Length > 0 ? device.Serial : container.Length > 0 ? container : instance;
+            device.StableId = vid.ToString("X4") + ":" + pid.ToString("X4") + ":" + serialPart;
+            device.DisplayName = device.Product.Length > 0 && !_catalog.IsGenericProduct(device.Product)
+                ? device.Product : "Mouse " + vid.ToString("X4") + ":" + pid.ToString("X4");
+            device.BrandText = device.Manufacturer;
+            device.InterfacePath = info.Path;
+            device.MakerSource = source;
+            device.OpenResult = info.Opened
+                ? "Interface opened for string reads."
+                : "Interface could not be opened (code " + info.OpenError + "). Device-node values used.";
+            device.ParentId = parent;
+            device.BusDescription = busDesc;
+            device.Connection = ClassifyConnection(info.Path, instance, parent, busDesc);
+            device.Interfaces.Add(new MouseInterfaceInfo
+            {
+                Handle = info.Handle,
+                DevicePath = info.Path,
+                InstanceId = instance,
+                Kind = info.Kind,
+                VendorId = vid,
+                ProductId = pid,
+                VendorDefined = false,
+            });
+            return device;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void ParseHidPath(string path, out ushort vid, out ushort pid, out string instance)
+    {
+        vid = 0;
+        pid = 0;
+        instance = string.Empty;
+        string text = (path ?? string.Empty).ToUpperInvariant();
+        int v = text.IndexOf("VID_", StringComparison.Ordinal);
+        if (v >= 0 && v + 8 <= text.Length)
+            ushort.TryParse(text.Substring(v + 4, 4), System.Globalization.NumberStyles.HexNumber, null, out vid);
+        int p = text.IndexOf("PID_", StringComparison.Ordinal);
+        if (p >= 0 && p + 8 <= text.Length)
+            ushort.TryParse(text.Substring(p + 4, 4), System.Globalization.NumberStyles.HexNumber, null, out pid);
+        string[] parts = (path ?? string.Empty).Split('#');
+        if (parts.Length >= 3) instance = parts[2];
+    }
+
+    private static MouseConnection ClassifyConnection(string path, string instance, string parent, string busDesc)
+    {
+        string text = ((path ?? string.Empty) + "|" + (instance ?? string.Empty) + "|" + (parent ?? string.Empty) + "|" + (busDesc ?? string.Empty)).ToUpperInvariant();
+        if (text.Contains("BTHENUM") || text.Contains("BTHUSB") || text.Contains("BLUETOOTH")) return MouseConnection.Bluetooth;
+        if (text.Contains("USB")) return MouseConnection.Usb;
+        if (text.Contains("HID")) return MouseConnection.Other;
+        return MouseConnection.Unknown;
+    }
+
+    private static bool HasPath(MouseDevice device, string path)
+    {
+        string wanted = NormPath(path);
+        foreach (var face in device.Interfaces)
+            if (string.Equals(NormPath(face.DevicePath), wanted, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static void MarkReceivers(List<MouseDevice> devices, HashSet<string> keyboardContainers)
+    {
+        foreach (var device in devices)
+        {
+            if (device.Interfaces.Count <= 1) continue;
+            if (device.Connection != MouseConnection.Usb) continue;
+            if (device.ContainerId.Length == 0) continue;
+            if (!keyboardContainers.Contains(device.ContainerId)) continue;
+            device.BehindReceiver = true;
+            device.Connection = MouseConnection.Receiver24Ghz;
+        }
+    }
+}

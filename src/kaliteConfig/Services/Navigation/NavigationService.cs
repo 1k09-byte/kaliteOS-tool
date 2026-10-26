@@ -5,8 +5,8 @@ namespace kaliteConfig.Services.Navigation;
 
 public enum PageKey
 {
-    Apps, Graphics, Gaming, PriorityBoosts, ThreadTuner, Snip,
-    Network, WindowsSettings, BiosManager, PowerPlans, Personalize, Troubleshooting, Settings
+    Home, Apps, Uninstaller, Drivers, Startup, Graphics, Gaming, PriorityBoosts, ThreadTuner, Snip,
+    Network, WindowsSettings, BiosManager, PowerPlans, Personalize, Troubleshooting, Settings, Input
 }
 
 public interface INavigationService
@@ -23,30 +23,40 @@ public sealed class NavigationService : INavigationService
 
     private static Type TypeFor(PageKey key) => key switch
     {
+        PageKey.Home => typeof(Pages.HomePage),
         PageKey.Apps => typeof(Pages.InstallerPage),
+        PageKey.Uninstaller => typeof(Pages.UninstallerPage),
+        PageKey.Drivers => typeof(Pages.DriversPage),
+        PageKey.Startup => typeof(Pages.StartupPage),
         PageKey.Graphics => typeof(Pages.GraphicsHubPage),
         PageKey.Gaming => typeof(Pages.AffinityPage),
         PageKey.PriorityBoosts => typeof(Pages.PriorityBoostsPage),
         PageKey.ThreadTuner => typeof(Pages.ThreadTunerPage),
         PageKey.Snip => typeof(Pages.SnipPage),
         PageKey.Network => typeof(Pages.NetworkPage),
+        PageKey.Input => typeof(Pages.InputPage),
         PageKey.WindowsSettings => typeof(Pages.WindowsSettingsHubPage),
         PageKey.BiosManager => typeof(Pages.BiosManagerPage),
         PageKey.PowerPlans => typeof(Pages.PowerPlansPage),
-        PageKey.Personalize => typeof(Pages.PersonalizePage),
+        PageKey.Personalize => typeof(Pages.WindowsSettingsHubPage),
         PageKey.Troubleshooting => typeof(Pages.TroubleshootingPage),
         _ => typeof(Pages.SettingsPage),
     };
 
     public static PageKey KeyForTag(string tag) => tag switch
     {
+        "HomePage" => PageKey.Home,
         "AppsPage" => PageKey.Apps,
+        "UninstallerPage" => PageKey.Uninstaller,
+        "DriversPage" => PageKey.Drivers,
+        "StartupPage" => PageKey.Startup,
         "GraphicsPage" => PageKey.Graphics,
         "GamingPage" => PageKey.Gaming,
         "PriorityBoostsPage" => PageKey.PriorityBoosts,
         "ThreadTunerPage" => PageKey.ThreadTuner,
         "SnipPage" => PageKey.Snip,
         "NetworkPage" => PageKey.Network,
+        "InputPage" => PageKey.Input,
         "WindowsSettingsPage" => PageKey.WindowsSettings,
         "BiosManagerPage" => PageKey.BiosManager,
         "PowerPlansPage" => PageKey.PowerPlans,
@@ -61,6 +71,7 @@ public sealed class NavigationService : INavigationService
     {
         if (_frame is null) return false;
         Current = key;
-        return _frame.Navigate(TypeFor(key));
+        Type type = TypeFor(key);
+        return _frame.Navigate(type);
     }
 }

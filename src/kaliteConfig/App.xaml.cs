@@ -19,11 +19,115 @@ namespace kaliteConfig
         private static Window? _windowStatic;
 
         public static bool IsDryRun { get; private set; }
+
+        public static bool IsDev { get; private set; }
         public static bool IsAdmin { get; private set; }
 
         public static bool StartedToTray { get; private set; }
 
         public IThemeService? ThemeService { get; set; }
+
+        public static void Notify(string title, string message, global::kaliteConfig.Services.Notifications.AppNoticeSeverity severity = global::kaliteConfig.Services.Notifications.AppNoticeSeverity.Info)
+        {
+            try
+            {
+                if (App.Services?.GetService(typeof(global::kaliteConfig.Services.Notifications.IAppNotificationService)) is global::kaliteConfig.Services.Notifications.IAppNotificationService service)
+                    service.Post(title, message, severity);
+            }
+            catch { }
+        }
+
+        public static void NotifyResult(string title, string? error, string successMessage)
+        {
+            if (string.IsNullOrWhiteSpace(error))
+                Notify(title, successMessage, global::kaliteConfig.Services.Notifications.AppNoticeSeverity.Success);
+            else
+                Notify(title, error!, global::kaliteConfig.Services.Notifications.AppNoticeSeverity.Error);
+        }
+
+        private static void SetAppBrush(string key, Windows.UI.Color color)
+        {
+            try { Application.Current.Resources[key] = new Microsoft.UI.Xaml.Media.SolidColorBrush(color); }
+            catch { }
+        }
+
+        private static void ApplyNavyAppAccent()
+        {
+            try
+            {
+                var res = Application.Current.Resources;
+                var navy = Windows.UI.Color.FromArgb(255, 25, 35, 90);
+                var navyHover = Windows.UI.Color.FromArgb(255, 48, 55, 115);
+                var navyPressed = Windows.UI.Color.FromArgb(255, 15, 21, 54);
+                var navyDisabled = Windows.UI.Color.FromArgb(255, 64, 66, 84);
+                var navyText = Windows.UI.Color.FromArgb(255, 140, 145, 172);
+                var navyTextHover = Windows.UI.Color.FromArgb(255, 197, 200, 214);
+                var white = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+                res["SystemAccentColor"] = navy;
+                res["SystemAccentColorLight1"] = Windows.UI.Color.FromArgb(255, 82, 90, 131);
+                res["SystemAccentColorLight2"] = navyText;
+                res["SystemAccentColorLight3"] = navyTextHover;
+                res["SystemAccentColorDark1"] = Windows.UI.Color.FromArgb(255, 20, 28, 72);
+                res["SystemAccentColorDark2"] = Windows.UI.Color.FromArgb(255, 15, 21, 54);
+                res["SystemAccentColorDark3"] = Windows.UI.Color.FromArgb(255, 10, 14, 36);
+                SetAppBrush("AccentFillColorDefaultBrush", navy);
+                SetAppBrush("AccentFillColorSecondaryBrush", navyHover);
+                SetAppBrush("AccentFillColorTertiaryBrush", navyPressed);
+                SetAppBrush("AccentTextFillColorPrimaryBrush", navyText);
+                SetAppBrush("AccentTextFillColorSecondaryBrush", navyText);
+                SetAppBrush("AccentTextFillColorTertiaryBrush", navyTextHover);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver",
+                    "ToggleSwitchStrokeOn", "ToggleSwitchStrokeOnPointerOver",
+                    "SliderTrackValueFill", "SliderTrackValueFillPointerOver",
+                    "SliderThumbBackground", "SliderThumbBackgroundPointerOver",
+                    "CheckBoxCheckBackgroundFillChecked", "CheckBoxCheckBackgroundFillCheckedPointerOver",
+                    "CheckBoxCheckBackgroundFillIndeterminate", "CheckBoxCheckBackgroundFillIndeterminatePointerOver",
+                    "RadioButtonOuterEllipseCheckedFill", "RadioButtonOuterEllipseCheckedFillPointerOver",
+                    "RadioButtonOuterEllipseCheckedStroke", "RadioButtonOuterEllipseCheckedStrokePointerOver",
+                    "ProgressBarForeground", "ProgressBarIndeterminateForegroundThemeBrush",
+                    "ProgressRingForegroundThemeBrush", "InfoBadgeBackground",
+                }) SetAppBrush(key, navy);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchFillOnPressed", "ToggleSwitchStrokeOnPressed",
+                    "SliderTrackValueFillPressed", "SliderThumbBackgroundPressed",
+                    "CheckBoxCheckBackgroundFillCheckedPressed", "CheckBoxCheckBackgroundFillIndeterminatePressed",
+                    "RadioButtonOuterEllipseCheckedFillPressed", "RadioButtonOuterEllipseCheckedStrokePressed",
+                    "HyperlinkButtonForegroundPressed",
+                }) SetAppBrush(key, navyPressed);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchFillOnDisabled", "ToggleSwitchStrokeOnDisabled",
+                    "SliderTrackValueFillDisabled", "SliderThumbBackgroundDisabled",
+                    "CheckBoxCheckBackgroundFillCheckedDisabled", "CheckBoxCheckBackgroundFillIndeterminateDisabled",
+                    "RadioButtonOuterEllipseCheckedFillDisabled", "RadioButtonOuterEllipseCheckedStrokeDisabled",
+                }) SetAppBrush(key, navyDisabled);
+
+                foreach (var key in new[]
+                {
+                    "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
+                    "CheckBoxCheckGlyphForegroundChecked", "CheckBoxCheckGlyphForegroundCheckedPointerOver",
+                    "CheckBoxCheckGlyphForegroundCheckedPressed", "CheckBoxCheckGlyphForegroundIndeterminate",
+                    "CheckBoxCheckGlyphForegroundIndeterminatePointerOver", "CheckBoxCheckGlyphForegroundIndeterminatePressed",
+                    "RadioButtonCheckGlyphFill", "RadioButtonCheckGlyphFillPointerOver", "RadioButtonCheckGlyphFillPressed",
+                    "InfoBadgeForeground",
+                }) SetAppBrush(key, white);
+
+                foreach (var key in new[]
+                {
+                    "HyperlinkButtonForeground", "HyperlinkButtonForegroundPointerOver",
+                }) SetAppBrush(key, navyText);
+
+                SetAppBrush("SliderOuterThumbBackground", white);
+                SetAppBrush("SliderThumbBorderBrush", navyPressed);
+            }
+            catch { }
+        }
 
         private async Task ApplyDefaultAppearanceAsync()
         {
@@ -51,7 +155,7 @@ namespace kaliteConfig
         public CpuSetService CpuSets => Services.GetRequiredService<CpuSetService>();
         public NativeSnapshotService NativeSnapshot { get; } = new NativeSnapshotService();
 
-        public GamingModeService GamingMode => Services.GetRequiredService<GamingModeService>();
+        public GamingModeService LegacyGamingMode => Services.GetRequiredService<GamingModeService>();
         public Gaming.GameMode.GameModeEngine GameMode => Services.GetRequiredService<Gaming.GameMode.GameModeEngine>();
         public ForegroundSuspendService ForegroundSuspend => Services.GetRequiredService<ForegroundSuspendService>();
         public ProfileWatcherService ProfileWatcher => Services.GetRequiredService<ProfileWatcherService>();
@@ -64,6 +168,10 @@ namespace kaliteConfig
             if (args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase))
             {
                 IsDryRun = true;
+            }
+            if (args.Contains("--dev", StringComparer.OrdinalIgnoreCase))
+            {
+                IsDev = true;
             }
 
             if (Gaming.GameMode.GameModeEngine.TryRunGuard(args))
@@ -119,9 +227,9 @@ namespace kaliteConfig
             _ = EnsureAutostartAsync();
             ProfileWatcher.StartKeeper();
             ProfileWatcher.StartGamingModeWatcher();
-            if (UpdateCheckService.TryLaunchInstalledCopyAndExitIfStaleSession())
+            if (!IsDev && UpdateCheckService.TryLaunchInstalledCopyAndExitIfStaleSession())
                 return;
-            _ = CheckForUpdateOnStartupAsync();
+            if (!IsDev) _ = CheckForUpdateOnStartupAsync();
         }
 
         private static async Task EnsureAutostartAsync()
@@ -223,6 +331,109 @@ namespace kaliteConfig
 
         private static System.Threading.Mutex? _singleInstanceMutex;
 
+        private static string SingleInstanceMutexName()
+        {
+            try
+            {
+                string path = (Environment.ProcessPath ?? "kaliteConfig").ToLowerInvariant();
+                unchecked
+                {
+                    uint hash = 2166136261;
+                    foreach (char c in path) hash = (hash ^ c) * 16777619;
+                    return "kaliteConfigAppMutex_" + hash.ToString("x8");
+                }
+            }
+            catch { return "kaliteConfigAppMutex"; }
+        }
+
+        private static bool TakeOverFromRunningInstance()
+        {
+            try
+            {
+                bool signaled = false;
+                for (int i = 0; i < 30 && !signaled; i++)
+                {
+                    try
+                    {
+                        using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ExitEventName);
+                        ev.Set();
+                        signaled = true;
+                    }
+                    catch (System.Threading.WaitHandleCannotBeOpenedException)
+                    {
+                        System.Threading.Thread.Sleep(100);
+                    }
+                }
+                if (!signaled) return false;
+                string name = SingleInstanceMutexName();
+                for (int i = 0; i < 100; i++)
+                {
+                    try
+                    {
+                        using var m = System.Threading.Mutex.OpenExisting(name);
+                        if (m.WaitOne(0)) return true;
+                    }
+                    catch (System.Threading.WaitHandleCannotBeOpenedException) { return true; }
+                    catch (System.Threading.AbandonedMutexException) { return true; }
+                    catch { }
+                    System.Threading.Thread.Sleep(100);
+                }
+                return false;
+            }
+            catch { return false; }
+        }
+
+        private static void SignalRunningInstance()
+        {
+            for (int i = 0; i < 50; i++)
+            {
+                try
+                {
+                    using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ShowWindowEventName);
+                    ev.Set();
+                    break;
+                }
+                catch (System.Threading.WaitHandleCannotBeOpenedException)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+            }
+        }
+
+        private static void ForegroundRunningInstance()
+        {
+            string? ownPath = null;
+            try { ownPath = Environment.ProcessPath; } catch { }
+            int ownId = Environment.ProcessId;
+            for (int i = 0; i < 30; i++)
+            {
+                try
+                {
+                    foreach (var proc in System.Diagnostics.Process.GetProcessesByName("kaliteConfig"))
+                    {
+                        try
+                        {
+                            if (proc.Id == ownId) continue;
+                            if (ownPath is not null)
+                            {
+                                string? other = null;
+                                try { other = proc.MainModule?.FileName; } catch { }
+                                if (other is not null && !string.Equals(other, ownPath, StringComparison.OrdinalIgnoreCase)) continue;
+                            }
+                            IntPtr hwnd = proc.MainWindowHandle;
+                            if (hwnd == IntPtr.Zero) continue;
+                            kaliteConfig.Services.TrayIconService.TrayForeground.BringToFront(hwnd);
+                            return;
+                        }
+                        catch { }
+                        finally { try { proc.Dispose(); } catch { } }
+                    }
+                }
+                catch { }
+                System.Threading.Thread.Sleep(100);
+            }
+        }
+
         internal static void ShutdownTrace(string step)
         {
             try
@@ -245,26 +456,33 @@ namespace kaliteConfig
                 currentProcess.PriorityClass = System.Diagnostics.ProcessPriorityClass.Idle;
                 currentProcess.PriorityBoostEnabled = false;
             }
-            _singleInstanceMutex = new System.Threading.Mutex(true, "kaliteConfigAppMutex", out bool isFirstInstance);
+            bool isFirstInstance = true;
+            try
+            {
+                _singleInstanceMutex = new System.Threading.Mutex(true, SingleInstanceMutexName(), out isFirstInstance);
+            }
+            catch (System.Threading.AbandonedMutexException)
+            {
+                isFirstInstance = true;
+            }
+            catch { }
             if (!isFirstInstance)
             {
                 try
                 {
-                    for (int i = 0; i < 50; i++)
+                    if (System.Diagnostics.Debugger.IsAttached && TakeOverFromRunningInstance())
                     {
-                        try
-                        {
-                            using var ev = System.Threading.EventWaitHandle.OpenExisting(kaliteConfig.MainWindow.ShowWindowEventName);
-                            ev.Set();
-                            break;
-                        }
-                        catch (System.Threading.WaitHandleCannotBeOpenedException)
-                        {
-                            System.Threading.Thread.Sleep(100);
-                        }
+                        try { _singleInstanceMutex = new System.Threading.Mutex(true, SingleInstanceMutexName(), out isFirstInstance); }
+                        catch (System.Threading.AbandonedMutexException) { isFirstInstance = true; }
+                        catch { }
                     }
                 }
                 catch { }
+            }
+            if (!isFirstInstance)
+            {
+                try { SignalRunningInstance(); } catch { }
+                try { ForegroundRunningInstance(); } catch { }
                 Environment.Exit(0);
                 return;
             }
@@ -288,7 +506,7 @@ namespace kaliteConfig
                 catch { }
                 ShutdownTrace("closed.gpu-done");
 
-                try { GamingMode.ReleaseAll(); }
+                try { LegacyGamingMode.ReleaseAll(); }
                 catch { }
                 try { GameMode.Dispose(); }
                 catch { }
@@ -305,6 +523,7 @@ namespace kaliteConfig
                 .ConfigureElementTheme(ElementTheme.Dark)
                 .ConfigureBackdrop(DevWinUI.BackdropType.None, true)
                 .Initialize(_window);
+            ApplyNavyAppAccent();
             try { GameMode.Start(); }
             catch { }
 

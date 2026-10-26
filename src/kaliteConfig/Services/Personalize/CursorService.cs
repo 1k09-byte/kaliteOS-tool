@@ -180,6 +180,7 @@ public sealed class CursorService : ICursorService
         if (!Directory.Exists(full))
             return new SchemeScan(mapping, new[] { "The folder does not exist." });
 
+        var roleToSource = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var file in Directory.EnumerateFiles(full))
         {
             var name = Path.GetFileName(file);
@@ -192,14 +193,29 @@ public sealed class CursorService : ICursorService
             }
 
             var role = MatchRole(Path.GetFileNameWithoutExtension(file));
-            if (role is null || mapping.ContainsKey(role))
+            if (role is null)
             {
-                skipped.Add(name + ": no matching or unique pointer role.");
+                skipped.Add(name + ": no matching pointer role.");
                 continue;
             }
-
-            var (path, error) = ImportCursorFile(file);
-            if (path is null) skipped.Add(name + ": " + error);
+            if (roleToSource.TryGetValue(role, out var prev))
+            {
+                var prevExt = Path.GetExtension(prev).ToLowerInvariant();
+                if (prevExt == ".ani" || ext != ".ani")
+                {
+                    skipped.Add(name + ": duplicate pointer role (kept " + Path.GetFileName(prev) + ").");
+                    continue;
+                }
+                skipped.Add(Path.GetFileName(prev) + ": superseded by animated " + name + ".");
+                roleToSource[role] = file;
+                continue;
+            }
+            roleToSource[role] = file;
+        }
+        foreach (var (role, source) in roleToSource)
+        {
+            var (path, error) = ImportCursorFile(source);
+            if (path is null) skipped.Add(Path.GetFileName(source) + ": " + error);
             else mapping[role] = path;
         }
         return new SchemeScan(mapping, skipped);
@@ -389,6 +405,154 @@ public sealed class CursorService : ICursorService
     private static void TryDelete(string path)
     {
         try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+    }
+
+    private string ActiveMarkerPath => Path.Combine(_store, "active-pack.txt");
+
+    public void RememberActivePack(CursorPack? pack)
+    {
+        try
+        {
+            Directory.CreateDirectory(_store);
+            if (pack is null) { TryDelete(ActiveMarkerPath); return; }
+            File.WriteAllText(ActiveMarkerPath, pack.FolderPath);
+        }
+        catch { }
+    }
+
+    public void ClearRememberedActivePack()
+    {
+        try { TryDelete(ActiveMarkerPath); } catch { }
+    }
+
+    public CursorPack? DetectActivePack()
+    {
+        try
+        {
+            if (File.Exists(ActiveMarkerPath))
+            {
+                var remembered = File.ReadAllText(ActiveMarkerPath).Trim();
+                if (!string.IsNullOrWhiteSpace(remembered))
+                {
+                    var match = Packs().FirstOrDefault(p =>
+                        string.Equals(Path.GetFullPath(p.FolderPath).TrimEnd('\\'),
+                            Path.GetFullPath(remembered).TrimEnd('\\'),
+                            StringComparison.OrdinalIgnoreCase));
+                    if (match is not null)
+                    {
+                        try
+                        {
+                            var markerScheme = CurrentScheme();
+                            var roleFiles = PackRoleFiles(match.FolderPath);
+                            int checkedRoles = 0;
+                            int matchedRoles = 0;
+                            foreach (var role in new[] { "Arrow", "Hand", "IBeam", "Wait" })
+                            {
+                                if (!markerScheme.TryGetValue(role, out var activePath) || string.IsNullOrWhiteSpace(activePath)) continue;
+                                if (!roleFiles.TryGetValue(role, out var packPath)) continue;
+                                checkedRoles++;
+                                try
+                                {
+                                    if (!File.Exists(activePath) || !File.Exists(packPath)) continue;
+                                    var a = File.ReadAllBytes(activePath);
+                                    var b = File.ReadAllBytes(packPath);
+                                    if (a.Length == b.Length)
+                                    {
+                                        bool same = true;
+                                        for (int i = 0; i < a.Length; i++)
+                                        {
+                                            if (a[i] != b[i]) { same = false; break; }
+                                        }
+                                        if (same) matchedRoles++;
+                                    }
+                                }
+                                catch { }
+                            }
+                            if (checkedRoles >= 2 && matchedRoles == checkedRoles) return match;
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        IReadOnlyDictionary<string, string> scheme;
+        try { scheme = CurrentScheme(); }
+        catch { return null; }
+
+        var active = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        foreach (var (role, path) in scheme)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            try
+            {
+                if (!File.Exists(path)) continue;
+                active[role] = File.ReadAllBytes(path);
+            }
+            catch { }
+        }
+        if (active.Count < 3) return null;
+
+        CursorPack? best = null;
+        int bestMatched = 0;
+        foreach (var pack in Packs())
+        {
+            var roleFiles = PackRoleFiles(pack.FolderPath);
+            if (roleFiles.Count == 0) continue;
+            bool mismatch = false;
+            int matched = 0;
+            foreach (var (role, bytes) in active)
+            {
+                if (!roleFiles.TryGetValue(role, out var packPath))
+                {
+                    if (role is "Arrow" or "Hand" or "IBeam" or "Wait") { mismatch = true; break; }
+                    continue;
+                }
+                try
+                {
+                    if (!File.Exists(packPath)) { mismatch = true; break; }
+                    var packBytes = File.ReadAllBytes(packPath);
+                    if (packBytes.Length != bytes.Length) { mismatch = true; break; }
+                    bool same = true;
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        if (packBytes[i] != bytes[i]) { same = false; break; }
+                    }
+                    if (!same) { mismatch = true; break; }
+                    matched++;
+                }
+                catch { mismatch = true; break; }
+            }
+            if (!mismatch && matched > bestMatched)
+            {
+                bestMatched = matched;
+                best = pack;
+            }
+        }
+        return bestMatched >= 3 ? best : null;
+    }
+
+    private static Dictionary<string, string> PackRoleFiles(string folder)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        IEnumerable<string> files;
+        try { files = Directory.EnumerateFiles(folder); }
+        catch { return map; }
+        foreach (var file in files)
+        {
+            var ext = Path.GetExtension(file).ToLowerInvariant();
+            if (ext is not (".cur" or ".ani")) continue;
+            var role = MatchRole(Path.GetFileNameWithoutExtension(file));
+            if (role is null) continue;
+            if (map.TryGetValue(role, out var prev))
+            {
+                var prevExt = Path.GetExtension(prev).ToLowerInvariant();
+                if (prevExt == ".ani" || ext != ".ani") continue;
+            }
+            map[role] = file;
+        }
+        return map;
     }
 
     private static int ReadInt(string subKey, string name, int fallback)

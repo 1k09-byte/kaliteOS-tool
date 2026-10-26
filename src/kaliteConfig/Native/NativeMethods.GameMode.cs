@@ -150,13 +150,15 @@ internal static partial class NativeMethods
         internal static extern bool QueryFullProcessImageName(IntPtr process, int flags, System.Text.StringBuilder name, ref int size);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern bool GetPriorityClass(IntPtr process, out uint priorityClass);
+        internal static extern uint GetPriorityClass(IntPtr process);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern bool SetPriorityClass(IntPtr process, uint priorityClass);
 
         internal const uint BelowNormalPriorityClass = 0x00004000;
         internal const uint NormalPriorityClass = 0x00000020;
+        internal const uint AboveNormalPriorityClass = 0x00008000;
+        internal const uint HighPriorityClass = 0x00000080;
 
         internal const int ScStatusProcessInfo = 0;
         internal const uint ScEnumProcessInfo = 0x00000003;

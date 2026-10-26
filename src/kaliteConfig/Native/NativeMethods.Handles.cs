@@ -8,6 +8,19 @@ internal static partial class NativeMethods
     internal static partial class Toolhelp
     {
         internal const uint TH32CS_SNAPPROCESS = 0x00000002;
+        internal const uint TH32CS_SNAPTHREAD = 0x00000004;
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct THREADENTRY32
+        {
+            public uint dwSize;
+            public uint cntUsage;
+            public uint th32ThreadID;
+            public uint th32OwnerProcessID;
+            public int tpBasePri;
+            public int tpDeltaPri;
+            public uint dwFlags;
+        }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         internal struct PROCESSENTRY32
@@ -36,6 +49,14 @@ internal static partial class NativeMethods
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool Process32Next(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool Thread32First(IntPtr hSnapshot, ref THREADENTRY32 lpte);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool Thread32Next(IntPtr hSnapshot, ref THREADENTRY32 lpte);
     }
 
     internal static partial class Handles

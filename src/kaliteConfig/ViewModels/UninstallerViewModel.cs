@@ -106,6 +106,12 @@ public sealed partial class UninstallerViewModel : ObservableObject
             DriverActionStatus = errors.Count == 0
                 ? $"Removed {ok} driver package{(ok == 1 ? "" : "s")}. A restart may be needed for devices using them."
                 : $"{ok} removed, {errors.Count} failed: " + string.Join("; ", errors.Take(3));
+            App.Notify(
+                "Drivers",
+                DriverActionStatus,
+                errors.Count == 0
+                    ? Services.Notifications.AppNoticeSeverity.Success
+                    : Services.Notifications.AppNoticeSeverity.Error);
         }
         finally { IsLoadingDrivers = false; }
     }
@@ -281,6 +287,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
             if (entry.Kind == StartupEntryKind.Service)
                 entry.EntryType = want ? "Auto" : "Disabled";
             StartupStatusText = $"{entry.Name} {(want ? "enabled" : "disabled")}.";
+            App.Notify("Startup", $"{entry.Name} was {(want ? "enabled" : "disabled")} and the change was read back.", Services.Notifications.AppNoticeSeverity.Success);
         }
         else
         {
@@ -288,6 +295,7 @@ public sealed partial class UninstallerViewModel : ObservableObject
             try { entry.IsEnabled = !want; }
             finally { _suppressStartupToggle = false; }
             StartupStatusText = $"Couldn't change {entry.Name}: {err}";
+            App.Notify("Startup", $"{entry.Name} could not be {(want ? "enabled" : "disabled")}: {err}", Services.Notifications.AppNoticeSeverity.Error);
         }
     }
 
@@ -302,10 +310,12 @@ public sealed partial class UninstallerViewModel : ObservableObject
                 if (master.Contains(entry)) { master.Remove(entry); break; }
             UpdateStartupFilter();
             StartupStatusText = $"Removed {entry.Name}.";
+            App.Notify("Startup", $"{entry.Name} was removed.", Services.Notifications.AppNoticeSeverity.Success);
         }
         else
         {
             StartupStatusText = $"Couldn't remove {entry.Name}: {err}";
+            App.Notify("Startup", $"{entry.Name} could not be removed: {err}", Services.Notifications.AppNoticeSeverity.Error);
         }
     }
 
@@ -466,6 +476,12 @@ public sealed partial class UninstallerViewModel : ObservableObject
             ActionStatus = errors.Count == 0
                 ? $"Uninstalled {ok} application{(ok == 1 ? "" : "s")}."
                 : $"{ok} uninstalled, {errors.Count} failed: " + string.Join("; ", errors.Take(3));
+            App.Notify(
+                "Uninstaller",
+                ActionStatus,
+                errors.Count == 0
+                    ? Services.Notifications.AppNoticeSeverity.Success
+                    : Services.Notifications.AppNoticeSeverity.Error);
         }
         finally
         {

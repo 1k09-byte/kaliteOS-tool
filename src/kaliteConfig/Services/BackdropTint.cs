@@ -11,7 +11,15 @@ internal static class BackdropTint
 
     public static readonly (byte R, byte G, byte B, byte A) None = (0x00, 0x00, 0x00, 0x00);
 
-    public static readonly (byte R, byte G, byte B) DefaultColor = (0x1B, 0x3A, 0x6B);
+    public static readonly (byte R, byte G, byte B) DefaultColor = (0x19, 0x23, 0x5A);
+
+    public const int DefaultStrengthPercent = 70;
+
+    public static bool HasSavedFile()
+    {
+        try { return File.Exists(StorePath); }
+        catch { return true; }
+    }
 
     public static (byte R, byte G, byte B) ColorOf((byte R, byte G, byte B, byte A) tint)
         => tint.A == 0 || (tint.R == 0 && tint.G == 0 && tint.B == 0) ? DefaultColor : (tint.R, tint.G, tint.B);

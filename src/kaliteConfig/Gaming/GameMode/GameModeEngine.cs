@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using Microsoft.Win32;
 using kaliteConfig.Native;
+using kaliteConfig.Services;
 
 namespace kaliteConfig.Gaming.GameMode;
 
@@ -26,10 +27,12 @@ public sealed class GameModeEngine : IDisposable
     private string _activeGame = string.Empty;
     private int _activeGamePid;
     private long _activeGameTicks;
+    private GameModeGameEntry? _activeGameEntry;
     private int _generation;
     private Timer? _debounceTimer;
     private Timer? _rescanTimer;
     private readonly List<GameModeAffectedRow> _rows = new();
+    private GameModeCpuPlan? _cpuPlan;
     private readonly HashSet<string> _loggedSkips = new();
     private int _lastForeignPid;
     private long _lastForeignTicks;
@@ -65,9 +68,11 @@ public sealed class GameModeEngine : IDisposable
                 return _state switch
                 {
                     GameModeState.Pending => $"Waiting for focus to settle for {_activeGame}",
-                    GameModeState.Active => $"Active for {_activeGame}. {_rows.Count} process(es) affected.",
-                    GameModeState.Releasing => "Releasing changes",
-                    _ => Settings.Enabled ? "Idle. Start a listed game to activate." : "Off",
+                GameModeState.Active => $"Active for {_activeGame}. {_rows.Count} process(es) affected.",
+                GameModeState.Releasing => "Releasing changes",
+                _ => !Settings.Enabled ? "Off"
+                    : Settings.Games.Count == 0 ? "Idle. The game list is empty — add your game below to activate."
+                    : "Idle. Start a listed game to activate.",
                 };
             }
         }
@@ -82,6 +87,17 @@ public sealed class GameModeEngine : IDisposable
     public IReadOnlyList<string> NeverTouch => Settings.NeverTouch;
 
     public int PendingJournalCount => _journal.Count;
+
+    public string CpuPlanSummary
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _cpuPlan?.Summary ?? "Core isolation has not been planned yet.";
+            }
+        }
+    }
 
     public void Start()
     {
@@ -146,6 +162,12 @@ public sealed class GameModeEngine : IDisposable
     public void SetPreset(GameModePreset preset)
     {
         Settings.Preset = preset;
+        _store.Save(Settings);
+        Raise();
+    }
+
+    public void SaveSettings()
+    {
         _store.Save(Settings);
         Raise();
     }
@@ -257,10 +279,6 @@ public sealed class GameModeEngine : IDisposable
         return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name : name + ".exe";
     }
 
-    /// <summary>
-    /// Turns what people actually type (a full path, a quoted path, an image name such as
-    /// notepad.exe) into a real executable path, or null when nothing matches.
-    /// </summary>
     private static string? ResolveExecutable(string text)
     {
         if (File.Exists(text)) return Path.GetFullPath(text);
@@ -406,6 +424,7 @@ public sealed class GameModeEngine : IDisposable
             _activeGame = string.Empty;
             _activeGamePid = 0;
             _activeGameTicks = 0;
+            _activeGameEntry = null;
             _loggedSkips.Clear();
             ApplyRestoreResultLocked();
         }
@@ -422,6 +441,7 @@ public sealed class GameModeEngine : IDisposable
         string gameName;
         string? gamePath;
         int gamePid = 0;
+        GameModePreset effective = Settings.Preset;
         lock (_gate)
         {
             if (_state == GameModeState.Active && !string.IsNullOrEmpty(_activeGame) && _activeGamePid > 0)
@@ -429,17 +449,20 @@ public sealed class GameModeEngine : IDisposable
                 gameName = _activeGame;
                 gamePid = _activeGamePid;
                 gamePath = ProcessPath(_activeGamePid);
+                effective = _activeGameEntry?.Preset ?? Settings.Preset;
             }
             else if (FindFocusedGame(out int focusedPid, out GameModeGameEntry? focused) && focused != null)
             {
                 gameName = focused.Name;
                 gamePid = focusedPid;
                 gamePath = focused.MatchByPath ? focused.Path : ProcessPath(focusedPid);
+                effective = focused.Preset;
             }
             else if (Settings.Games.Count > 0)
             {
                 gameName = Settings.Games[0].Name;
                 gamePath = Settings.Games[0].MatchByPath ? Settings.Games[0].Path : null;
+                effective = Settings.Games[0].Preset;
             }
             else
             {
@@ -447,6 +470,7 @@ public sealed class GameModeEngine : IDisposable
             }
         }
 
+        var cpuPlan = EnsureCpuPlan();
         var facts = BuildFacts();
         var gamePids = gamePid > 0 ? GameModeGuard.ExpandGameTree(facts, gamePid) : new HashSet<int>();
         var gamePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -455,12 +479,26 @@ public sealed class GameModeEngine : IDisposable
         var rows = new List<GameModeAffectedRow>();
         foreach (var fact in facts)
         {
-            var entry = BackgroundCatalog.FindByImage(fact.Name);
+            var entry = BackgroundCatalog.FindByImage(fact.Name)
+                ?? (effective == GameModePreset.Light ? null : BackgroundCatalog.SweepFallback(fact.Name));
             if (entry == null) continue;
-            var (action, category, outcome, message) = Plan(fact, entry, gamePids, gamePaths);
+            var (action, category, outcome, message) = Plan(fact, entry, gamePids, gamePaths, effective, cpuPlan);
             rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, Label(category), Label(action), OutcomeLabel(outcome), message, fact.CreationTicks));
         }
-        _log.Add(gameName, "Preview", "Preview", "Previewed (nothing changed)", $"Previewed {rows.Count} background process(es) for {gameName} without changing anything");
+        if ((effective == GameModePreset.Balanced || effective == GameModePreset.Aggressive) && gamePid > 0)
+        {
+            var parents = SnapshotParents();
+            var descendants = GameModeGuard.ExpandGameDescendants(parents, gamePid);
+            foreach (var fact in BuildGameFacts(descendants))
+            {
+                if (GameModeGuard.IsUnsafeGameTarget(fact)) continue;
+                string action = effective == GameModePreset.Aggressive && cpuPlan.Available
+                    ? "Game boost and game cores"
+                    : "Game boost";
+                rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, "Game", action, "Ready", "Planned", fact.CreationTicks));
+            }
+        }
+        _log.Add(gameName, "Preview", "Preview", "Previewed (nothing changed)", $"Previewed {rows.Count} process(es) for {gameName} without changing anything. {cpuPlan.Summary}");
         return rows;
     }
 
@@ -490,10 +528,11 @@ public sealed class GameModeEngine : IDisposable
                 _activeGame = match.Name;
                 _activeGamePid = pid;
                 _activeGameTicks = TryStartTicks(pid);
+                _activeGameEntry = match;
                 _state = GameModeState.Pending;
                 int generation = ++_generation;
                 _debounceTimer?.Dispose();
-                _debounceTimer = new Timer(_ => Activate(generation, pid, match.Name), null, Settings.ClampedDebounce, Timeout.Infinite);
+                _debounceTimer = new Timer(_ => Activate(generation, pid, match), null, Settings.ClampedDebounce, Timeout.Infinite);
             }
             _log.Add(match.Name, "Focus", "Pending", "Applied and verified", $"Game focused; activating in {Settings.ClampedDebounce} ms");
             Raise();
@@ -507,8 +546,9 @@ public sealed class GameModeEngine : IDisposable
         BeginRelease($"focus moved to {name}");
     }
 
-    private void Activate(int generation, int gamePid, string gameName)
+    private void Activate(int generation, int gamePid, GameModeGameEntry game)
     {
+        GameModeGameEntry active;
         lock (_gate)
         {
             if (generation != _generation) return;
@@ -516,11 +556,13 @@ public sealed class GameModeEngine : IDisposable
             {
                 _state = GameModeState.Idle;
                 _activeGame = string.Empty;
+                _activeGameEntry = null;
             }
             else
             {
                 _state = GameModeState.Active;
             }
+            active = _activeGameEntry ?? game;
         }
 
         if (State != GameModeState.Active)
@@ -529,33 +571,37 @@ public sealed class GameModeEngine : IDisposable
             return;
         }
 
+        var cpuPlan = EnsureCpuPlan();
         var facts = BuildFacts();
         var gamePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var path = ProcessPath(gamePid);
         if (!string.IsNullOrEmpty(path)) gamePaths.Add(path);
         var gamePids = GameModeGuard.ExpandGameTree(facts, gamePid);
 
-        _log.Add("Game Mode", "Scan", "Applied and verified", $"{facts.Count} background candidates, {gamePids.Count} protected game-tree process(es)");
+        _log.Add("Game Mode", "Scan", "Applied and verified", $"{facts.Count} background candidates, {gamePids.Count} protected game-tree process(es). {cpuPlan.Summary}");
         lock (_gate) _loggedSkips.Clear();
-        ApplyPlan(facts, gamePids, gamePaths, gameName);
+        ApplyPlan(facts, gamePids, gamePaths, active.Name, active.Preset, cpuPlan);
+        ApplyGameScheduling(gamePid, active, cpuPlan);
         EnsureWatchdog();
 
         lock (_gate)
         {
             _rescanTimer?.Dispose();
-            _rescanTimer = new Timer(_ => Rescan(gamePid, gameName), null, 3000, 3000);
+            _rescanTimer = new Timer(_ => Rescan(gamePid, active.Name), null, 3000, 3000);
         }
 
         int held = Affected.Count;
-        _log.Add(gameName, "Focus", "Active", "Applied and verified", $"Game mode active; {held} process(es) affected");
+        _log.Add(active.Name, "Focus", "Active", "Applied and verified", $"Game mode active; {held} process(es) affected");
         Raise();
     }
 
     private void Rescan(int gamePid, string gameName)
     {
+        GameModeGameEntry? active;
         lock (_gate)
         {
             if (_state != GameModeState.Active || _activeGamePid != gamePid) return;
+            active = _activeGameEntry;
         }
 
         if (!GameModeExecutor.SameInstance(gamePid, _activeGameTicks))
@@ -564,31 +610,35 @@ public sealed class GameModeEngine : IDisposable
             return;
         }
 
+        var cpuPlan = EnsureCpuPlan();
         var facts = BuildFacts();
         var gamePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var path = ProcessPath(gamePid);
         if (!string.IsNullOrEmpty(path)) gamePaths.Add(path);
         var gamePids = GameModeGuard.ExpandGameTree(facts, gamePid);
         int before = Affected.Count;
-        ApplyPlan(facts, gamePids, gamePaths, gameName);
+        var effective = active?.Preset ?? Settings.Preset;
+        ApplyPlan(facts, gamePids, gamePaths, gameName, effective, cpuPlan);
+        if (active != null) ApplyGameScheduling(gamePid, active, cpuPlan);
         if (Affected.Count != before) Raise();
     }
 
-    private int ApplyPlan(IReadOnlyList<ProcessFact> facts, IReadOnlySet<int> gamePids, IReadOnlySet<string> gamePaths, string gameName)
+    private int ApplyPlan(IReadOnlyList<ProcessFact> facts, IReadOnlySet<int> gamePids, IReadOnlySet<string> gamePaths, string gameName, GameModePreset effective, GameModeCpuPlan cpuPlan)
     {
         PruneJournal();
         PruneRows();
         var journaled = _journal.Snapshot().Select(e => (e.Pid, e.CreationTicks)).ToHashSet();
-        int cap = Math.Max(0, 40 - journaled.Count);
+        int cap = Math.Max(0, 128 - journaled.Count);
         int applied = 0;
         foreach (var fact in facts)
         {
             if (applied >= cap) break;
             if (journaled.Contains((fact.Pid, fact.CreationTicks))) continue;
-            var entry = BackgroundCatalog.FindByImage(fact.Name);
+            var entry = BackgroundCatalog.FindByImage(fact.Name)
+                ?? (effective == GameModePreset.Light ? null : BackgroundCatalog.SweepFallback(fact.Name));
             if (entry == null) continue;
 
-            var (action, category, outcome, message) = Plan(fact, entry, gamePids, gamePaths);
+            var (action, category, outcome, message) = Plan(fact, entry, gamePids, gamePaths, effective, cpuPlan);
             if (outcome == GameModeOutcome.SkippedProtected)
             {
                 bool first;
@@ -599,7 +649,10 @@ public sealed class GameModeEngine : IDisposable
             if (outcome != GameModeOutcome.Applicable) continue;
             if (action == BackgroundAction.None) continue;
 
-            var decision = _executor.Apply(fact, action, GameModeOutcome.Applicable, action, Settings);
+            var isolate = IsolateBackground(action, entry.Category, effective, cpuPlan)
+                ? cpuPlan.BackgroundIds
+                : null;
+            var decision = _executor.Apply(fact, action, GameModeOutcome.Applicable, action, Settings, cpuPlan, isolate);
             lock (_gate)
             {
                 _rows.RemoveAll(r => r.Pid == fact.Pid);
@@ -612,7 +665,20 @@ public sealed class GameModeEngine : IDisposable
         return applied;
     }
 
-    private GameModeOutcomeLabelTuple Plan(ProcessFact fact, BackgroundCatalogEntry entry, IReadOnlySet<int> gamePids, IReadOnlySet<string> gamePaths)
+    private static bool IsolateBackground(BackgroundAction action, BackgroundCategory category, GameModePreset effective, GameModeCpuPlan cpuPlan)
+    {
+        if (!cpuPlan.Available || cpuPlan.BackgroundIds.Count == 0) return false;
+        if (category == BackgroundCategory.CaptureTools || category == BackgroundCategory.Overlays) return false;
+        return effective switch
+        {
+            GameModePreset.Aggressive => action is BackgroundAction.LowerPriority or BackgroundAction.Efficiency or BackgroundAction.Sweep or BackgroundAction.ConfineCores,
+            GameModePreset.Balanced => action is BackgroundAction.LowerPriority or BackgroundAction.Efficiency or BackgroundAction.Sweep,
+            GameModePreset.Custom => action is BackgroundAction.ConfineCores or BackgroundAction.Sweep,
+            _ => false,
+        };
+    }
+
+    private GameModeOutcomeLabelTuple Plan(ProcessFact fact, BackgroundCatalogEntry entry, IReadOnlySet<int> gamePids, IReadOnlySet<string> gamePaths, GameModePreset effective, GameModeCpuPlan cpuPlan)
     {
         var guard = _guard.Evaluate(fact, gamePids, gamePaths, Settings);
         if (!guard.Allowed)
@@ -625,12 +691,19 @@ public sealed class GameModeEngine : IDisposable
         }
 
         var configured = Settings.Actions.TryGetValue(entry.Id, out var chosen) ? chosen : entry.DefaultAction;
-        configured = Settings.Preset switch
+        configured = effective switch
         {
             GameModePreset.Light => configured == BackgroundAction.Suspend ? BackgroundAction.Efficiency : configured,
             GameModePreset.Aggressive => configured == BackgroundAction.None ? BackgroundAction.Efficiency : configured,
             _ => configured,
         };
+
+        if (configured == BackgroundAction.ConfineCores)
+        {
+            if (cpuPlan.Available)
+                return new(BackgroundAction.ConfineCores, entry.Category, GameModeOutcome.Applicable, "Planned");
+            return new(BackgroundAction.Efficiency, entry.Category, GameModeOutcome.Downgraded, "Core isolation unavailable; efficiency mode instead");
+        }
 
         if (configured == BackgroundAction.Suspend)
         {
@@ -664,6 +737,7 @@ public sealed class GameModeEngine : IDisposable
                     _activeGame = string.Empty;
                     _activeGamePid = 0;
                     _activeGameTicks = 0;
+                    _activeGameEntry = null;
                     _state = GameModeState.Idle;
                     _loggedSkips.Clear();
                     ApplyRestoreResultLocked();
@@ -681,6 +755,7 @@ public sealed class GameModeEngine : IDisposable
                     _activeGame = string.Empty;
                     _activeGamePid = 0;
                     _activeGameTicks = 0;
+                    _activeGameEntry = null;
                 }
                 _log.Add("-", "Game Mode", "Release", "Could not restore", ex.Message);
             }
@@ -706,6 +781,7 @@ public sealed class GameModeEngine : IDisposable
             _activeGame = string.Empty;
             _activeGamePid = 0;
             _activeGameTicks = 0;
+            _activeGameEntry = null;
             _loggedSkips.Clear();
         }
         var summary = _executor.RestoreAll(reason);
@@ -903,7 +979,6 @@ public sealed class GameModeEngine : IDisposable
                 int pid = process.Id;
                 if (pid <= 4 || pid == Environment.ProcessId) continue;
                 string name = process.ProcessName + ".exe";
-                if (BackgroundCatalog.FindByImage(name) == null) continue;
                 long ticks;
                 int session;
                 try
@@ -925,6 +1000,107 @@ public sealed class GameModeEngine : IDisposable
         return facts;
     }
 
+    private GameModeCpuPlan EnsureCpuPlan()
+    {
+        lock (_gate)
+        {
+            if (_cpuPlan != null) return _cpuPlan;
+        }
+
+        List<CpuSetEntry>? topology = null;
+        try { topology = new CpuSetService().GetTopologyAsync().GetAwaiter().GetResult(); }
+        catch (Exception ex)
+        {
+            var unavailable = new GameModeCpuPlan(false, new List<uint>(), new List<uint>(), new List<uint>(),
+                "Core isolation is unavailable: " + ex.Message, ex.Message);
+            lock (_gate) _cpuPlan ??= unavailable;
+            return unavailable;
+        }
+
+        ulong? reserved = null;
+        try { reserved = new ReservedCpuSetsService().GetReservedCpuMask(); }
+        catch { }
+        var plan = GameModeCpuPlanner.Plan(topology, reserved);
+        lock (_gate)
+        {
+            _cpuPlan ??= plan;
+            return _cpuPlan;
+        }
+    }
+
+    private static Dictionary<int, int> SnapshotParents()
+    {
+        var parents = new Dictionary<int, int>();
+        IntPtr snapshot = NativeMethods.Toolhelp.CreateToolhelp32Snapshot(NativeMethods.Toolhelp.TH32CS_SNAPPROCESS, 0);
+        if (snapshot != IntPtr.Zero && snapshot != new IntPtr(-1))
+        {
+            try
+            {
+                var entry = new NativeMethods.Toolhelp.PROCESSENTRY32 { dwSize = (uint)Marshal.SizeOf<NativeMethods.Toolhelp.PROCESSENTRY32>() };
+                if (NativeMethods.Toolhelp.Process32First(snapshot, ref entry))
+                {
+                    do { parents[(int)entry.th32ProcessID] = (int)entry.th32ParentProcessID; }
+                    while (NativeMethods.Toolhelp.Process32Next(snapshot, ref entry));
+                }
+            }
+            finally
+            {
+                NativeMethods.Handles.CloseHandle(snapshot);
+            }
+        }
+        return parents;
+    }
+
+    private IReadOnlyList<ProcessFact> BuildGameFacts(IReadOnlySet<int> gamePids)
+    {
+        var facts = new List<ProcessFact>();
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                int pid = process.Id;
+                if (!gamePids.Contains(pid) || pid <= 4 || pid == Environment.ProcessId) continue;
+                facts.Add(new ProcessFact(pid, 0, process.ProcessName + ".exe", ProcessPath(pid), process.StartTime.Ticks, process.SessionId));
+            }
+            catch
+            {
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        return facts;
+    }
+
+    private void ApplyGameScheduling(int gamePid, GameModeGameEntry game, GameModeCpuPlan cpuPlan)
+    {
+        if (game.Preset != GameModePreset.Balanced && game.Preset != GameModePreset.Aggressive) return;
+        var descendants = GameModeGuard.ExpandGameDescendants(SnapshotParents(), gamePid);
+        int applied = 0;
+        foreach (var fact in BuildGameFacts(descendants))
+        {
+            if (applied >= 32) break;
+            if (!GameModeExecutor.SameInstance(fact.Pid, fact.CreationTicks)) continue;
+            if (GameModeGuard.IsUnsafeGameTarget(fact))
+            {
+                bool first;
+                lock (_gate) first = _loggedSkips.Add("game:" + fact.Pid + ":" + fact.CreationTicks);
+                if (first) _log.Add(fact.Name, "Skip", "Skipped (protected)", "Game tree process is protected and was left alone");
+                continue;
+            }
+            var decision = _executor.ApplyGame(fact, cpuPlan, game.Preset == GameModePreset.Aggressive);
+            if (decision.Outcome == GameModeOutcome.AlreadyInState) continue;
+            lock (_gate)
+            {
+                _rows.RemoveAll(r => r.Pid == fact.Pid);
+                _rows.Add(new GameModeAffectedRow(fact.Name, fact.Pid, "Game", Label(decision.Planned), OutcomeLabel(decision.Outcome), decision.Message, fact.CreationTicks));
+            }
+            _log.Add(fact.Name, Label(decision.Planned), OutcomeLabel(decision.Outcome), decision.Message);
+            if (decision.Outcome == GameModeOutcome.AppliedVerified) applied++;
+        }
+    }
+
     private void Raise()
     {
         try { Changed?.Invoke(); } catch { }
@@ -935,7 +1111,9 @@ public sealed class GameModeEngine : IDisposable
         BackgroundAction.None => "None",
         BackgroundAction.LowerPriority => "Lower priority",
         BackgroundAction.Efficiency => "Efficiency mode",
-        BackgroundAction.ConfineCores => "Reserved cores",
+        BackgroundAction.ConfineCores => "Isolated cores",
+        BackgroundAction.GameBoost => "Game boost",
+        BackgroundAction.Sweep => "Efficiency + lower",
         _ => "Suspend",
     };
 

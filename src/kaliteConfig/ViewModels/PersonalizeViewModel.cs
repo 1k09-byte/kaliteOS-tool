@@ -27,13 +27,20 @@ public sealed partial class PersonalizeViewModel : ObservableObject
 
     private void ReloadCursorPacks()
     {
-        string? keep = SelectedCursorPack?.FolderPath;
         CursorPacks.Clear();
         foreach (var pack in _cursor.Packs())
             CursorPacks.Add(pack);
-        SelectedCursorPack = CursorPacks.FirstOrDefault(p => p.FolderPath == keep)
-            ?? CursorPacks.FirstOrDefault();
+        CursorPack? detected = null;
+        try { detected = _cursor.DetectActivePack(); } catch { }
+        SelectedCursorPack = detected is null
+            ? null
+            : CursorPacks.FirstOrDefault(p => p.FolderPath == detected.FolderPath);
+        ActivePackText = SelectedCursorPack is null
+            ? "Active: Windows default or a custom mix (no pack fully matches)."
+            : $"Active: {SelectedCursorPack.Name}";
     }
+
+    [ObservableProperty] public partial string ActivePackText { get; set; } = "";
 
     public async Task SelectCursorPackAsync(CursorPack? pack)
     {
@@ -47,7 +54,12 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         _pendingScheme = scan.Mapping;
         SchemeFolder = pack.FolderPath;
         SchemeFileCount = scan.Mapping.Count;
-        Report(_cursor.ApplyScheme(scan.Mapping), $"Cursor pack '{pack.Name}' applied.");
+        var results = _cursor.ApplyScheme(scan.Mapping);
+        if (results.All(r => r.Ok))
+        {
+            try { _cursor.RememberActivePack(pack); } catch { }
+        }
+        Report(results, $"Cursor pack '{pack.Name}' applied.");
     }
 
     public async Task ImportCursorPackAsync(string folder)
@@ -75,8 +87,22 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         _pendingScheme = scan.Mapping;
         SchemeFolder = folder;
         SchemeFileCount = scan.Mapping.Count;
+        var applyResults = _cursor.ApplyScheme(scan.Mapping);
         ReloadCursorPacks();
-        Report(_cursor.ApplyScheme(scan.Mapping), $"Cursor pack '{name}' applied.");
+        if (applyResults.All(r => r.Ok))
+        {
+            try
+            {
+                var applied = CursorPacks.FirstOrDefault(p =>
+                    string.Equals(Path.GetFullPath(p.FolderPath).TrimEnd('\\'),
+                        Path.GetFullPath(target).TrimEnd('\\'),
+                        StringComparison.OrdinalIgnoreCase))
+                    ?? CursorPacks.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+                _cursor.RememberActivePack(applied);
+            }
+            catch { }
+        }
+        Report(applyResults, $"Cursor pack '{name}' applied.");
     }
 
     private string SchemeRootForPacks() =>
@@ -133,9 +159,9 @@ public sealed partial class PersonalizeViewModel : ObservableObject
 
     [ObservableProperty] public partial bool LibraryEmpty { get; set; }
 
-    [ObservableProperty] public partial bool MatchAccentToWallpaper { get; set; } = true;
+    [ObservableProperty] public partial bool MatchAccentToWallpaper { get; set; } = false;
 
-    [ObservableProperty] public partial Color AccentColor { get; set; } = Color.FromArgb(255, 0, 120, 212);
+    [ObservableProperty] public partial Color AccentColor { get; set; } = Color.FromArgb(255, 25, 35, 90);
 
     [ObservableProperty] public partial bool AppsUseLightTheme { get; set; } = true;
 
@@ -143,9 +169,9 @@ public sealed partial class PersonalizeViewModel : ObservableObject
 
     private bool _syncingTheme;
 
-    [ObservableProperty] public partial string AccentPreviewText { get; set; } = "";
+    [ObservableProperty] public partial string AccentPreviewText { get; set; } = "Accent #19235A";
 
-    [ObservableProperty] public partial int AccentPreviewArgb { get; set; } = unchecked((int)0xFF0078D4);
+    [ObservableProperty] public partial int AccentPreviewArgb { get; set; } = unchecked((int)0xFF19235A);
     [ObservableProperty] public partial bool IsHighContrast { get; set; }
     [ObservableProperty] public partial bool StatusOpen { get; set; }
     [ObservableProperty] public partial string StatusMessage { get; set; } = "";
@@ -299,6 +325,7 @@ public sealed partial class PersonalizeViewModel : ObservableObject
             Show(InfoBarSeverity.Warning, "Could not remove that pack: " + ex.Message);
             return;
         }
+        try { _cursor.ClearRememberedActivePack(); } catch { }
         ReloadCursorPacks();
         Show(InfoBarSeverity.Success, "Cursor pack removed.");
     }
@@ -363,12 +390,18 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         return results;
     }
 
-    public void RevertCursorSection() =>
+    public void RevertCursorSection()
+    {
+        try { _cursor.ClearRememberedActivePack(); } catch { }
         Report(_cursor.RevertSection(), "Cursor restored to how it was before this app changed it.");
+    }
 
     [RelayCommand]
-    private void ResetCursorToDefaults() =>
+    private void ResetCursorToDefaults()
+    {
+        try { _cursor.ClearRememberedActivePack(); } catch { }
         Report(_cursor.ResetToWindowsDefaults(), "Cursor reset to Windows defaults.");
+    }
 
     [RelayCommand]
     private void RevertEverything()
@@ -376,6 +409,7 @@ public sealed partial class PersonalizeViewModel : ObservableObject
         var all = new List<SettingResult>();
         all.AddRange(_wallpaper.RevertSection());
         all.AddRange(_theme.RevertSection());
+        try { _cursor.ClearRememberedActivePack(); } catch { }
         all.AddRange(_cursor.RevertSection());
         Report(all, "Everything is back to how it was before this app changed it.");
     }

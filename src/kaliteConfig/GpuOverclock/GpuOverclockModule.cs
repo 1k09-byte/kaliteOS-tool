@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using kaliteConfig.GpuOverclock.Services;
 
 namespace kaliteConfig.GpuOverclock
@@ -62,7 +62,7 @@ namespace kaliteConfig.GpuOverclock
                 }
             }
 
-            Telemetry = new GpuTelemetryPollingService(Controller);
+            Telemetry = new GpuTelemetryPollingService(Controller, TimeSpan.FromMilliseconds(500));
             TdrWatchdog = new TdrWatchdogService();
             ChangeLog = new OverclockChangeLogger();
             Safety = new SafetyRevertService(Controller, TdrWatchdog, ChangeLog.Log);

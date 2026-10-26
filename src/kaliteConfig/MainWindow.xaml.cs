@@ -80,6 +80,7 @@ namespace kaliteConfig
         }
 
         internal const string ShowWindowEventName = "kaliteConfig_ShowMainWindow";
+        internal const string ExitEventName = "kaliteConfig_ExitOldInstance";
 
         private void StartShowWindowListener()
         {
@@ -92,8 +93,34 @@ namespace kaliteConfig
                     while (true)
                     {
                         ev.WaitOne();
-                        DispatcherQueue.TryEnqueue(ShowMainWindow);
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            ShowMainWindow();
+                            try
+                            {
+                                if (App.Services.GetService(typeof(Services.Notifications.IAppNotificationService)) is Services.Notifications.IAppNotificationService svc)
+                                    svc.Post("Already running", "Opened the existing kaliteConfig window. If you just updated, right-click the tray icon, choose Exit, then launch again.", Services.Notifications.AppNoticeSeverity.Info);
+                            }
+                            catch { }
+                        });
                     }
+                }
+                catch { }
+            });
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private void StartExitListener()
+        {
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    using var ev = new System.Threading.EventWaitHandle(
+                        false, System.Threading.EventResetMode.AutoReset, ExitEventName);
+                    ev.WaitOne();
+                    DispatcherQueue.TryEnqueue(AllowExitAndClose);
                 }
                 catch { }
             });
@@ -120,7 +147,7 @@ namespace kaliteConfig
         {
             App.ShutdownTrace("prepare.begin");
             _allowExit = true;
-            try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
+            try { (Application.Current as App)?.LegacyGamingMode.ReleaseAll(); } catch { }
             App.ShutdownTrace("prepare.gaming-released");
             try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
             App.ShutdownTrace("prepare.foreground-resumed");
@@ -141,6 +168,7 @@ namespace kaliteConfig
             TitleFade.Background = _titleFadeBrush;
             _backdropTintBrush = new SolidColorBrush();
             TintLayer.Background = _backdropTintBrush;
+            EnsureDefaultNavyTint();
             ApplyBackgroundImage();
             ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
             try
@@ -233,7 +261,7 @@ namespace kaliteConfig
                 {
                     App.ShutdownTrace("tray-exit.dequeued");
                     _allowExit = true;
-                    try { (Application.Current as App)?.GamingMode.ReleaseAll(); } catch { }
+                    try { (Application.Current as App)?.LegacyGamingMode.ReleaseAll(); } catch { }
                     App.ShutdownTrace("tray-exit.gaming-released");
                     try { (Application.Current as App)?.ForegroundSuspend.ResumeAllSync(); } catch { }
                     App.ShutdownTrace("tray-exit.foreground-resumed");
@@ -306,6 +334,7 @@ namespace kaliteConfig
             if (!_trayShown)
                 ScheduleTrayRetry();
             StartShowWindowListener();
+            StartExitListener();
             try
             {
                 GpuOverclock.GpuOverclockModule.Instance.GameAutoApply.StatusChanged += status =>
@@ -327,8 +356,9 @@ namespace kaliteConfig
         AppWindow.Closing += (_, args) =>
         {
             if (_allowExit) return;
-            args.Cancel = true;
             EnsureTrayShown();
+            if (!_trayShown) return;
+            args.Cancel = true;
             AppWindow.Hide();
         };
             AppWindow.Changed += (_, args) =>
@@ -340,7 +370,7 @@ namespace kaliteConfig
                         && overlapped.State == OverlappedPresenterState.Minimized)
                     {
                         EnsureTrayShown();
-                        AppWindow.Hide();
+                        if (_trayShown) AppWindow.Hide();
                     }
                 }
                 catch { }
@@ -349,30 +379,72 @@ namespace kaliteConfig
             AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
             WatchMaterialChanges();
+            HookNotifications();
             this.Activated += (_, _) => GuardedActivation(() => WatchMaterialChanges());
+            this.Activated += (_, _) => { try { Services.Discord.DiscordPresence.ReassertActivity(); } catch { } };
 
             NavShell.LayoutUpdated += (_, _) => UpdateNavPill();
 
-            var appsItem = NavView.MenuItems.OfType<NavigationViewItem>()
-                .FirstOrDefault(i => (i.Tag as string) == "AppsPage");
+            bool startHidden = Services.NavLayoutPreference.Layout == Services.NavLayoutPreference.HiddenTag;
+            string startTag = (Services.NavLayoutPreference.StartOnHome && startHidden) ? "HomePage" : "AppsPage";
+            var startItem = NavView.MenuItems.OfType<NavigationViewItem>()
+                .FirstOrDefault(i => (i.Tag as string) == startTag)
+                ?? NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
             _suppressRailPop = true;
-            if (appsItem != null)
-                NavView.SelectedItem = appsItem;
-            else if (NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault() is NavigationViewItem first)
-                NavView.SelectedItem = first;
+            if (startItem != null)
+                NavView.SelectedItem = startItem;
             _suppressRailPop = false;
 
-            NavView.Loaded += async (_, _) => 
+            NavView.Loaded += (_, _) =>
             {
                 SuppressSidebarTooltips();
-                if (!App.IsAdmin && !App.StartedToTray)
-                {
-                    await ShowElevationDialogAsync();
-                }
-                await TryRunKaliteOSAutoSetupAsync();
             };
-            this.Activated += (_, _) => { GuardedActivationAsync(TryRunKaliteOSAutoSetupAsync); };
             SuppressSidebarTooltips();
+            ApplyNavLayout();
+        }
+
+        private DispatcherTimer? _noticeTimer;
+
+        private void HookNotifications()
+        {
+            try
+            {
+                if (App.Services.GetService(typeof(Services.Notifications.IAppNotificationService)) is not Services.Notifications.IAppNotificationService service) return;
+                service.Posted += notice => DispatcherQueue.TryEnqueue(() => ShowNotice(notice));
+            }
+            catch { }
+        }
+
+        private void ShowNotice(Services.Notifications.AppNotice notice)
+        {
+            try
+            {
+                AppNoticeBar.Title = notice.Title;
+                AppNoticeBar.Message = notice.Message;
+                AppNoticeBar.Severity = notice.Severity switch
+                {
+                    Services.Notifications.AppNoticeSeverity.Success => InfoBarSeverity.Success,
+                    Services.Notifications.AppNoticeSeverity.Warning => InfoBarSeverity.Warning,
+                    Services.Notifications.AppNoticeSeverity.Error => InfoBarSeverity.Error,
+                    _ => InfoBarSeverity.Informational,
+                };
+                AppNoticeBar.IsOpen = true;
+                _noticeTimer ??= CreateNoticeTimer();
+                _noticeTimer.Stop();
+                _noticeTimer.Start();
+            }
+            catch { }
+        }
+
+        private DispatcherTimer CreateNoticeTimer()
+        {
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                AppNoticeBar.IsOpen = false;
+            };
+            return timer;
         }
 
         private bool _materialWatchAttached;
@@ -382,15 +454,6 @@ namespace kaliteConfig
             try
             {
                 work();
-            }
-            catch {  }
-        }
-
-        private async void GuardedActivationAsync(Func<Task> work)
-        {
-            try
-            {
-                await work();
             }
             catch {  }
         }
@@ -410,6 +473,28 @@ namespace kaliteConfig
             }
             catch { }
 
+        }
+
+        private static void EnsureDefaultNavyTint()
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "kaliteConfig");
+                string marker = System.IO.Path.Combine(dir, "navy-tint-auto.txt");
+                if (System.IO.File.Exists(marker)) return;
+                if (!kaliteConfig.Services.BackdropTint.HasSavedFile())
+                    kaliteConfig.Services.BackdropTint.Save(0x19, 0x23, 0x5A,
+                        kaliteConfig.Services.BackdropTint.DefaultStrengthPercent);
+                try
+                {
+                    System.IO.Directory.CreateDirectory(dir);
+                    System.IO.File.WriteAllText(marker, DateTime.UtcNow.ToString("o"));
+                }
+                catch { }
+            }
+            catch { }
         }
 
         public void ApplyBackdropTint((byte R, byte G, byte B, byte A) tint)
@@ -578,41 +663,6 @@ namespace kaliteConfig
             ApplyBackdropTint(kaliteConfig.Services.BackdropTint.Load());
         }
 
-        private async Task ShowElevationDialogAsync()
-        {
-            try
-            {
-                var xamlRoot = this.Content?.XamlRoot;
-                if (xamlRoot == null) return;
-                var dialog = new ContentDialog
-                {
-                    Title = "Administrator Rights Required",
-                    Content = "This application requires advanced access to modify kernel-level thread affinities, power plans, and OS telemetry. Please restart as Administrator.",
-                    PrimaryButtonText = "Restart as Admin",
-                    CloseButtonText = "Continue anyway",
-                    XamlRoot = xamlRoot
-                };
-
-                var result = await dialog.ShowAsync();
-                if (result == ContentDialogResult.Primary)
-                {
-                    var processInfo = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = System.Environment.ProcessPath,
-                        UseShellExecute = true,
-                        Verb = "runas"
-                    };
-                    try
-                    {
-                        System.Diagnostics.Process.Start(processInfo);
-                    }
-                    catch { return; }
-                    Application.Current.Exit();
-                }
-            }
-            catch { }
-        }
-
         private void SuppressSidebarTooltips()
         {
             foreach (var item in System.Linq.Enumerable.OfType<NavigationViewItem>(NavView.MenuItems)
@@ -653,11 +703,24 @@ namespace kaliteConfig
             }
         }
 
+        private bool _pillEnabled = true;
+
         private void UpdateNavPill(NavigationViewItem? item = null)
         {
+            if (!_pillEnabled)
+            {
+                NavPill.Opacity = 0;
+                return;
+            }
+            if (!NavView.IsPaneVisible)
+            {
+                NavPill.Opacity = 0;
+                return;
+            }
             item ??= NavView.SelectedItem as NavigationViewItem;
             if (item is null || item.ActualHeight <= 0 || NavShell.ActualHeight <= 0)
             {
+                NavPill.Opacity = 0;
                 return;
             }
 
@@ -669,6 +732,7 @@ namespace kaliteConfig
             var box = RailItemBody(item);
             if (box is null || box.ActualWidth <= 0)
             {
+                NavPill.Opacity = 0;
                 return;
             }
 
@@ -759,24 +823,487 @@ namespace kaliteConfig
             return anim;
         }
 
+        private bool _navigating;
+
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
-            var nav = App.Services.GetService(typeof(INavigationService)) as INavigationService;
-            nav?.Attach(ContentFrame);
-            if (args.IsSettingsSelected)
+            if (_navigating) return;
+            if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
+                GoToPage(NavigationService.KeyForTag(tag), tag);
+        }
+
+        public void GoToPage(PageKey key, string? tag)
+        {
+            if (_navigating) return;
+            _navigating = true;
+            try
             {
-                nav?.Navigate(PageKey.Settings);
+                var nav = App.Services.GetService(typeof(INavigationService)) as INavigationService;
+                nav?.Attach(ContentFrame);
+                nav?.Navigate(key);
+                try { Services.Discord.DiscordPresence.UpdateActivity(key); } catch { }
+                PlayPageEntrance();
+                _suppressRailPop = true;
+                NavigationViewItem? railItem = null;
+                try { railItem = SyncRailSelection(tag); }
+                finally { _suppressRailPop = false; }
+                SyncDockSelection(key);
+                if (NavView.IsPaneVisible && railItem is not null)
+                {
+                    UpdateNavPill(railItem);
+                    AnimateRailItemPop(railItem);
+                }
+                else
+                {
+                    UpdateNavPill();
+                }
+            }
+            catch { }
+            finally { _navigating = false; }
+        }
+
+        private NavigationViewItem? SyncRailSelection(string? tag)
+        {
+            if (tag is null) return NavView.SelectedItem as NavigationViewItem;
+            var item = NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag)
+                ?? NavView.FooterMenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag);
+            if (item is not null && !ReferenceEquals(NavView.SelectedItem, item))
+                NavView.SelectedItem = item;
+            return item ?? NavView.SelectedItem as NavigationViewItem;
+        }
+
+        private void TopHomeButton_Click(object sender, RoutedEventArgs e) => GoToPage(PageKey.Home, "HomePage");
+
+        public void ApplyNavLayout()
+        {
+            string layout = Services.NavLayoutPreference.Layout;
+            bool rail = layout == Services.NavLayoutPreference.RailTag;
+            bool top = layout == Services.NavLayoutPreference.TopTag;
+            bool dock = layout == Services.NavLayoutPreference.DockTag;
+            bool hidden = layout == Services.NavLayoutPreference.HiddenTag;
+            try
+            {
+                NavView.PaneDisplayMode = top ? NavigationViewPaneDisplayMode.Top : NavigationViewPaneDisplayMode.Left;
+                NavView.IsPaneVisible = rail || top;
+                NavView.OpenPaneLength = 76;
+                NavView.IsPaneOpen = true;
+                _pillEnabled = rail || top;
+                if (!_pillEnabled)
+                {
+                    try { _navPillGlide?.Stop(); } catch { }
+                    _navPillGlide = null;
+                    _navPillPlaced = false;
+                    NavPill.Opacity = 0;
+                }
+                NavRailMask.Visibility = rail ? Visibility.Visible : Visibility.Collapsed;
+                HomeRailItem.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
+                TopHomeButton.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
+                titleBar.Margin = hidden ? new Thickness(96, 0, 0, 0) : new Thickness(0, 0, 0, 0);
+                ContentFrame.Margin = dock ? new Thickness(0, 0, 0, 72) : new Thickness(0, 0, 0, 0);
+            }
+            catch { }
+            try
+            {
+                if (!dock)
+                {
+                    StopDockPeekTimer();
+                    try { _dockSlide?.Stop(); } catch { }
+                    _dockSlide = null;
+                    BottomDock.Opacity = 1;
+                    DockShift.Y = 0;
+                    _dockEntrancePlayed = false;
+                    foreach (var button in DockButtons.Children.OfType<Button>())
+                    {
+                        button.Opacity = 1;
+                        if (button.RenderTransform is ScaleTransform resetScale)
+                        {
+                            resetScale.ScaleX = 1;
+                            resetScale.ScaleY = 1;
+                        }
+                    }
+                }
+                BottomDock.Visibility = dock ? Visibility.Visible : Visibility.Collapsed;
+                if (dock) EnsureDockBuilt();
+                SyncDockHomeVisibility(hidden);
+                if (dock) DockPlayEntrance();
+            }
+            catch
+            {
+                try { BottomDock.Opacity = 1; } catch { }
+            }
+            try
+            {
+                var current = (App.Services.GetService(typeof(INavigationService)) as INavigationService)?.Current;
+                if (!hidden && current == PageKey.Home)
+                {
+                    GoToPage(PageKey.Apps, "AppsPage");
+                    current = PageKey.Apps;
+                }
+                SyncDockSelection(current);
                 UpdateNavPill();
-                AnimateRailItemPop(args.SelectedItem as NavigationViewItem);
+            }
+            catch { }
+            try { DispatcherQueue.TryEnqueue(() => HideNavScrollbars(NavView)); } catch { }
+        }
+
+        private bool _dockBuilt;
+
+        private void EnsureDockBuilt()
+        {
+            if (_dockBuilt) return;
+            _dockBuilt = true;
+            foreach (var entry in DockEntries)
+            {
+                IconElement icon;
+                try { icon = Services.NavIcons.Create(entry.Glyph, entry.Path, entry.SymbolFont); }
+                catch { continue; }
+                if (icon is PathIcon pathIcon) { pathIcon.Width = 20; pathIcon.Height = 20; }
+                else if (icon is FontIcon fontIcon) { fontIcon.FontSize = 20; }
+                icon.VerticalAlignment = VerticalAlignment.Center;
+                icon.HorizontalAlignment = HorizontalAlignment.Center;
+                var label = new TextBlock
+                {
+                    Text = entry.Label,
+                    FontSize = 10,
+                    TextAlignment = TextAlignment.Center,
+                    MaxWidth = 64,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                };
+                var cell = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+                cell.Children.Add(icon);
+                cell.Children.Add(label);
+                var button = new Button
+                {
+                    Content = cell,
+                    Tag = entry.Key,
+                    Padding = new Thickness(10, 8, 10, 6),
+                    MinWidth = 56,
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0, 0, 0, 0),
+                    UseSystemFocusVisuals = false,
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    RenderTransform = new ScaleTransform(),
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, entry.Label);
+                ToolTipService.SetToolTip(button, entry.Label);
+                PageKey key = entry.Key;
+                string tag = entry.Tag;
+                button.Click += (_, _) => GoToPage(key, tag);
+                DockButtons.Children.Add(button);
+            }
+            SyncDockSelection((App.Services.GetService(typeof(INavigationService)) as INavigationService)?.Current, true);
+        }
+
+        private Storyboard? _dockSlide;
+
+        private bool _dockEntrancePlayed;
+
+        private void BottomDock_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (BottomDock.Visibility != Visibility.Visible) return;
+            if (!_dockEntrancePlayed && BottomDock.ActualHeight > 0)
+            {
+                DockPlayEntrance();
                 return;
             }
+            if (BottomDock.Opacity < 1) BottomDock.Opacity = 1;
+            if (DockShift.Y <= 0.5) DockShift.Y = 0;
+            else DockApplyPeek(false);
+        }
 
-            if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
+        private void BottomDock_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            StopDockPeekTimer();
+            if (DockShift.Y <= 0.5) return;
+            DockSlideTo(0);
+        }
+
+        private void BottomDock_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            double peek = BottomDock.ActualHeight > 0 ? BottomDock.ActualHeight * 0.75 : 48;
+            if (DockShift.Y >= peek - 0.5) return;
+            StartDockPeekTimer();
+        }
+
+        private DispatcherTimer? _dockPeekTimer;
+
+        private void StartDockPeekTimer()
+        {
+            try
             {
-                nav?.Navigate(NavigationService.KeyForTag(tag));
-                UpdateNavPill(item);
-                AnimateRailItemPop(item);
+                _dockPeekTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+                _dockPeekTimer.Tick -= DockPeekTimer_Tick;
+                _dockPeekTimer.Tick += DockPeekTimer_Tick;
+                _dockPeekTimer.Stop();
+                _dockPeekTimer.Start();
             }
+            catch { DockApplyPeek(true); }
+        }
+
+        private void StopDockPeekTimer()
+        {
+            try { _dockPeekTimer?.Stop(); } catch { }
+        }
+
+        private void DockPeekTimer_Tick(object? sender, object e)
+        {
+            StopDockPeekTimer();
+            if (BottomDock.Visibility == Visibility.Visible) DockApplyPeek(true);
+        }
+
+        private void SyncDockHomeVisibility(bool hidden)
+        {
+            if (!_dockBuilt) return;
+            foreach (var button in DockButtons.Children.OfType<Button>())
+            {
+                if (button.Tag is PageKey k && k == PageKey.Home)
+                    button.Visibility = hidden ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void DockLeft_Click(object sender, RoutedEventArgs e)
+        {
+            try { DockScroller.ChangeView(Math.Max(0, DockScroller.HorizontalOffset - 240), null, null, false); } catch { }
+        }
+
+        private void DockRight_Click(object sender, RoutedEventArgs e)
+        {
+            try { DockScroller.ChangeView(DockScroller.HorizontalOffset + 240, null, null, false); } catch { }
+        }
+
+        private void DockApplyPeek(bool animate)
+        {
+            double peek = BottomDock.ActualHeight > 0 ? BottomDock.ActualHeight * 0.75 : 48;
+            DockSlideTo(peek, animate);
+        }
+
+        private void DockPlayEntrance()
+        {
+            try
+            {
+                if (BottomDock.ActualHeight <= 0)
+                {
+                    BottomDock.Opacity = 1;
+                    DockShift.Y = 48;
+                    return;
+                }
+                double peek = BottomDock.ActualHeight * 0.75;
+                DockShift.Y = peek + 24;
+                BottomDock.Opacity = 0;
+                var fade = new DoubleAnimation
+                {
+                    To = 1,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(300)),
+                };
+                Storyboard.SetTarget(fade, BottomDock);
+                Storyboard.SetTargetProperty(fade, "Opacity");
+                var rise = new DoubleAnimation
+                {
+                    To = peek,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(340)),
+                    EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
+                };
+                Storyboard.SetTarget(rise, DockShift);
+                Storyboard.SetTargetProperty(rise, "Y");
+                var sb = new Storyboard();
+                sb.Children.Add(fade);
+                sb.Children.Add(rise);
+                int i = 0;
+                foreach (var button in DockButtons.Children.OfType<Button>())
+                {
+                    button.Opacity = 0;
+                    var pop = new DoubleAnimation
+                    {
+                        To = 1,
+                        Duration = new Duration(TimeSpan.FromMilliseconds(240)),
+                        BeginTime = TimeSpan.FromMilliseconds(60 + i * 18),
+                    };
+                    Storyboard.SetTarget(pop, button);
+                    Storyboard.SetTargetProperty(pop, "Opacity");
+                    sb.Children.Add(pop);
+                    i++;
+                }
+                _dockSlide?.Stop();
+                _dockSlide = sb;
+                sb.Completed += (_, _) =>
+                {
+                    _dockSlide = null;
+                    _dockEntrancePlayed = true;
+                    BottomDock.Opacity = 1;
+                };
+                sb.Begin();
+            }
+            catch
+            {
+                BottomDock.Opacity = 1;
+                _dockEntrancePlayed = true;
+                DockApplyPeek(false);
+            }
+        }
+
+        private void DockSlideTo(double y, bool animate = true)
+        {
+            try
+            {
+                _dockSlide?.Stop();
+                _dockSlide = null;
+                if (!animate)
+                {
+                    DockShift.Y = y;
+                    return;
+                }
+                var anim = new DoubleAnimation
+                {
+                    To = y,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(220)),
+                    EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
+                };
+                Storyboard.SetTarget(anim, DockShift);
+                Storyboard.SetTargetProperty(anim, "Y");
+                var sb = new Storyboard();
+                sb.Children.Add(anim);
+                _dockSlide = sb;
+                sb.Completed += (_, _) => _dockSlide = null;
+                sb.Begin();
+            }
+            catch { try { DockShift.Y = y; } catch { } }
+        }
+
+        private PageKey? _lastDockKey;
+
+        private void SyncDockSelection(PageKey? key, bool first = false)
+        {
+            if (!_dockBuilt) return;
+            Brush? accent = null;
+            try { accent = Application.Current.Resources["AccentFillColorDefaultBrush"] as Brush; } catch { }
+            bool changed = key != _lastDockKey;
+            _lastDockKey = key;
+            foreach (var button in DockButtons.Children.OfType<Button>())
+            {
+                bool on = key.HasValue && button.Tag is PageKey k && k == key.Value;
+                try { button.Background = on && accent is not null ? accent : new SolidColorBrush(Microsoft.UI.Colors.Transparent); } catch { }
+                if (on && changed && !first) AnimateDockButtonPop(button);
+            }
+        }
+
+        private Storyboard? _dockPop;
+
+        private void AnimateDockButtonPop(Button button)
+        {
+            try
+            {
+                if (button.RenderTransform is not ScaleTransform scale) return;
+                _dockPop?.Stop();
+                _dockPop = null;
+                foreach (var other in DockButtons.Children.OfType<Button>())
+                {
+                    other.Opacity = 1;
+                    if (other.RenderTransform is ScaleTransform otherScale && !ReferenceEquals(other, button))
+                    {
+                        otherScale.ScaleX = 1;
+                        otherScale.ScaleY = 1;
+                    }
+                }
+                scale.ScaleX = 0.82;
+                scale.ScaleY = 0.82;
+                button.Opacity = 0.45;
+                var sb = new Storyboard();
+                var sx = new DoubleAnimation
+                {
+                    To = 1,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(200)),
+                    EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
+                };
+                Storyboard.SetTarget(sx, scale);
+                Storyboard.SetTargetProperty(sx, "ScaleX");
+                var sy = new DoubleAnimation
+                {
+                    To = 1,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(200)),
+                    EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
+                };
+                Storyboard.SetTarget(sy, scale);
+                Storyboard.SetTargetProperty(sy, "ScaleY");
+                var fade = new DoubleAnimation
+                {
+                    To = 1,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(200)),
+                };
+                Storyboard.SetTarget(fade, button);
+                Storyboard.SetTargetProperty(fade, "Opacity");
+                sb.Children.Add(sx);
+                sb.Children.Add(sy);
+                sb.Children.Add(fade);
+                sb.Completed += (_, _) => _dockPop = null;
+                _dockPop = sb;
+                sb.Begin();
+            }
+            catch { }
+        }
+
+        private sealed record DockEntry(PageKey Key, string Tag, string Label, string? Glyph, string? Path, bool SymbolFont);
+
+        private static readonly DockEntry[] DockEntries =
+        {
+            new(PageKey.Home, "HomePage", "Home", "\uE80F", null, false),
+            new(PageKey.Apps, "AppsPage", "Apps", null, Services.NavIcons.AppsPath, false),
+            new(PageKey.Graphics, "GraphicsPage", "Graphics", null, Services.NavIcons.GraphicsPath, false),
+            new(PageKey.Gaming, "GamingPage", "Affinity", null, Services.NavIcons.AffinityPath, false),
+            new(PageKey.Drivers, "DriversPage", "Drivers", "\uE90F", null, false),
+            new(PageKey.Uninstaller, "UninstallerPage", "Uninstaller", "\uE74D", null, false),
+            new(PageKey.Startup, "StartupPage", "Startup", "\uE7E8", null, false),
+            new(PageKey.ThreadTuner, "ThreadTunerPage", "Tuning", null, Services.NavIcons.TuningPath, false),
+            new(PageKey.WindowsSettings, "WindowsSettingsPage", "Windows", "\uE713", null, false),
+            new(PageKey.PowerPlans, "PowerPlansPage", "Power", "\uE945", null, false),
+            new(PageKey.Network, "NetworkPage", "Network", "\uE839", null, true),
+            new(PageKey.Input, "InputPage", "Input", "\uE962", null, true),
+            new(PageKey.BiosManager, "BiosManagerPage", "BIOS", "\uE9D9", null, false),
+            new(PageKey.Snip, "SnipPage", "Snip", "\uE7A8", null, false),
+            new(PageKey.Troubleshooting, "TroubleshootingPage", "Fix", "\uE7BA", null, false),
+            new(PageKey.Settings, "Settings", "Settings", null, Services.NavIcons.SettingsPath, false),
+        };
+
+        private Storyboard? _pageEntrance;
+
+        private static readonly TimeSpan PageFadeDuration = TimeSpan.FromMilliseconds(220);
+        private static readonly TimeSpan PageRiseDuration = TimeSpan.FromMilliseconds(340);
+
+        private void PlayPageEntrance()
+        {
+            try
+            {
+                _pageEntrance?.Stop();
+                _pageEntrance = null;
+                if (ContentFrame.Content is not FrameworkElement page) return;
+                var transform = new CompositeTransform();
+                page.RenderTransformOrigin = new Point(0.5, 0.5);
+                page.RenderTransform = transform;
+
+                var sb = new Storyboard();
+                sb.Children.Add(PageAnimation(page, "Opacity", 0, 1, PageFadeDuration));
+                sb.Children.Add(PageAnimation(transform, "TranslateY", 24, 0, PageRiseDuration));
+                sb.Children.Add(PageAnimation(transform, "ScaleX", 0.986, 1, PageRiseDuration));
+                sb.Children.Add(PageAnimation(transform, "ScaleY", 0.986, 1, PageRiseDuration));
+                _pageEntrance = sb;
+                sb.Completed += (_, _) => _pageEntrance = null;
+                sb.Begin();
+            }
+            catch { }
+        }
+
+        private static DoubleAnimation PageAnimation(DependencyObject target, string property, double from, double to, TimeSpan duration)
+        {
+            var anim = new DoubleAnimation
+            {
+                From = from,
+                To = to,
+                Duration = new Duration(duration),
+                EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
+                EnableDependentAnimation = property != "Opacity",
+            };
+            Storyboard.SetTarget(anim, target);
+            Storyboard.SetTargetProperty(anim, property);
+            return anim;
         }
 
         private static readonly TimeSpan RailPopDuration = TimeSpan.FromMilliseconds(240);
@@ -915,139 +1442,6 @@ namespace kaliteConfig
                 Value = value,
                 KeySpline = spline,
             };
-        }
-
-        private bool _kaliteOSAutoSetupRan;
-
-        private async Task TryRunKaliteOSAutoSetupAsync()
-        {
-            if (_kaliteOSAutoSetupRan) return;
-
-            int isInstalled;
-            try { isInstalled = Services.KaliteOSRegistryService.GetIsInstalled(); }
-            catch { return; }
-
-            if (isInstalled == 1)
-            {
-                _kaliteOSAutoSetupRan = true;
-                return;
-            }
-
-            if (KaliteOSStartupOverlay == null || KaliteOSProgressBar == null) return;
-
-            if (_kaliteOSAutoSetupRan) return;
-            _kaliteOSAutoSetupRan = true;
-
-            await Task.Delay(600);
-
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                KaliteOSStartupOverlay.Visibility = Visibility.Visible;
-                KaliteOSProgressBar.IsIndeterminate = true;
-                KaliteOSProgressBar.Value = 0;
-                KaliteOSProgressText.Text = "Preparing Windhawk installation…";
-                KaliteOSPercentText.Text = "";
-                KaliteOSPercentText.Visibility = Visibility.Collapsed;
-            });
-
-            var vm = new ViewModels.WindhawkProvisioningViewModel();
-            vm.RefreshDetection();
-
-            void UpdateFromVm()
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    string status = vm.StatusText;
-                    if (string.IsNullOrWhiteSpace(status))
-                        status = vm.IsBusy ? "Working…" : "Preparing…";
-                    KaliteOSProgressText.Text = status;
-
-                    var pct = vm.DownloadPercent;
-                    if (pct.HasValue)
-                    {
-                        KaliteOSProgressBar.IsIndeterminate = false;
-                        KaliteOSProgressBar.Value = Math.Clamp(pct.Value, 0, 100);
-                        KaliteOSPercentText.Text = $"{pct.Value:F0}%";
-                        KaliteOSPercentText.Visibility = Visibility.Visible;
-                    }
-                    else
-                    {
-                        KaliteOSProgressBar.IsIndeterminate = vm.IsBusy;
-                        if (!vm.IsBusy) KaliteOSProgressBar.Value = 100;
-                        KaliteOSPercentText.Visibility = Visibility.Collapsed;
-                    }
-                });
-            }
-
-            vm.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(vm.StatusText) || e.PropertyName == nameof(vm.DownloadPercent) || e.PropertyName == nameof(vm.IsBusy))
-                    UpdateFromVm();
-            };
-            UpdateFromVm();
-
-            try
-            {
-                if (!Services.WindhawkDetectionService.IsRunningElevated())
-                {
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        KaliteOSProgressBar.IsIndeterminate = false;
-                        KaliteOSProgressText.Text = "Administrator rights are required to install Windhawk (it installs a system service). Please restart as Administrator - auto-setup will retry on next elevated launch.";
-                        KaliteOSProgressBar.Value = 0;
-                    });
-                    await Task.Delay(5000);
-                    DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
-                    return;
-                }
-
-                await vm.RunProvisioningAsync();
-
-                bool installed = false;
-                try { installed = vm.Installation.IsInstalled && vm.Installation.CliPath != null; } catch { }
-                if (!installed)
-                {
-                    try { installed = Services.KaliteOSRegistryService.GetIsInstalled() == 1; } catch { }
-                    if (vm.Installation.IsInstalled) installed = true;
-                }
-
-                if (installed)
-                {
-                    try { Services.KaliteOSRegistryService.SetIsInstalled(1); } catch { }
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        KaliteOSProgressBar.IsIndeterminate = false;
-                        KaliteOSProgressBar.Value = 100;
-                        KaliteOSProgressText.Text = "Done - Windhawk installed and KaliteOS mods imported.";
-                        KaliteOSPercentText.Text = "100%";
-                        KaliteOSPercentText.Visibility = Visibility.Visible;
-                    });
-                    await Task.Delay(2200);
-                    DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
-                }
-                else
-                {
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        KaliteOSProgressBar.IsIndeterminate = false;
-                        string msg = vm.HasMessage ? vm.Message : "Windhawk provisioning finished but verification failed.";
-                        KaliteOSProgressText.Text = msg + " Will retry on next launch (IsInstalled stays 0).";
-                    });
-                    await Task.Delay(6000);
-                    DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
-                }
-            }
-            catch (Exception ex)
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    KaliteOSProgressBar.IsIndeterminate = false;
-                    KaliteOSProgressText.Text = $"Auto-setup failed: {ex.Message} - will retry on next launch.";
-                    KaliteOSPercentText.Visibility = Visibility.Collapsed;
-                });
-                await Task.Delay(6000);
-                DispatcherQueue.TryEnqueue(() => KaliteOSStartupOverlay.Visibility = Visibility.Collapsed);
-            }
         }
 
         private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement

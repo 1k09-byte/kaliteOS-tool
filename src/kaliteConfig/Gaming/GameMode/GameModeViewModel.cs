@@ -27,6 +27,8 @@ public sealed partial class GameModeViewModel : ObservableObject
         GamePathInput = string.Empty;
         NeverTouchInput = string.Empty;
         JournalText = string.Empty;
+        CpuPlanSummary = string.Empty;
+        EnableButtonText = "Enable Game Mode";
         PreviewSummary = string.Empty;
         ListFeedback = string.Empty;
         ListFeedbackSeverity = InfoBarSeverity.Informational;
@@ -51,6 +53,9 @@ public sealed partial class GameModeViewModel : ObservableObject
     public partial bool Enabled { get; set; }
 
     [ObservableProperty]
+    public partial string EnableButtonText { get; set; }
+
+    [ObservableProperty]
     public partial double DebounceMs { get; set; }
 
     [ObservableProperty]
@@ -67,6 +72,9 @@ public sealed partial class GameModeViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string JournalText { get; set; }
+
+    [ObservableProperty]
+    public partial string CpuPlanSummary { get; set; }
 
     [ObservableProperty]
     public partial bool IsActive { get; set; }
@@ -104,13 +112,6 @@ public sealed partial class GameModeViewModel : ObservableObject
 
     partial void OnLogFilterIndexChanged(int value) => ApplyLogFilter();
 
-    public void SetEnabledFromUi(bool value)
-    {
-        if (value == _engine.Settings.Enabled) return;
-        _engine.SetEnabled(value);
-        Refresh();
-    }
-
     private void OnEngineChanged()
     {
         if (_dispatcher.HasThreadAccess) Refresh();
@@ -132,11 +133,13 @@ public sealed partial class GameModeViewModel : ObservableObject
                 _ => InfoBarSeverity.Informational,
             };
             Enabled = _engine.Settings.Enabled;
+            EnableButtonText = Enabled ? "Disable Game Mode" : "Enable Game Mode";
             DebounceMs = _engine.Settings.ClampedDebounce;
             PresetIndex = (int)_engine.Settings.Preset;
             JournalText = _engine.PendingJournalCount == 0
                 ? "Nothing is held by Game Mode."
                 : $"{_engine.PendingJournalCount} journal entr(ies) held; restore happens on release.";
+            CpuPlanSummary = _engine.CpuPlanSummary;
 
             Replace(Affected, _engine.Affected);
             Replace(Games, _engine.Games);
@@ -170,9 +173,21 @@ public sealed partial class GameModeViewModel : ObservableObject
         Replace(LogRows, rows);
     }
 
+    public void ToggleEnabled()
+    {
+        _engine.SetEnabled(!_engine.Settings.Enabled);
+        Refresh();
+    }
+
     public void ResumeAll()
     {
         _engine.ResumeEverything();
+        Refresh();
+    }
+
+    public void SaveGames()
+    {
+        _engine.SaveSettings();
         Refresh();
     }
 

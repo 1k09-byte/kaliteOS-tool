@@ -64,6 +64,11 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     private void Profiles_RulesChanged(object? sender, EventArgs e) => SyncProfiles();
 
+    public void ResumePolling()
+    {
+        try { _timer.Start(); } catch { }
+    }
+
     public void Shutdown()
     {
         try { _timer.Stop(); } catch { }
@@ -106,19 +111,15 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     public Task AutoDisableUnnamedBoostsAsync()
     {
-        return Task.Run(() => 
+        return Task.Run(async () =>
         {
-            var rowsToDisable = ThreadBoostRows.Where(r => !r.IsProtected && r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
+            var rowsToDisable = ThreadBoostRows.Where(r => !r.IsProtected && r.IsBoostKnown && r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var r in rowsToDisable)
             {
                 try
                 {
-                    using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)r.Tid);
-                    if (!th.IsInvalid)
-                    {
-                        NativeMethods.Priority.SetThreadPriorityBoost(th, true);
-                        _dispatcher.TryEnqueue(() => r.BoostEnabled = false);
-                    }
+                    await App.Current.ThreadTuning.SetBoostAsync((uint)r.Tid, enabled: false);
+                    _dispatcher.TryEnqueue(() => r.BoostEnabled = false);
                 }
                 catch { }
             }
@@ -127,19 +128,15 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
 
     public Task RestoreUnnamedBoostsAsync()
     {
-        return Task.Run(() => 
+        return Task.Run(async () =>
         {
-            var rowsToRestore = ThreadBoostRows.Where(r => !r.IsProtected && !r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
+            var rowsToRestore = ThreadBoostRows.Where(r => !r.IsProtected && r.IsBoostKnown && !r.BoostEnabled && string.Equals(r.Description, "(unnamed)", StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var r in rowsToRestore)
             {
                 try
                 {
-                    using var th = NativeMethods.Handles.OpenThread(NativeMethods.ThreadAccess.SetInformation, false, (uint)r.Tid);
-                    if (!th.IsInvalid)
-                    {
-                        NativeMethods.Priority.SetThreadPriorityBoost(th, false);
-                        _dispatcher.TryEnqueue(() => r.BoostEnabled = true);
-                    }
+                    await App.Current.ThreadTuning.SetBoostAsync((uint)r.Tid, enabled: true);
+                    _dispatcher.TryEnqueue(() => r.BoostEnabled = true);
                 }
                 catch { }
             }
@@ -694,7 +691,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                         int tid;
                         try { tid = t.Id; } catch { continue; }
 
-                        bool boost = true;
+                        bool boost = false;
+                        bool boostKnown = false;
                         bool isProtected = true;
                         string desc = "(unnamed)";
                         
@@ -704,6 +702,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                             if (!threadHandle.IsInvalid && NativeMethods.Priority.GetThreadPriorityBoost(threadHandle, out bool disabled))
                             {
                                 boost = !disabled;
+                                boostKnown = true;
                                 isProtected = procProtected;
                             }
                         }
@@ -718,6 +717,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                             if (wanted.HasValue)
                             {
                                 boost = wanted.Value;
+                                boostKnown = true;
                             }
                         }
                         catch { }
@@ -729,6 +729,7 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                             ProcessName = procName.ToUpperInvariant(),
                             Description = desc,
                             BoostEnabled = boost,
+                            IsBoostKnown = boostKnown,
                             IsProtected = isProtected
                         });
                     }
@@ -766,6 +767,8 @@ public sealed partial class ThreadTunerViewModel : ObservableObject
                 {
                     if (!existing.IsBusy && existing.BoostEnabled != r.BoostEnabled)
                         existing.BoostEnabled = r.BoostEnabled;
+                    if (!existing.IsBusy && existing.IsBoostKnown != r.IsBoostKnown)
+                        existing.IsBoostKnown = r.IsBoostKnown;
                     if (existing.ProcessName != r.ProcessName) existing.ProcessName = r.ProcessName;
                     if (existing.Description != r.Description) existing.Description = r.Description;
                     if (existing.IsProtected != r.IsProtected) existing.IsProtected = r.IsProtected;

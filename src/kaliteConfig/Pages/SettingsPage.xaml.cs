@@ -25,10 +25,16 @@ namespace kaliteConfig.Pages
 
         private bool _fontsReady;
 
+        private bool _syncingNav;
+
         public SettingsPage()
         {
             InitializeComponent();
             Loaded += SettingsPage_Loaded;
+            Unloaded += (_, _) =>
+            {
+                try { Services.Discord.DiscordPresence.Changed -= OnPresenceChanged; } catch { }
+            };
 
             backdropMode.SelectionChanged += BackdropMode_SelectionChanged;
 
@@ -300,6 +306,40 @@ namespace kaliteConfig.Pages
 
             LoadBackgroundImageIntoUi();
 
+            _syncingNav = true;
+            try
+            {
+                startHomeToggle.IsOn = Services.NavLayoutPreference.StartOnHome;
+                string layout = Services.NavLayoutPreference.Layout;
+                foreach (var item in navMode.Items.Cast<ComboBoxItem>())
+                {
+                    if (string.Equals((string?)item.Tag, layout, StringComparison.OrdinalIgnoreCase))
+                    {
+                        navMode.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                _syncingNav = false;
+            }
+            UpdateStartHomeVisibility();
+            try { (App.MainWindow as MainWindow)?.ApplyNavLayout(); } catch { }
+            ApplyContentInset();
+
+            _syncingPresence = true;
+            try
+            {
+                presenceToggle.IsOn = Services.Discord.DiscordPresence.Enabled;
+                presenceStatus.Text = Services.Discord.DiscordPresence.Status;
+            }
+            finally
+            {
+                _syncingPresence = false;
+            }
+            try { Services.Discord.DiscordPresence.Changed += OnPresenceChanged; } catch { }
+
             _syncingStartupToggle = true;
             try
             {
@@ -314,12 +354,93 @@ namespace kaliteConfig.Pages
                 _syncingStartupToggle = false;
             }
 
+            try
+            {
+                string ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?";
+                string when = "?";
+                try
+                {
+                    string? exe = Environment.ProcessPath;
+                    if (exe is not null)
+                        when = System.IO.File.GetLastWriteTime(exe).ToString("yyyy-MM-dd HH:mm");
+                }
+                catch { }
+                buildInfoText.Text = "Build " + ver + " · " + when;
+            }
+            catch { }
+
             _ = Vm.CheckForUpdateCommand.ExecuteAsync(null);
 
         }
 
         private void UpdateNow_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
             => _ = Vm.UpdateNowCommand.ExecuteAsync(null);
+
+        private void ApplyContentInset()
+        {
+            try
+            {
+                bool rail = Services.NavLayoutPreference.Layout == Services.NavLayoutPreference.RailTag;
+                SettingsScroller.Padding = rail ? new Thickness(0, 0, 0, 0) : new Thickness(76, 0, 0, 0);
+            }
+            catch { }
+        }
+
+        private void NavMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncingNav) return;
+            var tag = (navMode.SelectedItem as ComboBoxItem)?.Tag as string
+                      ?? Services.NavLayoutPreference.RailTag;
+            Services.NavLayoutPreference.SaveLayout(tag);
+            (App.MainWindow as MainWindow)?.ApplyNavLayout();
+            ApplyContentInset();
+            UpdateStartHomeVisibility();
+        }
+
+        private void UpdateStartHomeVisibility()
+        {
+            try
+            {
+                StartHomeCard.Visibility = Services.NavLayoutPreference.Layout == Services.NavLayoutPreference.HiddenTag
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
+            catch { }
+        }
+
+        private async void DiscordInvite_Click(object sender, RoutedEventArgs e)
+        {
+            try { await Windows.System.Launcher.LaunchUriAsync(new Uri("https://discord.gg/faQgV6yayY")); } catch { }
+        }
+
+        private bool _syncingPresence;
+
+        private void PresenceToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_syncingPresence) return;
+            Services.Discord.DiscordPresence.SetEnabled(presenceToggle.IsOn);
+        }
+
+        private void OnPresenceChanged()
+        {
+            try
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        presenceStatus.Text = Services.Discord.DiscordPresence.Status;
+                    }
+                    catch { }
+                });
+            }
+            catch { }
+        }
+
+        private void StartHome_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_syncingNav) return;
+            Services.NavLayoutPreference.SaveStartOnHome(startHomeToggle.IsOn);
+        }
 
         private void FontMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {

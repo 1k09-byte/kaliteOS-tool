@@ -28,9 +28,13 @@
         <Style x:Key="FilterChipStyle" TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
             <Setter Property="Margin" Value="0,0,8,0" />
         </Style>
-        <Style x:Key="SettingTileStyle" TargetType="GridViewItem" BasedOn="{StaticResource DefaultGridViewItemStyle}">
-            <Setter Property="Margin" Value="0,0,6,6" />
+        <Style x:Key="SettingRowStyle" TargetType="ListViewItem">
             <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,1" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="CornerRadius" Value="6" />
         </Style>
 
         <Style x:Key="BiosActionButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
@@ -47,23 +51,60 @@
 
     <Grid x:Name="RootGrid">
         <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup>
-                <VisualState x:Name="WideState">
-                    <VisualState.StateTriggers>
-                        <!-- The window itself refuses to go below 1100 DIPs, so the inspector
-                             only shows once there is room for it next to the tile grid. -->
-                        <AdaptiveTrigger MinWindowWidth="1360" />
-                    </VisualState.StateTriggers>
-                </VisualState>
-                <VisualState x:Name="NarrowState">
+
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="CompactLayout">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
+                        <Setter Target="ActionRow.Margin" Value="16,8,16,0" />
+                        <Setter Target="NoticeStack.Margin" Value="16,8,16,0" />
+                        <Setter Target="WorkGrid.Margin" Value="16,8,16,0" />
+                        <Setter Target="WorkGrid.ColumnSpacing" Value="0" />
                         <Setter Target="InspectorColumn.Width" Value="0" />
                         <Setter Target="InspectorCard.Visibility" Value="Collapsed" />
-                        <Setter Target="WorkGrid.ColumnSpacing" Value="0" />
+                        <Setter Target="FilterCard.Padding" Value="8,6" />
+                        <Setter Target="FilterSearchColumn.Width" Value="*" />
+                        <Setter Target="FilterCategoryColumn.Width" Value="0" />
+                        <Setter Target="FilterBottomRow.Height" Value="Auto" />
+                        <Setter Target="FilterGrid.RowSpacing" Value="8" />
+                        <Setter Target="FilterSearchWrap.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="CategoryStrip.(Grid.Row)" Value="1" />
+                        <Setter Target="CategoryStrip.(Grid.Column)" Value="0" />
+                        <Setter Target="CategoryStrip.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="TrayStatus.(Grid.ColumnSpan)" Value="3" />
+                        <Setter Target="TrayToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="TrayToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Left" />
+                        <Setter Target="TrayActions.(Grid.Row)" Value="1" />
+                        <Setter Target="TrayActions.(Grid.Column)" Value="2" />
+                        <Setter Target="TrayActions.HorizontalAlignment" Value="Right" />
+                        <Setter Target="TrayGrid.RowSpacing" Value="8" />
+                        <Setter Target="TrayStatusText.MaxWidth" Value="1000" />
+                        <Setter Target="StagedTray.Margin" Value="16,8,16,12" />
+                        <Setter Target="StagedTray.Padding" Value="12,10" />
                     </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="MediumLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1150" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ActionRow.Margin" Value="20,12,20,0" />
+                        <Setter Target="NoticeStack.Margin" Value="20,10,20,0" />
+                        <Setter Target="WorkGrid.Margin" Value="20,12,20,0" />
+                        <Setter Target="WorkGrid.ColumnSpacing" Value="0" />
+                        <Setter Target="InspectorColumn.Width" Value="0" />
+                        <Setter Target="InspectorCard.Visibility" Value="Collapsed" />
+                        <Setter Target="FilterSearchColumn.Width" Value="230" />
+                        <Setter Target="TrayStatusText.MaxWidth" Value="320" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1360" />
+                    </VisualState.StateTriggers>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
@@ -74,8 +115,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ============================ ACTIONS ============================ -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="28,14,28,0">
+        <StackPanel x:Name="ActionRow" Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="28,14,28,0">
                     <Button Style="{StaticResource BiosActionButton}" Click="LoadDump_Click"
                             ToolTipService.ToolTip="Open a SCEWIN dump file by hand">
                         <StackPanel Orientation="Horizontal" Spacing="7">
@@ -101,8 +141,7 @@
                     </Button>
         </StackPanel>
 
-        <!-- ============================ NOTICES ============================ -->
-        <StackPanel Grid.Row="1" Spacing="8" Margin="28,12,28,0">
+        <StackPanel x:Name="NoticeStack" Grid.Row="1" Spacing="8" Margin="28,12,28,0">
 
             <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                     BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
@@ -153,28 +192,30 @@
             </Border>
         </StackPanel>
 
-        <!-- ============================ WORK AREA ============================ -->
         <Grid Grid.Row="2" x:Name="WorkGrid" ColumnSpacing="16" Margin="28,14,28,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition x:Name="InspectorColumn" Width="384" />
+                <ColumnDefinition x:Name="InspectorColumn" Width="420" />
             </Grid.ColumnDefinitions>
 
-            <!-- Filters + setting tiles -->
             <Grid Grid.Column="0" RowSpacing="12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Style="{StaticResource GalleryCard}" Padding="10,8">
-                    <Grid ColumnSpacing="14">
+                <Border x:Name="FilterCard" Grid.Row="0" Style="{StaticResource GalleryCard}" Padding="10,8">
+                    <Grid x:Name="FilterGrid" ColumnSpacing="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition x:Name="FilterTopRow" Height="Auto" />
+                            <RowDefinition x:Name="FilterBottomRow" Height="0" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="270" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition x:Name="FilterSearchColumn" Width="270" />
+                            <ColumnDefinition x:Name="FilterCategoryColumn" Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <Grid>
+                        <Grid x:Name="FilterSearchWrap" Grid.Row="0" Grid.Column="0">
                             <TextBox x:Name="SearchField"
                                      TextChanged="SearchField_TextChanged"
                                 PlaceholderText="Search name, token, help text or value…"
@@ -187,7 +228,7 @@
                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </Grid>
 
-                        <ListView Grid.Column="1"
+                        <ListView Grid.Row="0" Grid.Column="1"
                                   x:Name="CategoryStrip"
                                   SelectionMode="Single"
                                   Padding="0" Margin="0"
@@ -221,13 +262,34 @@
                     </Grid>
                 </Border>
 
-                <Grid Grid.Row="1">
-                    <GridView x:Name="SettingsGrid"
+                <Grid Grid.Row="1" RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Padding="17,0,1,6"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,0,1"
+                            Visibility="{x:Bind ViewModel.HasDocument, Mode=OneWay}">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="150" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Name" Style="{StaticResource GalleryPageCaption}" />
+                            <TextBlock Grid.Column="1" Text="BIOS default" Style="{StaticResource GalleryPageCaption}" />
+                            <TextBlock Grid.Column="2" Text="Current" Style="{StaticResource GalleryPageCaption}" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                    <ListView x:Name="SettingsGrid"
                               SelectionMode="Single"
                               ItemClick="SettingsGrid_ItemClick"
-                              SizeChanged="SettingsGrid_SizeChanged"
                               ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
-                              ItemContainerStyle="{StaticResource SettingTileStyle}"
+                              ItemContainerStyle="{StaticResource SettingRowStyle}"
                               Padding="0"
                               Margin="0"
                               IsItemClickEnabled="True"
@@ -236,59 +298,65 @@
                               ScrollViewer.HorizontalScrollMode="Disabled"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                               ScrollViewer.IsVerticalScrollChainingEnabled="True">
-                        <GridView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="240" ItemHeight="42" />
-                            </ItemsPanelTemplate>
-                        </GridView.ItemsPanel>
-                        <GridView.ItemTemplate>
+                        <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BiosSettingRow">
-                                <Grid ColumnSpacing="8" Padding="9,3"
-                                      automation:AutomationProperties.Name="{x:Bind Name}">
+                                <Grid automation:AutomationProperties.Name="{x:Bind Name}" Padding="9,5">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="150" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Width="6" Height="6" CornerRadius="3"
-                                            VerticalAlignment="Center"
-                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                            Visibility="{x:Bind ModifiedVisibility, Mode=OneWay}" />
+                                    <Grid Grid.Column="0" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Ellipse Grid.Column="0" Width="6" Height="6"
+                                                 VerticalAlignment="Center"
+                                                 Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                                 Visibility="{x:Bind ModifiedVisibility, Mode=OneWay}" />
+                                        <StackPanel Grid.Column="1" Spacing="1">
+                                            <TextBlock Text="{x:Bind Name}"
+                                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind TileMetaText}"
+                                                       Style="{StaticResource GalleryPageCaption}"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
 
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0" Margin="1,0,0,0">
-                                        <TextBlock Text="{x:Bind Name}"
-                                                   FontSize="12" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind TileMetaText}"
-                                                   FontSize="10"
-                                                   FontFamily="Consolas"
-                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind BiosDefaultText}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="NoWrap"
+                                               TextTrimming="CharacterEllipsis" />
 
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"
                                                 VerticalAlignment="Center">
-                                        <FontIcon Glyph="&#xE730;" FontSize="10"
+                                        <FontIcon Glyph="&#xE730;" FontSize="11"
+                                                  VerticalAlignment="Center"
                                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                   Visibility="{x:Bind ErrorVisibility, Mode=OneWay}" />
-                                        <Border CornerRadius="5" Padding="6,2"
+                                        <Border CornerRadius="8" Padding="8,2"
+                                                Width="112"
                                                 BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                                                 BorderThickness="1"
-                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                MaxWidth="92">
+                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                                             <TextBlock Text="{x:Bind ValueDisplay, Mode=OneWay}"
-                                                       FontSize="11" FontFamily="Consolas"
                                                        FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       TextWrapping="NoWrap"
                                                        TextTrimming="CharacterEllipsis" />
                                         </Border>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
-                        </GridView.ItemTemplate>
-                    </GridView>
+                        </ListView.ItemTemplate>
+                    </ListView>
 
-                    <!-- No results -->
                     <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             Visibility="{x:Bind ViewModel.NoResultsVisibility, Mode=OneWay}">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" MaxWidth="340">
@@ -304,7 +372,6 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Loading -->
                     <Border Grid.Column="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             Visibility="{x:Bind ViewModel.LoadingVisibility, Mode=OneWay}">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="340">
@@ -314,15 +381,15 @@
                                        Style="{StaticResource GalleryPageCaption}" />
                         </StackPanel>
                     </Border>
+                    </Grid>
                 </Grid>
             </Grid>
 
-            <!-- ============================ INSPECTOR ============================ -->
             <Border Grid.Column="1" x:Name="InspectorCard"
                     Style="{StaticResource GalleryCard}" Padding="18,14">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="DetailScroll">
                     <Grid>
-                        <!-- Nothing selected -->
+
                         <StackPanel Spacing="8" VerticalAlignment="Center"
                                     Visibility="{x:Bind ViewModel.NoDetailVisibility, Mode=OneWay}">
                             <FontIcon Glyph="&#xE945;" FontSize="34"
@@ -336,7 +403,6 @@
                                        Style="{StaticResource GalleryPageCaption}" />
                         </StackPanel>
 
-                        <!-- Selected setting -->
                         <StackPanel Spacing="12"
                                     Visibility="{x:Bind ViewModel.DetailVisibility, Mode=OneWay}">
                             <StackPanel Spacing="6">
@@ -344,7 +410,7 @@
                                         Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                                     <TextBlock Text="{x:Bind ViewModel.SelectedRow.SectionText, Mode=OneWay}"
                                                FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="300" />
+                                               TextTrimming="CharacterEllipsis" MaxWidth="340" />
                                 </Border>
                                 <TextBlock Text="{x:Bind ViewModel.SelectedRow.Name, Mode=OneWay}"
                                            Style="{StaticResource GallerySectionTitle}"
@@ -427,7 +493,6 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- Empty state (covers the whole work area) -->
             <Border Grid.Column="0" Grid.ColumnSpan="2"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     CornerRadius="8"
@@ -451,17 +516,20 @@
             </Border>
         </Grid>
 
-        <!-- ============================ STAGED TRAY ============================ -->
-        <Border Grid.Row="3" Style="{StaticResource GalleryCard}" Margin="28,14,28,16" Padding="16,11">
+        <Border x:Name="StagedTray" Grid.Row="3" Style="{StaticResource GalleryCard}" Margin="28,14,28,16" Padding="16,11">
             <StackPanel Spacing="10">
-                <Grid ColumnSpacing="12">
+                <Grid x:Name="TrayGrid" ColumnSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="TrayRowTop" Height="Auto" />
+                        <RowDefinition x:Name="TrayRowBottom" Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <StackPanel x:Name="TrayStatus" Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <Border Width="30" Height="30" CornerRadius="9"
                                 Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                             <FontIcon Glyph="&#xE74E;" FontSize="14"
@@ -475,7 +543,7 @@
                             <TextBlock Text="{x:Bind ViewModel.ModifiedCountText, Mode=OneWay}"
                                        FontSize="11" FontWeight="SemiBold" />
                         </Border>
-                        <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                        <TextBlock x:Name="TrayStatusText" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                                    Style="{StaticResource GalleryPageCaption}"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                    MaxWidth="460" />
@@ -488,7 +556,7 @@
                         <FontIcon x:Name="TrayChevron" Glyph="&#xE70E;" FontSize="12" />
                     </Button>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <StackPanel x:Name="TrayActions" Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button Style="{StaticResource BiosActionButton}"
                                 Command="{x:Bind ViewModel.ResetAllCommand}"
                                 IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}">
@@ -520,3 +588,4 @@
         </Border>
     </Grid>
 </Page>
+

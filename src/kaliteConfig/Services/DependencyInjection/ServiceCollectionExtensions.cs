@@ -20,7 +20,8 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<Gaming.GameMode.GameModeSettingsStore>(),
             sp.GetRequiredService<Gaming.GameMode.GameModeLog>()));
         s.AddSingleton<ForegroundSuspendService>(sp =>
-            new ForegroundSuspendService(sp.GetRequiredService<ProcessTuningService>()));
+            new ForegroundSuspendService(sp.GetRequiredService<ProcessTuningService>(),
+                sp.GetRequiredService<Gaming.GameMode.GameModeEngine>()));
         s.AddSingleton<ProfileWatcherService>(sp =>
             new ProfileWatcherService(
                 sp.GetRequiredService<ProcessTuningService>(),
@@ -33,6 +34,8 @@ public static class ServiceCollectionExtensions
         s.AddSingleton<IInstallerService>(sp => sp.GetRequiredService<InstallerService>());
         s.AddSingleton<WindhawkInstallerService>();
         s.AddSingleton<INavigationService, NavigationService>();
+        s.AddSingleton<Notifications.IAppNotificationService, Notifications.AppNotificationService>();
+        s.AddSingleton<HibernateSettingService>();
 
         s.AddSingleton<LiveWallpaper.IDesktopHostService, LiveWallpaper.DesktopHostService>();
         s.AddSingleton<LiveWallpaper.IWallpaperPowerMonitor, LiveWallpaper.WallpaperPowerMonitor>();
@@ -59,7 +62,26 @@ public static class ServiceCollectionExtensions
         s.AddTransient<PowerPlansViewModel>();
         s.AddTransient<ThreadTunerViewModel>();
         s.AddTransient<SnipViewModel>();
-        s.AddTransient<BiosManagerViewModel>();
+
+        s.AddSingleton<Input.MouseCatalog>();
+        s.AddSingleton<Input.IMouseClassifier, Input.MouseClassifier>();
+        s.AddSingleton<Input.IVendorSoftwareDetector, Input.VendorSoftwareDetector>();
+        s.AddSingleton<Input.IMouseDiscoveryService, Input.MouseDiscoveryService>();
+        s.AddSingleton<Input.IMouseCapabilityProvider, Input.MouseCapabilityProvider>();
+        s.AddSingleton<Input.IMouseGuardPolicy, Input.MouseGuardPolicy>();
+        s.AddSingleton<Input.IMouseSnapshotService, Input.MouseSnapshotService>();
+        s.AddSingleton<Input.IMouseLog, Input.MouseLog>();
+        s.AddSingleton<Input.IMouseWriteTransaction, Input.MouseWriteTransaction>();
+        s.AddSingleton<Input.IWindowsMouseSettingsService, Input.WindowsMouseSettingsService>();
+        s.AddSingleton<Input.IMouseTestService, Input.MouseTestService>();
+        s.AddSingleton<Input.IMousePrefStore, Input.MousePrefStore>();
+        s.AddSingleton<Input.IPollRateAdvisor, Input.PollRateAdvisor>();
+        s.AddSingleton<Input.IMouseProtocol, Input.MouseHidConfigProtocol>();
+        s.AddSingleton<Input.IMouseProtocolRegistry, Input.MouseProtocolRegistry>();
+
+        s.AddTransient<InputViewModel>();
+
+        s.AddSingleton<BiosManagerViewModel>();
         s.AddTransient<GpuDriversViewModel>();
         s.AddTransient<UninstallerViewModel>();
         s.AddTransient<UpdateViewModel>();

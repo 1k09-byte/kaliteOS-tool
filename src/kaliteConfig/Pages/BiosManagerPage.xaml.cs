@@ -24,6 +24,7 @@ namespace kaliteConfig.Pages
             this.InitializeComponent();
             this.DataContext = ViewModel;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            Loaded += OnPageLoaded;
             Unloaded += OnPageUnloaded;
         }
 
@@ -35,10 +36,33 @@ namespace kaliteConfig.Pages
             Unloaded -= OnPageUnloaded;
         }
 
+        private void OnPageLoaded(object sender, RoutedEventArgs e)
+        {
+
+            _syncingSelection = true;
+            try
+            {
+                if (ViewModel.SelectedRow is not null)
+                    SettingsGrid.SelectedItem = ViewModel.SelectedRow;
+                if (CategoryStrip.SelectedItem != ViewModel.SelectedCategoryItem)
+                    CategoryStrip.SelectedItem = ViewModel.SelectedCategoryItem;
+                if (ViewModel.SearchText.Length > 0 && SearchField.Text != ViewModel.SearchText)
+                    SearchField.Text = ViewModel.SearchText;
+            }
+            finally { _syncingSelection = false; }
+            RebuildValueOptions();
+        }
+
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(BiosManagerViewModel.SelectedRow))
             {
+                if (!_syncingSelection && SettingsGrid.SelectedItem != ViewModel.SelectedRow)
+                {
+                    _syncingSelection = true;
+                    SettingsGrid.SelectedItem = ViewModel.SelectedRow;
+                    _syncingSelection = false;
+                }
                 RebuildValueOptions();
             }
             else if (e.PropertyName == nameof(BiosManagerViewModel.ModifiedCount) &&
@@ -53,8 +77,6 @@ namespace kaliteConfig.Pages
             base.OnNavigatedTo(e);
             _ = ViewModel.AutoLoadAsync();
         }
-
-        // ---------------------------------------------------------------- header actions
 
         private void LoadDump_Click(object sender, RoutedEventArgs e)
         {
@@ -71,42 +93,10 @@ namespace kaliteConfig.Pages
             ViewModel.SaveFileCommand.Execute(null);
         }
 
-        // ---------------------------------------------------------------- tile grid
-
-        private void SettingsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            // The panel width only settles after this layout pass.
-            _ = DispatcherQueue.TryEnqueue(UpdateTileWidth);
-        }
-
-        private void UpdateTileWidth()
-        {
-            if (SettingsGrid.ItemsPanelRoot is not ItemsWrapGrid panel) return;
-
-            const double gap = 6;      // horizontal gap between tiles (their right margin)
-            const double minTile = 200;
-            const double maxTile = 340;
-
-            double width = panel.ActualWidth;
-            if (width < minTile) return;
-
-            int columns = (int)((width + gap) / (minTile + gap));
-            if (columns < 1) columns = 1;
-
-            double tile = Math.Floor((width - gap * (columns - 1)) / columns);
-            if (tile > maxTile) tile = maxTile;
-            if (tile < minTile) tile = minTile;
-            if (Math.Abs(panel.ItemWidth - tile) < 0.5) return;
-
-            panel.ItemWidth = tile;
-        }
-
         private void ErrorDismiss_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.HasError = false;
         }
-
-        // ---------------------------------------------------------------- filters
 
         private void SearchField_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -114,19 +104,15 @@ namespace kaliteConfig.Pages
                 ViewModel.FilterCommand.Execute(box.Text);
         }
 
-        // ---------------------------------------------------------------- settings grid
-
         private void SettingsGrid_ItemClick(object sender, ItemClickEventArgs e)
         {
             if (_syncingSelection) return;
             if (e.ClickedItem is not BiosSettingRow row) return;
 
-            // Narrow layout: the inspector column is collapsed, so edit in a dialog instead.
-            // The selection is cleared so tapping the same tile again raises another click.
             if (InspectorCard.Visibility == Visibility.Collapsed)
             {
                 _syncingSelection = true;
-                ((GridView)sender).SelectedItem = null;
+                ((ListView)sender).SelectedItem = null;
                 _syncingSelection = false;
                 _ = ShowQuickEditAsync(row);
                 return;
@@ -135,8 +121,6 @@ namespace kaliteConfig.Pages
             ViewModel.SelectedRow = row;
             DetailScroll.ChangeView(0, 0, null, true);
         }
-
-        // ---------------------------------------------------------------- value options
 
         private void RebuildValueOptions()
         {
@@ -186,20 +170,20 @@ namespace kaliteConfig.Pages
             if (_optionsRow is not { IsEnumerated: true } row) return;
 
             _syncingOptions = true;
-            ValueOptions.SelectedIndex = -1;
-            for (int i = 0; i < ValueOptions.Items.Count; i++)
+            try
             {
-                if (ValueOptions.Items[i] is RadioButton { Tag: string token } &&
-                    string.Equals(token, row.Item.Value, StringComparison.OrdinalIgnoreCase))
+
+                foreach (var item in ValueOptions.Items)
                 {
-                    ValueOptions.SelectedIndex = i;
-                    break;
+                    if (item is not RadioButton rb) continue;
+                    bool isCurrent =
+                        (rb.Tag is string token && string.Equals(token, row.Item.Value, StringComparison.OrdinalIgnoreCase)) ||
+                        string.Equals(rb.Content as string, row.Item.Value, StringComparison.OrdinalIgnoreCase);
+                    rb.IsChecked = isCurrent;
                 }
             }
-            _syncingOptions = false;
+            finally { _syncingOptions = false; }
         }
-
-        // ---------------------------------------------------------------- staged tray
 
         private void TrayToggle_Click(object sender, RoutedEventArgs e)
         {
@@ -213,8 +197,6 @@ namespace kaliteConfig.Pages
         {
             StagedList.ItemsSource = ViewModel.GetChanges();
         }
-
-        // ---------------------------------------------------------------- apply
 
         private async void ApplyToBios_Click(object sender, RoutedEventArgs e)
         {

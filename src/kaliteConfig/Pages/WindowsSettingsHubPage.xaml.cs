@@ -9,8 +9,12 @@ namespace kaliteConfig.Pages
     public sealed partial class WindowsSettingsHubPage : Page
     {
         private readonly Services.WindowsSettingsService _kernel = new();
+        private readonly Services.HibernateSettingService _hibernate = new();
         private bool _loadingKernelToggles;
         private bool _loadingSvcSplit;
+        private bool _loadingHibernate;
+
+        private bool _personalizationLoaded;
 
         public WindowsSettingsHubPage()
         {
@@ -20,26 +24,62 @@ namespace kaliteConfig.Pages
             this.ReservedCpuSetsFrame.Navigate(typeof(ReservedCpuSetsPage));
         }
 
+        private void HubBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+        {
+            bool personalization = sender.SelectedItem == PersonalizationTab;
+            SystemPanel.Visibility = personalization ? Visibility.Collapsed : Visibility.Visible;
+            PersonalizationFrame.Visibility = personalization ? Visibility.Visible : Visibility.Collapsed;
+            if (personalization && !_personalizationLoaded)
+            {
+                _personalizationLoaded = true;
+                PersonalizationFrame.Navigate(typeof(PersonalizePage));
+            }
+        }
+
         private void LoadKernelToggles()
         {
             _loadingKernelToggles = true;
             try
             {
-                LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard,
-                    "Serializes timer expiration (active scheme).");
-                LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard,
-                    "Boosts multimedia thread priorities (needs restart). OFF stops the MMCSS service and sets System Responsiveness to 100; ON sets it to 20.");
-                LoadOneKernelToggle("Vbs", VbsToggle, VbsCard,
-                    "Hypervisor-based isolation for security services (needs restart). OFF frees the hypervisor and can lift game performance, but breaks Memory integrity, Credential Guard, WSL2, Hyper-V and Windows Sandbox.");
-                LoadOneKernelToggle("Hvci", HvciToggle, HvciCard,
-                    "Kernel driver allow list (needs restart). OFF helps with older or unsigned drivers; ON is the hardened Windows 11 default. Only meaningful while VBS is on.");
-                LoadOneKernelToggle("HwSchMode", HagsToggle, HagsCard,
-                    "Lets the GPU manage its own command queues (needs restart). ON usually lowers input-to-display latency; OFF restores classic GPU scheduling. Both modes are driver-supported and reversible.");
+                LoadOneKernelToggle("TimerExpiration", TimerExpToggle, TimerExpCard);
+                LoadOneKernelToggle("MmcssStatus", MmcssToggle, MmcssCard);
+                LoadOneKernelToggle("Vbs", VbsToggle, VbsCard);
+                LoadOneKernelToggle("Hvci", HvciToggle, HvciCard);
+                LoadOneKernelToggle("HwSchMode", HagsToggle, HagsCard);
+                LoadHibernateToggle();
             }
             finally { _loadingKernelToggles = false; }
         }
 
-        private void LoadOneKernelToggle(string id, ToggleSwitch toggle, CommunityToolkit.WinUI.Controls.SettingsCard card, string caption)
+        private void LoadHibernateToggle()
+        {
+            _loadingHibernate = true;
+            try
+            {
+                var status = _hibernate.Read();
+                HibernateToggle.IsOn = status.Enabled;
+                HibernateCard.Description = status.Error is null
+                    ? "Turning it off clears the hibernate flags and keeps fast startup off. Needs administrator rights."
+                    : $"Can't read: {status.Error}";
+            }
+            finally { _loadingHibernate = false; }
+        }
+
+        private void Hibernate_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loadingHibernate || sender is not ToggleSwitch toggle) return;
+            bool target = toggle.IsOn;
+            string? error = _hibernate.Write(target);
+            LoadHibernateToggle();
+            App.Notify(
+                "Hibernation",
+                error ?? (target
+                    ? "Hibernation is on. HibernateEnabled, AllowHibernate and the default flag were set to 1 and verified. Fast startup stays off."
+                    : "Hibernation is off. HibernateEnabled, AllowHibernate and the default flag were set to 0 and verified. Fast startup stays off."),
+                error is null ? Services.Notifications.AppNoticeSeverity.Success : Services.Notifications.AppNoticeSeverity.Error);
+        }
+
+        private void LoadOneKernelToggle(string id, ToggleSwitch toggle, CommunityToolkit.WinUI.Controls.SettingsCard card)
         {
             var def = Services.WindowsSettingsService.Find(id);
             if (def == null) return;
@@ -49,15 +89,11 @@ namespace kaliteConfig.Pages
                 bool unset = det.State == Services.WindowsSettingsService.TweakState.WindowsDefault;
                 toggle.IsOn = det.State == Services.WindowsSettingsService.TweakState.On
                     || (unset && def.DefaultOnWhenAbsent);
-                card.Description = unset
-                    ? caption + (def.DefaultOnWhenAbsent
-                        ? " Not set explicitly - Windows default is ON."
-                        : " Not set explicitly - Windows default is OFF.")
-                    : det.Describe(caption);
+                card.Description = string.Empty;
             }
-            catch (Exception ex)
+            catch
             {
-                card.Description = caption + $" Unreadable: {ex.Message}";
+                card.Description = string.Empty;
             }
         }
 
@@ -80,11 +116,13 @@ namespace kaliteConfig.Pages
             {
                 _kernel.Write(def, toggle.IsOn);
                 LoadKernelToggles();
+                App.Notify(def.Name, $"Set to {(toggle.IsOn ? "on" : "off")} and verified.", Services.Notifications.AppNoticeSeverity.Success);
             }
             catch (Exception ex)
             {
                 LoadKernelToggles();
                 if (CardFor(id) is { } card) card.Description += $" Write denied: {ex.Message}";
+                App.Notify(def.Name, $"Could not apply the change: {ex.Message}", Services.Notifications.AppNoticeSeverity.Error);
             }
         }
 
@@ -163,11 +201,13 @@ namespace kaliteConfig.Pages
                     _kernel.WriteSvcSplit(value);
                 }
                 LoadSvcSplit();
+                App.Notify("Service host splitting", "Saved. It applies after a restart.", Services.Notifications.AppNoticeSeverity.Success);
             }
             catch (Exception ex)
             {
                 LoadSvcSplit();
                 SvcSplitCard.Description += $" Write denied: {ex.Message}";
+                App.Notify("Service host splitting", $"Could not apply the change: {ex.Message}", Services.Notifications.AppNoticeSeverity.Error);
             }
         }
 

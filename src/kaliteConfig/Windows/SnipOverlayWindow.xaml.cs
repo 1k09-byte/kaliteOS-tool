@@ -203,6 +203,23 @@ public sealed partial class SnipOverlayWindow : Window
 
         BuildSwatches();
         UpdateInstantModeVisual();
+        this.Closed += (_, _) =>
+        {
+            try { _frame?.Dispose(); } catch { }
+            _frame = null;
+            _bgraPixels = null;
+            _imgWidth = 0;
+            _imgHeight = 0;
+            try
+            {
+                foreach (var ann in _annotations) { try { (ann as IDisposable)?.Dispose(); } catch { } }
+            }
+            catch { }
+            try { _annotations.Clear(); } catch { }
+            try { _redoStack.Clear(); } catch { }
+            _currentAnnotation = null;
+            try { DrawCanvas?.RemoveFromVisualTree(); } catch { }
+        };
     }
 
     private Point ToPixels(Point p) => new Point(p.X * _dpiScale, p.Y * _dpiScale);
