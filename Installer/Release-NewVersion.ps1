@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectDir = Split-Path -Parent $PSScriptRoot
-$csproj = Join-Path $projectDir "kaliteConfig.csproj"
+$csproj = Join-Path $projectDir "src/kaliteConfig/kaliteConfig.csproj"
 
 if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
     throw "Version must be 4-part numeric (e.g. 0.3.0.2), got: $Version"
@@ -30,17 +30,17 @@ if ((Compare-Version4 $Version $current) -le 0) {
 
 $tag = "v$Version"
 $existingTag = & git tag -l $tag
-if ($existingTag) { throw "Tag $tag already exists — pick a newer version." }
+if ($existingTag) { throw "Tag $tag already exists - pick a newer version." }
 
 $status = & git status --porcelain
 if ($status) {
-    Write-Warning "Working tree has uncommitted changes — they will NOT be part of this release (only the version bump commits)."
+    Write-Warning "Working tree has uncommitted changes - they will NOT be part of this release (only the version bump commits)."
     Write-Warning ($status -join "`n")
 }
 
 $text = Get-Content -LiteralPath $csproj -Raw
 $newText = $text -replace '(?m)^(\s*)<Version>\d+\.\d+\.\d+\.\d+</Version>', "`$1<Version>$Version</Version>"
-if ($newText -eq $text) { throw "Version element not found — csproj layout changed?" }
+if ($newText -eq $text) { throw "Version element not found - csproj layout changed?" }
 Set-Content -LiteralPath $csproj -Value $newText -NoNewline:$false
 
 & git add $csproj
@@ -56,5 +56,5 @@ if ($LASTEXITCODE -ne 0) { throw "git push failed." }
 if ($LASTEXITCODE -ne 0) { throw "git push of tag $tag failed." }
 
 Write-Host ""
-Write-Host "OK: $tag pushed. Watch the Actions tab — when the workflow finishes,"
+Write-Host "OK: $tag pushed. Watch the Actions tab - when the workflow finishes,"
 Write-Host "the release (setup exe + notes) is live and installed apps will offer it on next launch."
