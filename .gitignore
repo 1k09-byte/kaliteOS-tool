@@ -78,3 +78,4 @@ test*.exe
 # IDE / agent scratch state
 /.freebuff/
 /src/out/
+/perf/PERF-REPORT.md
